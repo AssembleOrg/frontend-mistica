@@ -1,4 +1,12 @@
+// components/ui/login-form.tsx
+
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/auth.store';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,9 +16,28 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'form'>) {
+  const [email, setEmail] = useState('admin@mistica.com');
+  const [password, setPassword] = useState('');
+  const router = useRouter();
+
+  const { login, status, error } = useAuthStore();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await login(email, password);
+      router.push('/dashboard');
+    } catch (_err) {
+      console.error('Fallo el intento de login');
+    }
+  };
+
+  const isLoading = status === 'loading';
+
   return (
     <form
-      className={cn('flex flex-col gap-6 relative', className)}
+      className={cn('flex flex-col gap-6', className)}
+      onSubmit={handleSubmit}
       {...props}
     >
       <div className='flex flex-col items-center gap-2 text-center'>
@@ -28,8 +55,9 @@ export function LoginForm({
           Ingresa tus credenciales para acceder
         </p>
       </div>
-      <div className='grid gap-6'>
-        <div className='grid gap-3'>
+
+      <div className='grid gap-4'>
+        <div className='grid gap-2'>
           <Label
             htmlFor='email'
             className='text-[var(--color-negro)] font-winter-solid'
@@ -39,35 +67,43 @@ export function LoginForm({
           <Input
             id='email'
             type='email'
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={isLoading}
           />
         </div>
-        <div className='grid gap-3'>
-          <div className='flex items-center'>
-            <Label
-              htmlFor='password'
-              className='text-[var(--color-negro)] font-winter-solid'
-            >
-              Contraseña
-            </Label>
-          </div>
+        <div className='grid gap-2'>
+          <Label
+            htmlFor='password'
+            className='text-[var(--color-negro)] font-winter-solid'
+          >
+            Contraseña
+          </Label>
           <Input
             id='password'
             type='password'
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             required
+            disabled={isLoading}
           />
         </div>
+
+        {status === 'error' && (
+          <p className='text-sm text-center text-red-600 font-semibold'>
+            {error}
+          </p>
+        )}
+
         <Button
           type='submit'
-          className='w-full bg-[var(--color-verde-profundo)] hover:bg-[var(--color-verde-profundo-hover)]/90 text-white font-winter-solid shadow-lg hover:shadow-xl transition-all duration-300'
+          className='w-full bg-[var(--color-verde-profundo)] hover:bg-[var(--color-verde-profundo-hover)]/90 text-white font-winter-solid disabled:opacity-70'
+          disabled={isLoading}
         >
-          Iniciar Sesión
+          {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
         </Button>
       </div>
-
-      {/* sutiles */}
-      <div className='absolute -top-2 -right-2 w-4 h-4 rounded-full bg-[var(--color-durazno)]/20 blur-sm float-gentle opacity-60'></div>
-      <div className='absolute -bottom-2 -left-2 w-3 h-3 rounded-full bg-[var(--color-rosa-claro)]/20 blur-sm float-gentle-delayed opacity-40'></div>
     </form>
   );
 }

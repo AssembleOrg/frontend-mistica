@@ -11,7 +11,7 @@ export function calculateCurrentStock(movements: StockMovement[]): number {
       case 'salida':
         return total - movement.quantity;
       case 'ajuste':
-        return movement.newStock; // Los ajustes setean el stock directamente
+        return movement.newStock;
       default:
         return total;
     }
@@ -28,15 +28,15 @@ export function getAlertType(
   if (currentStock === 0) {
     return 'sin_stock';
   }
-  
+
   if (currentStock <= minStock * 0.5) {
     return 'stock_critico';
   }
-  
+
   if (currentStock <= minStock) {
     return 'stock_bajo';
   }
-  
+
   return null;
 }
 
@@ -45,11 +45,11 @@ export function getAlertType(
  */
 export function formatMovementType(type: StockMovement['type']): string {
   const typeMap = {
-    'entrada': 'Entrada',
-    'salida': 'Salida',
-    'ajuste': 'Ajuste'
+    entrada: 'Entrada',
+    salida: 'Salida',
+    ajuste: 'Ajuste',
   };
-  
+
   return typeMap[type] || type;
 }
 
@@ -58,11 +58,11 @@ export function formatMovementType(type: StockMovement['type']): string {
  */
 export function formatAlertType(type: StockAlert['type']): string {
   const typeMap = {
-    'stock_bajo': 'Stock Bajo',
-    'stock_critico': 'Stock Crítico',
-    'sin_stock': 'Sin Stock'
+    stock_bajo: 'Stock Bajo',
+    stock_critico: 'Stock Crítico',
+    sin_stock: 'Sin Stock',
   };
-  
+
   return typeMap[type] || type;
 }
 
@@ -74,20 +74,20 @@ export function getAlertColor(type: StockAlert['type']): {
   bgColor: string;
 } {
   const colorMap = {
-    'stock_bajo': {
+    stock_bajo: {
       color: '#f59e0b',
-      bgColor: '#fef3c7'
+      bgColor: '#fef3c7',
     },
-    'stock_critico': {
+    stock_critico: {
       color: '#ef4444',
-      bgColor: '#fee2e2'
+      bgColor: '#fee2e2',
     },
-    'sin_stock': {
+    sin_stock: {
       color: '#dc2626',
-      bgColor: '#fecaca'
-    }
+      bgColor: '#fecaca',
+    },
   };
-  
+
   return colorMap[type] || { color: '#6b7280', bgColor: '#f3f4f6' };
 }
 
@@ -106,16 +106,16 @@ export function getMovementStats(
   cantidadSalidas: number;
   cantidadAjustes: number;
 } {
-  const filteredMovements = movements.filter(movement => {
+  const filteredMovements = movements.filter((movement) => {
     if (!startDate && !endDate) return true;
-    
+
     const movementDate = movement.createdAt;
     if (startDate && movementDate < startDate) return false;
     if (endDate && movementDate > endDate) return false;
-    
+
     return true;
   });
-  
+
   return filteredMovements.reduce(
     (stats, movement) => {
       switch (movement.type) {
@@ -140,7 +140,7 @@ export function getMovementStats(
       totalAjustes: 0,
       cantidadEntradas: 0,
       cantidadSalidas: 0,
-      cantidadAjustes: 0
+      cantidadAjustes: 0,
     }
   );
 }
@@ -156,24 +156,24 @@ export function validateStockAdjustment(
   if (newStock < 0) {
     return {
       isValid: false,
-      error: 'El stock no puede ser negativo'
+      error: 'El stock no puede ser negativo',
     };
   }
-  
+
   if (!reason.trim()) {
     return {
       isValid: false,
-      error: 'Debe proporcionar un motivo para el ajuste'
+      error: 'Debe proporcionar un motivo para el ajuste',
     };
   }
-  
+
   if (reason.trim().length < 3) {
     return {
       isValid: false,
-      error: 'El motivo debe tener al menos 3 caracteres'
+      error: 'El motivo debe tener al menos 3 caracteres',
     };
   }
-  
+
   return { isValid: true };
 }
 
@@ -193,35 +193,45 @@ export function generateStockReport(
   recentMovements: number;
   activeAlerts: number;
 } {
-  const activeAlerts = alerts.filter(a => a.isActive);
+  const activeAlerts = alerts.filter((a) => a.isActive);
   const recentMovements = movements.filter(
-    m => m.createdAt >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+    (m) => m.createdAt >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
   );
-  
+
   return {
     totalProducts: products.length,
     totalStockValue: products.reduce((total, product) => {
-      return total + (product.stock * product.costPrice);
+      return total + product.stock * product.costPrice;
     }, 0),
-    lowStockProducts: activeAlerts.filter(a => a.type === 'stock_bajo').length,
-    criticalStockProducts: activeAlerts.filter(a => a.type === 'stock_critico').length,
-    outOfStockProducts: activeAlerts.filter(a => a.type === 'sin_stock').length,
+    lowStockProducts: activeAlerts.filter((a) => a.type === 'stock_bajo')
+      .length,
+    criticalStockProducts: activeAlerts.filter(
+      (a) => a.type === 'stock_critico'
+    ).length,
+    outOfStockProducts: activeAlerts.filter((a) => a.type === 'sin_stock')
+      .length,
     recentMovements: recentMovements.length,
-    activeAlerts: activeAlerts.length
+    activeAlerts: activeAlerts.length,
   };
 }
 
 /**
  * Ordena movimientos por fecha (más recientes primero)
  */
-export function sortMovementsByDate(movements: StockMovement[]): StockMovement[] {
-  return [...movements].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+export function sortMovementsByDate(
+  movements: StockMovement[]
+): StockMovement[] {
+  return [...movements].sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
 }
 
 /**
  * Agrupa movimientos por producto
  */
-export function groupMovementsByProduct(movements: StockMovement[]): Record<string, StockMovement[]> {
+export function groupMovementsByProduct(
+  movements: StockMovement[]
+): Record<string, StockMovement[]> {
   return movements.reduce((groups, movement) => {
     if (!groups[movement.productId]) {
       groups[movement.productId] = [];

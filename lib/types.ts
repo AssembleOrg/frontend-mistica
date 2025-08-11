@@ -78,3 +78,155 @@ export interface StatusConfig {
     bgColor: string;
   };
 }
+
+// Sales/POS System Types
+export interface SaleItem {
+  id: string;
+  productId: string;
+  product: Product;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  discountAmount?: number;
+  discountPercentage?: number;
+  notes?: string;
+}
+
+export interface Sale {
+  id: string;
+  items: SaleItem[];
+  subtotal: number;
+  discountTotal: number;
+  taxAmount: number;
+  total: number;
+  paymentMethod: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto';
+  cashReceived?: number;
+  cashChange?: number;
+  customerId?: string;
+  customerInfo?: {
+    name: string;
+    email?: string;
+    phone?: string;
+  };
+  notes?: string;
+  status: 'draft' | 'completed' | 'cancelled' | 'refunded';
+  cashierId: string;
+  createdAt: Date;
+  completedAt?: Date;
+  cancelledAt?: Date;
+}
+
+export interface POSSettings {
+  taxRate: number;
+  allowNegativeStock: boolean;
+  requireCustomerInfo: boolean;
+  autoGenerateReceipt: boolean;
+  defaultPaymentMethod: Sale['paymentMethod'];
+  lowStockWarning: boolean;
+  maxItemsPerSale?: number;
+}
+
+export interface StockValidation {
+  productId: string;
+  productName: string;
+  requestedQuantity: number;
+  availableStock: number;
+  isValid: boolean;
+  message?: string;
+}
+
+export interface SalesStats {
+  totalSales: number;
+  totalRevenue: number;
+  totalItems: number;
+  averageTicket: number;
+  topSellingProducts: Array<{
+    productId: string;
+    productName: string;
+    quantitySold: number;
+    revenue: number;
+  }>;
+  salesByPaymentMethod: Record<Sale['paymentMethod'], number>;
+  salesByHour: Record<number, number>;
+}
+
+// Error types for POS system
+export class InsufficientStockError extends Error {
+  constructor(productName: string, requested: number, available: number) {
+    super(
+      `Stock insuficiente para ${productName}. Solicitado: ${requested}, Disponible: ${available}`
+    );
+    this.name = 'InsufficientStockError';
+  }
+}
+
+export class ProductNotFoundError extends Error {
+  constructor(identifier: string) {
+    super(`Producto no encontrado: ${identifier}`);
+    this.name = 'ProductNotFoundError';
+  }
+}
+
+export class SaleValidationError extends Error {
+  constructor(message: string, public validations: StockValidation[]) {
+    super(message);
+    this.name = 'SaleValidationError';
+  }
+}
+
+// Cart and Sales Types (moved from architecture types)
+export interface CartItem {
+  id: string;
+  productId: string;
+  productName: string;
+  price: number;
+  quantity: number;
+  subtotal: number;
+  discounts?: Array<{
+    amount?: number;
+    percentage?: number;
+    description?: string;
+  }>;
+}
+
+export interface CartState {
+  items: CartItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  itemCount: number;
+}
+
+export interface PaymentInfo {
+  method: string;
+  amount: number;
+  received?: number;
+  change?: number;
+  reference?: string;
+  cashReceived?: number;
+  cardReference?: string;
+  transferReference?: string;
+}
+
+// Store state interfaces
+export interface SalesHistoryState {
+  sales: Sale[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+export interface POSSettingsState {
+  settings: POSSettings;
+  isLoading: boolean;
+}
+
+// User types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'user' | 'cashier';
+  avatar?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}

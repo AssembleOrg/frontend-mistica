@@ -2,8 +2,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { authService } from '@/services/auth.service';
-import type { User } from '@/types/user.types';
+import type { User } from '@/lib/types';
 
 interface AuthState {
   user: User | null;
@@ -27,7 +26,9 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ status: 'loading', error: null });
         try {
-          const { user, token } = await authService.login({ email, password });
+          // Simple mock login for MVP
+          const user = { id: '1', email, name: email.split('@')[0], role: 'admin' as const };
+          const token = 'mock-token-' + Date.now();
 
           set({ 
             user, 

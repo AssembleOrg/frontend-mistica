@@ -33,7 +33,7 @@ export default function RootLayout({
       >
         <MysticCrystal color='#efcbb9' />
         <ErrorBoundary>
-          <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>{children}</AuthProvider>
         </ErrorBoundary>
         <Toaster />
       </body>

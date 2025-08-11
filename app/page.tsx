@@ -40,7 +40,7 @@ export default function LoginPage() {
           {/* Imagen de fondo nítida con efecto prisma */}
           <div className='absolute inset-0'>
             <Image
-              src='/mistica-4k.jpeg'
+              src='/foto-mistica-login.jpg'
               fill
               alt='Fondo MÍSTICA'
               className='object-cover'

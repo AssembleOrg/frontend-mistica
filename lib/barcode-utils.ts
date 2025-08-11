@@ -2,15 +2,41 @@
 
 /**
  * Generate a unique MÍSTICA barcode for a product
- * Format: MST + timestamp(6) + productId(4) = 13 characters
- * Example: MST789123001 for product ID 1
+ * Format: MST + timestamp(6) + random(4) = 13 characters
+ * Uses crypto.randomUUID() for better uniqueness
  */
-export function generateMisticaBarcode(productId: string | number): string {
+export function generateMisticaBarcode(): string {
   const prefix = 'MST';
   const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
-  const id = productId.toString().padStart(4, '0'); // Pad with zeros to 4 digits
+  const randomSuffix = crypto.randomUUID().replace(/\D/g, '').slice(0, 4); // Extract 4 digits from UUID
   
-  return `${prefix}${timestamp}${id}`;
+  return `${prefix}${timestamp}${randomSuffix}`;
+}
+
+// Alias for easier importing
+export const generateBarcode = generateMisticaBarcode;
+
+/**
+ * Generate a unique barcode with duplicate validation
+ * Requires validation function to ensure uniqueness
+ */
+export function generateUniqueBarcode(
+  isBarcodeDuplicate: (barcode: string) => boolean,
+  maxRetries: number = 10
+): string {
+  let attempts = 0;
+  let barcode: string;
+  
+  do {
+    barcode = generateMisticaBarcode();
+    attempts++;
+    
+    if (attempts >= maxRetries) {
+      throw new Error('Failed to generate unique barcode after maximum retries');
+    }
+  } while (isBarcodeDuplicate(barcode));
+  
+  return barcode;
 }
 
 /**
@@ -61,8 +87,7 @@ export function isMisticaBarcode(barcode: string): boolean {
  * Generate a random barcode for testing purposes
  */
 export function generateRandomBarcode(): string {
-  const randomId = Math.floor(Math.random() * 9999) + 1;
-  return generateMisticaBarcode(randomId);
+  return generateMisticaBarcode();
 }
 
 /**

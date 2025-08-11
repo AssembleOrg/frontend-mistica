@@ -91,10 +91,10 @@ export function QuickActions() {
     {
       title: 'Registrar Venta',
       description: 'Iniciar el proceso de venta y facturación.',
-      href: '/dashboard/sales/new',
+      href: '/dashboard/sales',
       icon: ShoppingCart,
       color: 'accent' as const,
-      enabled: false,
+      enabled: true,
     },
     {
       title: 'Generar Reporte',

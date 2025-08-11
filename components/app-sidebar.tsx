@@ -38,7 +38,7 @@ const navigationItems = [
     title: 'Ventas',
     url: '/dashboard/sales',
     icon: ShoppingCart,
-    enabled: false,
+    enabled: true,
   },
   {
     title: 'Caja y Finanzas',

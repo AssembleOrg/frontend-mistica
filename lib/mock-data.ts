@@ -1,4 +1,4 @@
-import { Product, CategoryConfig, StatusConfig } from './types';
+import { Product, Sale, CategoryConfig, StatusConfig } from './types';
 import { generateMisticaBarcode } from './barcode-utils';
 
 export const categoryConfig: CategoryConfig = {
@@ -41,7 +41,7 @@ export const mockProducts: Product[] = [
   {
     id: '1',
     name: 'Aceite Esencial de Lavanda',
-    barcode: generateMisticaBarcode(1),
+    barcode: generateMisticaBarcode(),
     category: 'aromaticos',
     price: 25.99,
     costPrice: 18.50,
@@ -57,7 +57,7 @@ export const mockProducts: Product[] = [
   {
     id: '3',
     name: 'Té Orgánico de Manzanilla',
-    barcode: generateMisticaBarcode(3),
+    barcode: generateMisticaBarcode(),
     category: 'organicos',
     price: 12.75,
     costPrice: 8.50,
@@ -73,7 +73,7 @@ export const mockProducts: Product[] = [
   {
     id: '4',
     name: 'Kit de Meditación Completo',
-    barcode: generateMisticaBarcode(4),
+    barcode: generateMisticaBarcode(),
     category: 'wellness',
     price: 89.99,
     costPrice: 55.00,
@@ -89,7 +89,7 @@ export const mockProducts: Product[] = [
   {
     id: '6',
     name: 'Incienso de Sándalo Premium',
-    barcode: generateMisticaBarcode(6),
+    barcode: generateMisticaBarcode(),
     category: 'aromaticos',
     price: 16.25,
     costPrice: 9.75,
@@ -105,7 +105,7 @@ export const mockProducts: Product[] = [
   {
     id: '7',
     name: 'Miel de Manuka Orgánica',
-    barcode: generateMisticaBarcode(7),
+    barcode: generateMisticaBarcode(),
     category: 'organicos',
     price: 32.5,
     costPrice: 22.00,
@@ -121,7 +121,7 @@ export const mockProducts: Product[] = [
   {
     id: '8',
     name: 'Velas Aromáticas de Soja',
-    barcode: generateMisticaBarcode(8),
+    barcode: generateMisticaBarcode(),
     category: 'aromaticos',
     price: 22.99,
     costPrice: 14.50,
@@ -137,7 +137,7 @@ export const mockProducts: Product[] = [
   {
     id: '10',
     name: 'Sesión de Reiki Virtual',
-    barcode: generateMisticaBarcode(10),
+    barcode: generateMisticaBarcode(),
     category: 'wellness',
     price: 65.0,
     costPrice: 35.00,
@@ -153,7 +153,7 @@ export const mockProducts: Product[] = [
   {
     id: '11',
     name: 'Aceite de Coco Virgen Extra',
-    barcode: generateMisticaBarcode(11),
+    barcode: generateMisticaBarcode(),
     category: 'organicos',
     price: 15.5,
     costPrice: 9.25,
@@ -169,7 +169,7 @@ export const mockProducts: Product[] = [
   {
     id: '12',
     name: 'Difusor Ultrasónico Premium',
-    barcode: generateMisticaBarcode(12),
+    barcode: generateMisticaBarcode(),
     category: 'aromaticos',
     price: 52.99,
     costPrice: 32.00,
@@ -185,7 +185,7 @@ export const mockProducts: Product[] = [
   {
     id: '14',
     name: 'Cúrcuma en Polvo Orgánica',
-    barcode: generateMisticaBarcode(14),
+    barcode: generateMisticaBarcode(),
     category: 'organicos',
     price: 9.99,
     costPrice: 6.50,
@@ -201,7 +201,7 @@ export const mockProducts: Product[] = [
   {
     id: '15',
     name: 'Curso Online de Tarot',
-    barcode: generateMisticaBarcode(15),
+    barcode: generateMisticaBarcode(),
     category: 'wellness',
     price: 125.0,
     costPrice: 75.00,
@@ -246,3 +246,57 @@ export function getProductStats() {
     lowStock,
   };
 }
+
+// Mock sales data for development
+export const mockSales: Sale[] = [
+  {
+    id: 'sale-1',
+    cashierId: 'cashier-1',
+    items: [
+      {
+        id: 'item-1',
+        productId: '1',
+        product: mockProducts[0],
+        quantity: 2,
+        unitPrice: mockProducts[0].price,
+        subtotal: mockProducts[0].price * 2,
+      },
+      {
+        id: 'item-2', 
+        productId: '2',
+        product: mockProducts[1],
+        quantity: 1,
+        unitPrice: mockProducts[1].price,
+        subtotal: mockProducts[1].price,
+      }
+    ],
+    subtotal: mockProducts[0].price * 2 + mockProducts[1].price,
+    discountTotal: 0,
+    taxAmount: (mockProducts[0].price * 2 + mockProducts[1].price) * 0.21,
+    total: (mockProducts[0].price * 2 + mockProducts[1].price) * 1.21,
+    paymentMethod: 'efectivo',
+    status: 'completed',
+    createdAt: new Date(),
+  },
+  {
+    id: 'sale-2',
+    cashierId: 'cashier-1',
+    items: [
+      {
+        id: 'item-3',
+        productId: '3',
+        product: mockProducts[2],
+        quantity: 1,
+        unitPrice: mockProducts[2].price,
+        subtotal: mockProducts[2].price,
+      }
+    ],
+    subtotal: mockProducts[2].price,
+    discountTotal: 0,
+    taxAmount: mockProducts[2].price * 0.21,
+    total: mockProducts[2].price * 1.21,
+    paymentMethod: 'tarjeta',
+    status: 'completed',
+    createdAt: new Date(Date.now() - 86400000), // Yesterday
+  }
+];

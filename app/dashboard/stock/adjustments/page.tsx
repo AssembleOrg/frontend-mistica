@@ -1,3 +1,10 @@
+/**
+ * CAPA 4: PRESENTATION LAYER - STOCK ADJUSTMENTS PAGE (CLEAN VERSION)
+ * 
+ * Página UI PURA que solo renderiza y delega al controller
+ * Sin lógica de negocio, sin acceso directo a stores
+ */
+
 /*  eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
@@ -15,11 +22,10 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Package, Search, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useStockStore } from '@/stores/stock.store';
-import { useProductStore } from '@/stores/product.store';
 import { showToast } from '@/lib/toast';
-import { validateStockAdjustment } from '@/lib/stock-utils';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
+import { useStock } from '@/hooks/useStock';
+import { useProducts } from '@/hooks/useProducts';
 
 export default function StockAdjustmentsPage() {
   const router = useRouter();
@@ -27,17 +33,16 @@ export default function StockAdjustmentsPage() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [newStock, setNewStock] = useState('');
   const [reason, setReason] = useState('');
-  const [notes, setNotes] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [_notes, setNotes] = useState('');
 
-  const { addAdjustment } = useStockStore();
-  const { products, updateStock } = useProductStore();
+  // Simple hooks API
+  const { adjustStockQuantity } = useStock();
+  const { products } = useProducts();
 
   // Filter products based on search
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.barcode.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProducts = products.filter(product => 
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.barcode.includes(searchQuery)
   );
 
   const handleProductSelect = (product: any) => {
@@ -50,43 +55,20 @@ export default function StockAdjustmentsPage() {
     e.preventDefault();
 
     if (!selectedProduct) {
-      showToast.error('Error', 'Debe seleccionar un producto');
+      showToast.error('Debe seleccionar un producto');
       return;
     }
 
     const newStockValue = parseInt(newStock);
-    const validation = validateStockAdjustment(
-      selectedProduct.stock,
-      newStockValue,
-      reason
-    );
-
-    if (!validation.isValid) {
-      showToast.error('Error de validación', validation.error || '');
-      return;
-    }
-
-    setIsLoading(true);
 
     try {
-      // Create adjustment record
-      addAdjustment({
-        productId: selectedProduct.id,
-        oldQuantity: selectedProduct.stock,
-        newQuantity: newStockValue,
-        difference: newStockValue - selectedProduct.stock,
-        reason,
-        notes,
-        userId: 'current-user', // This would come from auth
-      });
+      // Calculate the adjustment quantity
+      const adjustment = newStockValue - selectedProduct.stock;
+      
+      // Use simple hook to adjust stock
+      adjustStockQuantity(selectedProduct.id, adjustment, reason);
 
-      // Update product stock
-      await updateStock(selectedProduct.id, newStockValue, reason);
-
-      showToast.success(
-        'Ajuste realizado',
-        `Stock de "${selectedProduct.name}" actualizado correctamente`
-      );
+      showToast.success(`Stock de "${selectedProduct.name}" actualizado correctamente`);
 
       // Reset form
       setSelectedProduct(null);
@@ -99,12 +81,7 @@ export default function StockAdjustmentsPage() {
         router.push('/dashboard/stock');
       }, 1500);
     } catch (error) {
-      showToast.error(
-        'Error al realizar ajuste',
-        error instanceof Error ? error.message : 'Error desconocido'
-      );
-    } finally {
-      setIsLoading(false);
+      showToast.error(error instanceof Error ? error.message : 'Error al realizar ajuste');
     }
   };
 
@@ -316,10 +293,10 @@ export default function StockAdjustmentsPage() {
 
                 <Button
                   type='submit'
-                  disabled={isLoading || !newStock || !reason}
+                  disabled={!newStock || !reason}
                   className='w-full bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid'
                 >
-                  {isLoading ? (
+                  {false ? (
                     <>
                       <LoadingSpinner size='sm' />
                       <span className='ml-2'>Procesando...</span>

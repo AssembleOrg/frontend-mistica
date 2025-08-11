@@ -12,6 +12,7 @@ import { StatsCard } from '@/components/dashboard/stats-card';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { ActivityTable } from '@/components/dashboard/activity-table';
 import { useActivityStore } from '@/stores/activity.store';
+import { useAppStore } from '@/stores/app.store';
 import {
   StatsCardSkeleton,
   QuickActionsSkeleton,
@@ -36,60 +37,45 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(
     null
   );
-  const { getRecentActivities, addActivity } = useActivityStore();
+  const { getRecentActivities } = useActivityStore();
+  const { salesHistory, getLowStockProducts } = useAppStore();
 
   useEffect(() => {
-    // Simulate data loading with realistic delay
     const loadDashboardData = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // 1.5 second delay
+      // Calculate real stats from app data
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      // Daily sales
+      const todaySales = salesHistory.filter(sale => 
+        sale.createdAt >= startOfDay && sale.status === 'completed'
+      );
+      const dailyRevenue = todaySales.reduce((sum, sale) => sum + sale.total, 0);
+      
+      // Monthly data (simplified - using all sales for demo)
+      const monthlyExpenses = salesHistory.reduce((sum, sale) => 
+        sum + (sale.items?.reduce((itemSum, item) => 
+          itemSum + (item.product?.costPrice || 0) * item.quantity, 0) || 0), 0
+      );
+      
+      // Low stock count
+      const lowStockProducts = getLowStockProducts();
 
       setDashboardData({
-        dailyRevenue: '$45.800 ARS',
-        monthlyExpenses: '$120.500 ARS',
-        todayTransactions: 18,
-        lowStock: 5,
-      });
-
-      //* Borrar son ejemplos para test de tabla
-      addActivity({
-        type: 'ingreso',
-        description: 'Venta de Aceite Esencial de Lavanda',
-        amount: 2599,
-      });
-      addActivity({
-        type: 'egreso',
-        description: 'Compra de inventario - Cristales',
-        amount: 8500,
-      });
-      addActivity({
-        type: 'cambio_producto',
-        description: 'Actualizado stock de Velas Aromáticas',
+        dailyRevenue: dailyRevenue > 0 ? `$${dailyRevenue.toLocaleString('es-AR')} ARS` : '$0 ARS',
+        monthlyExpenses: monthlyExpenses > 0 ? `$${monthlyExpenses.toLocaleString('es-AR')} ARS` : '$0 ARS',
+        todayTransactions: todaySales.length,
+        lowStock: lowStockProducts.length,
       });
 
       setIsLoading(false);
     };
 
     loadDashboardData();
-  }, [addActivity]);
+  }, [salesHistory, getLowStockProducts]);
 
   return (
     <div className='space-y-6 mt-6'>
-      {/* Demo Banner */}
-      <div className='border-2 border-dashed border-[#9d684e]/40 bg-[#efcbb9]/20 p-4 rounded-lg'>
-        <div className='flex items-center gap-3'>
-          <div className='text-2xl'>🚧</div>
-          <div>
-            <h3 className='font-winter-solid font-semibold text-[#455a54]'>
-              DEMO - Aplicación en Desarrollo
-            </h3>
-            <p className='text-sm text-[#455a54]/70 font-winter-solid'>
-              Los módulos de <strong>Productos</strong> y <strong>Stock</strong>{' '}
-              están disponibles. Todo está sujeto a cambios.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Stats cards with loading states */}
       <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
         {isLoading ? (

@@ -1,6 +1,12 @@
+/**
+ * CAPA 4: PRESENTATION LAYER - PRODUCTS PAGE (CLEAN VERSION)
+ * 
+ * Página UI PURA que solo renderiza y delega al controller
+ * Sin lógica de negocio, sin acceso directo a stores
+ */
+
 'use client';
 
-import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,25 +16,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ProductsTable } from '@/components/dashboard/products-table';
-import {
-  StatsCardSkeleton,
-  ProductsTableSkeleton,
-} from '@/components/ui/loading-skeletons';
-import { useProductStore } from '@/stores/product.store';
+import { useProducts } from '@/hooks/useProducts';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProductsPage() {
-  const { products, status, loadProducts, getProductStats } = useProductStore();
-
-  const isLoading = status === 'loading';
-  const productStats = getProductStats();
-
-  useEffect(() => {
-    if (products.length === 0) {
-      loadProducts();
-    }
-  }, [loadProducts, products.length]);
+  // Simple hooks API
+  const { products, stats } = useProducts();
 
   return (
     <div className='space-y-6'>
@@ -53,80 +47,69 @@ export default function ProductsPage() {
         </Button>
       </div>
 
-      {/* Stats Cards with loading states */}
+      {/* Stats Cards */}
       <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-        {isLoading ? (
-          <>
-            <StatsCardSkeleton />
-            <StatsCardSkeleton />
-            <StatsCardSkeleton />
-            <StatsCardSkeleton />
-          </>
-        ) : (
-          <>
-            <Card className='border-[#9d684e]/20'>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-                  Total Productos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold text-[#9d684e] font-tan-nimbus'>
-                  {productStats.total}
-                </div>
-                <p className='text-xs text-[#455a54]/70'>
-                  productos en catálogo
-                </p>
-              </CardContent>
-            </Card>
+        <Card className='border-[#9d684e]/20'>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
+              Total Productos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='text-2xl font-bold text-[#9d684e] font-tan-nimbus'>
+              {stats.total}
+            </div>
+            <p className='text-xs text-[#455a54]/70'>
+              productos en catálogo
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card className='border-[#9d684e]/20'>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-                  Productos Activos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold text-green-600 font-tan-nimbus'>
-                  {productStats.active}
-                </div>
-                <p className='text-xs text-[#455a54]/70'>
-                  disponibles para venta
-                </p>
-              </CardContent>
-            </Card>
+        <Card className='border-[#9d684e]/20'>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
+              Productos Activos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='text-2xl font-bold text-green-600 font-tan-nimbus'>
+              {stats.active}
+            </div>
+            <p className='text-xs text-[#455a54]/70'>
+              disponibles para venta
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card className='border-[#9d684e]/20'>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-                  Stock Bajo
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold text-orange-500 font-tan-nimbus'>
-                  {productStats.lowStock}
-                </div>
-                <p className='text-xs text-[#455a54]/70'>
-                  requieren reposición
-                </p>
-              </CardContent>
-            </Card>
+        <Card className='border-[#9d684e]/20'>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
+              Stock Bajo
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='text-2xl font-bold text-orange-500 font-tan-nimbus'>
+              {stats.lowStock}
+            </div>
+            <p className='text-xs text-[#455a54]/70'>
+              requieren reposición
+            </p>
+          </CardContent>
+        </Card>
 
-            <Card className='border-[#9d684e]/20'>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-                  Sin Stock
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold text-red-500 font-tan-nimbus'>
-                  {productStats.outOfStock}
-                </div>
-                <p className='text-xs text-[#455a54]/70'>productos agotados</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
+        <Card className='border-[#9d684e]/20'>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
+              Sin Stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className='text-2xl font-bold text-red-500 font-tan-nimbus'>
+              {stats.outOfStock}
+            </div>
+            <p className='text-xs text-[#455a54]/70'>productos agotados</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Products Table with loading state */}
@@ -140,11 +123,7 @@ export default function ProductsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <ProductsTableSkeleton />
-          ) : (
-            <ProductsTable data={products} />
-          )}
+          <ProductsTable data={products} />
         </CardContent>
       </Card>
     </div>

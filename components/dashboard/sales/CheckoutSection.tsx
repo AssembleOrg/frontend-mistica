@@ -270,7 +270,8 @@ export function CheckoutSection({
         <Button
           onClick={handleCheckout}
           disabled={!isValidPayment || isProcessing}
-          className='w-full h-12 text-lg font-semibold'
+          variant="verde"
+          className='w-full h-12 text-lg font-semibold font-tan-nimbus'
           size='lg'
         >
           {isProcessing ? (
@@ -286,22 +287,6 @@ export function CheckoutSection({
           )}
         </Button>
 
-        <div className='flex gap-2'>
-          <Button
-            variant='outline'
-            className='flex-1'
-            disabled={isProcessing}
-          >
-            Guardar Borrador
-          </Button>
-          <Button
-            variant='outline'
-            className='flex-1'
-            disabled={isProcessing}
-          >
-            Vista Previa
-          </Button>
-        </div>
       </div>
 
       {/* Payment Validation Messages */}

@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,8 +98,8 @@ export default function EditSalePage() {
     }
   }, [searchQuery, searchProducts]);
 
-  // Calculate totals manually
-  const totals = (() => {
+  // Calculate totals manually - MEMOIZED to prevent re-renders
+  const totals = useMemo(() => {
     const subtotal = editedItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
     const discountTotal = editedItems.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
     const adjustedSubtotal = subtotal - discountTotal;
@@ -112,16 +112,16 @@ export default function EditSalePage() {
       taxAmount,
       total,
     };
-  })();
+  }, [editedItems]);
 
-  const updateItemQuantity = (itemId: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeItem(itemId);
-      return;
-    }
-
-    setEditedItems(items =>
-      items.map(item =>
+  const updateItemQuantity = useCallback((itemId: string, newQuantity: number) => {
+    setEditedItems(items => {
+      if (newQuantity <= 0) {
+        // Remove item directly instead of calling removeItem to avoid dependency
+        return items.filter(item => item.id !== itemId);
+      }
+      
+      return items.map(item =>
         item.id === itemId
           ? {
               ...item,
@@ -129,11 +129,11 @@ export default function EditSalePage() {
               subtotal: newQuantity * item.unitPrice - (item.discountAmount || 0),
             }
           : item
-      )
-    );
-  };
+      );
+    });
+  }, []);
 
-  const updateItemDiscount = (itemId: string, discountPercentage: number) => {
+  const updateItemDiscount = useCallback((itemId: string, discountPercentage: number) => {
     setEditedItems(items =>
       items.map(item =>
         item.id === itemId
@@ -146,37 +146,46 @@ export default function EditSalePage() {
           : item
       )
     );
-  };
+  }, []);
 
-  const removeItem = (itemId: string) => {
+  const removeItem = useCallback((itemId: string) => {
     setEditedItems(items => items.filter(item => item.id !== itemId));
-  };
+  }, []);
 
-  const addProduct = (product: Product) => {
-    const existingItemIndex = editedItems.findIndex(item => item.productId === product.id);
-    
-    if (existingItemIndex >= 0) {
-      // Si ya existe, aumentar cantidad
-      const existingItem = editedItems[existingItemIndex];
-      updateItemQuantity(existingItem.id, existingItem.quantity + 1);
-    } else {
-      // Agregar nuevo item
-      const newItem: SaleItem = {
-        id: crypto.randomUUID(),
-        productId: product.id,
-        product: { ...product },
-        quantity: 1,
-        unitPrice: product.price,
-        subtotal: product.price,
-      };
-      setEditedItems(items => [...items, newItem]);
-    }
+  const addProduct = useCallback((product: Product) => {
+    setEditedItems(items => {
+      const existingItemIndex = items.findIndex(item => item.productId === product.id);
+      
+      if (existingItemIndex >= 0) {
+        // Si ya existe, aumentar cantidad
+        return items.map((item, index) =>
+          index === existingItemIndex
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+                subtotal: (item.quantity + 1) * item.unitPrice - (item.discountAmount || 0),
+              }
+            : item
+        );
+      } else {
+        // Agregar nuevo item
+        const newItem: SaleItem = {
+          id: crypto.randomUUID(),
+          productId: product.id,
+          product: { ...product },
+          quantity: 1,
+          unitPrice: product.price,
+          subtotal: product.price,
+        };
+        return [...items, newItem];
+      }
+    });
     
     setSearchQuery('');
     showToast.success(`${product.name} agregado`);
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!sale) {
       showToast.error('Venta no encontrada');
       return;
@@ -208,13 +217,13 @@ export default function EditSalePage() {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [sale, canEditSale, editSale, saleId, paymentMethod, notes, customerInfo, router]);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (confirm('¿Estás seguro de que deseas cancelar? Se perderán todos los cambios.')) {
       router.push(`/dashboard/sales/${saleId}`);
     }
-  };
+  }, [router, saleId]);
 
   if (isLoading) {
     return (
@@ -236,7 +245,12 @@ export default function EditSalePage() {
           <p className="text-gray-600 mb-4">
             No se puede editar la venta #{saleId.slice(-6)}.
           </p>
-          <Button onClick={() => router.push('/dashboard/sales/history')}>
+          <Button 
+            variant="naranja"
+            onClick={() => router.push('/dashboard/sales/history')}
+            className="font-winter-solid shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al historial
           </Button>
         </div>
@@ -287,7 +301,7 @@ export default function EditSalePage() {
             <Card className="border-[var(--color-gris-claro)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Search className="h-5 w-5 text-[var(--color-verde-profundo)]" />
+                  <Search className="h-5 w-5 text-[#455a54]" />
                   <span className="font-tan-nimbus">Agregar Productos</span>
                 </CardTitle>
               </CardHeader>
@@ -330,7 +344,7 @@ export default function EditSalePage() {
             <Card className="border-[var(--color-gris-claro)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Package className="h-5 w-5 text-[var(--color-verde-profundo)]" />
+                  <Package className="h-5 w-5 text-[#455a54]" />
                   <span className="font-tan-nimbus">Productos en la Venta ({editedItems.length})</span>
                 </CardTitle>
               </CardHeader>
@@ -469,7 +483,7 @@ export default function EditSalePage() {
             <Card className="border-[var(--color-gris-claro)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-[var(--color-verde-profundo)]" />
+                  <CreditCard className="h-5 w-5 text-[#455a54]" />
                   <span className="font-tan-nimbus">Método de Pago</span>
                 </CardTitle>
               </CardHeader>
@@ -513,7 +527,7 @@ export default function EditSalePage() {
             <Card className="border-[var(--color-gris-claro)]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-[var(--color-verde-profundo)]" />
+                  <User className="h-5 w-5 text-[#455a54]" />
                   <span className="font-tan-nimbus">Cliente (Opcional)</span>
                 </CardTitle>
               </CardHeader>

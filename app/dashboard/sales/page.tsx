@@ -94,10 +94,10 @@ export default function SalesPage() {
     }
   };
 
-  const handleSearch = async (query: string, _category?: string) => {
+  const handleSearch = async (query: string, category?: string) => {
     try {
       setIsSearching(true);
-      const results = searchProducts(query);
+      const results = searchProducts(query, category);
       setSearchResults(results);
     } catch (error) {
       showToast.error(

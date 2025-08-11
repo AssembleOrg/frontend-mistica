@@ -282,7 +282,12 @@ export default function SaleDetailPage() {
           <p className='text-gray-600 mb-4 font-winter-solid'>
             La venta con ID #{saleId.slice(-6)} no existe o ha sido eliminada.
           </p>
-          <Button onClick={() => router.push('/dashboard/sales/history')}>
+          <Button 
+            variant="durazno"
+            onClick={() => router.push('/dashboard/sales/history')}
+            className="font-winter-solid shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
             Volver al historial
           </Button>
         </div>
@@ -300,15 +305,15 @@ export default function SaleDetailPage() {
         <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4'>
           <div className='flex items-center gap-4'>
             <Button
-              variant='ghost'
+              variant="naranja"
               onClick={() => router.push('/dashboard/sales/history')}
-              className='text-[var(--color-verde-profundo)] hover:text-[var(--color-ciruela-oscuro)]'
+              className="font-winter-solid shadow-md hover:shadow-lg transition-all duration-200"
             >
               <ArrowLeft className='h-4 w-4 mr-2' />
               Volver al historial
             </Button>
             <div>
-              <h1 className='text-2xl font-bold text-[var(--color-ciruela-oscuro)] font-tan-nimbus'>
+              <h1 className='text-2xl font-bold text-[#455a54] font-tan-nimbus'>
                 Venta #{sale.id.slice(-6)}
               </h1>
               <div className='flex items-center gap-2 mt-1'>
@@ -324,16 +329,8 @@ export default function SaleDetailPage() {
 
           <div className='flex flex-wrap gap-2'>
             <Button
-              onClick={handlePrint}
-              variant='outline'
-              size='sm'
-            >
-              <Printer className='h-4 w-4 mr-2' />
-              Imprimir
-            </Button>
-            <Button
               onClick={handleEdit}
-              variant='outline'
+              variant="terracota"
               size='sm'
             >
               <Edit className='h-4 w-4 mr-2' />
@@ -357,7 +354,7 @@ export default function SaleDetailPage() {
             <Card className='border-[var(--color-gris-claro)]'>
               <CardHeader>
                 <CardTitle className='flex items-center gap-2'>
-                  <Receipt className='h-5 w-5 text-[var(--color-verde-profundo)]' />
+                  <Receipt className='h-5 w-5 text-[#455a54]' />
                   <span className='font-tan-nimbus'>
                     Información de la Venta
                   </span>
@@ -475,7 +472,7 @@ export default function SaleDetailPage() {
             <Card className='border-[var(--color-gris-claro)]'>
               <CardHeader>
                 <CardTitle className='flex items-center gap-2'>
-                  <Package className='h-5 w-5 text-[var(--color-verde-profundo)]' />
+                  <Package className='h-5 w-5 text-[#455a54]' />
                   <span className='font-tan-nimbus'>
                     Productos Vendidos ({sale.items.length})
                   </span>
@@ -526,7 +523,7 @@ export default function SaleDetailPage() {
           <div className='space-y-6'>
             <Card className='border-[var(--color-gris-claro)]'>
               <CardHeader>
-                <CardTitle className='text-[var(--color-ciruela-oscuro)] font-tan-nimbus'>
+                <CardTitle className='text-[#455a54] font-tan-nimbus'>
                   Resumen de Pago
                 </CardTitle>
               </CardHeader>
@@ -600,22 +597,23 @@ export default function SaleDetailPage() {
             {/* Acciones rápidas */}
             <Card className='border-[var(--color-gris-claro)]'>
               <CardHeader>
-                <CardTitle className='text-[var(--color-ciruela-oscuro)] font-tan-nimbus'>
+                <CardTitle className='text-[#455a54] font-tan-nimbus'>
                   Acciones
                 </CardTitle>
               </CardHeader>
               <CardContent className='space-y-3'>
                 <Button
                   onClick={handlePrint}
-                  className='w-full'
-                  variant='outline'
+                  className='w-full font-winter-solid'
+                  variant='verde'
                 >
                   <Printer className='h-4 w-4 mr-2' />
                   Imprimir Recibo
                 </Button>
                 <Button
                   onClick={handleEdit}
-                  className='w-full'
+                  className='w-full font-winter-solid'
+                  variant="terracota"
                 >
                   <Edit className='h-4 w-4 mr-2' />
                   Editar Venta

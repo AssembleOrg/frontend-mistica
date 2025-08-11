@@ -224,7 +224,7 @@ export default function StockDashboard() {
                         {movement.quantity}
                       </p>
                       <p className='text-xs text-[#455a54]/70'>
-                        {movement.createdAt.toLocaleDateString('es-AR')}
+                        {new Date(movement.createdAt).toLocaleDateString('es-AR')}
                       </p>
                     </div>
                   </div>

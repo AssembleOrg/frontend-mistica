@@ -367,6 +367,7 @@ export function ProductForm({
           <Button
             type='submit'
             disabled={!isFormValid}
+            variant="terracota"
           >
             <>
               <Save className='w-4 h-4 mr-2' />

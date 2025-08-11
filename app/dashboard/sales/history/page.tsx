@@ -230,125 +230,153 @@ export default function SalesHistoryPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--color-rosa-claro)]/20 to-[var(--color-durazno)]/20">
-      <div className="container mx-auto p-4 xl:p-6">
+    <div className='min-h-screen bg-gradient-to-br from-[var(--color-rosa-claro)]/20 to-[var(--color-durazno)]/20'>
+      <div className='container mx-auto p-4 xl:p-6'>
         {/* Header con navegación */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className='flex items-center justify-between mb-6'>
+          <div className='flex items-center gap-4'>
             <Button
-              variant="ghost"
+              variant='naranja'
               onClick={() => router.push('/dashboard/sales')}
-              className="text-[var(--color-verde-profundo)] hover:text-[var(--color-verde-profundo-hover)]"
+              className='font-winter-solid shadow-md hover:shadow-lg transition-all duration-200'
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className='h-4 w-4 mr-2' />
               Volver al POS
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-[var(--color-ciruela-oscuro)] font-tan-nimbus">Historial de Ventas</h1>
-              <p className="text-[var(--color-verde-profundo)] font-winter-solid">
-                {filteredSales.length} venta{filteredSales.length !== 1 ? 's' : ''} encontrada{filteredSales.length !== 1 ? 's' : ''}
+              <h1 className='text-2xl font-bold text-[#455a54] font-tan-nimbus'>
+                Historial de Ventas
+              </h1>
+              <p className='text-[#455a54] font-winter-solid'>
+                {filteredSales.length} venta
+                {filteredSales.length !== 1 ? 's' : ''} encontrada
+                {filteredSales.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
-          
-          <Button onClick={handleExportSales} variant="outline" className="hidden sm:flex">
-            <Download className="h-4 w-4 mr-2" />
+
+          <Button
+            onClick={handleExportSales}
+            variant='outline'
+            className='hidden sm:flex'
+          >
+            <Download className='h-4 w-4 mr-2' />
             Exportar
           </Button>
         </div>
 
         {/* Filtros */}
-        <Card className="border-[var(--color-gris-claro)] mb-6">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-[var(--color-verde-profundo)]" />
-              <span className="font-tan-nimbus">Filtros de Búsqueda</span>
+        <Card className='border-[var(--color-gris-claro)] mb-6'>
+          <CardHeader className='pb-4'>
+            <CardTitle className='flex items-center gap-2'>
+              <Filter className='h-5 w-5 text-[#455a54]' />
+              <span className='font-tan-nimbus text-[#455a54]'>
+                Filtros de Búsqueda
+              </span>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className='space-y-4'>
             {/* Primera fila de filtros */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
               {/* Búsqueda general */}
-              <div className="md:col-span-2">
+              <div className='md:col-span-2'>
                 <Input
-                  placeholder="Buscar por ID, cliente o notas..."
-                  className="w-full font-winter-solid"
+                  placeholder='Buscar por ID, cliente o notas...'
+                  className='w-full font-winter-solid'
                   value={filters.searchTerm}
-                  onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      searchTerm: e.target.value,
+                    }))
+                  }
                 />
               </div>
 
               {/* Rango de fecha */}
-              <Select 
-                value={filters.dateRange} 
-                onValueChange={(value) => setFilters(prev => ({ ...prev, dateRange: value }))}
+              <Select
+                value={filters.dateRange}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, dateRange: value }))
+                }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Fecha" />
+                  <SelectValue placeholder='Fecha' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas las fechas</SelectItem>
-                  <SelectItem value="today">Hoy</SelectItem>
-                  <SelectItem value="week">Última semana</SelectItem>
-                  <SelectItem value="month">Último mes</SelectItem>
+                  <SelectItem value='all'>Todas las fechas</SelectItem>
+                  <SelectItem value='today'>Hoy</SelectItem>
+                  <SelectItem value='week'>Última semana</SelectItem>
+                  <SelectItem value='month'>Último mes</SelectItem>
                 </SelectContent>
               </Select>
 
               {/* Estado */}
-              <Select 
-                value={filters.status} 
-                onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
+              <Select
+                value={filters.status}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, status: value }))
+                }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Estado" />
+                  <SelectValue placeholder='Estado' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="completed">Completadas</SelectItem>
-                  <SelectItem value="draft">Borradores</SelectItem>
-                  <SelectItem value="cancelled">Canceladas</SelectItem>
-                  <SelectItem value="refunded">Reembolsadas</SelectItem>
+                  <SelectItem value='all'>Todos los estados</SelectItem>
+                  <SelectItem value='completed'>Completadas</SelectItem>
+                  <SelectItem value='draft'>Borradores</SelectItem>
+                  <SelectItem value='cancelled'>Canceladas</SelectItem>
+                  <SelectItem value='refunded'>Reembolsadas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Segunda fila de filtros */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
               {/* Método de pago */}
-              <Select 
-                value={filters.paymentMethod} 
-                onValueChange={(value) => setFilters(prev => ({ ...prev, paymentMethod: value }))}
+              <Select
+                value={filters.paymentMethod}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, paymentMethod: value }))
+                }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Método de pago" />
+                  <SelectValue placeholder='Método de pago' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los métodos</SelectItem>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
-                  <SelectItem value="tarjeta">Tarjeta</SelectItem>
-                  <SelectItem value="transferencia">Transferencia</SelectItem>
-                  <SelectItem value="mixto">Mixto</SelectItem>
+                  <SelectItem value='all'>Todos los métodos</SelectItem>
+                  <SelectItem value='efectivo'>Efectivo</SelectItem>
+                  <SelectItem value='tarjeta'>Tarjeta</SelectItem>
+                  <SelectItem value='transferencia'>Transferencia</SelectItem>
+                  <SelectItem value='mixto'>Mixto</SelectItem>
                 </SelectContent>
               </Select>
 
               {/* Monto mínimo */}
               <Input
-                type="number"
-                placeholder="Monto mínimo"
+                type='number'
+                placeholder='Monto mínimo'
                 value={filters.minAmount}
-                onChange={(e) => setFilters(prev => ({ ...prev, minAmount: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, minAmount: e.target.value }))
+                }
               />
 
               {/* Monto máximo */}
               <Input
-                type="number"
-                placeholder="Monto máximo"
+                type='number'
+                placeholder='Monto máximo'
                 value={filters.maxAmount}
-                onChange={(e) => setFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, maxAmount: e.target.value }))
+                }
               />
 
               {/* Botón reset */}
-              <Button variant="outline" onClick={resetFilters}>
+              <Button
+                variant='outline'
+                onClick={resetFilters}
+              >
                 Limpiar filtros
               </Button>
             </div>
@@ -356,82 +384,102 @@ export default function SalesHistoryPage() {
         </Card>
 
         {/* Tabla de ventas */}
-        <Card className="border-[var(--color-gris-claro)]">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
+        <Card className='border-[var(--color-gris-claro)]'>
+          <CardContent className='p-0'>
+            <div className='overflow-x-auto'>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="font-winter-solid">ID Venta</TableHead>
-                    <TableHead className="font-winter-solid">Fecha</TableHead>
-                    <TableHead className="font-winter-solid">Cliente</TableHead>
-                    <TableHead className="font-winter-solid">Items</TableHead>
-                    <TableHead className="font-winter-solid">Total</TableHead>
-                    <TableHead className="font-winter-solid">Método</TableHead>
-                    <TableHead className="font-winter-solid">Estado</TableHead>
-                    <TableHead className="font-winter-solid">Cajero</TableHead>
-                    <TableHead className="w-[100px] font-winter-solid">Acciones</TableHead>
+                    <TableHead className='font-winter-solid'>
+                      ID Venta
+                    </TableHead>
+                    <TableHead className='font-winter-solid'>Fecha</TableHead>
+                    <TableHead className='font-winter-solid'>Cliente</TableHead>
+                    <TableHead className='font-winter-solid'>Items</TableHead>
+                    <TableHead className='font-winter-solid'>Total</TableHead>
+                    <TableHead className='font-winter-solid'>Método</TableHead>
+                    <TableHead className='font-winter-solid'>Estado</TableHead>
+                    <TableHead className='font-winter-solid'>Cajero</TableHead>
+                    <TableHead className='w-[100px] font-winter-solid'>
+                      Acciones
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedSales.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-[var(--color-ciruela-oscuro)]/70">
-                        <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p className="font-winter-solid">No se encontraron ventas</p>
-                        <p className="text-sm font-winter-solid">Ajusta los filtros para ver más resultados</p>
+                      <TableCell
+                        colSpan={9}
+                        className='text-center py-8 text-[var(--color-ciruela-oscuro)]/70'
+                      >
+                        <Calendar className='h-12 w-12 mx-auto mb-3 opacity-50' />
+                        <p className='font-winter-solid'>
+                          No se encontraron ventas
+                        </p>
+                        <p className='text-sm font-winter-solid'>
+                          Ajusta los filtros para ver más resultados
+                        </p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     paginatedSales.map((sale) => (
-                      <TableRow key={sale.id} className="hover:bg-[var(--color-rosa-claro)]/30">
-                        <TableCell className="font-mono text-sm">
+                      <TableRow
+                        key={sale.id}
+                        className='hover:bg-[var(--color-rosa-claro)]/30'
+                      >
+                        <TableCell className='font-mono text-sm'>
                           #{sale.id.slice(-6)}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className='text-sm'>
                           {formatDate(sale.completedAt || sale.createdAt)}
                         </TableCell>
                         <TableCell>
                           {sale.customerInfo?.name || 'Cliente general'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">
-                            {sale.items.length} item{sale.items.length !== 1 ? 's' : ''}
+                          <Badge variant='secondary'>
+                            {sale.items.length} item
+                            {sale.items.length !== 1 ? 's' : ''}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-semibold">
+                        <TableCell className='font-semibold'>
                           {formatCurrency(sale.total)}
                         </TableCell>
                         <TableCell>
                           {getPaymentMethodBadge(sale.paymentMethod)}
                         </TableCell>
-                        <TableCell>
-                          {getStatusBadge(sale.status)}
-                        </TableCell>
-                        <TableCell className="text-sm text-[var(--color-verde-profundo)]">
+                        <TableCell>{getStatusBadge(sale.status)}</TableCell>
+                        <TableCell className='text-sm text-[var(--color-verde-profundo)]'>
                           {sale.cashierId}
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="h-4 w-4" />
+                              <Button
+                                variant='ghost'
+                                size='icon'
+                              >
+                                <MoreVertical className='h-4 w-4' />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleViewSale(sale.id)}>
-                                <Eye className="h-4 w-4 mr-2" />
+                            <DropdownMenuContent align='end'>
+                              <DropdownMenuItem
+                                onClick={() => handleViewSale(sale.id)}
+                              >
+                                <Eye className='h-4 w-4 mr-2' />
                                 Ver detalle
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditSale(sale.id)}>
-                                <Edit className="h-4 w-4 mr-2" />
+                              <DropdownMenuItem
+                                onClick={() => handleEditSale(sale.id)}
+                              >
+                                <Edit className='h-4 w-4 mr-2' />
                                 Editar
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleDeleteSale(sale.id)}
-                                className="text-red-600"
+                                className='text-red-600'
                               >
-                                <Trash2 className="h-4 w-4 mr-2" />
+                                <Trash2 className='h-4 w-4 mr-2' />
                                 Eliminar
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -446,29 +494,35 @@ export default function SalesHistoryPage() {
 
             {/* Paginación */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t border-[var(--color-gris-claro)]">
-                <p className="text-sm text-[var(--color-verde-profundo)]">
-                  Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredSales.length)} de {filteredSales.length} ventas
+              <div className='flex items-center justify-between p-4 border-t border-[var(--color-gris-claro)]'>
+                <p className='text-sm text-[var(--color-verde-profundo)]'>
+                  Mostrando {(currentPage - 1) * itemsPerPage + 1} -{' '}
+                  {Math.min(currentPage * itemsPerPage, filteredSales.length)}{' '}
+                  de {filteredSales.length} ventas
                 </p>
-                <div className="flex items-center gap-2">
+                <div className='flex items-center gap-2'>
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    variant='outline'
+                    size='icon'
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
                     disabled={currentPage === 1}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className='h-4 w-4' />
                   </Button>
-                  <span className="text-sm text-[var(--color-ciruela-oscuro)]">
+                  <span className='text-sm text-[var(--color-ciruela-oscuro)]'>
                     Página {currentPage} de {totalPages}
                   </span>
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    variant='outline'
+                    size='icon'
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
                     disabled={currentPage === totalPages}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className='h-4 w-4' />
                   </Button>
                 </div>
               </div>

@@ -184,25 +184,6 @@ export function ShoppingCartSection({
         </div>
       </div>
 
-      {/* Cart Actions */}
-      <div className="flex gap-2 pt-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          disabled={isLoading}
-        >
-          Guardar
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="flex-1"
-          disabled={isLoading}
-        >
-          Aplicar Desc.
-        </Button>
-      </div>
 
     </div>
   );

@@ -36,8 +36,9 @@
   --color-negro-hover: #1a1a1a;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: 'Aileron', var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
+  --font-aileron: 'Aileron', 'Geist', sans-serif;
   --font-tan-nimbus: 'TAN Nimbus', 'Geist', sans-serif;
   --font-winter-solid: 'Winter Solid', 'Geist', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -154,6 +155,10 @@
 }
 
 @layer components {
+  .font-aileron {
+    font-family: var(--font-aileron);
+  }
+  
   .font-tan-nimbus {
     font-family: var(--font-tan-nimbus);
   }

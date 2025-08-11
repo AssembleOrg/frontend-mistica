@@ -38,9 +38,9 @@ export interface CalculationSettings {
  * Default calculation settings
  */
 export const DEFAULT_SETTINGS: CalculationSettings = {
-  taxRate: 0.21, // 21% IVA
-  currency: 'MXN',
-  locale: 'es-MX'
+  taxRate: 0.21, // 21% IVA Argentina
+  currency: 'ARS',
+  locale: 'es-AR'
 };
 
 /**

@@ -58,6 +58,10 @@ export function useSales() {
     return sale.createdAt >= twentyFourHoursAgo && sale.status === 'completed';
   }, []);
 
+  const getSaleById = useCallback((id: string) => {
+    return salesHistory.find(s => s.id === id);
+  }, [salesHistory]);
+
   return {
     // Cart state
     cart,
@@ -78,7 +82,7 @@ export function useSales() {
     editSale,
     
     // Utils
-    getSaleById: (id: string) => salesHistory.find(s => s.id === id),
+    getSaleById,
     canEditSale
   };
 }

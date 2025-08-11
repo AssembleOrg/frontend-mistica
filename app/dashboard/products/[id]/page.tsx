@@ -284,10 +284,10 @@ export default function ProductDetailsPage() {
           {/* Fechas */}
           <div className="grid grid-cols-2 gap-4 text-xs text-[#455a54]/60">
             <div>
-              <p>Creado: {product.createdAt.toLocaleDateString('es-AR')}</p>
+              <p>Creado: {new Date(product.createdAt).toLocaleDateString('es-AR')}</p>
             </div>
             <div>
-              <p>Actualizado: {product.updatedAt.toLocaleDateString('es-AR')}</p>
+              <p>Actualizado: {new Date(product.updatedAt).toLocaleDateString('es-AR')}</p>
             </div>
           </div>
         </CardContent>

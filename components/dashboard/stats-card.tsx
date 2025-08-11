@@ -39,25 +39,34 @@ const trendConfig = {
   neutral: 'text-[#455a54]/70',
 };
 
-export function StatsCard({ title, value, change, icon: Icon, trend, color }: StatsCardProps) {
+export function StatsCard({
+  title,
+  value,
+  change,
+  icon: Icon,
+  trend,
+  color,
+}: StatsCardProps) {
   const colors = colorConfig[color];
   const trendColor = trendConfig[trend];
 
   return (
-    <Card className={`${colors.border} hover:shadow-md transition-shadow duration-200`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-[#455a54] font-winter-solid">
+    <Card
+      className={`${colors.border} hover:shadow-md transition-shadow duration-200`}
+    >
+      <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+        <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
           {title}
         </CardTitle>
         <Icon className={`h-4 w-4 ${colors.icon}`} />
       </CardHeader>
       <CardContent>
-        <div className={`text-2xl font-bold font-tan-nimbus ${colors.value}`}>
+        <div
+          className={`text-3xl font-bold font-tan-nimbus ${colors.value} leading-tight`}
+        >
           {value}
         </div>
-        <p className={`text-xs ${trendColor}`}>
-          {change}
-        </p>
+        <p className={`text-xs ${trendColor}`}>{change}</p>
       </CardContent>
     </Card>
   );

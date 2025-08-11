@@ -58,11 +58,20 @@ export function useProducts() {
     return newProduct;
   }, [products, addProduct]);
 
-  const searchProducts = useCallback((query: string) => {
-    if (!query.trim()) return products;
+  const searchProducts = useCallback((query: string, category?: string) => {
+    let filteredProducts = products;
     
+    // Filtrar por categoría primero si se especifica
+    if (category && category !== 'all') {
+      filteredProducts = products.filter(product => product.category === category);
+    }
+    
+    // Si no hay query, retornar productos filtrados por categoría (o todos si no hay categoría)
+    if (!query.trim()) return filteredProducts;
+    
+    // Aplicar búsqueda por texto en los productos ya filtrados por categoría
     const searchTerm = query.toLowerCase();
-    return products.filter(product =>
+    return filteredProducts.filter(product =>
       product.name.toLowerCase().includes(searchTerm) ||
       product.description.toLowerCase().includes(searchTerm) ||
       product.barcode.includes(searchTerm)

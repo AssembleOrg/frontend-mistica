@@ -20,6 +20,15 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // MÍSTICA Theme Colors
+        terracota:
+          "bg-[#9d684e] text-white shadow-xs hover:bg-[#9d684e]/90 focus-visible:ring-[#9d684e]/20",
+        verde:
+          "bg-[#455a54] text-white shadow-xs hover:bg-[#455a54]/90 focus-visible:ring-[#455a54]/20",
+        naranja:
+          "bg-[#cc844a] text-white shadow-xs hover:bg-[#cc844a]/90 focus-visible:ring-[#cc844a]/20",
+        durazno:
+          "bg-[#efcbb9] text-[#455a54] shadow-xs hover:bg-[#efcbb9]/90 focus-visible:ring-[#efcbb9]/20",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

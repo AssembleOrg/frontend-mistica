@@ -59,7 +59,7 @@ export const useAppStore = create<AppState>()(
       salesHistory: [],
       stockMovements: [],
       settings: {
-        taxRate: 0.19,
+        taxRate: 0.21, // 21% IVA Argentina
         lowStockThreshold: 5,
         storeName: 'MÍSTICA'
       },

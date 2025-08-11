@@ -44,26 +44,43 @@ export default function Dashboard() {
     const loadDashboardData = async () => {
       // Calculate real stats from app data
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      
+      const startOfDay = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+      );
+
       // Daily sales
-      const todaySales = salesHistory.filter(sale => 
-        sale.createdAt >= startOfDay && sale.status === 'completed'
+      const todaySales = salesHistory.filter(
+        (sale) => sale.createdAt >= startOfDay && sale.status === 'completed'
       );
-      const dailyRevenue = todaySales.reduce((sum, sale) => sum + sale.total, 0);
-      
-      // Monthly data (simplified - using all sales for demo)
-      const monthlyExpenses = salesHistory.reduce((sum, sale) => 
-        sum + (sale.items?.reduce((itemSum, item) => 
-          itemSum + (item.product?.costPrice || 0) * item.quantity, 0) || 0), 0
+      const dailyRevenue = todaySales.reduce(
+        (sum, sale) => sum + sale.total,
+        0
       );
-      
+      const monthlyExpenses = salesHistory.reduce(
+        (sum, sale) =>
+          sum +
+          (sale.items?.reduce(
+            (itemSum, item) =>
+              itemSum + (item.product?.costPrice || 0) * item.quantity,
+            0
+          ) || 0),
+        0
+      );
+
       // Low stock count
       const lowStockProducts = getLowStockProducts();
 
       setDashboardData({
-        dailyRevenue: dailyRevenue > 0 ? `$${dailyRevenue.toLocaleString('es-AR')} ARS` : '$0 ARS',
-        monthlyExpenses: monthlyExpenses > 0 ? `$${monthlyExpenses.toLocaleString('es-AR')} ARS` : '$0 ARS',
+        dailyRevenue:
+          dailyRevenue > 0
+            ? `$${dailyRevenue.toLocaleString('es-AR')} ARS`
+            : '$0 ARS',
+        monthlyExpenses:
+          monthlyExpenses > 0
+            ? `$${monthlyExpenses.toLocaleString('es-AR')} ARS`
+            : '$0 ARS',
         todayTransactions: todaySales.length,
         lowStock: lowStockProducts.length,
       });
@@ -87,49 +104,48 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            {/* 1. Ingresos del día: Directo del control de caja */}
+            {/* 1. Ingresos del día:  */}
             <StatsCard
               title='Ingresos del Día'
               value={dashboardData?.dailyRevenue || ''}
-              change='+10% vs ayer'
+              change='Ingresos totales del día'
               icon={DollarSign}
-              trend='up'
+              trend='neutral'
               color='green'
             />
-            {/* 2. Gastos del mes: La otra cara de la moneda para el control financiero */}
+            {/* 2. Gastos del mes: */}
             <StatsCard
               title='Gastos del Mes'
               value={dashboardData?.monthlyExpenses || ''}
-              change='+5% vs mes anterior'
+              change='Gastos totales del mes'
               icon={TrendingDown}
-              trend='down'
-              color='orange'
+              trend='neutral'
+              color='green'
             />
-            {/* 3. Transacciones de Hoy: Refleja la actividad del negocio */}
+            {/* 3. Transacciones de Hoy: */}
             <StatsCard
               title='Transacciones de Hoy'
               value={dashboardData?.todayTransactions || 0}
-              change='-3 desde ayer'
+              change='Transacciones completadas'
               icon={ShoppingCart}
-              trend='down'
-              color='terracota'
+              trend='neutral'
+              color='green'
             />
             <StatsCard
               title='Stock Bajo'
               value={dashboardData?.lowStock || 0}
-              change='2 productos críticos'
+              change='Productos con stock bajo'
               icon={AlertTriangle}
               trend='neutral'
-              color='red'
+              color='orange'
             />
           </>
         )}
       </div>
 
-      {/* Quick Actions with loading state */}
       {isLoading ? <QuickActionsSkeleton /> : <QuickActions />}
 
-      {/* Recent Activity Widget */}
+      {/* Recent Activity */}
       {isLoading ? (
         <DashboardInfoCardSkeleton />
       ) : (

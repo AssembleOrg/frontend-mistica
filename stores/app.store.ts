@@ -4,8 +4,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Product, Sale, StockMovement, CartItem } from '@/lib/types';
-import { mockProducts, mockSales } from '@/lib/mock-data';
+import { Product, Sale, StockMovement, CartItem, Employee, CashTransaction, Expense, FinancialSummary } from '@/lib/types';
+import { mockProducts, mockSales, mockEmployees } from '@/lib/mock-data';
 import { useActivityStore } from './activity.store';
 
 interface AppState {
@@ -19,6 +19,13 @@ interface AppState {
   // Stock
   stockMovements: StockMovement[];
   
+  // Employees
+  employees: Employee[];
+  
+  // Financial Management
+  cashTransactions: CashTransaction[];
+  expenses: Expense[];
+  
   // Settings
   settings: {
     taxRate: number;
@@ -30,6 +37,16 @@ interface AppState {
   addProduct: (product: Product) => void;
   updateProduct: (id: string, updates: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  
+  // Employee Actions
+  addEmployee: (employee: Employee) => void;
+  updateEmployee: (id: string, updates: Partial<Employee>) => void;
+  deleteEmployee: (id: string) => void;
+  
+  // Financial Actions
+  addExpense: (expense: Expense) => void;
+  addCashTransaction: (transaction: CashTransaction) => void;
+  getFinancialSummary: (date?: Date) => FinancialSummary;
   
   // Cart Actions
   addToCart: (product: Product, quantity: number) => void;
@@ -58,6 +75,9 @@ export const useAppStore = create<AppState>()(
       cart: [],
       salesHistory: [],
       stockMovements: [],
+      employees: [],
+      cashTransactions: [],
+      expenses: [],
       settings: {
         taxRate: 0.21, // 21% IVA Argentina
         lowStockThreshold: 5,
@@ -259,6 +279,23 @@ export const useAppStore = create<AppState>()(
           }
         });
 
+        // Generate automatic cash transaction for sales correlation
+        const cashTransaction: CashTransaction = {
+          id: crypto.randomUUID(),
+          type: 'ingreso',
+          amount: total,
+          description: `Venta #${sale.id.slice(-8)}`,
+          category: 'venta',
+          paymentMethod: paymentMethod as any,
+          reference: sale.id,
+          userId: 'user',
+          createdAt: new Date()
+        };
+
+        set(state => ({
+          cashTransactions: [...state.cashTransactions, cashTransaction]
+        }));
+
         return sale;
       },
 
@@ -340,6 +377,184 @@ export const useAppStore = create<AppState>()(
         });
       },
 
+      // Employee Actions
+      addEmployee: (employee) => {
+        set(state => ({
+          employees: [...state.employees, employee]
+        }));
+        
+        // Log activity
+        useActivityStore.getState().addActivity({
+          type: 'cambio_producto',
+          description: `Empleado agregado: ${employee.name}`,
+          metadata: { employeeId: employee.id, action: 'create' }
+        });
+      },
+
+      updateEmployee: (id, updates) => {
+        const state = get();
+        const employee = state.employees.find(e => e.id === id);
+        
+        set(state => ({
+          employees: state.employees.map(e => 
+            e.id === id ? { ...e, ...updates, updatedAt: new Date() } : e
+          )
+        }));
+        
+        // Log activity
+        if (employee) {
+          useActivityStore.getState().addActivity({
+            type: 'cambio_producto',
+            description: `Empleado actualizado: ${employee.name}`,
+            metadata: { employeeId: id, updates, action: 'update' }
+          });
+        }
+      },
+
+      deleteEmployee: (id) => {
+        const state = get();
+        const employee = state.employees.find(e => e.id === id);
+        
+        set(state => ({
+          employees: state.employees.filter(e => e.id !== id)
+        }));
+        
+        // Log activity
+        if (employee) {
+          useActivityStore.getState().addActivity({
+            type: 'cambio_producto',
+            description: `Empleado eliminado: ${employee.name}`,
+            metadata: { employeeId: id, action: 'delete' }
+          });
+        }
+      },
+
+      // Financial Actions
+      addExpense: (expense) => {
+        set(state => ({
+          expenses: [...state.expenses, expense]
+        }));
+        
+        // Generate corresponding cash transaction
+        const cashTransaction: CashTransaction = {
+          id: crypto.randomUUID(),
+          type: 'egreso',
+          amount: expense.amount,
+          description: expense.description,
+          category: expense.category,
+          paymentMethod: expense.paymentMethod,
+          reference: expense.id,
+          userId: expense.userId,
+          createdAt: expense.createdAt
+        };
+        
+        set(state => ({
+          cashTransactions: [...state.cashTransactions, cashTransaction]
+        }));
+        
+        // Log activity
+        useActivityStore.getState().addActivity({
+          type: 'egreso',
+          description: `Gasto registrado: ${expense.description}`,
+          amount: expense.amount,
+          metadata: { 
+            expenseId: expense.id, 
+            category: expense.category,
+            action: 'expense_added'
+          }
+        });
+      },
+
+      addCashTransaction: (transaction) => {
+        set(state => ({
+          cashTransactions: [...state.cashTransactions, transaction]
+        }));
+        
+        // Log activity
+        useActivityStore.getState().addActivity({
+          type: transaction.type,
+          description: transaction.description,
+          amount: transaction.amount,
+          metadata: { 
+            transactionId: transaction.id,
+            category: transaction.category,
+            action: 'cash_transaction_added'
+          }
+        });
+      },
+
+      getFinancialSummary: (date = new Date()) => {
+        const state = get();
+        const targetDate = new Date(date);
+        const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+        // Filter transactions for the specific date
+        const dayTransactions = state.cashTransactions.filter(t => 
+          t.createdAt >= startOfDay && t.createdAt < endOfDay
+        );
+        
+        const dayExpenses = state.expenses.filter(e => 
+          e.createdAt >= startOfDay && e.createdAt < endOfDay
+        );
+
+        const daySales = state.salesHistory.filter(s => 
+          s.createdAt >= startOfDay && s.createdAt < endOfDay
+        );
+
+        // Calculate totals
+        const totalIngresos = dayTransactions
+          .filter(t => t.type === 'ingreso')
+          .reduce((sum, t) => sum + t.amount, 0);
+          
+        const totalEgresos = dayTransactions
+          .filter(t => t.type === 'egreso')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        // Payment method breakdown
+        const paymentMethodBreakdown = {
+          efectivo: 0,
+          tarjeta: 0,
+          transferencia: 0,
+          mixto: 0
+        };
+
+        daySales.forEach(sale => {
+          paymentMethodBreakdown[sale.paymentMethod] += sale.total;
+        });
+
+        // Top expense categories
+        const expenseCategories = new Map();
+        dayExpenses.forEach(expense => {
+          if (expenseCategories.has(expense.category)) {
+            const current = expenseCategories.get(expense.category);
+            expenseCategories.set(expense.category, {
+              amount: current.amount + expense.amount,
+              count: current.count + 1
+            });
+          } else {
+            expenseCategories.set(expense.category, { amount: expense.amount, count: 1 });
+          }
+        });
+
+        const topExpenseCategories = Array.from(expenseCategories.entries()).map(([category, data]) => ({
+          category,
+          amount: data.amount,
+          count: data.count
+        }));
+
+        return {
+          date: targetDate,
+          totalIngresos,
+          totalEgresos,
+          netBalance: totalIngresos - totalEgresos,
+          salesCount: daySales.length,
+          expensesCount: dayExpenses.length,
+          paymentMethodBreakdown,
+          topExpenseCategories
+        };
+      },
+
       // Computed
       getCartTotal: () => {
         const state = get();
@@ -353,7 +568,7 @@ export const useAppStore = create<AppState>()(
 
       getLowStockProducts: () => {
         const state = get();
-        return state.products.filter(p => p.stock <= state.settings.lowStockThreshold && p.status === 'active');
+        return state.products.filter(p => p.stock <= state.settings.lowStockThreshold);
       }
     }),
     {
@@ -365,6 +580,9 @@ export const useAppStore = create<AppState>()(
         }
         if (state && state.salesHistory.length === 0) {
           state.salesHistory = mockSales;
+        }
+        if (state && state.employees.length === 0) {
+          state.employees = mockEmployees;
         }
       }
     }

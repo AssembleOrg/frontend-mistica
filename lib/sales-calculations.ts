@@ -86,7 +86,8 @@ export function calculateTotal(taxableAmount: number, taxAmount: number): number
 }
 
 /**
- * Format currency with proper locale and currency
+ * Format currency with proper locale and currency for Argentina
+ * Uses DOT (.) as thousands separator and COMMA (,) as decimal separator
  */
 export function formatCurrency(
   amount: number, 
@@ -96,17 +97,39 @@ export function formatCurrency(
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 
 /**
- * Format number with proper locale separators
+ * Format number with proper locale separators for Argentina
+ * Uses DOT (.) as thousands separator and COMMA (,) as decimal separator
  */
 export function formatNumber(
   num: number, 
-  locale: string = DEFAULT_SETTINGS.locale
-): number {
-  return Number(new Intl.NumberFormat(locale).format(num).replace(/[^\d.-]/g, ''));
+  locale: string = DEFAULT_SETTINGS.locale,
+  fractionDigits: number = 2
+): string {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  }).format(num);
+}
+
+/**
+ * Format number as percentage with Argentina locale
+ */
+export function formatPercentage(
+  num: number,
+  locale: string = DEFAULT_SETTINGS.locale,
+  fractionDigits: number = 1
+): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  }).format(num / 100);
 }
 
 /**

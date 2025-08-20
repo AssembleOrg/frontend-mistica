@@ -20,13 +20,19 @@ export function exportProductsToExcel(products: Product[], filename?: string): v
     litro: 'L'
   };
 
-  // Transformar datos para Excel con headers en español
+  // Transformar datos para Excel con headers en español y formato Argentina
   const exportData = products.map(product => ({
     'Código de Barras': product.barcode,
     'Producto': product.name,
     'Categoría': categoryConfig[product.category]?.label || product.category,
-    'Precio Costo (ARS)': product.costPrice,
-    'Precio Venta (ARS)': product.price,
+    'Precio Costo (ARS)': new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(product.costPrice),
+    'Precio Venta (ARS)': new Intl.NumberFormat('es-AR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(product.price),
     'Margen (%)': calculateProfitMargin(product.price, product.costPrice).toFixed(1),
     'Stock': product.stock,
     'Unidad de Medida': unitLabels[product.unitOfMeasure] || product.unitOfMeasure,

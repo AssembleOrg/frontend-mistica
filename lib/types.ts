@@ -13,8 +13,7 @@ export interface Product {
   status: 'active' | 'inactive' | 'out_of_stock';
   createdAt: Date;
   updatedAt: Date;
-  // Campos calculados
-  profitMargin?: number; // (price - costPrice) / costPrice * 100
+  profitMargin?: number;
 }
 
 // Stock Management Types
@@ -225,8 +224,110 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'user' | 'cashier';
+  role: 'admin' | 'gerente' | 'cajero';
   avatar?: string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+// Employee Management Types
+export interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  role: 'cajero' | 'gerente';
+  phone?: string;
+  address?: string;
+  startDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface EmployeeCreationData {
+  name: string;
+  email: string;
+  role: Employee['role'];
+  phone?: string;
+  address?: string;
+  startDate: Date;
+}
+
+// Financial Management Types
+export interface CashTransaction {
+  id: string;
+  type: 'ingreso' | 'egreso';
+  amount: number;
+  description: string;
+  category: string;
+  paymentMethod: Sale['paymentMethod'];
+  reference?: string; // Reference to sale ID, expense ID, etc.
+  userId: string;
+  createdAt: Date;
+}
+
+export interface Expense {
+  id: string;
+  amount: number;
+  description: string;
+  category: 'operativo' | 'compras' | 'servicios' | 'otros';
+  paymentMethod: Sale['paymentMethod'];
+  receipt?: string; // Receipt/invoice reference
+  notes?: string;
+  userId: string;
+  createdAt: Date;
+}
+
+export interface FinancialSummary {
+  date: Date;
+  totalIngresos: number;
+  totalEgresos: number;
+  netBalance: number;
+  salesCount: number;
+  expensesCount: number;
+  paymentMethodBreakdown: {
+    efectivo: number;
+    tarjeta: number;
+    transferencia: number;
+    mixto: number;
+  };
+  topExpenseCategories: Array<{
+    category: string;
+    amount: number;
+    count: number;
+  }>;
+}
+
+export interface DailyClosing {
+  id: string;
+  date: Date;
+  openingCash: number;
+  totalSales: number;
+  totalExpenses: number;
+  expectedCash: number;
+  actualCash: number;
+  discrepancy: number;
+  notes?: string;
+  closedBy: string;
+  createdAt: Date;
+}
+
+// Invoice types for future A/B/C implementation
+export interface Invoice {
+  id: string;
+  saleId: string;
+  type: 'A' | 'B' | 'C';
+  number: string;
+  customerInfo: {
+    name: string;
+    taxId?: string; // CUIT/CUIL for type A
+    address?: string;
+  };
+  items: SaleItem[];
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  status: 'draft' | 'issued' | 'cancelled';
+  issuedAt?: Date;
+  afipCae?: string; // CAE from AFIP
+  dueDate?: Date;
 }

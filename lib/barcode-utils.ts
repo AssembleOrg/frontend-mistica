@@ -9,7 +9,7 @@ export function generateMisticaBarcode(): string {
   const prefix = 'MST';
   const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
   const randomSuffix = crypto.randomUUID().replace(/\D/g, '').slice(0, 4); // Extract 4 digits from UUID
-  
+
   return `${prefix}${timestamp}${randomSuffix}`;
 }
 
@@ -26,16 +26,18 @@ export function generateUniqueBarcode(
 ): string {
   let attempts = 0;
   let barcode: string;
-  
+
   do {
     barcode = generateMisticaBarcode();
     attempts++;
-    
+
     if (attempts >= maxRetries) {
-      throw new Error('Failed to generate unique barcode after maximum retries');
+      throw new Error(
+        'Failed to generate unique barcode after maximum retries'
+      );
     }
   } while (isBarcodeDuplicate(barcode));
-  
+
   return barcode;
 }
 
@@ -47,17 +49,17 @@ export function validateMisticaBarcode(barcode: string): boolean {
   if (!barcode || typeof barcode !== 'string') {
     return false;
   }
-  
+
   // Must be exactly 13 characters
   if (barcode.length !== 13) {
     return false;
   }
-  
+
   // Must start with MST
   if (!barcode.startsWith('MST')) {
     return false;
   }
-  
+
   // Remaining 10 characters must be digits
   const remaining = barcode.slice(3);
   return /^\d{10}$/.test(remaining);
@@ -71,7 +73,7 @@ export function extractProductIdFromBarcode(barcode: string): number | null {
   if (!validateMisticaBarcode(barcode)) {
     return null;
   }
-  
+
   const productIdStr = barcode.slice(-4);
   return parseInt(productIdStr, 10);
 }
@@ -93,7 +95,10 @@ export function generateRandomBarcode(): string {
 /**
  * Calculate profit margin percentage
  */
-export function calculateProfitMargin(salePrice: number, costPrice: number): number {
+export function calculateProfitMargin(
+  salePrice: number,
+  costPrice: number
+): number {
   if (costPrice <= 0) return 0;
   return Math.round(((salePrice - costPrice) / costPrice) * 100 * 100) / 100; // Round to 2 decimals
 }

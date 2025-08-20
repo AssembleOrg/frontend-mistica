@@ -26,8 +26,20 @@ export const useAuthStore = create<AuthState>()(
       login: async (email, password) => {
         set({ status: 'loading', error: null });
         try {
-          // Simple mock login for MVP
-          const user = { id: '1', email, name: email.split('@')[0], role: 'admin' as const };
+          // Mock users for different roles
+          let user;
+          
+          if (email === 'admin@mistica.com') {
+            user = { id: '1', email, name: 'Administrador', role: 'admin' as const };
+          } else if (email === 'gerente@mistica.com') {
+            user = { id: '2', email, name: 'Carlos Rodríguez', role: 'gerente' as const };
+          } else if (email === 'cajero@mistica.com') {
+            user = { id: '3', email, name: 'Ana López', role: 'cajero' as const };
+          } else {
+            // Default admin for any other email
+            user = { id: '1', email, name: email.split('@')[0], role: 'admin' as const };
+          }
+          
           const token = 'mock-token-' + Date.now();
 
           set({ 

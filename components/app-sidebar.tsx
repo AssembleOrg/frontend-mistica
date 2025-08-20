@@ -44,7 +44,7 @@ const navigationItems = [
     title: 'Caja y Finanzas',
     url: '/dashboard/finances',
     icon: DollarSign,
-    enabled: false,
+    enabled: true,
   },
   {
     title: 'Productos',
@@ -62,7 +62,7 @@ const navigationItems = [
     title: 'Personal',
     url: '/dashboard/staff',
     icon: Users,
-    enabled: false,
+    enabled: true,
   },
   {
     title: 'Configuración',
@@ -73,7 +73,7 @@ const navigationItems = [
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -83,6 +83,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       showToast.success('Sesión cerrada correctamente');
     }
   };
+
+  // Filter navigation items based on user role
+  const filteredNavItems = navigationItems.filter((item) => {
+    if (!user) return true; // Show all if no user (shouldn't happen)
+    
+    if (user.role === 'cajero') {
+      // Cajero: Solo Dashboard, Productos (lectura), Ventas
+      return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
+    }
+    
+    if (user.role === 'gerente') {
+      // Gerente: Todo menos Personal
+      return item.title !== 'Personal';
+    }
+    
+    // Admin: Ve todo
+    return true;
+  });
 
   return (
     <Sidebar
@@ -114,7 +132,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarContent>
         <SidebarMenu>
-          {navigationItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               {item.enabled ? (
                 <SidebarMenuButton
@@ -161,12 +179,3 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   );
 }
 
-//* Implementación de roles en esta view:
-// const { user } = useAuthStore(); // A
-
-// const filteredNavItems = navigationItems.filter((item) => {
-//   if (user?.role === 'vendedor') {
-//     return ['Dashboard', 'Ventas'].includes(item.title);
-//   }
-//   return true;
-// });

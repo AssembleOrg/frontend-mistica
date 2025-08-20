@@ -143,7 +143,10 @@ export default function StockDashboard() {
 
         <StatsCard
           title='Valor Total Inventario'
-          value={`$${stockSummary.totalValue.toLocaleString('es-AR')}`}
+          value={`$${stockSummary.totalValue.toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })}`}
           change='Precio de costo'
           icon={Package}
           trend='up'

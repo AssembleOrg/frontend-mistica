@@ -38,7 +38,7 @@ export default function Dashboard() {
     null
   );
   const { getRecentActivities } = useActivityStore();
-  const { salesHistory, getLowStockProducts } = useAppStore();
+  const { salesHistory, expenses, getLowStockProducts } = useAppStore();
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -58,16 +58,15 @@ export default function Dashboard() {
         (sum, sale) => sum + sale.total,
         0
       );
-      const monthlyExpenses = salesHistory.reduce(
-        (sum, sale) =>
-          sum +
-          (sale.items?.reduce(
-            (itemSum, item) =>
-              itemSum + (item.product?.costPrice || 0) * item.quantity,
-            0
-          ) || 0),
-        0
+      // Monthly expenses from actual expense records
+      const startOfMonth = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1
       );
+      const monthlyExpenses = expenses
+        .filter(expense => expense.createdAt >= startOfMonth)
+        .reduce((sum, expense) => sum + expense.amount, 0);
 
       // Low stock count
       const lowStockProducts = getLowStockProducts();
@@ -75,11 +74,17 @@ export default function Dashboard() {
       setDashboardData({
         dailyRevenue:
           dailyRevenue > 0
-            ? `$${dailyRevenue.toLocaleString('es-AR')} ARS`
+            ? `$${dailyRevenue.toLocaleString('es-AR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })} ARS`
             : '$0 ARS',
         monthlyExpenses:
           monthlyExpenses > 0
-            ? `$${monthlyExpenses.toLocaleString('es-AR')} ARS`
+            ? `$${monthlyExpenses.toLocaleString('es-AR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })} ARS`
             : '$0 ARS',
         todayTransactions: todaySales.length,
         lowStock: lowStockProducts.length,
@@ -89,7 +94,7 @@ export default function Dashboard() {
     };
 
     loadDashboardData();
-  }, [salesHistory, getLowStockProducts]);
+  }, [salesHistory, expenses, getLowStockProducts]);
 
   return (
     <div className='space-y-6 mt-6'>

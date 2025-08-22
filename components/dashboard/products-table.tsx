@@ -20,6 +20,7 @@ import {
   Edit,
   Trash2,
   Download,
+  Eye,
 } from 'lucide-react';
 
 import { useState } from 'react';
@@ -49,6 +50,9 @@ import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { exportProductsToExcel, getExportSummary } from '@/lib/excel-utils';
 import { showToast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
+import { useResponsive } from '@/hooks/use-mobile';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface ProductsTableProps {
   data: Product[];
@@ -57,6 +61,7 @@ interface ProductsTableProps {
 
 export function ProductsTable({ data }: ProductsTableProps) {
   const router = useRouter();
+  const { isMobile, isTablet } = useResponsive();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -98,49 +103,123 @@ export function ProductsTable({ data }: ProductsTableProps) {
     }
   };
 
-  const handleExportFiltered = async () => {
-    setIsExporting(true);
+  // Vista móvil con cards
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-2 justify-between items-start sm:items-center">
+          <div className="text-lg font-winter-solid text-[#455a54]">
+            Productos ({data.length})
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => router.push('/dashboard/products/add')}
+              className="flex-1 sm:flex-none bg-[#9d684e] hover:bg-[#b17e65] text-white"
+            >
+              Agregar Producto
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsExporting(true)}
+              disabled={isExporting}
+              className="flex-1 sm:flex-none"
+            >
+              {isExporting ? <LoadingSpinner /> : <Download className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
 
-    try {
-      // Obtener productos filtrados actuales
-      const filteredRows = table.getFilteredRowModel().rows;
-      const filteredProducts = filteredRows.map((row) => row.original);
+        <div className="grid gap-4">
+          {data.map((product) => (
+            <Card key={product.id} className="border-[#d9dadb] bg-white">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-base font-winter-solid text-[#455a54] line-clamp-2">
+                    {product.name}
+                  </CardTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => router.push(`/dashboard/products/${product.id}`)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleAction(product.id, 'edit')}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleAction(product.id, 'delete')}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-[#455a54]">Precio:</span>
+                    <div className="text-[#9d684e] font-semibold">
+                      ${product.price.toFixed(2)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-[#455a54]">Stock:</span>
+                    <div className={`
+                      font-semibold
+                      ${product.stock <= 5 ? 'text-red-600' : 
+                        product.stock <= 10 ? 'text-orange-600' : 'text-green-600'}
+                    `}>
+                      {product.stock} unidades
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-[#455a54]">Categoría:</span>
+                    <div className="text-[#455a54]">
+                      {categoryConfig[product.category]?.label || product.category}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-[#455a54]">Estado:</span>
+                    <Badge 
+                      variant={product.status === 'active' ? 'default' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {statusConfig[product.status]?.label || product.status}
+                    </Badge>
+                  </div>
+                </div>
+                
+                {product.description && (
+                  <div>
+                    <span className="font-medium text-[#455a54] text-sm">Descripción:</span>
+                    <div className="text-[#455a54] text-sm line-clamp-2 mt-1">
+                      {product.description}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-      if (filteredProducts.length === 0) {
-        showToast.error(
-          'Sin productos',
-          'No hay productos para exportar con los filtros actuales.'
-        );
-        return;
-      }
-
-      // Generar nombre de archivo descriptivo
-      const today = new Date().toISOString().split('T')[0];
-      const hasFilters = table.getState().columnFilters.length > 0;
-      const filename = hasFilters
-        ? `productos-filtrados-${today}.xlsx`
-        : `productos-mistica-${today}.xlsx`;
-
-      // Exportar
-      exportProductsToExcel(filteredProducts, filename);
-
-      // Mostrar resumen
-      const summary = getExportSummary(filteredProducts);
-      showToast.success(
-        'Exportación exitosa',
-        `Se exportaron ${summary.total} productos a Excel.`
-      );
-    } catch (error) {
-      showToast.error(
-        'Error al exportar',
-        'Ocurrió un error al generar el archivo Excel.'
-      );
-      console.error('Export error:', error);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
+  // Vista tablet/desktop con tabla
   const columns: ColumnDef<Product>[] = [
     {
       id: 'select',
@@ -151,14 +230,14 @@ export function ProductsTable({ data }: ProductsTableProps) {
             (table.getIsSomePageRowsSelected() && 'indeterminate')
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label='Seleccionar todos'
+          aria-label="Select all"
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label='Seleccionar fila'
+          aria-label="Select row"
         />
       ),
       enableSorting: false,
@@ -169,149 +248,40 @@ export function ProductsTable({ data }: ProductsTableProps) {
       header: ({ column }) => {
         return (
           <Button
-            variant='ghost'
+            variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className="font-winter-solid text-[#455a54] hover:bg-[#9d684e]/10"
           >
-            Producto
-            <ArrowUpDown className='ml-2 h-4 w-4' />
+            Nombre
+            <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
       cell: ({ row }) => (
-        <div className='font-medium text-[#455a54]'>{row.getValue('name')}</div>
+        <div className="font-medium text-[#455a54] max-w-[200px] truncate">
+          {row.getValue('name')}
+        </div>
       ),
-    },
-    {
-      accessorKey: 'category',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
-          >
-            Categoría
-            <ArrowUpDown className='ml-2 h-4 w-4' />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const category = row.getValue('category') as Product['category'];
-        const config = categoryConfig[category];
-        return (
-          <div
-            className='inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
-            style={{
-              color: config.color,
-              backgroundColor: config.bgColor,
-            }}
-          >
-            {config.label}
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: 'barcode',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
-          >
-            Código
-            <ArrowUpDown className='ml-2 h-4 w-4' />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const barcode = row.getValue('barcode') as string;
-        return (
-          <div className='font-mono text-xs text-[#455a54] bg-gray-50 px-2 py-1 rounded border'>
-            {barcode}
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: 'costPrice',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
-          >
-            Costo
-            <ArrowUpDown className='ml-2 h-4 w-4' />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const amount = parseFloat(row.getValue('costPrice'));
-        const formatted = new Intl.NumberFormat('es-AR', {
-          style: 'currency',
-          currency: 'ARS',
-        }).format(amount);
-
-        return <div className='font-medium text-[#455a54]'>{formatted}</div>;
-      },
     },
     {
       accessorKey: 'price',
       header: ({ column }) => {
         return (
           <Button
-            variant='ghost'
+            variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className="font-winter-solid text-[#455a54] hover:bg-[#9d684e]/10"
           >
-            Venta
-            <ArrowUpDown className='ml-2 h-4 w-4' />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const amount = parseFloat(row.getValue('price'));
-        const formatted = new Intl.NumberFormat('es-AR', {
-          style: 'currency',
-          currency: 'ARS',
-        }).format(amount);
-
-        return <div className='font-medium text-[#9d684e]'>{formatted}</div>;
-      },
-    },
-    {
-      id: 'profitMargin',
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
-          >
-            Margen
+            Precio
+            <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
       cell: ({ row }) => {
         const price = parseFloat(row.getValue('price'));
-        const costPrice = parseFloat(row.getValue('costPrice'));
-        const margin = calculateProfitMargin(price, costPrice);
-
         return (
-          <div
-            className={`font-medium ${
-              margin < 20
-                ? 'text-red-500'
-                : margin < 50
-                ? 'text-orange-500'
-                : 'text-green-600'
-            }`}
-          >
-            {margin.toFixed(1)}%
+          <div className="font-semibold text-[#9d684e]">
+            ${price.toFixed(2)}
           </div>
         );
       },
@@ -321,66 +291,49 @@ export function ProductsTable({ data }: ProductsTableProps) {
       header: ({ column }) => {
         return (
           <Button
-            variant='ghost'
+            variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className="font-winter-solid text-[#455a54] hover:bg-[#9d684e]/10"
           >
             Stock
-            <ArrowUpDown className='ml-2 h-4 w-4' />
+            <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
       cell: ({ row }) => {
         const stock = row.getValue('stock') as number;
-        const unitOfMeasure = row.original.unitOfMeasure;
-        const unitLabel =
-          {
-            gramo: 'g',
-            litro: 'L',
-          }[unitOfMeasure] || unitOfMeasure;
-
         return (
-          <div
-            className={`font-medium ${
-              stock === 0
-                ? 'text-red-500'
-                : stock <= 10
-                ? 'text-orange-500'
-                : 'text-[#455a54]'
-            }`}
-          >
-            {stock} {unitLabel}
+          <div className={`
+            font-semibold
+            ${stock <= 5 ? 'text-red-600' : 
+              stock <= 10 ? 'text-orange-600' : 'text-green-600'}
+          `}>
+            {stock} unidades
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'category',
+      header: 'Categoría',
+      cell: ({ row }) => {
+        const category = row.getValue('category') as string;
+        return (
+          <div className="text-[#455a54]">
+            {categoryConfig[category]?.label || category}
           </div>
         );
       },
     },
     {
       accessorKey: 'status',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
-          >
-            Estado
-            <ArrowUpDown className='ml-2 h-4 w-4' />
-          </Button>
-        );
-      },
+      header: 'Estado',
       cell: ({ row }) => {
-        const status = row.getValue('status') as Product['status'];
-        const config = statusConfig[status];
+        const status = row.getValue('status') as string;
         return (
-          <div
-            className='inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
-            style={{
-              color: config.color,
-              backgroundColor: config.bgColor,
-            }}
-          >
-            {config.label}
-          </div>
+          <Badge variant={status === 'active' ? 'default' : 'secondary'}>
+            {statusConfig[status]?.label || status}
+          </Badge>
         );
       },
     },
@@ -389,54 +342,37 @@ export function ProductsTable({ data }: ProductsTableProps) {
       enableHiding: false,
       cell: ({ row }) => {
         const product = row.original;
-        const isActionLoading = actionLoading[product.id] || false;
+        const isLoading = actionLoading[product.id];
 
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant='ghost'
-                className='h-8 w-8 p-0 hover:bg-[#efcbb9]/50'
-                disabled={isActionLoading}
-              >
-                <span className='sr-only'>Abrir menú</span>
-                {isActionLoading ? (
-                  <LoadingSpinner size='sm' />
-                ) : (
-                  <MoreHorizontal className='h-4 w-4' />
-                )}
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Abrir menú</span>
+                <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align='end'>
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => {
-                  navigator.clipboard.writeText(product.barcode);
-                  showToast.success(
-                    'Copiado',
-                    'Código de barras copiado al portapapeles'
-                  );
-                }}
-                className='hover:bg-[#efcbb9]/30'
-                disabled={isActionLoading}
+                onClick={() => router.push(`/dashboard/products/${product.id}`)}
               >
-                Copiar código de barras
+                <Eye className="mr-2 h-4 w-4" />
+                Ver
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleAction(product.id, 'edit')}
+                disabled={isLoading}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className='hover:bg-[#efcbb9]/30'
-                onClick={() => handleAction(product.id, 'edit')}
-                disabled={isActionLoading}
-              >
-                <Edit className='mr-2 h-4 w-4' />
-                Editar producto
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className='hover:bg-red-50 text-red-600'
                 onClick={() => handleAction(product.id, 'delete')}
-                disabled={isActionLoading}
+                disabled={isLoading}
+                className="text-red-600"
               >
-                <Trash2 className='mr-2 h-4 w-4' />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -466,55 +402,48 @@ export function ProductsTable({ data }: ProductsTableProps) {
   });
 
   return (
-    <div className='w-full'>
-      <div className='flex items-center py-4'>
-        <div className='flex gap-2'>
-          <select
-            value={
-              (table.getColumn('category')?.getFilterValue() as string) ?? ''
-            }
-            onChange={(event) =>
-              table
-                .getColumn('category')
-                ?.setFilterValue(event.target.value || undefined)
-            }
-            className='px-3 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none max-w-sm'
-          >
-            <option value=''>Todas las categorías</option>
-            <option value='organicos'>Orgánicos</option>
-            <option value='aromaticos'>Aromáticos</option>
-            <option value='wellness'>Wellness</option>
-          </select>
+    <div className="w-full">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+        <div className="text-xl font-winter-solid text-[#455a54]">
+          Productos ({data.length})
         </div>
-        <div className='ml-auto flex gap-2'>
+        <div className="flex gap-2 w-full sm:w-auto">
           <Button
-            onClick={handleExportFiltered}
-            disabled={isExporting || data.length === 0}
-            variant='outline'
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+            onClick={() => router.push('/dashboard/products/add')}
+            className="flex-1 sm:flex-none bg-[#9d684e] hover:bg-[#b17e65] text-white"
           >
-            {isExporting ? (
-              <>
-                <LoadingSpinner size='sm' />
-                <span className='ml-2'>Exportando...</span>
-              </>
-            ) : (
-              <>
-                <Download className='mr-2 h-4 w-4' />
-                Exportar ({table.getFilteredRowModel().rows.length})
-              </>
-            )}
+            Agregar Producto
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => setIsExporting(true)}
+            disabled={isExporting}
+            className="flex-1 sm:flex-none"
+          >
+            {isExporting ? <LoadingSpinner /> : <Download className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-[#d9dadb] bg-white">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-2">
+            <input
+              placeholder="Filtrar productos..."
+              value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+              onChange={(event) =>
+                table.getColumn('name')?.setFilterValue(event.target.value)
+              }
+              className="max-w-sm px-3 py-2 border border-[#d9dadb] rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#9d684e] focus:border-transparent"
+            />
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
-              >
-                Columnas <ChevronDown className='ml-2 h-4 w-4' />
+              <Button variant="outline" className="ml-auto">
+                Columnas <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align='end'>
+            <DropdownMenuContent align="end">
               {table
                 .getAllColumns()
                 .filter((column) => column.getCanHide())
@@ -522,95 +451,89 @@ export function ProductsTable({ data }: ProductsTableProps) {
                   return (
                     <DropdownMenuCheckboxItem
                       key={column.id}
-                      className='hover:bg-[#efcbb9]/30 capitalize'
+                      className="capitalize"
                       checked={column.getIsVisible()}
                       onCheckedChange={(value) =>
                         column.toggleVisibility(!!value)
                       }
                     >
-                      {column.id}
+                      {column.id === 'name' ? 'Nombre' :
+                       column.id === 'price' ? 'Precio' :
+                       column.id === 'stock' ? 'Stock' :
+                       column.id === 'category' ? 'Categoría' :
+                       column.id === 'status' ? 'Estado' : column.id}
                     </DropdownMenuCheckboxItem>
                   );
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-      <div className='rounded-md border border-[#9d684e]/20'>
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow
-                key={headerGroup.id}
-                className='hover:bg-[#efcbb9]/20'
-              >
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  className='hover:bg-[#efcbb9]/10'
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="bg-[#f8f9fa]">
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id} className="text-[#455a54] font-winter-solid">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className='h-24 text-center text-[#455a54]/70'
-                >
-                  No se encontraron productos.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      <div className='flex items-center justify-end space-x-2 py-4'>
-        <div className='flex-1 text-sm text-[#455a54]/70'>
-          {table.getFilteredSelectedRowModel().rows.length} de{' '}
-          {table.getFilteredRowModel().rows.length} fila(s) seleccionadas.
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && 'selected'}
+                    className="hover:bg-[#f8f9fa] transition-colors"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-[#455a54]">
+                    No se encontraron productos.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
-        <div className='space-x-2'>
+      </div>
+
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex-1 text-sm text-[#455a54]">
+          {table.getFilteredSelectedRowModel().rows.length} de{' '}
+          {table.getFilteredRowModel().rows.length} fila(s) seleccionada(s).
+        </div>
+        <div className="space-x-2">
           <Button
-            variant='outline'
-            size='sm'
+            variant="outline"
+            size="sm"
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
           >
             Anterior
           </Button>
           <Button
-            variant='outline'
-            size='sm'
+            variant="outline"
+            size="sm"
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
           >
             Siguiente
           </Button>

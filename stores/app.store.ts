@@ -1,5 +1,6 @@
 /**
  * SIMPLE APP STORE - Todo en uno para MVP
+ * PROTEGIDO CONTRA RACE CONDITIONS
  */
 
 import { create } from 'zustand';
@@ -90,13 +91,15 @@ export const useAppStore = create<AppState>()(
           products: [...state.products, product]
         }));
         
-        // Log activity
-        useActivityStore.getState().addActivity({
-          type: 'cambio_producto',
-          description: `Producto agregado: ${product.name}`,
-          amount: product.price,
-          metadata: { productId: product.id, action: 'create' }
-        });
+        // Log activity AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: 'cambio_producto',
+            description: `Producto agregado: ${product.name}`,
+            amount: product.price,
+            metadata: { productId: product.id, action: 'create' }
+          });
+        }, 0);
       },
 
       updateProduct: (id, updates) => {
@@ -109,19 +112,21 @@ export const useAppStore = create<AppState>()(
           )
         }));
         
-        // Log activity
+        // Log activity AFTER state update
         if (product) {
-          const activityType = updates.price !== undefined ? 'cambio_precio' : 'cambio_producto';
-          const description = updates.price !== undefined 
-            ? `Precio actualizado: ${product.name} (${product.price} → ${updates.price})`
-            : `Producto actualizado: ${product.name}`;
-            
-          useActivityStore.getState().addActivity({
-            type: activityType,
-            description,
-            amount: updates.price,
-            metadata: { productId: id, updates, action: 'update' }
-          });
+          setTimeout(() => {
+            const activityType = updates.price !== undefined ? 'cambio_precio' : 'cambio_producto';
+            const description = updates.price !== undefined 
+              ? `Precio actualizado: ${product.name} (${product.price} → ${updates.price})`
+              : `Producto actualizado: ${product.name}`;
+              
+            useActivityStore.getState().addActivity({
+              type: activityType,
+              description,
+              amount: updates.price,
+              metadata: { productId: id, updates, action: 'update' }
+            });
+          }, 0);
         }
       },
 
@@ -133,13 +138,15 @@ export const useAppStore = create<AppState>()(
           products: state.products.filter(p => p.id !== id)
         }));
         
-        // Log activity
+        // Log activity AFTER state update
         if (product) {
-          useActivityStore.getState().addActivity({
-            type: 'cambio_producto',
-            description: `Producto eliminado: ${product.name}`,
-            metadata: { productId: id, action: 'delete' }
-          });
+          setTimeout(() => {
+            useActivityStore.getState().addActivity({
+              type: 'cambio_producto',
+              description: `Producto eliminado: ${product.name}`,
+              metadata: { productId: id, action: 'delete' }
+            });
+          }, 0);
         }
       },
 
@@ -203,7 +210,7 @@ export const useAppStore = create<AppState>()(
 
       clearCart: () => set({ cart: [] }),
 
-      // Sales Actions
+      // Sales Actions - CONSOLIDADO EN UN SOLO set()
       completeSale: (paymentMethod, cashReceived) => {
         const state = get();
         const subtotal = state.getCartTotal();
@@ -236,14 +243,19 @@ export const useAppStore = create<AppState>()(
           completedAt: new Date()
         };
 
-        // Update product stock
-        state.cart.forEach(item => {
+        // Preparar todos los cambios ANTES del set()
+        const updatedProducts = state.products.map(product => {
+          const cartItem = state.cart.find(item => item.productId === product.id);
+          if (cartItem) {
+            return { ...product, stock: product.stock - cartItem.quantity };
+          }
+          return product;
+        });
+
+        const newStockMovements: StockMovement[] = state.cart.map(item => {
           const product = state.products.find(p => p.id === item.productId);
           if (product) {
-            state.updateProduct(item.productId, { stock: product.stock - item.quantity });
-            
-            // Add stock movement
-            const movement: StockMovement = {
+            return {
               id: crypto.randomUUID(),
               productId: item.productId,
               type: 'salida',
@@ -254,32 +266,10 @@ export const useAppStore = create<AppState>()(
               previousStock: product.stock,
               newStock: product.stock - item.quantity
             };
-            
-            set(state => ({
-              stockMovements: [...state.stockMovements, movement]
-            }));
           }
-        });
+          return null;
+        }).filter(Boolean) as StockMovement[];
 
-        set(state => ({
-          salesHistory: [...state.salesHistory, sale],
-          cart: []
-        }));
-
-        // Log sale activity
-        useActivityStore.getState().addActivity({
-          type: 'ingreso',
-          description: `Venta completada - ${state.cart.length} items`,
-          amount: total,
-          metadata: { 
-            saleId: sale.id, 
-            paymentMethod, 
-            itemCount: state.cart.length,
-            action: 'sale_completed'
-          }
-        });
-
-        // Generate automatic cash transaction for sales correlation
         const cashTransaction: CashTransaction = {
           id: crypto.randomUUID(),
           type: 'ingreso',
@@ -292,9 +282,29 @@ export const useAppStore = create<AppState>()(
           createdAt: new Date()
         };
 
+        // UN SOLO set() con todos los cambios
         set(state => ({
+          salesHistory: [...state.salesHistory, sale],
+          cart: [],
+          products: updatedProducts,
+          stockMovements: [...state.stockMovements, ...newStockMovements],
           cashTransactions: [...state.cashTransactions, cashTransaction]
         }));
+
+        // Log activities AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: 'ingreso',
+            description: `Venta completada - ${state.cart.length} items`,
+            amount: total,
+            metadata: { 
+              saleId: sale.id, 
+              paymentMethod, 
+              itemCount: state.cart.length,
+              action: 'sale_completed'
+            }
+          });
+        }, 0);
 
         return sale;
       },
@@ -323,16 +333,18 @@ export const useAppStore = create<AppState>()(
           )
         }));
         
-        // Log edit activity
-        useActivityStore.getState().addActivity({
-          type: 'cambio_producto',
-          description: `Venta editada: ${sale.id.slice(-8)}`,
-          metadata: { 
-            saleId, 
-            updates: allowedUpdates,
-            action: 'sale_edited'
-          }
-        });
+        // Log edit activity AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: 'cambio_producto',
+            description: `Venta editada: ${sale.id.slice(-8)}`,
+            metadata: { 
+              saleId, 
+              updates: allowedUpdates,
+              action: 'sale_edited'
+            }
+          });
+        }, 0);
         
         return true;
       },
@@ -344,7 +356,9 @@ export const useAppStore = create<AppState>()(
         if (!product) return;
 
         const newStock = product.stock + quantity;
-        state.updateProduct(productId, { stock: newStock });
+        const updatedProducts = state.products.map(p => 
+          p.id === productId ? { ...p, stock: newStock } : p
+        );
 
         const movement: StockMovement = {
           id: crypto.randomUUID(),
@@ -358,23 +372,27 @@ export const useAppStore = create<AppState>()(
           newStock
         };
 
+        // UN SOLO set() para stock y productos
         set(state => ({
+          products: updatedProducts,
           stockMovements: [...state.stockMovements, movement]
         }));
 
-        // Log stock activity
-        useActivityStore.getState().addActivity({
-          type: quantity > 0 ? 'ingreso' : 'egreso',
-          description: `Ajuste de stock: ${product.name} (${quantity > 0 ? '+' : ''}${quantity})`,
-          metadata: { 
-            productId, 
-            movementId: movement.id,
-            previousStock: product.stock,
-            newStock,
-            reason,
-            action: 'stock_adjustment'
-          }
-        });
+        // Log stock activity AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: quantity > 0 ? 'ingreso' : 'egreso',
+            description: `Ajuste de stock: ${product.name} (${quantity > 0 ? '+' : ''}${quantity})`,
+            metadata: { 
+              productId, 
+              movementId: movement.id,
+              previousStock: product.stock,
+              newStock,
+              reason,
+              action: 'stock_adjustment'
+            }
+          });
+        }, 0);
       },
 
       // Employee Actions
@@ -383,12 +401,14 @@ export const useAppStore = create<AppState>()(
           employees: [...state.employees, employee]
         }));
         
-        // Log activity
-        useActivityStore.getState().addActivity({
-          type: 'cambio_producto',
-          description: `Empleado agregado: ${employee.name}`,
-          metadata: { employeeId: employee.id, action: 'create' }
-        });
+        // Log activity AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: 'cambio_producto',
+            description: `Empleado agregado: ${employee.name}`,
+            metadata: { employeeId: employee.id, action: 'create' }
+          });
+        }, 0);
       },
 
       updateEmployee: (id, updates) => {
@@ -401,13 +421,15 @@ export const useAppStore = create<AppState>()(
           )
         }));
         
-        // Log activity
+        // Log activity AFTER state update
         if (employee) {
-          useActivityStore.getState().addActivity({
-            type: 'cambio_producto',
-            description: `Empleado actualizado: ${employee.name}`,
-            metadata: { employeeId: id, updates, action: 'update' }
-          });
+          setTimeout(() => {
+            useActivityStore.getState().addActivity({
+              type: 'cambio_producto',
+              description: `Empleado actualizado: ${employee.name}`,
+              metadata: { employeeId: id, updates, action: 'update' }
+            });
+          }, 0);
         }
       },
 
@@ -419,23 +441,20 @@ export const useAppStore = create<AppState>()(
           employees: state.employees.filter(e => e.id !== id)
         }));
         
-        // Log activity
+        // Log activity AFTER state update
         if (employee) {
-          useActivityStore.getState().addActivity({
-            type: 'cambio_producto',
-            description: `Empleado eliminado: ${employee.name}`,
-            metadata: { employeeId: id, action: 'delete' }
-          });
+          setTimeout(() => {
+            useActivityStore.getState().addActivity({
+              type: 'cambio_producto',
+              description: `Empleado eliminado: ${employee.name}`,
+              metadata: { employeeId: id, action: 'delete' }
+            });
+          }, 0);
         }
       },
 
       // Financial Actions
       addExpense: (expense) => {
-        set(state => ({
-          expenses: [...state.expenses, expense]
-        }));
-        
-        // Generate corresponding cash transaction
         const cashTransaction: CashTransaction = {
           id: crypto.randomUUID(),
           type: 'egreso',
@@ -448,21 +467,25 @@ export const useAppStore = create<AppState>()(
           createdAt: expense.createdAt
         };
         
+        // UN SOLO set() para gasto y transacción
         set(state => ({
+          expenses: [...state.expenses, expense],
           cashTransactions: [...state.cashTransactions, cashTransaction]
         }));
         
-        // Log activity
-        useActivityStore.getState().addActivity({
-          type: 'egreso',
-          description: `Gasto registrado: ${expense.description}`,
-          amount: expense.amount,
-          metadata: { 
-            expenseId: expense.id, 
-            category: expense.category,
-            action: 'expense_added'
-          }
-        });
+        // Log activity AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: 'egreso',
+            description: `Gasto registrado: ${expense.description}`,
+            amount: expense.amount,
+            metadata: { 
+              expenseId: expense.id, 
+              category: expense.category,
+              action: 'expense_added'
+            }
+          });
+        }, 0);
       },
 
       addCashTransaction: (transaction) => {
@@ -470,17 +493,19 @@ export const useAppStore = create<AppState>()(
           cashTransactions: [...state.cashTransactions, transaction]
         }));
         
-        // Log activity
-        useActivityStore.getState().addActivity({
-          type: transaction.type,
-          description: transaction.description,
-          amount: transaction.amount,
-          metadata: { 
-            transactionId: transaction.id,
-            category: transaction.category,
-            action: 'cash_transaction_added'
-          }
-        });
+        // Log activity AFTER state update
+        setTimeout(() => {
+          useActivityStore.getState().addActivity({
+            type: transaction.type,
+            description: transaction.description,
+            amount: transaction.amount,
+            metadata: { 
+              transactionId: transaction.id,
+              category: transaction.category,
+              action: 'cash_transaction_added'
+            }
+          });
+        }, 0);
       },
 
       getFinancialSummary: (date = new Date()) => {

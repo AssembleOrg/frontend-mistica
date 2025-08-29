@@ -42,14 +42,23 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
     try {
       if (employee) {
         // Update existing employee
-        updateEmployee(employee.id, {
+        const updateData = {
           ...formData,
-          updatedAt: new Date(),
-        });
+          startDate: formData.startDate instanceof Date 
+            ? formData.startDate.toISOString().split('T')[0] 
+            : formData.startDate
+        };
+        await updateEmployee(employee.id, updateData);
         showToast.success('Empleado actualizado', 'Los datos del empleado han sido actualizados correctamente.');
       } else {
         // Create new employee
-        createEmployee(formData);
+        const createData = {
+          ...formData,
+          startDate: formData.startDate instanceof Date 
+            ? formData.startDate.toISOString().split('T')[0] 
+            : formData.startDate
+        };
+        await createEmployee(createData);
         showToast.success('Empleado creado', 'El nuevo empleado ha sido agregado al sistema.');
       }
       
@@ -126,6 +135,7 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
                 <SelectContent>
                   <SelectItem value='gerente'>Gerente</SelectItem>
                   <SelectItem value='cajero'>Cajero</SelectItem>
+                  <SelectItem value='mozo'>Mozo</SelectItem>
                 </SelectContent>
               </Select>
             </div>

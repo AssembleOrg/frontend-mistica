@@ -20,15 +20,15 @@ import { EmployeesTable } from '@/components/dashboard/staff/employees-table';
 import { StaffStatsWidget, StaffRoleBreakdown } from '@/components/dashboard/staff/staff-stats-widget';
 import { EmployeeForm } from '@/components/dashboard/staff/employee-form';
 import { useEmployees } from '@/hooks/useEmployees';
+import { useInitialEmployeesData } from '@/hooks/useInitialEmployeesData';
 import { Plus, Search, Users } from 'lucide-react';
 
 export default function StaffPage() {
-  const { employees, stats, searchEmployees } = useEmployees();
+  // Initialize employees data
+  useInitialEmployeesData();
+  
+  const { employees, stats, loading, filteredEmployees, setSearchQuery, setSelectedRole, searchQuery, selectedRole } = useEmployees();
   const [showForm, setShowForm] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('');
-  // Filter employees based on search criteria
-  const filteredEmployees = searchEmployees(searchQuery, selectedRole);
 
   const handleFormSuccess = () => {
     setShowForm(false);
@@ -110,19 +110,20 @@ export default function StaffPage() {
             </div>
             <select
               value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
+              onChange={(e) => setSelectedRole(e.target.value as typeof selectedRole)}
               className='px-3 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none'
             >
-              <option value=''>Todos los roles</option>
+              <option value='all'>Todos los roles</option>
               <option value='gerente'>Gerente</option>
               <option value='cajero'>Cajero</option>
+              <option value='mozo'>Mozo</option>
             </select>
             {(searchQuery || selectedRole) && (
               <Button
                 variant='outline'
                 onClick={() => {
                   setSearchQuery('');
-                  setSelectedRole('');
+                  setSelectedRole('all');
                 }}
                 className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
               >
@@ -157,7 +158,14 @@ export default function StaffPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <EmployeesTable data={filteredEmployees} />
+              {loading ? (
+                <div className="flex justify-center items-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e]"></div>
+                  <span className="ml-2 text-[#455a54]/70">Cargando empleados...</span>
+                </div>
+              ) : (
+                <EmployeesTable data={filteredEmployees} />
+              )}
             </CardContent>
           </Card>
         </div>

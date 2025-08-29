@@ -33,6 +33,7 @@ import { showToast } from '@/lib/toast';
 import { useProducts } from '@/hooks/useProducts';
 import { Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { generateBarcode } from '@/lib/barcode-utils';
 
 interface ProductFormProps {
   product?: Product;
@@ -43,13 +44,15 @@ interface ProductFormProps {
 
 interface FormData {
   name: string;
+  barcode: string;
   category: Product['category'];
   price: number;
   costPrice: number;
   stock: number;
   unitOfMeasure: Product['unitOfMeasure'];
   description: string;
-  image?: string;
+  status: Product['status'];
+  profitMargin?: number;
 }
 
 const categories = [
@@ -77,13 +80,15 @@ export function ProductForm({
   // Form state
   const [formData, setFormData] = useState<FormData>({
     name: product?.name || '',
+    barcode: product?.barcode || generateBarcode(),
     category: product?.category || 'organicos',
     price: product?.price || 0,
     costPrice: product?.costPrice || 0,
     stock: product?.stock || 0,
     unitOfMeasure: product?.unitOfMeasure || 'gramo',
     description: product?.description || '',
-    image: product?.image,
+    status: product?.status || 'active',
+    profitMargin: product?.profitMargin,
   });
 
   const [validationErrors, setValidationErrors] = useState<
@@ -99,7 +104,8 @@ export function ProductForm({
   const isFormValid =
     formData.name.trim().length >= 3 &&
     formData.price > 0 &&
-    formData.costPrice > 0;
+    formData.costPrice > 0 &&
+    formData.description.trim().length > 0;
 
   // Form handlers - delegate to controller
   const handleInputChange = (field: keyof FormData, value: unknown) => {
@@ -122,13 +128,13 @@ export function ProductForm({
       return;
     }
 
+    console.log('📤 Enviando producto:', formData);
+
     try {
       if (mode === 'add') {
-        createProduct(formData);
-        showToast.success('Producto creado exitosamente');
+        await createProduct(formData);
       } else {
-        updateProduct(product!.id, formData);
-        showToast.success('Producto actualizado exitosamente');
+        await updateProduct(product!.id, formData);
       }
 
       onSuccess?.();
@@ -158,6 +164,9 @@ export function ProductForm({
               ? 'Complete la información del nuevo producto'
               : 'Modifique la información del producto'}
           </p>
+          <p className='text-sm text-muted-foreground mt-1'>
+            Los campos marcados con <span className='text-destructive'>*</span> son obligatorios
+          </p>
         </div>
       </div>
 
@@ -177,7 +186,7 @@ export function ProductForm({
             <CardContent className='space-y-4'>
               {/* Name */}
               <div>
-                <Label htmlFor='name'>Nombre del Producto *</Label>
+                <Label htmlFor='name'>Nombre del Producto <span className='text-destructive'>*</span></Label>
                 <Input
                   id='name'
                   value={formData.name}
@@ -195,7 +204,7 @@ export function ProductForm({
 
               {/* Category */}
               <div>
-                <Label htmlFor='category'>Categoría *</Label>
+                <Label htmlFor='category'>Categoría <span className='text-destructive'>*</span></Label>
                 <Select
                   value={formData.category}
                   onValueChange={(value) =>
@@ -220,7 +229,7 @@ export function ProductForm({
 
               {/* Unit of Measure */}
               <div>
-                <Label htmlFor='unitOfMeasure'>Unidad de Medida *</Label>
+                <Label htmlFor='unitOfMeasure'>Unidad de Medida <span className='text-destructive'>*</span></Label>
                 <Select
                   value={formData.unitOfMeasure}
                   onValueChange={(value) =>
@@ -245,16 +254,24 @@ export function ProductForm({
 
               {/* Description */}
               <div>
-                <Label htmlFor='description'>Descripción</Label>
+                <Label htmlFor='description'>Descripción <span className='text-destructive'>*</span></Label>
                 <Textarea
                   id='description'
                   value={formData.description}
                   onChange={(e) =>
                     handleInputChange('description', e.target.value)
                   }
-                  placeholder='Descripción opcional del producto'
+                  placeholder='Ingrese la descripción del producto'
                   rows={3}
+                  required
+                  className={validationErrors.description ? 'border-destructive' : ''}
                 />
+                {validationErrors.description && (
+                  <p className='text-sm text-destructive mt-1 flex items-center gap-1'>
+                    <AlertCircle className='w-3 h-3' />
+                    {validationErrors.description}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -270,7 +287,7 @@ export function ProductForm({
             <CardContent className='space-y-4'>
               {/* Price */}
               <div>
-                <Label htmlFor='price'>Precio de Venta *</Label>
+                <Label htmlFor='price'>Precio de Venta <span className='text-destructive'>*</span></Label>
                 <Input
                   id='price'
                   type='number'
@@ -292,7 +309,7 @@ export function ProductForm({
 
               {/* Cost Price */}
               <div>
-                <Label htmlFor='costPrice'>Precio de Costo *</Label>
+                <Label htmlFor='costPrice'>Precio de Costo <span className='text-destructive'>*</span></Label>
                 <Input
                   id='costPrice'
                   type='number'

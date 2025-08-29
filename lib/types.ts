@@ -1,14 +1,16 @@
 // Product related types
+export type ProductCategory = 'organicos' | 'aromaticos' | 'wellness';
+
 export interface Product {
   id: string;
   name: string;
   barcode: string; // Código de barras único generado por la app
-  category: 'organicos' | 'aromaticos' | 'wellness';
+  category: ProductCategory;
   price: number; // Precio de venta
   costPrice: number; // Precio de costo
   stock: number;
   unitOfMeasure: 'litro' | 'gramo';
-  image: string;
+  image?: string;
   description: string;
   status: 'active' | 'inactive' | 'out_of_stock';
   createdAt: Date;
@@ -219,15 +221,15 @@ export interface POSSettingsState {
   isLoading: boolean;
 }
 
-// User types
+// User types (aligned with backend API)
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'gerente' | 'cajero';
+  role: 'admin' | 'user'; // Backend uses 'admin' | 'user', UI can map roles
   avatar?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Employee Management Types
@@ -235,7 +237,7 @@ export interface Employee {
   id: string;
   name: string;
   email: string;
-  role: 'cajero' | 'gerente';
+  role: 'cajero' | 'gerente' | 'mozo';
   phone?: string;
   address?: string;
   startDate: Date;

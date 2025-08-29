@@ -23,7 +23,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
 
@@ -73,7 +73,7 @@ const navigationItems = [
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { logout, user } = useAuthStore();
+  const { logout, user } = useAuth();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -85,15 +85,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   // Filter navigation items based on user role
+  // Map backend roles to UI roles for navigation logic
+  const getUserRole = () => {
+    if (!user) return null;
+    // For now, map backend roles to UI expectations
+    // Backend: 'admin' | 'user'  ->  UI logic expects: 'admin' | 'gerente' | 'cajero'
+    return user.role === 'admin' ? 'admin' : 'gerente';
+  };
+
   const filteredNavItems = navigationItems.filter((item) => {
     if (!user) return true; // Show all if no user (shouldn't happen)
     
-    if (user.role === 'cajero') {
-      // Cajero: Solo Dashboard, Productos (lectura), Ventas
-      return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
-    }
+    const uiRole = getUserRole();
     
-    if (user.role === 'gerente') {
+    // Note: 'cajero' role not implemented in backend yet
+    // if (uiRole === 'cajero') {
+    //   return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
+    // }
+    
+    if (uiRole === 'gerente') {
       // Gerente: Todo menos Personal
       return item.title !== 'Personal';
     }

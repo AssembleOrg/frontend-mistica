@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCheck, UserX } from 'lucide-react';
+import { Users, UserCheck, UserX, Coffee } from 'lucide-react';
 import { useEmployees } from '@/hooks/useEmployees';
 
 export function StaffStatsWidget() {
@@ -28,6 +28,13 @@ export function StaffStatsWidget() {
       icon: UserX,
       color: 'text-[#e0a38d]',
       bgColor: 'bg-[#e0a38d]/10',
+    },
+    {
+      title: 'Mozos',
+      value: stats.byRole.mozo || 0,
+      icon: Coffee,
+      color: 'text-[#455a54]',
+      bgColor: 'bg-[#455a54]/10',
     },
   ];
 
@@ -73,6 +80,12 @@ export function StaffRoleBreakdown() {
       color: 'text-[#e0a38d]',
       bgColor: 'bg-[#e0a38d]/10',
     },
+    {
+      role: 'Mozos',
+      count: stats.byRole.mozo || 0,
+      color: 'text-[#455a54]',
+      bgColor: 'bg-[#455a54]/10',
+    },
   ];
 
   return (
@@ -103,7 +116,8 @@ export function StaffRoleBreakdown() {
           <div className='mt-4 pt-3 border-t border-[#9d684e]/10'>
             <div className='text-xs text-[#455a54]/70'>
               Distribución: Gerentes {(((stats.byRole.gerente || 0) / stats.total) * 100).toFixed(0)}%, 
-              Cajeros {(((stats.byRole.cajero || 0) / stats.total) * 100).toFixed(0)}%
+              Cajeros {(((stats.byRole.cajero || 0) / stats.total) * 100).toFixed(0)}%,
+              Mozos {(((stats.byRole.mozo || 0) / stats.total) * 100).toFixed(0)}%
             </div>
           </div>
         )}

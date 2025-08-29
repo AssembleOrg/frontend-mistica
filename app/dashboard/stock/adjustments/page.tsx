@@ -26,6 +26,7 @@ import { showToast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
+import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 
 export default function StockAdjustmentsPage() {
   const router = useRouter();
@@ -35,6 +36,9 @@ export default function StockAdjustmentsPage() {
   const [reason, setReason] = useState('');
   const [_notes, setNotes] = useState('');
 
+  // Handle initial data loading
+  const { isLoading: loadingProducts } = useInitialProductsData();
+  
   // Simple hooks API
   const { adjustStockQuantity } = useStock();
   const { products } = useProducts();

@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { showToast } from '@/lib/toast';
 import { useSales } from '@/hooks/useSales';
 import { useProducts } from '@/hooks/useProducts';
-import { PaymentInfo } from '@/lib/types';
+import { PaymentInfo, ProductCategory } from '@/lib/types';
 
 // Clean UI Components
 import { ProductSearchSection } from '@/components/dashboard/sales/ProductSearchSection';
@@ -97,7 +97,7 @@ export default function SalesPage() {
   const handleSearch = async (query: string, category?: string) => {
     try {
       setIsSearching(true);
-      const results = searchProducts(query, category);
+      const results = searchProducts(query, category as ProductCategory);
       setSearchResults(results);
     } catch (error) {
       showToast.error(

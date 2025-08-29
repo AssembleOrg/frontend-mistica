@@ -17,12 +17,41 @@ import {
 } from '@/components/ui/card';
 import { ProductsTable } from '@/components/dashboard/products-table';
 import { useProducts } from '@/hooks/useProducts';
+import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProductsPage() {
-  // Simple hooks API
+  // Handle initial data loading
+  const { isLoading, error } = useInitialProductsData();
+  
+  // Simple hooks API for actions and computed values
   const { products, stats } = useProducts();
+
+  // Show error state if initial load failed
+  if (error) {
+    return (
+      <div className='space-y-6'>
+        <div className='flex items-center justify-between'>
+          <div>
+            <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+              Gestión de Productos
+            </h1>
+            <p className='text-red-500 font-winter-solid'>
+              Error al cargar productos: {error}
+            </p>
+          </div>
+        </div>
+        <Card className='border-red-200'>
+          <CardContent className='p-6'>
+            <p className='text-center text-red-600'>
+              No se pudieron cargar los productos. Por favor, recarga la página.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -73,7 +102,7 @@ export default function ProductsPage() {
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold text-green-600 font-tan-nimbus'>
-              {stats.active}
+              {stats.total - stats.outOfStock}
             </div>
             <p className='text-xs text-[#455a54]/70'>
               disponibles para venta
@@ -123,7 +152,18 @@ export default function ProductsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ProductsTable data={products} />
+          {isLoading ? (
+            <div className='flex items-center justify-center p-8'>
+              <div className='text-center'>
+                <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e] mx-auto'></div>
+                <p className='mt-2 text-[#455a54]/70 font-winter-solid'>
+                  Cargando productos...
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ProductsTable data={products} />
+          )}
         </CardContent>
       </Card>
     </div>

@@ -53,7 +53,8 @@ interface EmployeesTableProps {
 
 const roleConfig = {
   gerente: { label: 'Gerente', color: '#9d684e', bgColor: '#9d684e/10' },
-  cajero: { label: 'Cajero', color: '#e0a38d', bgColor: '#e0a38d/10' }
+  cajero: { label: 'Cajero', color: '#e0a38d', bgColor: '#e0a38d/10' },
+  mozo: { label: 'Mozo', color: '#455a54', bgColor: '#455a54/10' }
 };
 
 export function EmployeesTable({ data }: EmployeesTableProps) {
@@ -75,7 +76,7 @@ export function EmployeesTable({ data }: EmployeesTableProps) {
       }
 
       if (action === 'delete') {
-        deleteEmployee(employeeId);
+        await deleteEmployee(employeeId);
         showToast.success('Empleado eliminado', 'El empleado ha sido eliminado correctamente.');
       }
     } catch (error) {
@@ -298,6 +299,7 @@ export function EmployeesTable({ data }: EmployeesTableProps) {
             <option value=''>Todos los roles</option>
             <option value='gerente'>Gerente</option>
             <option value='cajero'>Cajero</option>
+            <option value='mozo'>Mozo</option>
           </select>
         </div>
         <div className='ml-auto'>

@@ -62,7 +62,7 @@ export function StatsCard({
       </CardHeader>
       <CardContent>
         <div
-          className={`text-3xl font-bold font-tan-nimbus ${colors.value} leading-tight`}
+          className={`text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold font-tan-nimbus ${colors.value} leading-tight break-all sm:break-normal`}
         >
           {value}
         </div>

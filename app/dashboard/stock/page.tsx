@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { StatsCard } from '@/components/dashboard/stats-card';
+import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { Button } from '@/components/ui/button';
 import {
   AlertTriangle,
@@ -24,7 +25,6 @@ import {
   Package,
   Plus,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useStock } from '@/hooks/useStock';
 
 export default function StockDashboard() {
@@ -87,81 +87,90 @@ export default function StockDashboard() {
       </div>
 
       {/* Quick Actions */}
+      <QuickActionsWidget
+        title="Gestión de Inventario"
+        description="Acciones rápidas para el stock"
+        layout="horizontal"
+        actions={[
+          {
+            id: 'adjust-stock',
+            title: 'Ajustar Stock',
+            description: 'Corregir cantidades manualmente',
+            href: '/dashboard/stock/adjustments',
+            icon: Plus,
+            color: 'primary'
+          }
+        ]}
+      />
+
+      {/* Stock Statistics - Following Panel de Control Pattern */}
       <Card className='border-[#9d684e]/20'>
         <CardHeader>
-          <CardTitle className='text-[#455a54] font-tan-nimbus'>
-            Acción Principal
+          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+            <Package className='h-5 w-5' />
+            Control de Inventario
           </CardTitle>
-          <CardDescription className='font-winter-solid'>
-            Gestión directa de inventario
+          <CardDescription className='text-[#455a54]/70'>
+            Resumen de stock y estado del inventario
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-            {stockActions.map((action) => (
-              <Button
-                key={action.href}
-                asChild
-                className={`h-auto p-4 flex flex-col items-center justify-center gap-2 text-white text-center ${action.color}`}
-              >
-                <Link href={action.href}>
-                  <action.icon className='h-7 w-7 mb-1' />
-                  <div>
-                    <div className='font-winter-solid font-semibold'>
-                      {action.title}
-                    </div>
-                    <p className='text-xs opacity-80 font-light'>
-                      {action.description}
-                    </p>
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+            <div className='bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 rounded-lg border border-orange-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-orange-600'>
+                    {stockSummary.lowStock}
                   </div>
-                </Link>
-              </Button>
-            ))}
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Stock Bajo</div>
+                </div>
+                <AlertTriangle className='h-6 w-6 text-orange-500/40' />
+              </div>
+            </div>
+            
+            <div className='bg-gradient-to-br from-red-500/10 to-red-500/5 p-4 rounded-lg border border-red-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-red-600'>
+                    {stockSummary.outOfStock}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Agotados</div>
+                </div>
+                <div className='w-6 h-6 rounded-full bg-red-100 flex items-center justify-center'>
+                  <div className='w-3 h-3 rounded-full bg-red-500'></div>
+                </div>
+              </div>
+            </div>
+            
+            <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-green-600'>
+                    ${stockSummary.totalValue.toLocaleString('es-AR', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    })}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Valor Total</div>
+                </div>
+                <Package className='h-6 w-6 text-green-500/40' />
+              </div>
+            </div>
+            
+            <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-[#9d684e]'>
+                    {movements.length}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Movimientos</div>
+                </div>
+                <TrendingUp className='h-6 w-6 text-[#9d684e]/40' />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Stock Statistics */}
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-        <StatsCard
-          title='Productos con Stock Bajo'
-          value={stockSummary.lowStock}
-          change='Requieren atención'
-          icon={AlertTriangle}
-          trend='neutral'
-          color='orange'
-        />
-
-        <StatsCard
-          title='Sin Stock'
-          value={stockSummary.outOfStock}
-          change='Requieren reposición'
-          icon={TrendingDown}
-          trend='down'
-          color='red'
-        />
-
-        <StatsCard
-          title='Valor Total Inventario'
-          value={`$${stockSummary.totalValue.toLocaleString('es-AR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-          })}`}
-          change='Precio de costo'
-          icon={Package}
-          trend='up'
-          color='green'
-        />
-
-        <StatsCard
-          title='Movimientos Recientes'
-          value={movements.length}
-          change='Últimos 7 días'
-          icon={TrendingUp}
-          trend='up'
-          color='terracota'
-        />
-      </div>
 
       {/* Recent Movements */}
       <Card className='border-[#9d684e]/20'>

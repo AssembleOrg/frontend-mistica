@@ -18,6 +18,7 @@ import {
 import { TransactionsTable } from '@/components/dashboard/finances/transactions-table';
 import { DateRangeFilter } from '@/components/dashboard/finances/date-range-filter';
 import { ExpenseForm } from '@/components/dashboard/finances/expense-form';
+import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { useFinances } from '@/hooks/useFinances';
 import { Download, DollarSign, Minus } from 'lucide-react';
 
@@ -103,50 +104,111 @@ export default function FinancesPage() {
             Control financiero y resumen de movimientos de caja
           </p>
         </div>
-        <div className='flex gap-3'>
-          <Button
-            onClick={() => setShowExpenseForm(true)}
-            className='bg-red-600 hover:bg-red-700 text-white font-winter-solid'
-          >
-            <Minus className='mr-2 h-4 w-4' />
-            Registrar Egreso
-          </Button>
-          <Button
-            onClick={handleExport}
-            disabled={isExporting}
-            className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid'
-          >
-            {isExporting ? (
-              <>Exportando...</>
-            ) : (
-              <>
-                <Download className='mr-2 h-4 w-4' />
-                Exportar Excel
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Actions moved to dedicated widget below */}
       </div>
 
-      {/* Date Filter & Export */}
+      {/* Quick Actions */}
+      <QuickActionsWidget
+        title="Acciones de Caja"
+        description="Gestión rápida de movimientos financieros"
+        layout="horizontal"
+        actions={[
+          {
+            id: 'expense',
+            title: 'Registrar Egreso',
+            description: 'Agregar nuevo gasto al sistema',
+            icon: Minus,
+            color: 'danger',
+            onClick: () => setShowExpenseForm(true)
+          },
+          {
+            id: 'export',
+            title: isExporting ? 'Exportando...' : 'Exportar Excel',
+            description: 'Descargar reporte del período',
+            icon: Download,
+            color: 'secondary',
+            onClick: handleExport
+          }
+        ]}
+      />
+
+      {/* Combined Filters & Quick Stats */}
       <Card className='border-[#9d684e]/20'>
         <CardHeader>
           <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
             <DollarSign className='h-5 w-5' />
-            Filtrar Movimientos
+            Panel de Control
           </CardTitle>
           <CardDescription className='text-[#455a54]/70'>
-            Selecciona un rango de fechas para filtrar transacciones
+            Filtros y resumen ejecutivo del período
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='flex gap-4 items-end'>
-            <DateRangeFilter
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-            />
-            <div className='text-sm text-[#455a54]/70'>
-              Mostrando {transactions.length} transacciones
+          <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
+            {/* Filters Section */}
+            <div className='lg:col-span-1'>
+              <div className='space-y-4'>
+                <div>
+                  <label className='text-sm font-winter-solid text-[#455a54] mb-2 block'>
+                    Período de Consulta
+                  </label>
+                  <DateRangeFilter
+                    dateRange={dateRange}
+                    onDateRangeChange={setDateRange}
+                  />
+                </div>
+                <div className='text-sm text-[#455a54]/70 bg-[#efcbb9]/20 p-3 rounded-lg'>
+                  📊 {transactions.length} transacciones encontradas
+                </div>
+              </div>
+            </div>
+            
+            {/* Quick Stats - Compact Version */}
+            <div className='lg:col-span-2'>
+              <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+                <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
+                  <div className='text-lg font-bold font-tan-nimbus text-[#455a54]'>
+                    {summary.salesCount}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Ventas</div>
+                </div>
+                
+                <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
+                  <div className={`text-lg font-bold font-tan-nimbus ${
+                    summary.netBalance >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    ${summary.netBalance.toLocaleString('es-AR', {
+                      signDisplay: 'always',
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    })}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Balance</div>
+                </div>
+                
+                <div className='bg-gradient-to-br from-[#e0a38d]/10 to-[#e0a38d]/5 p-4 rounded-lg border border-[#e0a38d]/20'>
+                  <div className='text-lg font-bold font-tan-nimbus text-[#9d684e]'>
+                    ${summary.paymentMethodBreakdown.efectivo.toLocaleString('es-AR', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    })}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Efectivo</div>
+                </div>
+                
+                <div className='bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4 rounded-lg border border-blue-500/20'>
+                  <div className='text-lg font-bold font-tan-nimbus text-blue-600'>
+                    ${(
+                      summary.paymentMethodBreakdown.tarjeta + 
+                      summary.paymentMethodBreakdown.transferencia
+                    ).toLocaleString('es-AR', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0
+                    })}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Digital</div>
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -170,85 +232,6 @@ export default function FinancesPage() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
-      <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-        <Card className='border-[#455a54]/20 hover:shadow-md transition-shadow duration-200'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Ventas del Día
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='text-3xl font-bold font-tan-nimbus text-[#455a54] leading-tight'>
-              {summary.salesCount}
-            </div>
-            <p className='text-xs text-[#455a54]/70'>Total de transacciones</p>
-          </CardContent>
-        </Card>
-
-        <Card className='border-[#9d684e]/20 hover:shadow-md transition-shadow duration-200'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Métodos de Pago
-            </CardTitle>
-          </CardHeader>
-          <CardContent className='space-y-1'>
-            <div className='flex justify-between text-xs'>
-              <span className='text-[#455a54]/70'>Efectivo</span>
-              <span className='text-[#455a54] font-medium'>
-                $
-                {summary.paymentMethodBreakdown.efectivo.toLocaleString(
-                  'es-AR',
-                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                )}
-              </span>
-            </div>
-            <div className='flex justify-between text-xs'>
-              <span className='text-[#455a54]/70'>Tarjeta</span>
-              <span className='text-[#455a54] font-medium'>
-                $
-                {summary.paymentMethodBreakdown.tarjeta.toLocaleString('es-AR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                })}
-              </span>
-            </div>
-            <div className='flex justify-between text-xs'>
-              <span className='text-[#455a54]/70'>Transferencia</span>
-              <span className='text-[#455a54] font-medium'>
-                $
-                {summary.paymentMethodBreakdown.transferencia.toLocaleString(
-                  'es-AR',
-                  { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-                )}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className='border-[#9d684e]/20 hover:shadow-md transition-shadow duration-200'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Balance Neto
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`text-3xl font-bold font-tan-nimbus leading-tight ${
-                summary.netBalance >= 0 ? 'text-[#455a54]' : 'text-red-600'
-              }`}
-            >
-              $
-              {summary.netBalance.toLocaleString('es-AR', {
-                signDisplay: 'always',
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-              })}
-            </div>
-            <p className='text-xs text-[#455a54]/70'>Ingresos - Egresos</p>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

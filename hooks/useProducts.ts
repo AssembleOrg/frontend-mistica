@@ -3,13 +3,13 @@
  * Now supports async operations, error handling, and loading states
  */
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useProductsStore } from '@/stores/products.store';
 import { productsService, CreateProductRequest, UpdateProductRequest } from '@/services/products.service';
 import { ApiError } from '@/services/api.service';
 import type { Product, ProductCategory } from '@/lib/types';
 import { generateBarcode } from '@/lib/barcode-utils';
-import { toast } from 'sonner';
+import { showToast } from '@/lib/toast';
 
 // Hook state interface
 interface UseProductsState {
@@ -37,7 +37,7 @@ export function useProducts() {
     
     setState(prev => ({ ...prev, error: errorMessage }));
     storeRef.current.setError(errorMessage);
-    toast.error(errorMessage);
+    showToast.error(errorMessage);
     
     console.error(`${action} failed:`, error);
   }, []);
@@ -69,7 +69,7 @@ export function useProducts() {
       const response = await productsService.createProduct(data);
       storeRef.current.addProduct(response.data);
       
-      toast.success('Producto creado exitosamente');
+      showToast.success('Producto creado exitosamente');
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -88,7 +88,7 @@ export function useProducts() {
       const response = await productsService.updateProduct(id, updates);
       storeRef.current.updateProduct(id, response.data);
       
-      toast.success('Producto actualizado exitosamente');
+      showToast.success('Producto actualizado exitosamente');
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -107,7 +107,7 @@ export function useProducts() {
       await productsService.deleteProduct(id);
       storeRef.current.removeProduct(id);
       
-      toast.success('Producto eliminado exitosamente');
+      showToast.success('Producto eliminado exitosamente');
       setState(prev => ({ ...prev, loading: false }));
     } catch (error) {
       handleApiError(error, 'eliminar producto');
@@ -124,7 +124,7 @@ export function useProducts() {
       const response = await productsService.addStock(id, quantity);
       storeRef.current.updateProduct(id, { stock: response.data.stock });
       
-      toast.success(`Stock agregado: +${quantity} unidades`);
+      showToast.success(`Stock agregado: +${quantity} unidades`);
       setState(prev => ({ ...prev, syncing: false }));
       
       return response.data;
@@ -143,7 +143,7 @@ export function useProducts() {
       const response = await productsService.subtractStock(id, quantity);
       storeRef.current.updateProduct(id, { stock: response.data.stock });
       
-      toast.success(`Stock reducido: -${quantity} unidades`);
+      showToast.success(`Stock reducido: -${quantity} unidades`);
       setState(prev => ({ ...prev, syncing: false }));
       
       return response.data;
@@ -203,11 +203,22 @@ export function useProducts() {
     storeRef.current.clearError();
   }, []);
 
-  // Computed values from store
-  const filteredProducts = store.getFilteredProducts();
-  const sortedProducts = store.getSortedProducts(filteredProducts);
-  const lowStockProducts = store.getLowStockProducts();
-  const stats = store.getProductStats();
+  // Computed values from store - memoized for performance
+  const filteredProducts = useMemo(() => store.getFilteredProducts(), [
+    store.products, store.searchQuery, store.selectedCategory
+  ]);
+  
+  const sortedProducts = useMemo(() => store.getSortedProducts(filteredProducts), [
+    filteredProducts, store.sortBy, store.sortOrder
+  ]);
+  
+  const lowStockProducts = useMemo(() => store.getLowStockProducts(), [
+    store.products
+  ]);
+  
+  const stats = useMemo(() => store.getProductStats(), [
+    store.products
+  ]);
 
   return {
     // Data

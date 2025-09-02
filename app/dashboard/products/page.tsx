@@ -16,10 +16,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ProductsTable } from '@/components/dashboard/products-table';
+import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { Plus } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, Package } from 'lucide-react';
 
 export default function ProductsPage() {
   // Handle initial data loading
@@ -65,81 +65,95 @@ export default function ProductsPage() {
             Administra tu catálogo de productos místicos y wellness
           </p>
         </div>
-        <Button
-          asChild
-          className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid'
-        >
-          <Link href='/dashboard/products/add'>
-            <Plus className='mr-2 h-4 w-4' />
-            Agregar Producto
-          </Link>
-        </Button>
+        {/* Actions moved to dedicated widget below */}
       </div>
 
-      {/* Stats Cards */}
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-        <Card className='border-[#9d684e]/20'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Total Productos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold text-[#9d684e] font-tan-nimbus'>
-              {stats.total}
-            </div>
-            <p className='text-xs text-[#455a54]/70'>
-              productos en catálogo
-            </p>
-          </CardContent>
-        </Card>
+      {/* Quick Actions */}
+      <QuickActionsWidget
+        title="Gestión de Productos"
+        description="Acciones rápidas para el catálogo"
+        layout="horizontal"
+        actions={[
+          {
+            id: 'new-product',
+            title: 'Nuevo Producto',
+            description: 'Agregar al catálogo',
+            href: '/dashboard/products/add',
+            icon: Plus,
+            color: 'primary'
+          }
+        ]}
+      />
 
-        <Card className='border-[#9d684e]/20'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Productos Activos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold text-green-600 font-tan-nimbus'>
-              {stats.total - stats.outOfStock}
+      {/* Inventory Stats - Following Panel de Control Pattern */}
+      <Card className='border-[#9d684e]/20'>
+        <CardHeader>
+          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+            <Package className='h-5 w-5' />
+            Estado del Inventario
+          </CardTitle>
+          <CardDescription className='text-[#455a54]/70'>
+            Resumen del catálogo y disponibilidad de productos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+            <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-[#9d684e]'>
+                    {stats.total}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Total</div>
+                </div>
+                <Package className='h-6 w-6 text-[#9d684e]/40' />
+              </div>
             </div>
-            <p className='text-xs text-[#455a54]/70'>
-              disponibles para venta
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className='border-[#9d684e]/20'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Stock Bajo
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold text-orange-500 font-tan-nimbus'>
-              {stats.lowStock}
+            
+            <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-green-600'>
+                    {stats.total - stats.outOfStock}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Disponibles</div>
+                </div>
+                <div className='w-6 h-6 rounded-full bg-green-100 flex items-center justify-center'>
+                  <div className='w-3 h-3 rounded-full bg-green-500'></div>
+                </div>
+              </div>
             </div>
-            <p className='text-xs text-[#455a54]/70'>
-              requieren reposición
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className='border-[#9d684e]/20'>
-          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
-              Sin Stock
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-bold text-red-500 font-tan-nimbus'>
-              {stats.outOfStock}
+            
+            <div className='bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 rounded-lg border border-orange-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-orange-500'>
+                    {stats.lowStock}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Stock Bajo</div>
+                </div>
+                <div className='w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center'>
+                  <div className='w-3 h-3 rounded-full bg-orange-500'></div>
+                </div>
+              </div>
             </div>
-            <p className='text-xs text-[#455a54]/70'>productos agotados</p>
-          </CardContent>
-        </Card>
-      </div>
+            
+            <div className='bg-gradient-to-br from-red-500/10 to-red-500/5 p-4 rounded-lg border border-red-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-2xl font-bold font-tan-nimbus text-red-500'>
+                    {stats.outOfStock}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Agotados</div>
+                </div>
+                <div className='w-6 h-6 rounded-full bg-red-100 flex items-center justify-center'>
+                  <div className='w-3 h-3 rounded-full bg-red-500'></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Products Table with loading state */}
       <Card className='border-[#9d684e]/20'>

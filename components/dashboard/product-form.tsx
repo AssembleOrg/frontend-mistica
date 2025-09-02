@@ -94,6 +94,8 @@ export function ProductForm({
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
   >({});
+  
+  const [isLoading, setIsLoading] = useState(false);
 
   // Computed values
   const profitMargin =
@@ -129,6 +131,8 @@ export function ProductForm({
     }
 
     console.log('📤 Enviando producto:', formData);
+    
+    setIsLoading(true);
 
     try {
       if (mode === 'add') {
@@ -143,6 +147,8 @@ export function ProductForm({
       showToast.error(
         error instanceof Error ? error.message : 'Error al guardar producto'
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -375,7 +381,7 @@ export function ProductForm({
             type='button'
             variant='outline'
             onClick={handleCancel}
-            disabled={false}
+            disabled={isLoading}
           >
             <X className='w-4 h-4 mr-2' />
             Cancelar
@@ -383,12 +389,17 @@ export function ProductForm({
 
           <Button
             type='submit'
-            disabled={!isFormValid}
+            disabled={!isFormValid || isLoading}
             variant="terracota"
           >
             <>
               <Save className='w-4 h-4 mr-2' />
-              {mode === 'add' ? 'Crear Producto' : 'Guardar Cambios'}
+              {isLoading 
+                ? 'Guardando...' 
+                : mode === 'add' 
+                  ? 'Crear Producto' 
+                  : 'Guardar Cambios'
+              }
             </>
           </Button>
         </div>

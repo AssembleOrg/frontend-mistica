@@ -8,7 +8,7 @@ import { useEmployeesStore } from '@/stores/employees.store';
 import { employeesService, CreateEmployeeRequest, UpdateEmployeeRequest } from '@/services/employees.service';
 import { ApiError } from '@/services/api.service';
 import type { Employee } from '@/lib/types';
-import { toast } from 'sonner';
+import { showToast } from '@/lib/toast';
 
 // Hook state interface
 interface UseEmployeesState {
@@ -36,7 +36,7 @@ export function useEmployees() {
     
     setState(prev => ({ ...prev, error: errorMessage }));
     storeRef.current.setError(errorMessage);
-    toast.error(errorMessage);
+    showToast.error(errorMessage);
     
     console.error(`${action} failed:`, error);
   }, []);
@@ -75,7 +75,7 @@ export function useEmployees() {
       
       storeRef.current.addEmployee(response.data);
       
-      toast.success('Empleado creado exitosamente');
+      showToast.success('Empleado creado exitosamente');
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -97,7 +97,7 @@ export function useEmployees() {
       
       storeRef.current.updateEmployee(id, response.data);
       
-      toast.success('Empleado actualizado exitosamente');
+      showToast.success('Empleado actualizado exitosamente');
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -119,7 +119,7 @@ export function useEmployees() {
       
       storeRef.current.removeEmployee(id);
       
-      toast.success('Empleado eliminado exitosamente');
+      showToast.success('Empleado eliminado exitosamente');
       setState(prev => ({ ...prev, loading: false }));
     } catch (error) {
       handleApiError(error, 'eliminar empleado');
@@ -228,7 +228,7 @@ export function useEmployees() {
         // photoUrl: response.data.photoUrl 
       });
       
-      toast.success('Foto subida exitosamente');
+      showToast.success('Foto subida exitosamente');
       setState(prev => ({ ...prev, syncing: false }));
       
       return response.data;
@@ -251,7 +251,7 @@ export function useEmployees() {
       // Remove employees from store
       employeeIds.forEach(id => storeRef.current.removeEmployee(id));
       
-      toast.success(`${employeeIds.length} empleados eliminados exitosamente`);
+      showToast.success(`${employeeIds.length} empleados eliminados exitosamente`);
       setState(prev => ({ ...prev, loading: false }));
     } catch (error) {
       handleApiError(error, 'eliminar empleados');

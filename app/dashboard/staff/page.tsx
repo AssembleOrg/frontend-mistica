@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { EmployeesTable } from '@/components/dashboard/staff/employees-table';
-import { StaffStatsWidget, StaffRoleBreakdown } from '@/components/dashboard/staff/staff-stats-widget';
+import { StaffStatsWidget } from '@/components/dashboard/staff/staff-stats-widget';
 import { EmployeeForm } from '@/components/dashboard/staff/employee-form';
+import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useInitialEmployeesData } from '@/hooks/useInitialEmployeesData';
 import { Plus, Search, Users } from 'lucide-react';
@@ -75,126 +76,161 @@ export default function StaffPage() {
             Administra el equipo de trabajo de MÍSTICA
           </p>
         </div>
-        <Button
-          onClick={() => setShowForm(true)}
-          className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid'
-        >
-          <Plus className='mr-2 h-4 w-4' />
-          Agregar Empleado
-        </Button>
+        {/* Actions moved to dedicated widget below */}
       </div>
 
-      {/* Stats Cards */}
-      <StaffStatsWidget />
+      {/* Quick Actions */}
+      <QuickActionsWidget
+        title="Gestión de Personal"
+        description="Acciones rápidas para el equipo"
+        layout="horizontal"
+        actions={[
+          {
+            id: 'new-employee',
+            title: 'Nuevo Empleado',
+            description: 'Agregar miembro al equipo',
+            icon: Plus,
+            color: 'primary',
+            onClick: () => setShowForm(true)
+          }
+        ]}
+      />
 
-      {/* Search and Filters */}
+      {/* Combined Stats & Search - Horizontal Layout */}
       <Card className='border-[#9d684e]/20'>
         <CardHeader>
           <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <Search className='h-5 w-5' />
-            Buscar Empleados
+            <Users className='h-5 w-5' />
+            Control de Personal
           </CardTitle>
           <CardDescription className='text-[#455a54]/70'>
-            Encuentra empleados por nombre, email o teléfono
+            Resumen de equipo y herramientas de búsqueda
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='flex gap-4 flex-wrap'>
-            <div className='flex-1 min-w-[250px]'>
-              <Input
-                placeholder='Buscar por nombre, email o teléfono...'
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className='border-[#9d684e]/20 focus:border-[#9d684e]'
-              />
+          <div className='grid grid-cols-1 lg:grid-cols-5 gap-6'>
+            {/* Quick Stats - Compact */}
+            <div className='lg:col-span-2'>
+              <div className='grid grid-cols-2 gap-3'>
+                <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
+                  <div className='flex items-center justify-between'>
+                    <div>
+                      <div className='text-xl font-bold font-tan-nimbus text-[#455a54]'>
+                        {stats.total}
+                      </div>
+                      <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Total</div>
+                    </div>
+                    <Users className='h-6 w-6 text-[#9d684e]/40' />
+                  </div>
+                </div>
+                
+                <div className='bg-gradient-to-br from-[#e0a38d]/10 to-[#e0a38d]/5 p-4 rounded-lg border border-[#e0a38d]/20'>
+                  <div className='text-lg font-bold font-tan-nimbus text-[#9d684e]'>
+                    {stats.byRole.gerente || 0}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Gerentes</div>
+                </div>
+                
+                <div className='bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4 rounded-lg border border-blue-500/20'>
+                  <div className='text-lg font-bold font-tan-nimbus text-blue-600'>
+                    {stats.byRole.cajero || 0}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Cajeros</div>
+                </div>
+                
+                <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
+                  <div className='text-lg font-bold font-tan-nimbus text-green-600'>
+                    {stats.byRole.mozo || 0}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Mozos</div>
+                </div>
+              </div>
             </div>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value as typeof selectedRole)}
-              className='px-3 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none'
-            >
-              <option value='all'>Todos los roles</option>
-              <option value='gerente'>Gerente</option>
-              <option value='cajero'>Cajero</option>
-              <option value='mozo'>Mozo</option>
-            </select>
-            {(searchQuery || selectedRole) && (
-              <Button
-                variant='outline'
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedRole('all');
-                }}
-                className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
-              >
-                Limpiar
-              </Button>
-            )}
+            
+            {/* Search Controls */}
+            <div className='lg:col-span-3'>
+              <div className='space-y-4'>
+                <div>
+                  <label className='text-sm font-winter-solid text-[#455a54] mb-2 block flex items-center gap-2'>
+                    <Search className='h-4 w-4' />
+                    Buscar Empleados
+                  </label>
+                  <div className='flex gap-3'>
+                    <div className='flex-1'>
+                      <Input
+                        placeholder='Buscar por nombre, email o teléfono...'
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className='border-[#9d684e]/20 focus:border-[#9d684e] h-11'
+                      />
+                    </div>
+                    <select
+                      value={selectedRole}
+                      onChange={(e) => setSelectedRole(e.target.value as typeof selectedRole)}
+                      className='px-4 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none h-11 min-w-[140px]'
+                    >
+                      <option value='all'>Todos</option>
+                      <option value='gerente'>Gerente</option>
+                      <option value='cajero'>Cajero</option>
+                      <option value='mozo'>Mozo</option>
+                    </select>
+                    {(searchQuery || selectedRole !== 'all') && (
+                      <Button
+                        variant='outline'
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSelectedRole('all');
+                        }}
+                        className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 h-11 px-4'
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                
+                <div className='flex justify-between items-center'>
+                  {searchQuery || selectedRole !== 'all' ? (
+                    <div className='text-sm text-[#455a54]/70 bg-[#efcbb9]/20 px-3 py-2 rounded-lg'>
+                      🔍 {filteredEmployees.length} de {employees.length} empleados
+                    </div>
+                  ) : (
+                    <div className='text-sm text-[#455a54]/70'>
+                      📋 {employees.length} empleados en total
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-          
-          {searchQuery || selectedRole ? (
-            <div className='mt-3 text-sm text-[#455a54]/70'>
-              Mostrando {filteredEmployees.length} de {employees.length} empleados
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 
-      {/* Main Content Grid */}
-      <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-        {/* Employees Table */}
-        <div className='lg:col-span-2'>
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-                <Users className='h-5 w-5' />
-                Lista de Empleados
-              </CardTitle>
-              <CardDescription className='text-[#455a54]/70'>
-                {stats.total > 0 
-                  ? `${stats.total} empleados registrados en el sistema`
-                  : 'No hay empleados registrados'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center items-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e]"></div>
-                  <span className="ml-2 text-[#455a54]/70">Cargando empleados...</span>
-                </div>
-              ) : (
-                <EmployeesTable data={filteredEmployees} />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Staff Role Breakdown */}
-        <div className='space-y-6'>
-          <StaffRoleBreakdown />
-          
-          {/* Quick Actions */}
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-lg font-tan-nimbus text-[#455a54]'>
-                Acciones Rápidas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='space-y-3'>
-              <Button
-                onClick={() => setShowForm(true)}
-                variant='outline'
-                className='w-full border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
-              >
-                <Plus className='mr-2 h-4 w-4' />
-                Nuevo Empleado
-              </Button>
-              
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {/* Employees Table */}
+      <Card className='border-[#9d684e]/20'>
+        <CardHeader>
+          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+            <Users className='h-5 w-5' />
+            Lista de Empleados
+          </CardTitle>
+          <CardDescription className='text-[#455a54]/70'>
+            {stats.total > 0 
+              ? `${stats.total} empleados registrados en el sistema`
+              : 'No hay empleados registrados'
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center items-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e]"></div>
+              <span className="ml-2 text-[#455a54]/70">Cargando empleados...</span>
+            </div>
+          ) : (
+            <EmployeesTable data={filteredEmployees} />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

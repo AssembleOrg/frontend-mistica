@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
 import { authService, LoginRequest, RegisterRequest } from '@/services/auth.service';
 import { ApiError } from '@/services/api.service';
-import { toast } from 'sonner';
+import { showToast } from '@/lib/toast';
 
 // Hook state interface
 interface UseAuthState {
@@ -25,7 +25,7 @@ export function useAuth() {
     const errorMessage = apiError?.message || `Error en ${action}`;
     
     setState(prev => ({ ...prev, error: errorMessage }));
-    toast.error(errorMessage);
+    showToast.error(errorMessage);
     
     console.error(`${action} failed:`, error);
   }, []);
@@ -54,7 +54,7 @@ export function useAuth() {
       console.log('🔑 LOGIN: Usuario guardado:', store.user);
       console.log('🔑 LOGIN: Autenticado:', store.isAuthenticated);
       
-      toast.success(`¡Bienvenido, ${user.name}!`);
+      showToast.success(`¡Bienvenido, ${user.name}!`);
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -79,7 +79,7 @@ export function useAuth() {
       store.setToken(access_token);
       store.setAuthenticated(true);
       
-      toast.success(`¡Cuenta creada exitosamente! Bienvenido, ${user.name}!`);
+      showToast.success(`¡Cuenta creada exitosamente! Bienvenido, ${user.name}!`);
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -103,7 +103,7 @@ export function useAuth() {
       store.setToken(access_token);
       store.setAuthenticated(true);
       
-      toast.success(`¡Administrador creado exitosamente! Bienvenido, ${user.name}!`);
+      showToast.success(`¡Administrador creado exitosamente! Bienvenido, ${user.name}!`);
       setState(prev => ({ ...prev, loading: false }));
       
       return response.data;
@@ -127,7 +127,7 @@ export function useAuth() {
       // Clear local auth state
       store.logout();
       
-      toast.success('Sesión cerrada exitosamente');
+      showToast.success('Sesión cerrada exitosamente');
       setState(prev => ({ ...prev, loading: false }));
     } catch (error) {
       // Even if backend logout fails, logout locally

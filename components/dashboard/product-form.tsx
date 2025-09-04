@@ -48,8 +48,6 @@ interface FormData {
   category: Product['category'];
   price: number;
   costPrice: number;
-  stock: number;
-  unitOfMeasure: Product['unitOfMeasure'];
   description: string;
   status: Product['status'];
   profitMargin?: number;
@@ -61,10 +59,6 @@ const categories = [
   { value: 'wellness' as const, label: 'Wellness' },
 ];
 
-const unitsOfMeasure = [
-  { value: 'gramo' as const, label: 'Gramo' },
-  { value: 'litro' as const, label: 'Litro' },
-];
 
 export function ProductForm({
   product,
@@ -84,8 +78,6 @@ export function ProductForm({
     category: product?.category || 'organicos',
     price: product?.price || 0,
     costPrice: product?.costPrice || 0,
-    stock: product?.stock || 0,
-    unitOfMeasure: product?.unitOfMeasure || 'gramo',
     description: product?.description || '',
     status: product?.status || 'active',
     profitMargin: product?.profitMargin,
@@ -135,9 +127,17 @@ export function ProductForm({
     setIsLoading(true);
 
     try {
+      // Add default stock and unitOfMeasure for backend compatibility
+      const backendData = {
+        ...formData,
+        stock: mode === 'add' ? 0 : product?.stock || 0, // Preserve existing stock for edits
+        unitOfMeasure: mode === 'add' ? ('gramo' as const) : product?.unitOfMeasure || ('gramo' as const)
+      };
+      
       if (mode === 'add') {
-        await createProduct(formData);
+        await createProduct(backendData);
       } else {
+        // For updates, only send the fields we want to update (no stock/unitOfMeasure)
         await updateProduct(product!.id, formData);
       }
 
@@ -233,30 +233,6 @@ export function ProductForm({
                 </Select>
               </div>
 
-              {/* Unit of Measure */}
-              <div>
-                <Label htmlFor='unitOfMeasure'>Unidad de Medida <span className='text-destructive'>*</span></Label>
-                <Select
-                  value={formData.unitOfMeasure}
-                  onValueChange={(value) =>
-                    handleInputChange('unitOfMeasure', value)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder='Seleccione una unidad' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {unitsOfMeasure.map((unit) => (
-                      <SelectItem
-                        key={unit.value}
-                        value={unit.value}
-                      >
-                        {unit.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               {/* Description */}
               <div>
@@ -282,10 +258,10 @@ export function ProductForm({
             </CardContent>
           </Card>
 
-          {/* Pricing & Stock */}
+          {/* Pricing */}
           <Card>
             <CardHeader>
-              <CardTitle>Precios y Stock</CardTitle>
+              <CardTitle>Precios</CardTitle>
               <CardDescription>
                 Información comercial del producto
               </CardDescription>
@@ -357,20 +333,6 @@ export function ProductForm({
                 </div>
               )}
 
-              {/* Stock */}
-              <div>
-                <Label htmlFor='stock'>Stock Inicial</Label>
-                <Input
-                  id='stock'
-                  type='number'
-                  value={formData.stock || ''}
-                  onChange={(e) =>
-                    handleInputChange('stock', parseInt(e.target.value) || 0)
-                  }
-                  placeholder='0'
-                  min='0'
-                />
-              </div>
             </CardContent>
           </Card>
         </div>

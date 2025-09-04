@@ -33,36 +33,45 @@ import {
 } from '@/components/ui/table';
 import { Activity, ActivityType } from '@/stores/activity.store';
 
-// Activity type configuration for badges
+// Activity type configuration for badges - EXPANDED
 const activityTypeConfig: Record<
   ActivityType,
   { label: string; color: string; bgColor: string }
 > = {
-  ingreso: {
-    label: 'Ingreso',
-    color: '#10b981',
-    bgColor: '#10b981/10',
-  },
-  egreso: {
-    label: 'Egreso',
-    color: '#ef4444',
-    bgColor: '#ef4444/10',
-  },
-  cambio_producto: {
-    label: 'Cambio Producto',
-    color: '#6366f1',
-    bgColor: '#6366f1/10',
-  },
-  cambio_precio: {
-    label: 'Cambio Precio',
-    color: '#f59e0b',
-    bgColor: '#f59e0b/10',
-  },
-  otro: {
-    label: 'Otro',
-    color: '#6b7280',
-    bgColor: '#6b7280/10',
-  },
+  // Financial
+  ingreso: { label: 'Ingreso', color: '#10b981', bgColor: '#10b981/10' },
+  egreso: { label: 'Egreso', color: '#ef4444', bgColor: '#ef4444/10' },
+  
+  // Product Management
+  cambio_producto: { label: 'Cambio Producto', color: '#6366f1', bgColor: '#6366f1/10' },
+  cambio_precio: { label: 'Cambio Precio', color: '#f59e0b', bgColor: '#f59e0b/10' },
+  producto_creado: { label: 'Producto Creado', color: '#10b981', bgColor: '#10b981/10' },
+  producto_editado: { label: 'Producto Editado', color: '#3b82f6', bgColor: '#3b82f6/10' },
+  producto_eliminado: { label: 'Producto Eliminado', color: '#ef4444', bgColor: '#ef4444/10' },
+  
+  // Stock Management
+  ajuste_stock: { label: 'Ajuste Stock', color: '#8b5cf6', bgColor: '#8b5cf6/10' },
+  stock_entrada: { label: 'Stock Entrada', color: '#10b981', bgColor: '#10b981/10' },
+  stock_salida: { label: 'Stock Salida', color: '#f59e0b', bgColor: '#f59e0b/10' },
+  
+  // Employee Management
+  empleado_creado: { label: 'Empleado Creado', color: '#10b981', bgColor: '#10b981/10' },
+  empleado_editado: { label: 'Empleado Editado', color: '#3b82f6', bgColor: '#3b82f6/10' },
+  empleado_eliminado: { label: 'Empleado Eliminado', color: '#ef4444', bgColor: '#ef4444/10' },
+  
+  // Sales & Service
+  venta_realizada: { label: 'Venta Realizada', color: '#10b981', bgColor: '#10b981/10' },
+  venta_asignada: { label: 'Venta Asignada', color: '#3b82f6', bgColor: '#3b82f6/10' },
+  servicio_iniciado: { label: 'Servicio Iniciado', color: '#3b82f6', bgColor: '#3b82f6/10' },
+  servicio_cerrado: { label: 'Servicio Cerrado', color: '#10b981', bgColor: '#10b981/10' },
+  
+  // Authentication & Security
+  login: { label: 'Login', color: '#10b981', bgColor: '#10b981/10' },
+  logout: { label: 'Logout', color: '#6b7280', bgColor: '#6b7280/10' },
+  acceso_denegado: { label: 'Acceso Denegado', color: '#ef4444', bgColor: '#ef4444/10' },
+  
+  // General
+  otro: { label: 'Otro', color: '#6b7280', bgColor: '#6b7280/10' },
 };
 
 interface ActivityTableProps {

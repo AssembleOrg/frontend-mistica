@@ -115,6 +115,14 @@ export interface Sale {
   createdAt: Date;
   completedAt?: Date;
   cancelledAt?: Date;
+  // Payment adjustment properties
+  originalTotal?: number;
+  finalTotal?: number;
+  adjustmentAmount?: number;
+  adjustmentType?: 'descuento' | 'recargo' | 'ninguno';
+  adjustmentPercentage?: number;
+  // Customer balance properties
+  balanceUsed?: number;
 }
 
 export interface POSSettings {
@@ -207,6 +215,10 @@ export interface PaymentInfo {
   cashReceived?: number;
   cardReference?: string;
   transferReference?: string;
+  // Customer balance information
+  customerId?: string;
+  customerName?: string;
+  balanceUsed?: number;
 }
 
 // Store state interfaces

@@ -340,16 +340,26 @@ export function ProductsTable({ data }: ProductsTableProps) {
           }[unitOfMeasure] || unitOfMeasure;
 
         return (
-          <div
-            className={`font-medium ${
-              stock === 0
-                ? 'text-red-500'
-                : stock <= 10
-                ? 'text-orange-500'
-                : 'text-[#455a54]'
-            }`}
-          >
-            {stock} {unitLabel}
+          <div className="flex items-center justify-between gap-2">
+            <div
+              className={`font-medium ${
+                stock === 0
+                  ? 'text-red-500'
+                  : stock <= 10
+                  ? 'text-orange-500'
+                  : 'text-[#455a54]'
+              }`}
+            >
+              {stock} {unitLabel}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-xs hover:bg-[#9d684e] hover:text-white"
+              onClick={() => window.open(`/dashboard/stock/adjustments?product=${row.original.id}`, '_blank')}
+            >
+              Ajustar
+            </Button>
           </div>
         );
       },

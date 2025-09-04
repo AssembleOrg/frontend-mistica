@@ -47,6 +47,18 @@ export function useInitialEmployeesData(options: UseInitialEmployeesDataOptions 
   // Prevent multiple fetches
   const fetchAttempted = useRef(false);
   const isFetching = useRef(false);
+
+  // Manually hydrate store on client side (required with skipHydration: true)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('👥 useInitialEmployeesData: Hidrando store manualmente');
+      // Force rehydration from localStorage
+      const hasHydrated = useEmployeesStore.persist?.hasHydrated();
+      if (!hasHydrated) {
+        useEmployeesStore.persist?.rehydrate();
+      }
+    }
+  }, []); // Run once on mount
   
   useEffect(() => {
     const shouldFetch = (

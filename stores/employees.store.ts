@@ -336,8 +336,8 @@ export const useEmployeesStore = create<EmployeesState>()(
         employees: state.employees,
         selectedEmployee: state.selectedEmployee,
       }),
-      // Skip persisting loading states and UI preferences
-      skipHydration: false,
+      // Skip hydration to prevent SSR/client mismatch in NextJS App Router
+      skipHydration: true,
     }
   )
 );

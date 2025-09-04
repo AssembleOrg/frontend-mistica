@@ -4,25 +4,63 @@
 
 import { useCallback } from 'react';
 import { useAppStore } from '@/stores/app.store';
+import { useProducts } from '@/hooks/useProducts';
+import { productsService } from '@/services/products.service';
 
 export function useStock() {
   const { 
-    products,
     stockMovements,
     adjustStock,
     getLowStockProducts,
     settings
   } = useAppStore();
+  
+  // Use same data source as the stock adjustment form
+  const { products, addStock, subtractStock } = useProducts();
 
-  const adjustStockQuantity = useCallback((productId: string, quantity: number, reason: string) => {
+  const adjustStockQuantity = useCallback(async (productId: string, quantity: number, reason: string) => {
     const product = products.find(p => p.id === productId);
     if (!product) throw new Error('Producto no encontrado');
     
-    const newStock = product.stock + quantity;
-    if (newStock < 0) throw new Error('El stock no puede ser negativo');
+    // Save original values before any async operations
+    const originalStock = product.stock;
+    const expectedNewStock = originalStock + quantity;
     
-    adjustStock(productId, quantity, reason);
-  }, [products, adjustStock]);
+    if (expectedNewStock < 0) throw new Error('El stock no puede ser negativo');
+    
+    try {
+      console.log('🔧 useStock: Iniciando ajuste de stock:', { productId, quantity, reason, originalStock, expectedNewStock });
+      console.log('🔧 useStock: Product encontrado:', { id: product.id, name: product.name, stock: product.stock });
+      
+      // Update stock via backend API using useProducts methods
+      let updatedProduct;
+      if (quantity > 0) {
+        console.log('🔧 useStock: Agregando stock via addStock');
+        updatedProduct = await addStock(productId, quantity);
+      } else {
+        console.log('🔧 useStock: Restando stock via subtractStock');
+        updatedProduct = await subtractStock(productId, Math.abs(quantity));
+      }
+      
+      console.log('🔧 useStock: Stock actualizado en backend, nuevo stock:', updatedProduct?.stock);
+      
+      // Record the movement in app store for activity tracking
+      console.log('🔧 useStock: Registrando movimiento en app store con valores:', { 
+        productId, 
+        quantity, 
+        reason, 
+        originalStock, 
+        newStock: updatedProduct?.stock || expectedNewStock 
+      });
+      adjustStock(productId, quantity, reason, originalStock, updatedProduct?.stock || expectedNewStock, product.name);
+      
+      console.log('🔧 useStock: Ajuste completado exitosamente');
+      return updatedProduct;
+    } catch (error) {
+      console.error('Error al ajustar stock:', error);
+      throw new Error(error instanceof Error ? error.message : 'Error al actualizar stock');
+    }
+  }, [products, addStock, subtractStock, adjustStock]);
 
   const getStockMovements = useCallback((productId?: string) => {
     let movements = stockMovements;

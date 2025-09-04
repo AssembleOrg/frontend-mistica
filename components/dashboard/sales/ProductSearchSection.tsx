@@ -13,6 +13,7 @@ import { Search, ScanLine, Filter } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { cn } from '@/lib/utils';
+import { PaginationWithMore } from '@/components/ui/pagination-with-more';
 
 interface ProductSearchSectionProps {
   onSearch: (query: string, category?: string) => void;

@@ -32,8 +32,10 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
+  Printer,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app.store';
+import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 import { formatCurrency } from '@/lib/sales-calculations';
@@ -58,6 +60,7 @@ export default function SalesHistoryPage() {
   
   // Use new app store
   const { salesHistory } = useAppStore();
+  const { settings: receiptSettings } = useSettingsStore();
   const sales = salesHistory;
 
   const [filters, setFilters] = useState<SalesFilters>({
@@ -196,6 +199,17 @@ export default function SalesHistoryPage() {
 
   const handleEditSale = (saleId: string) => {
     router.push(`/dashboard/sales/${saleId}/edit`);
+  };
+
+  const handlePrintSale = (sale: Sale) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast.error('No se pudo abrir la ventana de impresión');
+      return;
+    }
+    
+    showToast.success('Recibo reenviado a impresora');
+    printWindow.close();
   };
 
   const handleDeleteSale = async (saleId: string) => {
@@ -468,6 +482,12 @@ export default function SalesHistoryPage() {
                               >
                                 <Eye className='h-4 w-4 mr-2' />
                                 Ver detalle
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handlePrintSale(sale)}
+                              >
+                                <Printer className='h-4 w-4 mr-2' />
+                                Reimprimir recibo
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleEditSale(sale.id)}

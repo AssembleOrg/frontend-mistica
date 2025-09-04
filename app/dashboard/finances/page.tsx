@@ -19,6 +19,7 @@ import { TransactionsTable } from '@/components/dashboard/finances/transactions-
 import { DateRangeFilter } from '@/components/dashboard/finances/date-range-filter';
 import { ExpenseForm } from '@/components/dashboard/finances/expense-form';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
+import { QuickActivityWidget } from '@/components/dashboard/quick-activity-widget';
 import { useFinances } from '@/hooks/useFinances';
 import { Download, DollarSign, Minus } from 'lucide-react';
 
@@ -232,6 +233,12 @@ export default function FinancesPage() {
         </CardContent>
       </Card>
 
+      {/* Recent Financial Activity */}
+      <QuickActivityWidget
+        title="Actividad Financiera"
+        filterTypes={['ingreso', 'egreso', 'venta_realizada']}
+        limit={6}
+      />
     </div>
   );
 }

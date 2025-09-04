@@ -46,15 +46,19 @@ export function useProducts() {
 
   // Fetch all products from API with stable reference
   const fetchProducts = useCallback(async () => {
+    console.log('🔗 useProducts: Iniciando fetchProducts');
     setState(prev => ({ ...prev, loading: true, error: null }));
     storeRef.current.setLoading(true);
     
     try {
       const response = await productsService.getAllProducts();
+      console.log('🔗 useProducts: Productos recibidos:', response.data?.length, 'items');
       storeRef.current.setProducts(response.data);
       setState(prev => ({ ...prev, loading: false }));
       storeRef.current.setLoading(false);
+      console.log('🔗 useProducts: Productos guardados en store');
     } catch (error) {
+      console.error('🔗 useProducts: Error en fetchProducts:', error);
       handleApiError(error, 'cargar productos');
       setState(prev => ({ ...prev, loading: false }));
       storeRef.current.setLoading(false);
@@ -121,8 +125,12 @@ export function useProducts() {
     setState(prev => ({ ...prev, syncing: true }));
     
     try {
+      console.log('📦 useProducts.addStock: Agregando', quantity, 'a producto', id);
       const response = await productsService.addStock(id, quantity);
+      console.log('📦 useProducts.addStock: Respuesta del backend:', response.data.stock);
+      
       storeRef.current.updateProduct(id, { stock: response.data.stock });
+      console.log('📦 useProducts.addStock: Stock actualizado en store local');
       
       showToast.success(`Stock agregado: +${quantity} unidades`);
       setState(prev => ({ ...prev, syncing: false }));
@@ -140,8 +148,12 @@ export function useProducts() {
     setState(prev => ({ ...prev, syncing: true }));
     
     try {
+      console.log('📦 useProducts.subtractStock: Restando', quantity, 'a producto', id);
       const response = await productsService.subtractStock(id, quantity);
+      console.log('📦 useProducts.subtractStock: Respuesta del backend:', response.data.stock);
+      
       storeRef.current.updateProduct(id, { stock: response.data.stock });
+      console.log('📦 useProducts.subtractStock: Stock actualizado en store local');
       
       showToast.success(`Stock reducido: -${quantity} unidades`);
       setState(prev => ({ ...prev, syncing: false }));

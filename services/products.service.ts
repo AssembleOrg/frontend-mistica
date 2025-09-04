@@ -33,7 +33,10 @@ export class ProductsService {
 
   // Get all products without pagination
   async getAllProducts(): Promise<ApiResponse<Product[]>> {
-    return apiService.get<Product[]>('/products/all');
+    console.log('🏭 PRODUCTS SERVICE: Llamando a GET /products/all');
+    const response = await apiService.get<Product[]>('/products/all');
+    console.log('🏭 PRODUCTS SERVICE: Respuesta recibida:', response.data?.length, 'productos');
+    return response;
   }
 
   // Get single product by ID
@@ -55,7 +58,7 @@ export class ProductsService {
   }
 
   // Helper to clean payload and add required fields
-  private cleanPayload(data: any): any {
+  private cleanPayload(data: Record<string, unknown>): Record<string, unknown> {
     const cleaned = { ...data };
     
     // Remove undefined fields (backend doesn't accept undefined values)
@@ -71,7 +74,7 @@ export class ProductsService {
     }
     
     // Ensure description is not empty (backend might require non-empty string)
-    if (!cleaned.description || cleaned.description.trim() === '') {
+    if (!cleaned.description || (typeof cleaned.description === 'string' && cleaned.description.trim() === '')) {
       cleaned.description = 'Sin descripción';
     }
     
@@ -80,8 +83,11 @@ export class ProductsService {
 
   // Create new product
   async createProduct(productData: CreateProductRequest): Promise<ApiResponse<Product>> {
+    console.log('🏭 PRODUCTS SERVICE: Creando producto:', productData.name);
     const cleanedData = this.cleanPayload(productData);
-    return apiService.post<Product>('/products', cleanedData);
+    const response = await apiService.post<Product>('/products', cleanedData);
+    console.log('🏭 PRODUCTS SERVICE: Producto creado:', response.data.name);
+    return response;
   }
 
   // Update existing product
@@ -97,12 +103,18 @@ export class ProductsService {
 
   // Add stock to product
   async addStock(id: string, quantity: number): Promise<ApiResponse<Product>> {
-    return apiService.patch<Product>(`/products/${id}/stock/add`, { quantity });
+    console.log('🏭 PRODUCTS SERVICE: Agregando stock:', quantity, 'al producto:', id);
+    const response = await apiService.patch<Product>(`/products/${id}/stock/add`, { quantity });
+    console.log('🏭 PRODUCTS SERVICE: Stock actualizado:', response.data.stock);
+    return response;
   }
 
   // Subtract stock from product
   async subtractStock(id: string, quantity: number): Promise<ApiResponse<Product>> {
-    return apiService.patch<Product>(`/products/${id}/stock/subtract`, { quantity });
+    console.log('🏭 PRODUCTS SERVICE: Restando stock:', quantity, 'del producto:', id);
+    const response = await apiService.patch<Product>(`/products/${id}/stock/subtract`, { quantity });
+    console.log('🏭 PRODUCTS SERVICE: Stock actualizado:', response.data.stock);
+    return response;
   }
 
   // Bulk operations

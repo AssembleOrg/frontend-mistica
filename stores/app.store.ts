@@ -55,11 +55,11 @@ interface AppState {
   clearCart: () => void;
   
   // Sales Actions
-  completeSale: (paymentMethod: string, cashReceived?: number) => Sale;
+  completeSale: (paymentMethod: string, cashReceived?: number, saleData?: any) => Sale;
   editSale: (saleId: string, updates: { paymentMethod?: Sale['paymentMethod']; notes?: string; customerInfo?: any }) => boolean;
   
   // Stock Actions
-  adjustStock: (productId: string, quantity: number, reason: string) => void;
+  adjustStock: (productId: string, quantity: number, reason: string, previousStock: number, newStock: number, productName: string) => void;
   
   // Computed
   getCartTotal: () => number;
@@ -204,11 +204,14 @@ export const useAppStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
 
       // Sales Actions
-      completeSale: (paymentMethod, cashReceived) => {
+      completeSale: (paymentMethod, cashReceived, saleData) => {
         const state = get();
         const subtotal = state.getCartTotal();
         const taxAmount = subtotal * state.settings.taxRate;
-        const total = subtotal + taxAmount;
+        const originalTotal = subtotal + taxAmount;
+        
+        // Use final total from saleData if available (includes payment adjustments)
+        const finalTotal = saleData?.finalTotal || originalTotal;
 
         const sale: Sale = {
           id: crypto.randomUUID(),
@@ -226,14 +229,27 @@ export const useAppStore = create<AppState>()(
           subtotal,
           discountTotal: 0,
           taxAmount,
-          total,
+          total: finalTotal,
           paymentMethod: paymentMethod as any,
           cashReceived,
-          cashChange: cashReceived ? Math.max(0, cashReceived - total) : undefined,
+          cashChange: cashReceived ? Math.max(0, cashReceived - finalTotal) : undefined,
           status: 'completed',
           cashierId: 'user',
           createdAt: new Date(),
-          completedAt: new Date()
+          completedAt: new Date(),
+          // Payment adjustment properties from saleData
+          originalTotal: saleData?.originalTotal,
+          finalTotal: saleData?.finalTotal,
+          adjustmentAmount: saleData?.adjustmentAmount,
+          adjustmentType: saleData?.adjustmentType,
+          adjustmentPercentage: saleData?.adjustmentPercentage,
+          notes: saleData?.reference,
+          // Customer balance properties
+          customerId: saleData?.customerId,
+          customerInfo: saleData?.customerId ? {
+            name: saleData.customerName || 'Cliente'
+          } : undefined,
+          balanceUsed: saleData?.balanceUsed
         };
 
         // Update product stock
@@ -270,7 +286,7 @@ export const useAppStore = create<AppState>()(
         useActivityStore.getState().addActivity({
           type: 'ingreso',
           description: `Venta completada - ${state.cart.length} items`,
-          amount: total,
+          amount: finalTotal,
           metadata: { 
             saleId: sale.id, 
             paymentMethod, 
@@ -283,7 +299,7 @@ export const useAppStore = create<AppState>()(
         const cashTransaction: CashTransaction = {
           id: crypto.randomUUID(),
           type: 'ingreso',
-          amount: total,
+          amount: finalTotal,
           description: `Venta #${sale.id.slice(-8)}`,
           category: 'venta',
           paymentMethod: paymentMethod as any,
@@ -338,14 +354,7 @@ export const useAppStore = create<AppState>()(
       },
 
       // Stock Actions
-      adjustStock: (productId, quantity, reason) => {
-        const state = get();
-        const product = state.products.find(p => p.id === productId);
-        if (!product) return;
-
-        const newStock = product.stock + quantity;
-        state.updateProduct(productId, { stock: newStock });
-
+      adjustStock: (productId, quantity, reason, previousStock, newStock, productName) => {
         const movement: StockMovement = {
           id: crypto.randomUUID(),
           productId,
@@ -354,7 +363,7 @@ export const useAppStore = create<AppState>()(
           reason,
           userId: 'user',
           createdAt: new Date(),
-          previousStock: product.stock,
+          previousStock,
           newStock
         };
 
@@ -365,11 +374,11 @@ export const useAppStore = create<AppState>()(
         // Log stock activity
         useActivityStore.getState().addActivity({
           type: quantity > 0 ? 'ingreso' : 'egreso',
-          description: `Ajuste de stock: ${product.name} (${quantity > 0 ? '+' : ''}${quantity})`,
+          description: `Ajuste de stock: ${productName} (${quantity > 0 ? '+' : ''}${quantity})`,
           metadata: { 
             productId, 
             movementId: movement.id,
-            previousStock: product.stock,
+            previousStock,
             newStock,
             reason,
             action: 'stock_adjustment'

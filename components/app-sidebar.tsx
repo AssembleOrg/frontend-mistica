@@ -68,7 +68,7 @@ const navigationItems = [
     title: 'Configuración',
     url: '/dashboard/settings',
     icon: Settings,
-    enabled: false,
+    enabled: true,
   },
 ];
 

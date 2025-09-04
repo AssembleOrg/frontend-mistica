@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import { ProductForm } from '@/components/dashboard/product-form';
 import { ProductFormSkeleton } from '@/components/ui/loading-skeletons';
-import { mockProducts } from '@/lib/mock-data';
 import { Product } from '@/lib/types';
 import { notFound } from 'next/navigation';
+import { productsService } from '@/services/products.service';
 
 interface EditProductPageProps {
   params: Promise<{
@@ -18,19 +18,24 @@ export default function EditProductPage({ params }: EditProductPageProps) {
   const [product, setProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    // Simulate product loading with realistic delay
     const loadProduct = async () => {
-      const resolvedParams = await params;
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay
+      try {
+        const resolvedParams = await params;
+        
+        // Get product from backend
+        const response = await productsService.getProduct(resolvedParams.id);
+        
+        if (!response.data) {
+          notFound();
+        }
 
-      const foundProduct = mockProducts.find((p) => p.id === resolvedParams.id);
-
-      if (!foundProduct) {
+        setProduct(response.data);
+      } catch (error) {
+        console.error('Error loading product:', error);
         notFound();
+      } finally {
+        setIsLoading(false);
       }
-
-      setProduct(foundProduct);
-      setIsLoading(false);
     };
 
     loadProduct();

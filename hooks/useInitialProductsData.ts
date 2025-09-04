@@ -47,6 +47,18 @@ export function useInitialProductsData(options: UseInitialProductsDataOptions = 
   // Prevent multiple fetches
   const fetchAttempted = useRef(false);
   const isFetching = useRef(false);
+
+  // Manually hydrate store on client side (required with skipHydration: true)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('🔄 useInitialProductsData: Hidrando store manualmente');
+      // Force rehydration from localStorage
+      const hasHydrated = useProductsStore.persist?.hasHydrated();
+      if (!hasHydrated) {
+        useProductsStore.persist?.rehydrate();
+      }
+    }
+  }, []); // Run once on mount
   
   useEffect(() => {
     const shouldFetch = (

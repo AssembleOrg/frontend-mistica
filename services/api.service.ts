@@ -15,7 +15,7 @@ export interface ApiError {
   message: string;
   status: number;
   code?: string;
-  details?: any;
+  details?: unknown;
 }
 
 // HTTP client configuration
@@ -36,8 +36,9 @@ export class ApiService {
   private baseURL: string;
   private defaultTimeout: number = 10000; // 10 seconds
   private requestCache: RequestCache = {};
-  private readonly CACHE_DURATION = 1000; // 1 second protection
-  private readonly MAX_CONCURRENT_REQUESTS = 10;
+  private readonly CACHE_DURATION = 500; // 0.5 second protection for most requests
+  private readonly CACHE_DURATION_GET = 200; // 0.2 second for GET requests (edit pages)
+  private readonly MAX_CONCURRENT_REQUESTS = 15;
   private activeRequests = 0;
 
   constructor(
@@ -105,9 +106,21 @@ export class ApiService {
     const cached = this.requestCache[requestKey];
     const now = Date.now();
 
+    // Use different cache durations based on method and endpoint
+    const cacheDuration = method === 'GET' ? this.CACHE_DURATION_GET : this.CACHE_DURATION;
+    
+    // Special exception for critical endpoints (edit pages)
+    const isCriticalEndpoint = endpoint.includes('/products/') && method === 'GET';
+    if (isCriticalEndpoint && cached && (now - cached.timestamp) < this.CACHE_DURATION_GET) {
+      console.info(`🛡️ API: GET request for edit page - allowing with minimal protection: ${requestKey}`);
+      // Allow but update timestamp to prevent rapid successive calls
+      this.requestCache[requestKey] = { timestamp: now };
+      return true;
+    }
+
     // Check if same request was made recently (spam protection)
-    if (cached && (now - cached.timestamp) < this.CACHE_DURATION) {
-      console.warn(`🛡️ API: Request bloqueado por spam protection: ${requestKey}`);
+    if (cached && (now - cached.timestamp) < cacheDuration) {
+      console.warn(`🛡️ API: Request bloqueado por spam protection: ${requestKey} (${cacheDuration}ms protection)`);
       return false;
     }
 
@@ -204,7 +217,7 @@ export class ApiService {
 
   async post<T>(
     endpoint: string,
-    data?: any,
+    data?: Record<string, unknown>,
     config?: HttpConfig
   ): Promise<ApiResponse<T>> {
     return this.request<T>(
@@ -219,7 +232,7 @@ export class ApiService {
 
   async put<T>(
     endpoint: string,
-    data?: any,
+    data?: Record<string, unknown>,
     config?: HttpConfig
   ): Promise<ApiResponse<T>> {
     return this.request<T>(
@@ -234,7 +247,7 @@ export class ApiService {
 
   async patch<T>(
     endpoint: string,
-    data?: any,
+    data?: Record<string, unknown>,
     config?: HttpConfig
   ): Promise<ApiResponse<T>> {
     return this.request<T>(

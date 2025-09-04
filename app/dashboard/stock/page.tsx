@@ -26,22 +26,29 @@ import {
   Plus,
 } from 'lucide-react';
 import { useStock } from '@/hooks/useStock';
+import { useProducts } from '@/hooks/useProducts';
+import { useInitialProductsData } from '@/hooks/useInitialProductsData';
+import type { StockMovement } from '@/lib/types';
 
 export default function StockDashboard() {
   const [isLoading, setIsLoading] = useState(true);
+  const [movementsToShow, setMovementsToShow] = useState(5);
   
-  // Simple hooks API
+  // Load initial data and hooks
+  const { isLoading: loadingProducts } = useInitialProductsData();
   const { stockSummary, getStockMovements } = useStock();
+  const { products } = useProducts();
   const movements = getStockMovements();
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+    // Wait for products to load before showing content
+    if (!loadingProducts) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingProducts]);
 
   if (isLoading) {
     return (
@@ -115,11 +122,11 @@ export default function StockDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
             <div className='bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 rounded-lg border border-orange-500/20'>
               <div className='flex items-center justify-between'>
                 <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-orange-600'>
+                  <div className='text-lg sm:text-xl md:text-2xl font-bold font-tan-nimbus text-orange-600'>
                     {stockSummary.lowStock}
                   </div>
                   <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Stock Bajo</div>
@@ -131,7 +138,7 @@ export default function StockDashboard() {
             <div className='bg-gradient-to-br from-red-500/10 to-red-500/5 p-4 rounded-lg border border-red-500/20'>
               <div className='flex items-center justify-between'>
                 <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-red-600'>
+                  <div className='text-lg sm:text-xl md:text-2xl font-bold font-tan-nimbus text-red-600'>
                     {stockSummary.outOfStock}
                   </div>
                   <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Agotados</div>
@@ -142,25 +149,30 @@ export default function StockDashboard() {
               </div>
             </div>
             
-            <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
+            <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-3 sm:p-4 rounded-lg border border-green-500/20'>
               <div className='flex items-center justify-between'>
-                <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-green-600'>
-                    ${stockSummary.totalValue.toLocaleString('es-AR', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0
-                    })}
+                <div className='min-w-0 flex-1 pr-2'>
+                  <div className='text-sm sm:text-base md:text-lg lg:text-xl font-bold font-tan-nimbus text-green-600 break-all'>
+                    <span className='hidden sm:inline'>$</span>
+                    <span className='sm:hidden'>$</span>
+                    {stockSummary.totalValue > 999999 
+                      ? `${(stockSummary.totalValue / 1000000).toFixed(1)}M`
+                      : stockSummary.totalValue.toLocaleString('es-AR', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        })
+                    }
                   </div>
                   <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Valor Total</div>
                 </div>
-                <Package className='h-6 w-6 text-green-500/40' />
+                <Package className='h-5 w-5 sm:h-6 sm:w-6 text-green-500/40 flex-shrink-0' />
               </div>
             </div>
             
             <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
               <div className='flex items-center justify-between'>
                 <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-[#9d684e]'>
+                  <div className='text-lg sm:text-xl md:text-2xl font-bold font-tan-nimbus text-[#9d684e]'>
                     {movements.length}
                   </div>
                   <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Movimientos</div>
@@ -191,8 +203,11 @@ export default function StockDashboard() {
             </div>
           ) : (
             <div className='space-y-3'>
-              {movements.map((movement: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-                const product = { name: 'Producto', id: movement.productId }; // Mock product data
+              {movements.slice(0, movementsToShow).map((movement: StockMovement) => {
+                const product = products.find(p => p.id === movement.productId) || { 
+                  name: 'Producto no encontrado', 
+                  id: movement.productId 
+                };
                 const typeColors = {
                   entrada: 'text-green-600',
                   salida: 'text-red-600',
@@ -224,6 +239,9 @@ export default function StockDashboard() {
                         <p className='text-sm text-[#455a54]/70'>
                           {movement.reason}
                         </p>
+                        <p className='text-xs text-[#455a54]/50'>
+                          {movement.previousStock} → {movement.newStock} unidades
+                        </p>
                       </div>
                     </div>
                     <div className='text-right'>
@@ -238,12 +256,42 @@ export default function StockDashboard() {
                       <p className='text-xs text-[#455a54]/70'>
                         {new Date(movement.createdAt).toLocaleDateString('es-AR')}
                       </p>
+                      {product && (
+                        <p className='text-xs text-[#9d684e] font-medium'>
+                          Stock actual: {product.stock}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })}
 
-              <div className='text-center pt-3'></div>
+              {/* Pagination Controls */}
+              {movements.length > movementsToShow && (
+                <div className='text-center pt-4 border-t border-[#9d684e]/10'>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMovementsToShow(prev => prev + 5)}
+                    className='text-[#9d684e] border-[#9d684e]/30 hover:bg-[#9d684e]/10'
+                  >
+                    Ver más movimientos ({movements.length - movementsToShow} restantes)
+                  </Button>
+                </div>
+              )}
+              
+              {movementsToShow > 5 && (
+                <div className='text-center pt-2'>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMovementsToShow(5)}
+                    className='text-[#455a54]/70 hover:text-[#9d684e]'
+                  >
+                    Ver menos
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

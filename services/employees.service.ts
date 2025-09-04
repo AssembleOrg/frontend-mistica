@@ -36,15 +36,15 @@ export class EmployeesService {
   }
 
   // Helper to clean payload - remove empty fields
-  private cleanPayload(data: any): any {
+  private cleanPayload(data: Record<string, unknown>): Record<string, unknown> {
     const cleaned = { ...data };
     
     // Remove empty optional fields
-    if (!cleaned.phone || cleaned.phone.trim() === '') {
+    if (!cleaned.phone || (typeof cleaned.phone === 'string' && cleaned.phone.trim() === '')) {
       delete cleaned.phone;
     }
     
-    if (!cleaned.address || cleaned.address.trim() === '') {
+    if (!cleaned.address || (typeof cleaned.address === 'string' && cleaned.address.trim() === '')) {
       delete cleaned.address;
     }
     

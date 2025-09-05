@@ -215,28 +215,31 @@ export const useAppStore = create<AppState>()(
 
         const sale: Sale = {
           id: crypto.randomUUID(),
+          saleNumber: `SALE-${Date.now()}`,
           items: state.cart.map(item => {
             const product = state.products.find(p => p.id === item.productId)!;
             return {
-              id: crypto.randomUUID(),
               productId: item.productId,
-              product: product,
+              productName: item.productName,
               quantity: item.quantity,
               unitPrice: item.price,
               subtotal: item.subtotal
             };
           }),
           subtotal,
-          discountTotal: 0,
-          taxAmount,
+          discount: 0,
+          tax: taxAmount,
           total: finalTotal,
-          paymentMethod: paymentMethod as any,
+          paymentMethod: paymentMethod as 'CASH' | 'CARD' | 'TRANSFER',
+          status: 'COMPLETED',
+          customerName: saleData?.customerName || 'Cliente',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          // POS specific properties
           cashReceived,
           cashChange: cashReceived ? Math.max(0, cashReceived - finalTotal) : undefined,
-          status: 'completed',
           cashierId: 'user',
-          createdAt: new Date(),
-          completedAt: new Date(),
+          completedAt: new Date().toISOString(),
           // Payment adjustment properties from saleData
           originalTotal: saleData?.originalTotal,
           finalTotal: saleData?.finalTotal,
@@ -245,10 +248,9 @@ export const useAppStore = create<AppState>()(
           adjustmentPercentage: saleData?.adjustmentPercentage,
           notes: saleData?.reference,
           // Customer balance properties
-          customerId: saleData?.customerId,
-          customerInfo: saleData?.customerId ? {
-            name: saleData.customerName || 'Cliente'
-          } : undefined,
+          clientId: saleData?.customerId,
+          customerEmail: saleData?.customerEmail,
+          customerPhone: saleData?.customerPhone,
           balanceUsed: saleData?.balanceUsed
         };
 
@@ -323,7 +325,8 @@ export const useAppStore = create<AppState>()(
         
         // Restriction: Only allow edits within 24 hours
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        if (sale.createdAt < twentyFourHoursAgo) {
+        const saleDate = new Date(sale.createdAt);
+        if (saleDate < twentyFourHoursAgo) {
           return false;
         }
         
@@ -331,11 +334,10 @@ export const useAppStore = create<AppState>()(
         const allowedUpdates: Partial<Sale> = {};
         if (updates.paymentMethod) allowedUpdates.paymentMethod = updates.paymentMethod;
         if (updates.notes !== undefined) allowedUpdates.notes = updates.notes;
-        if (updates.customerInfo) allowedUpdates.customerInfo = updates.customerInfo;
         
         set(state => ({
           salesHistory: state.salesHistory.map(s =>
-            s.id === saleId ? { ...s, ...allowedUpdates, updatedAt: new Date() } : s
+            s.id === saleId ? { ...s, ...allowedUpdates, updatedAt: new Date().toISOString() } : s
           )
         }));
         
@@ -507,9 +509,10 @@ export const useAppStore = create<AppState>()(
           e.createdAt >= startOfDay && e.createdAt < endOfDay
         );
 
-        const daySales = state.salesHistory.filter(s => 
-          s.createdAt >= startOfDay && s.createdAt < endOfDay
-        );
+        const daySales = state.salesHistory.filter(s => {
+          const saleDate = new Date(s.createdAt);
+          return saleDate >= startOfDay && saleDate < endOfDay;
+        });
 
         // Calculate totals
         const totalIngresos = dayTransactions
@@ -520,7 +523,7 @@ export const useAppStore = create<AppState>()(
           .filter(t => t.type === 'egreso')
           .reduce((sum, t) => sum + t.amount, 0);
 
-        // Payment method breakdown
+        // Payment method breakdown with proper mapping
         const paymentMethodBreakdown = {
           efectivo: 0,
           tarjeta: 0,
@@ -529,7 +532,20 @@ export const useAppStore = create<AppState>()(
         };
 
         daySales.forEach(sale => {
-          paymentMethodBreakdown[sale.paymentMethod] += sale.total;
+          switch (sale.paymentMethod) {
+            case 'CASH':
+              paymentMethodBreakdown.efectivo += sale.total;
+              break;
+            case 'CARD':
+              paymentMethodBreakdown.tarjeta += sale.total;
+              break;
+            case 'TRANSFER':
+              paymentMethodBreakdown.transferencia += sale.total;
+              break;
+            default:
+              paymentMethodBreakdown.mixto += sale.total;
+              break;
+          }
         });
 
         // Top expense categories

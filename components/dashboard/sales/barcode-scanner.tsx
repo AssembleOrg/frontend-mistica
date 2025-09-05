@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Scan, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { validateBarcode } from '@/lib/barcode-validation';
-import { showToast } from '@/lib/toast';
 
 interface BarcodeScannerProps {
   onProductScanned: (barcode: string) => void;

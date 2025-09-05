@@ -270,7 +270,7 @@ export default function ProductDetailsPage() {
                   ? 'text-orange-500'
                   : 'text-[#455a54]'
               }`}>
-                {product.stock} {unitLabels[product.unitOfMeasure]}
+                {product.stock} {unitLabels[product.unitOfMeasure as keyof typeof unitLabels] || ''}
               </p>
             </div>
             <div className="space-y-1">

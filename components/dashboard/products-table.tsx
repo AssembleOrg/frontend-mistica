@@ -360,6 +360,7 @@ export function ProductsTable({ data }: ProductsTableProps) {
           {
             gramo: 'g',
             litro: 'L',
+            unidad: 'u',
           }[unitOfMeasure] || unitOfMeasure;
 
         return (

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Building, Phone, MessageSquare, User, Eye, Save } from 'lucide-react';
+import { Building, MessageSquare, Eye, Save } from 'lucide-react';
 import { useState } from 'react';
 import { showToast } from '@/lib/toast';
 
@@ -21,6 +21,7 @@ export function ReceiptSettings() {
       await new Promise(resolve => setTimeout(resolve, 500));
       showToast.success('Configuración de recibos guardada');
     } catch (error) {
+      console.error('Error saving receipt settings:', error);
       showToast.error('Error al guardar la configuración');
     } finally {
       setIsLoading(false);

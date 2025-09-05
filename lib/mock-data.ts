@@ -251,11 +251,14 @@ export function getProductStats() {
 export const mockSales: Sale[] = [
   {
     id: 'sale-1',
+    saleNumber: 'SALE-001',
+    customerName: 'Cliente Ejemplo',
     cashierId: 'cashier-1',
     items: [
       {
         id: 'item-1',
         productId: '1',
+        productName: mockProducts[0].name,
         product: mockProducts[0],
         quantity: 2,
         unitPrice: mockProducts[0].price,
@@ -264,6 +267,7 @@ export const mockSales: Sale[] = [
       {
         id: 'item-2', 
         productId: '2',
+        productName: mockProducts[1].name,
         product: mockProducts[1],
         quantity: 1,
         unitPrice: mockProducts[1].price,
@@ -271,20 +275,24 @@ export const mockSales: Sale[] = [
       }
     ],
     subtotal: mockProducts[0].price * 2 + mockProducts[1].price,
-    discountTotal: 0,
-    taxAmount: (mockProducts[0].price * 2 + mockProducts[1].price) * 0.21,
+    discount: 0,
+    tax: (mockProducts[0].price * 2 + mockProducts[1].price) * 0.21,
     total: (mockProducts[0].price * 2 + mockProducts[1].price) * 1.21,
-    paymentMethod: 'efectivo',
-    status: 'completed',
-    createdAt: new Date(),
+    paymentMethod: 'CASH',
+    status: 'COMPLETED',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'sale-2',
+    saleNumber: 'SALE-002',
+    customerName: 'Cliente Dos',
     cashierId: 'cashier-1',
     items: [
       {
         id: 'item-3',
         productId: '3',
+        productName: mockProducts[2].name,
         product: mockProducts[2],
         quantity: 1,
         unitPrice: mockProducts[2].price,
@@ -292,12 +300,13 @@ export const mockSales: Sale[] = [
       }
     ],
     subtotal: mockProducts[2].price,
-    discountTotal: 0,
-    taxAmount: mockProducts[2].price * 0.21,
+    discount: 0,
+    tax: mockProducts[2].price * 0.21,
     total: mockProducts[2].price * 1.21,
-    paymentMethod: 'tarjeta',
-    status: 'completed',
-    createdAt: new Date(Date.now() - 86400000), // Yesterday
+    paymentMethod: 'CARD',
+    status: 'COMPLETED',
+    createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+    updatedAt: new Date(Date.now() - 86400000).toISOString(),
   }
 ];
 

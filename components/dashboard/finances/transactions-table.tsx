@@ -186,7 +186,7 @@ export function TransactionsTable({ transactions, dateRange }: TransactionsTable
       },
       cell: ({ row }) => {
         const method = row.getValue('paymentMethod') as CashTransaction['paymentMethod'];
-        const config = paymentMethodConfig[method];
+        const config = paymentMethodConfig[method as keyof typeof paymentMethodConfig] || { label: 'Desconocido', color: 'text-gray-600' };
         return (
           <div className={`text-sm font-medium ${config.color}`}>
             {config.label}

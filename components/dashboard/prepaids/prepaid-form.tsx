@@ -7,18 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Save, X, CheckCircle, Search, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Prepaid, CreatePrepaidRequest, UpdatePrepaidRequest } from '@/services/prepaids.service';
 import { useClientsAPI } from '@/hooks/useClientsAPI';
-import { formatCurrency } from '@/lib/sales-calculations';
 import { Client } from '@/services/clients.service';
 
 interface PrepaidFormProps {

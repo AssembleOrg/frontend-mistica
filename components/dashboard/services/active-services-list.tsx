@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +26,6 @@ import {
   Receipt, 
   Pause, 
   Play, 
-  X, 
   Trash2,
   Clock,
   Users,
@@ -47,7 +45,6 @@ export function ActiveServicesList() {
     removeProductFromService,
     updateServiceItemQuantity,
     closeServiceWithSale,
-    cancelServiceWithReason,
     pauseServiceAction,
     resumeServiceAction,
     getServiceStats
@@ -98,6 +95,7 @@ export function ActiveServicesList() {
       setCashReceived(0);
     } catch (error) {
       // Error handling is done in the hook
+      console.error('Error closing service:', error);
     }
   };
 

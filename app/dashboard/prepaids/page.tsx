@@ -17,8 +17,6 @@ export default function PrepaidsPage() {
     prepaids,
     createPrepaid,
     getPrepaids,
-    getAllPrepaids,
-    getPrepaidById,
     updatePrepaid,
     deletePrepaid,
     markAsConsumed,

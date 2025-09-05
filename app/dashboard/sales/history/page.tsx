@@ -86,7 +86,7 @@ export default function SalesHistoryPage() {
         (sale) =>
           sale.id.toLowerCase().includes(term) ||
           sale.notes?.toLowerCase().includes(term) ||
-          sale.customerInfo?.name.toLowerCase().includes(term)
+          sale.customerName.toLowerCase().includes(term)
       );
     }
 
@@ -121,7 +121,7 @@ export default function SalesHistoryPage() {
           startDate = new Date(0);
       }
 
-      filtered = filtered.filter((sale) => sale.createdAt >= startDate);
+      filtered = filtered.filter((sale) =>  new Date(sale.createdAt) >= startDate);
     }
 
     // Filtro por monto mínimo y máximo
@@ -136,7 +136,7 @@ export default function SalesHistoryPage() {
     }
 
     // Ordenar por fecha (más recientes primero)
-    filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return filtered;
   }, [sales, filters]);
@@ -169,7 +169,7 @@ export default function SalesHistoryPage() {
       refunded: { label: 'Reembolsada', variant: 'outline' as const, color: 'bg-orange-100 text-orange-800' },
     };
 
-    const config = statusConfig[status];
+    const config = statusConfig[status as keyof typeof statusConfig] || { label: 'Desconocido', variant: 'outline' as const, color: 'bg-gray-100 text-gray-800' };
     return (
       <Badge className={config.color}>
         {config.label}
@@ -185,7 +185,7 @@ export default function SalesHistoryPage() {
       mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
     };
 
-    const config = methodConfig[method];
+    const config = methodConfig[method as keyof typeof methodConfig] || { label: 'Desconocido', color: 'bg-gray-100 text-gray-800' };
     return (
       <Badge variant="outline" className={config.color}>
         {config.label}
@@ -445,10 +445,10 @@ export default function SalesHistoryPage() {
                           #{sale.id.slice(-6)}
                         </TableCell>
                         <TableCell className='text-sm'>
-                          {formatDate(sale.completedAt || sale.createdAt)}
+                          {formatDate(new Date(sale.completedAt || sale.createdAt))}
                         </TableCell>
                         <TableCell>
-                          {sale.customerInfo?.name || 'Cliente general'}
+                          {sale.customerName || 'Cliente general'}
                         </TableCell>
                         <TableCell>
                           <Badge variant='secondary'>

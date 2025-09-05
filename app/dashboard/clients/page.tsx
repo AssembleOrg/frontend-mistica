@@ -5,7 +5,6 @@ import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { ClientsTable } from '@/components/dashboard/clients/clients-table';
 import { ClientForm } from '@/components/dashboard/clients/client-form';
 import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
-import { showToast } from '@/lib/toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { Plus, UserCheck } from 'lucide-react';
@@ -16,8 +15,6 @@ export default function ClientsPage() {
     clients,
     createClient,
     getClients,
-    getAllClients,
-    getClientById,
     updateClient,
     deleteClient,
     searchClients,
@@ -30,7 +27,7 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [viewingClient, setViewingClient] = useState<Client | null>(null);
+  // const [viewingClient, setViewingClient] = useState<Client | null>(null);
 
   // Load clients on component mount
   useEffect(() => {
@@ -85,18 +82,18 @@ export default function ClientsPage() {
 
   const handleCreateClient = () => {
     setEditingClient(null);
-    setViewingClient(null);
+    // setViewingClient(null);
     setShowForm(true);
   };
 
   const handleEditClient = (client: Client) => {
     setEditingClient(client);
-    setViewingClient(null);
+    // setViewingClient(null);
     setShowForm(true);
   };
 
   const handleViewClient = (client: Client) => {
-    setViewingClient(client);
+    // setViewingClient(client);
     setEditingClient(null);
     setShowForm(true);
   };
@@ -127,7 +124,7 @@ export default function ClientsPage() {
       
       setShowForm(false);
       setEditingClient(null);
-      setViewingClient(null);
+      // setViewingClient(null);
       
       // Reload clients
       if (searchQuery.trim()) {
@@ -143,7 +140,7 @@ export default function ClientsPage() {
   const handleCancelForm = () => {
     setShowForm(false);
     setEditingClient(null);
-    setViewingClient(null);
+    // setViewingClient(null);
   };
 
   if (showForm) {

@@ -218,7 +218,7 @@ export default function EditSalePage() {
     
     try {
       const success = editSale(saleId, {
-        paymentMethod: paymentMethod,
+        paymentMethod: mapPaymentMethodToAPI(paymentMethod),
         notes,
         customerInfo: {
           name: customerName,

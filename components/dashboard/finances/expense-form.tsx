@@ -53,7 +53,7 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
     description: '',
     amount: '',
     category: '' as Expense['category'] | '',
-    paymentMethod: '' as 'efectivo' | 'tarjeta' | 'transferencia' | '',
+    paymentMethod: '' as 'CASH' | 'CARD' | 'TRANSFER' | '',
     notes: '',
   });
 

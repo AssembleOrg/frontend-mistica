@@ -99,7 +99,7 @@ export default function SaleDetailPage() {
         bgColor: 'bg-orange-100',
       },
     };
-    return configs[status];
+    return configs[status as keyof typeof configs] || configs.draft;
   };
 
   const getPaymentMethodConfig = (method: Sale['paymentMethod']) => {
@@ -112,7 +112,7 @@ export default function SaleDetailPage() {
       },
       mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
     };
-    return configs[method];
+    return configs[method as keyof typeof configs] || configs.efectivo;
   };
 
   const handleEdit = () => {
@@ -320,7 +320,7 @@ export default function SaleDetailPage() {
             <div class="header">
               <div class="business-name">${receiptSettings.receipt.businessName}</div>
               <div class="receipt-title">RECIBO DE VENTA #${sale.id.slice(-6)}</div>
-              <div class="date-info">${formatDate(sale.completedAt || sale.createdAt)}</div>
+              <div class="date-info">${formatDate(new Date(sale.completedAt || sale.createdAt))}</div>
             </div>
 
             <div class="business-info">
@@ -328,12 +328,7 @@ export default function SaleDetailPage() {
               ${receiptSettings.receipt.businessPhone}
             </div>
 
-            ${sale.customerInfo?.name ? `
-              <div class="section">
-                <strong>Cliente:</strong><br>
-                ${sale.customerInfo.name}${sale.customerInfo.email ? `<br>${sale.customerInfo.email}` : ''}${sale.customerInfo.phone ? `<br>${sale.customerInfo.phone}` : ''}
-              </div>
-            ` : ''}
+        
 
             <table class="items-table">
               <thead>
@@ -347,7 +342,7 @@ export default function SaleDetailPage() {
               <tbody>
                 ${sale.items.map(item => `
                   <tr>
-                    <td>${item.product.name}</td>
+                    <td>${item.product?.name}</td>
                     <td style="text-align: center;">${item.quantity}</td>
                     <td style="text-align: right;">${formatCurrency(item.unitPrice)}</td>
                     <td style="text-align: right;">${formatCurrency(item.subtotal)}</td>
@@ -362,16 +357,16 @@ export default function SaleDetailPage() {
                 <span>${formatCurrency(sale.subtotal)}</span>
               </div>
               
-              ${sale.discountTotal > 0 ? `
+              ${sale.discount > 0 ? `
                 <div class="total-line">
                   <span>Descuento:</span>
-                  <span>-${formatCurrency(sale.discountTotal)}</span>
+                  <span>-${formatCurrency(sale.discount)}</span>
                 </div>
               ` : ''}
               
               <div class="total-line">
                 <span>IVA (${receiptSettings.general.taxRate}%):</span>
-                <span>${formatCurrency(sale.taxAmount)}</span>
+                <span>${formatCurrency(sale.tax)}</span>
               </div>
               
               ${adjustmentInfo && adjustmentInfo.adjustmentType !== 'ninguno' ? `
@@ -554,7 +549,7 @@ export default function SaleDetailPage() {
                         Fecha de creación
                       </p>
                       <p className='font-medium font-winter-solid'>
-                        {formatDate(sale.createdAt)}
+                        {formatDate(new Date(sale.createdAt))}
                       </p>
                     </div>
                   </div>
@@ -567,7 +562,7 @@ export default function SaleDetailPage() {
                           Fecha de completado
                         </p>
                         <p className='font-medium font-winter-solid'>
-                          {formatDate(sale.completedAt)}
+                          {formatDate(new Date(sale.completedAt))}
                         </p>
                       </div>
                     </div>
@@ -602,7 +597,7 @@ export default function SaleDetailPage() {
                   </div>
                 </div>
 
-                {sale.customerInfo && (
+                {sale.customerName && (
                   <>
                     <Separator />
                     <div>
@@ -614,22 +609,22 @@ export default function SaleDetailPage() {
                           <span className='text-[var(--color-verde-profundo)]'>
                             Nombre:
                           </span>{' '}
-                          {sale.customerInfo.name}
+                          {sale.customerName}
                         </p>
-                        {sale.customerInfo.email && (
+                        {sale.customerEmail && (
                           <p className='text-sm font-winter-solid'>
                             <span className='text-[var(--color-verde-profundo)]'>
                               Email:
                             </span>{' '}
-                            {sale.customerInfo.email}
+                            {sale.customerEmail}
                           </p>
                         )}
-                        {sale.customerInfo.phone && (
+                        {sale.customerPhone && (
                           <p className='text-sm font-winter-solid'>
                             <span className='text-[var(--color-verde-profundo)]'>
                               Teléfono:
                             </span>{' '}
-                            {sale.customerInfo.phone}
+                            {sale.customerPhone}
                           </p>
                         )}
                       </div>
@@ -672,7 +667,7 @@ export default function SaleDetailPage() {
                     >
                       <div className='flex-1'>
                         <h4 className='font-medium text-[var(--color-ciruela-oscuro)] font-winter-solid'>
-                          {item.product.name}
+                          {item.product?.name}
                         </h4>
                         <div className='flex items-center gap-4 mt-1 text-sm text-[var(--color-verde-profundo)]'>
                           <span className='font-winter-solid'>
@@ -682,7 +677,7 @@ export default function SaleDetailPage() {
                             Cantidad: {item.quantity}
                           </span>
                           <Badge variant='secondary'>
-                            {item.product.category}
+                            {item.product?.category}
                           </Badge>
                         </div>
                         {item.discountAmount && item.discountAmount > 0 && (
@@ -723,11 +718,11 @@ export default function SaleDetailPage() {
                     </span>
                   </div>
 
-                  {sale.discountTotal > 0 && (
+                  {sale.discount > 0 && (
                     <div className='flex justify-between text-orange-600'>
                       <span className='font-winter-solid'>Descuento:</span>
                       <span className='font-winter-solid'>
-                        -{formatCurrency(sale.discountTotal)}
+                        -{formatCurrency(sale.discount)}
                       </span>
                     </div>
                   )}
@@ -737,7 +732,7 @@ export default function SaleDetailPage() {
                       IVA ({(settings.taxRate * 100).toFixed(0)}%):
                     </span>
                     <span className='font-medium font-winter-solid'>
-                      {formatCurrency(sale.taxAmount)}
+                      {formatCurrency(sale.tax)}
                     </span>
                   </div>
 
@@ -751,7 +746,7 @@ export default function SaleDetailPage() {
                   </div>
                 </div>
 
-                {sale.paymentMethod === 'efectivo' && (
+                {sale.paymentMethod === 'CASH' && (
                   <>
                     <Separator />
                     <div className='space-y-2'>

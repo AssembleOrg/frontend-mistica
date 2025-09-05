@@ -119,7 +119,7 @@ export function useSales() {
   const cartTaxAmount = cartTotal * settings.taxRate;
   const cartGrandTotal = cartTotal + cartTaxAmount;
 
-  const editSale = useCallback((saleId: string, updates: { paymentMethod?: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'; notes?: string; customerInfo?: any }) => {
+  const editSale = useCallback((saleId: string, updates: { paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER'; notes?: string; customerInfo?: any }) => {
     const { editSale: editSaleInStore } = useAppStore.getState();
     return editSaleInStore(saleId, updates);
   }, []);

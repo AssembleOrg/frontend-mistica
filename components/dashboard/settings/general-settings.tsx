@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, ShoppingCart, Receipt, User, Percent, Save, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ShoppingCart, Percent, Save, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { showToast } from '@/lib/toast';
 
@@ -20,6 +20,7 @@ export function GeneralSettings() {
       await new Promise(resolve => setTimeout(resolve, 500));
       showToast.success('Configuración general guardada');
     } catch (error) {
+      console.error('Error saving general settings:', error);
       showToast.error('Error al guardar la configuración');
     } finally {
       setIsLoading(false);

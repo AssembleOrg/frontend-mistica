@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 interface PaginationControlsProps {
   currentPage: number;
@@ -34,11 +33,11 @@ export function PaginationControls({
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
 
-  const handleFirstPage = () => {
-    if (canGoPrevious && !isLoading) {
-      onPageChange(1);
-    }
-  };
+  // const handleFirstPage = () => {
+  //   if (canGoPrevious && !isLoading) {
+  //     onPageChange(1);
+  //   }
+  // };
 
   const handlePreviousPage = () => {
     if (canGoPrevious && !isLoading) {
@@ -52,11 +51,11 @@ export function PaginationControls({
     }
   };
 
-  const handleLastPage = () => {
-    if (canGoNext && !isLoading) {
-      onPageChange(totalPages);
-    }
-  };
+  // const handleLastPage = () => {
+  //   if (canGoNext && !isLoading) {
+  //     onPageChange(totalPages);
+  //   }
+  // };
 
   return (
     <div className={`flex items-center justify-between ${className}`}>

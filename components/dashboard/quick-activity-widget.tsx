@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Activity, Clock, User, AlertCircle } from 'lucide-react';
-import { useActivityStore, Activity as ActivityType, ActivityType as ActivityTypeEnum } from '@/stores/activity.store';
+import { useActivityStore, ActivityType as ActivityTypeEnum } from '@/stores/activity.store';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 

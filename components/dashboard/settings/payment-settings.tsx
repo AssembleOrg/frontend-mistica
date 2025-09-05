@@ -48,6 +48,7 @@ export function PaymentSettings() {
       await new Promise(resolve => setTimeout(resolve, 500));
       showToast.success('Configuración guardada correctamente');
     } catch (error) {
+      console.error('Error saving payment settings:', error);
       showToast.error('Error al guardar la configuración');
     } finally {
       setIsLoading(false);

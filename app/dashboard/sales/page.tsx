@@ -16,7 +16,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSessionManager } from '@/hooks/useSessionManager';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
-import { Sale } from '@/services/sales.service';
+import { Sale, UpdateSaleRequest } from '@/services/sales.service';
 import { PaymentInfo, ProductCategory } from '@/lib/types';
 import { Plus, BarChart3, ShoppingCart } from 'lucide-react';
 
@@ -226,7 +226,7 @@ export default function SalesPage() {
     setShowEditSaleModal(true);
   };
 
-  const handleUpdateSale = async (saleId: string, updatedSale: Partial<Sale>) => {
+  const handleUpdateSale = async (saleId: string, updatedSale: UpdateSaleRequest) => {
     try {
       // TODO: Implement update sale API call
       console.log('Updating sale:', saleId, updatedSale);

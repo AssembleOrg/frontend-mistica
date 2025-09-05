@@ -50,7 +50,6 @@ export class ApiService {
   // Get authentication token
   private getAuthToken(): string | null {
     const token = useAuthStore.getState().token;
-    console.log('🔍 API: Obteniendo token para request:', token);
     return token;
   }
 
@@ -64,7 +63,6 @@ export class ApiService {
     const token = this.getAuthToken();
     if (token) {
       headers.Authorization = `Bearer ${token}`;
-      console.log('🔍 API: Headers con Authorization:', headers.Authorization);
     } else {
       console.log('🔍 API: No hay token - request sin Authorization header');
     }
@@ -112,17 +110,16 @@ export class ApiService {
     // Special exception for critical endpoints (edit pages)
     const isCriticalEndpoint = endpoint.includes('/products/') && method === 'GET';
     if (isCriticalEndpoint && cached && (now - cached.timestamp) < this.CACHE_DURATION_GET) {
-      console.info(`🛡️ API: GET request for edit page - allowing with minimal protection: ${requestKey}`);
       // Allow but update timestamp to prevent rapid successive calls
       this.requestCache[requestKey] = { timestamp: now };
       return true;
     }
 
     // Check if same request was made recently (spam protection)
-    if (cached && (now - cached.timestamp) < cacheDuration) {
-      console.warn(`🛡️ API: Request bloqueado por spam protection: ${requestKey} (${cacheDuration}ms protection)`);
-      return false;
-    }
+    // if (cached && (now - cached.timestamp) < cacheDuration) {
+    //   console.warn(`🛡️ API: Request bloqueado por spam protection: ${requestKey} (${cacheDuration}ms protection)`);
+    //   return false;
+    // }
 
     // Check max concurrent requests
     if (this.activeRequests >= this.MAX_CONCURRENT_REQUESTS) {

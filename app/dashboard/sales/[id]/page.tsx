@@ -687,7 +687,7 @@ export default function SaleDetailPage() {
                         </div>
                         {item.discountAmount && item.discountAmount > 0 && (
                           <p className='text-sm text-orange-600 mt-1 font-winter-solid'>
-                            Descuento: -{formatCurrency(item.discountAmount)} (
+                            Descuento(Seña): -{formatCurrency(item.discountAmount)} (
                             {item.discountPercentage}%)
                           </p>
                         )}

@@ -48,7 +48,9 @@ import { categoryConfig, statusConfig } from '@/lib/mock-data';
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { exportProductsToExcel, getExportSummary } from '@/lib/excel-utils';
 import { showToast } from '@/lib/toast';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { useRouter } from 'next/navigation';
+import { StockAdjustmentModal } from '@/components/dashboard/stock/stock-adjustment-modal';
 
 interface ProductsTableProps {
   data: Product[];
@@ -68,6 +70,13 @@ export function ProductsTable({ data }: ProductsTableProps) {
     {}
   );
   const [isExporting, setIsExporting] = useState(false);
+  const [stockAdjustmentModal, setStockAdjustmentModal] = useState<{
+    isOpen: boolean;
+    product: Product | null;
+  }>({
+    isOpen: false,
+    product: null,
+  });
 
   const handleAction = async (productId: string, action: 'edit' | 'delete') => {
     setActionLoading((prev) => ({ ...prev, [productId]: true }));
@@ -139,6 +148,20 @@ export function ProductsTable({ data }: ProductsTableProps) {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleOpenStockAdjustment = (product: Product) => {
+    setStockAdjustmentModal({
+      isOpen: true,
+      product: product,
+    });
+  };
+
+  const handleCloseStockAdjustment = () => {
+    setStockAdjustmentModal({
+      isOpen: false,
+      product: null,
+    });
   };
 
   const columns: ColumnDef<Product>[] = [
@@ -356,7 +379,7 @@ export function ProductsTable({ data }: ProductsTableProps) {
               variant="outline"
               size="sm"
               className="h-6 px-2 text-xs hover:bg-[#9d684e] hover:text-white"
-              onClick={() => window.open(`/dashboard/stock/adjustments?product=${row.original.id}`, '_blank')}
+              onClick={() => handleOpenStockAdjustment(row.original)}
             >
               Ajustar
             </Button>
@@ -600,32 +623,29 @@ export function ProductsTable({ data }: ProductsTableProps) {
           </TableBody>
         </Table>
       </div>
-      <div className='flex items-center justify-end space-x-2 py-4'>
-        <div className='flex-1 text-sm text-[#455a54]/70'>
+      <div className='flex items-center justify-between py-4'>
+        <div className='text-sm text-[#455a54]/70 font-winter-solid'>
           {table.getFilteredSelectedRowModel().rows.length} de{' '}
           {table.getFilteredRowModel().rows.length} fila(s) seleccionadas.
         </div>
-        <div className='space-x-2'>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
-          >
-            Anterior
-          </Button>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
-          >
-            Siguiente
-          </Button>
-        </div>
+        <PaginationControls
+          currentPage={table.getState().pagination.pageIndex + 1}
+          totalPages={table.getPageCount()}
+          onPageChange={(page) => table.setPageIndex(page - 1)}
+          isLoading={false}
+          pageSize={table.getState().pagination.pageSize || 20}
+          onPageSizeChange={(pageSize) => table.setPageSize(pageSize)}
+          showPageSizeSelector={true}
+          totalItems={table.getFilteredRowModel().rows.length}
+        />
       </div>
+
+      {/* Stock Adjustment Modal */}
+      <StockAdjustmentModal
+        isOpen={stockAdjustmentModal.isOpen}
+        onClose={handleCloseStockAdjustment}
+        product={stockAdjustmentModal.product}
+      />
     </div>
   );
 }

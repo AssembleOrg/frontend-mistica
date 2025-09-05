@@ -410,7 +410,7 @@ export interface components {
              * @description Unidad de medida
              * @enum {string}
              */
-            unitOfMeasure: "litro" | "gramo";
+            unitOfMeasure: "litro" | "gramo" | "unidad";
             /** @description URL de la imagen del producto */
             image?: string;
             /** @description Descripción del producto */
@@ -443,7 +443,7 @@ export interface components {
              * @description Unidad de medida
              * @enum {string}
              */
-            unitOfMeasure?: "litro" | "gramo";
+            unitOfMeasure?: "litro" | "gramo" | "unidad";
             /** @description URL de la imagen del producto */
             image?: string;
             /** @description Descripción del producto */

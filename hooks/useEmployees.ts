@@ -146,9 +146,7 @@ export function useEmployees() {
     }
     
     try {
-      console.log('👥 EMPLEADOS: Obteniendo empleado del API:', id);
       const response = await employeesService.getEmployee(id);
-      console.log('👥 EMPLEADOS: Empleado obtenido del API:', response.data);
       return response.data;
     } catch (error) {
       handleApiError(error, 'obtener empleado');

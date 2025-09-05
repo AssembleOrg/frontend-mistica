@@ -55,12 +55,10 @@ export default function EditSalePage() {
   
   const [sale, setSale] = useState<Sale | null>(null);
   const [editedItems, setEditedItems] = useState<SaleItem[]>([]);
-  const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    email: '',
-    phone: '',
-  });
-  const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('efectivo');
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'>('efectivo');
   const [notes, setNotes] = useState('');
   const [cashReceived, setCashReceived] = useState('');
   
@@ -69,18 +67,36 @@ export default function EditSalePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
 
+  // Helper function to map payment method values
+  const mapPaymentMethod = (method: Sale['paymentMethod']): 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' => {
+    switch (method) {
+      case 'CASH': return 'efectivo';
+      case 'CARD': return 'tarjeta';
+      case 'TRANSFER': return 'transferencia';
+      default: return 'efectivo';
+    }
+  };
+
+  const mapPaymentMethodToAPI = (method: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'): Sale['paymentMethod'] => {
+    switch (method) {
+      case 'efectivo': return 'CASH';
+      case 'tarjeta': return 'CARD';
+      case 'transferencia': return 'TRANSFER';
+      case 'mixto': return 'CASH'; // Default to CASH for mixed payments
+      default: return 'CASH';
+    }
+  };
+
   useEffect(() => {
     if (saleId) {
       const foundSale = getSaleById(saleId);
       if (foundSale) {
         setSale(foundSale);
         setEditedItems([...foundSale.items]);
-        setCustomerInfo({
-          name: foundSale.customerInfo?.name || '',
-          email: foundSale.customerInfo?.email || '',
-          phone: foundSale.customerInfo?.phone || '',
-        });
-        setPaymentMethod(foundSale.paymentMethod);
+        setCustomerName(foundSale.customerName || '');
+        setCustomerEmail(foundSale.customerEmail || '');
+        setCustomerPhone(foundSale.customerPhone || '');
+        setPaymentMethod(mapPaymentMethod(foundSale.paymentMethod));
         setNotes(foundSale.notes || '');
         setCashReceived(foundSale.cashReceived?.toString() || '');
       }
@@ -172,6 +188,7 @@ export default function EditSalePage() {
         const newItem: SaleItem = {
           id: crypto.randomUUID(),
           productId: product.id,
+          productName: product.name,
           product: { ...product },
           quantity: 1,
           unitPrice: product.price,
@@ -201,9 +218,13 @@ export default function EditSalePage() {
     
     try {
       const success = editSale(saleId, {
-        paymentMethod,
+        paymentMethod: paymentMethod,
         notes,
-        customerInfo
+        customerInfo: {
+          name: customerName,
+          email: customerEmail,
+          phone: customerPhone
+        }
       });
       
       if (success) {
@@ -217,7 +238,7 @@ export default function EditSalePage() {
     } finally {
       setIsSaving(false);
     }
-  }, [sale, canEditSale, editSale, saleId, paymentMethod, notes, customerInfo, router]);
+  }, [sale, canEditSale, editSale, saleId, paymentMethod, notes, customerName, customerEmail, customerPhone, router]);
 
   const handleCancel = useCallback(() => {
     if (confirm('¿Estás seguro de que deseas cancelar? Se perderán todos los cambios.')) {
@@ -360,13 +381,13 @@ export default function EditSalePage() {
                     <div key={item.id} className="p-4 border border-[var(--color-gris-claro)] rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <h4 className="font-medium text-[var(--color-ciruela-oscuro)]">{item.product.name}</h4>
+                          <h4 className="font-medium text-[var(--color-ciruela-oscuro)]">{item.productName || item.product?.name || 'Producto'}</h4>
                           <p className="text-sm text-[var(--color-verde-profundo)]">
                             Precio unitario: {formatCurrency(item.unitPrice)}
                           </p>
                         </div>
                         <Button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => item.id && removeItem(item.id)}
                           variant="ghost"
                           size="icon"
                           className="text-red-600 hover:text-red-700"
@@ -381,7 +402,7 @@ export default function EditSalePage() {
                           <Label>Cantidad</Label>
                           <div className="flex items-center gap-2">
                             <Button
-                              onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                              onClick={() => item.id && updateItemQuantity(item.id, item.quantity - 1)}
                               variant="outline"
                               size="icon"
                               className="h-8 w-8"
@@ -391,12 +412,12 @@ export default function EditSalePage() {
                             <Input
                               type="number"
                               value={item.quantity}
-                              onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 0)}
+                              onChange={(e) => item.id && updateItemQuantity(item.id, parseInt(e.target.value) || 0)}
                               className="w-20 text-center"
                               min="1"
                             />
                             <Button
-                              onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                              onClick={() => item.id && updateItemQuantity(item.id, item.quantity + 1)}
                               variant="outline"
                               size="icon"
                               className="h-8 w-8"
@@ -412,7 +433,7 @@ export default function EditSalePage() {
                           <Input
                             type="number"
                             value={item.discountPercentage || 0}
-                            onChange={(e) => updateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
+                            onChange={(e) => item.id && updateItemDiscount(item.id, parseFloat(e.target.value) || 0)}
                             placeholder="0"
                             min="0"
                             max="100"
@@ -457,12 +478,12 @@ export default function EditSalePage() {
                     <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
                   </div>
                   
-                  {totals.discountTotal > 0 && (
+                  {/* {totals.discountTotal > 0 && (
                     <div className="flex justify-between text-orange-600">
                       <span>Descuentos:</span>
                       <span>-{formatCurrency(totals.discountTotal)}</span>
                     </div>
-                  )}
+                  )} */}
                   
                   <div className="flex justify-between">
                     <span className="text-[var(--color-verde-profundo)]">IVA (21%):</span>
@@ -535,8 +556,8 @@ export default function EditSalePage() {
                 <div className="space-y-2">
                   <Label>Nombre</Label>
                   <Input
-                    value={customerInfo.name}
-                    onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="Nombre del cliente"
                   />
                 </div>
@@ -545,8 +566,8 @@ export default function EditSalePage() {
                   <Label>Email</Label>
                   <Input
                     type="email"
-                    value={customerInfo.email}
-                    onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
                     placeholder="email@ejemplo.com"
                   />
                 </div>
@@ -555,8 +576,8 @@ export default function EditSalePage() {
                   <Label>Teléfono</Label>
                   <Input
                     type="tel"
-                    value={customerInfo.phone}
-                    onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
                     placeholder="+52 123 456 7890"
                   />
                 </div>

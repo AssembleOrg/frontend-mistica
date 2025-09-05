@@ -52,7 +52,7 @@ export function useSessionManager(options: UseSessionManagerOptions = {}) {
       };
       sessionStore.createSession(employeeFromUser);
     }
-  }, [user, currentSession, autoCreateSession, sessionStore]);
+  }, [user, currentSession, autoCreateSession]); // Removed sessionStore from dependencies
 
   // Session timeout management
   useEffect(() => {
@@ -66,14 +66,14 @@ export function useSessionManager(options: UseSessionManagerOptions = {}) {
       showToast.warning('Sesión expirada por inactividad');
       sessionStore.closeSession(currentSession.id);
     }
-  }, [currentSession, sessionTimeout, sessionStore]);
+  }, [currentSession, sessionTimeout]); // Removed sessionStore from dependencies
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       sessionStore.cleanup();
     };
-  }, [sessionStore]);
+  }, []); // Empty dependency array for cleanup
 
   // Session management actions
   const createNewSession = useCallback((employee?: Employee) => {

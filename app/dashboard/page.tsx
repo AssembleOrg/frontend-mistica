@@ -49,7 +49,7 @@ export default function Dashboard() {
     },
     {
       name: 'Personal',
-      description: 'Empleados del backend',
+      description: 'Personal de Mistica Autentica',
       href: '/dashboard/staff',
       icon: Users,
       color: 'bg-gradient-to-r from-blue-500 to-blue-600',

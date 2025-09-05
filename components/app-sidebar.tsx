@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   Warehouse,
+  UserCheck,
+  CreditCard,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -38,6 +40,18 @@ const navigationItems = [
     title: 'Ventas',
     url: '/dashboard/sales',
     icon: ShoppingCart,
+    enabled: true,
+  },
+  {
+    title: 'Clientes',
+    url: '/dashboard/clients',
+    icon: UserCheck,
+    enabled: true,
+  },
+  {
+    title: 'Señas',
+    url: '/dashboard/prepaids',
+    icon: CreditCard,
     enabled: true,
   },
   {

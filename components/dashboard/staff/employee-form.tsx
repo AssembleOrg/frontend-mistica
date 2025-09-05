@@ -32,7 +32,7 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
     role: employee?.role || 'cajero',
     phone: employee?.phone || '',
     address: employee?.address || '',
-    startDate: employee?.startDate || new Date(),
+    startDate: employee?.startDate ? new Date(employee.startDate) : new Date(),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,7 +161,7 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
               <Input
                 id='startDate'
                 type='date'
-                value={formData.startDate.toISOString().split('T')[0]}
+                value={formData.startDate instanceof Date ? formData.startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
                 onChange={(e) => handleInputChange('startDate', new Date(e.target.value))}
                 className='border-[#9d684e]/20 focus:border-[#9d684e]'
                 required

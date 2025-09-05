@@ -9,7 +9,7 @@ export interface Product {
   price: number; // Precio de venta
   costPrice: number; // Precio de costo
   stock: number;
-  unitOfMeasure: 'litro' | 'gramo';
+  unitOfMeasure: 'litro' | 'gramo' | 'unidad';
   image?: string;
   description: string;
   status: 'active' | 'inactive' | 'out_of_stock';
@@ -82,12 +82,14 @@ export interface StatusConfig {
 
 // Sales/POS System Types
 export interface SaleItem {
-  id: string;
   productId: string;
-  product: Product;
+  productName: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  // Optional properties for enhanced functionality
+  id?: string;
+  product?: Product;
   discountAmount?: number;
   discountPercentage?: number;
   notes?: string;
@@ -95,26 +97,27 @@ export interface SaleItem {
 
 export interface Sale {
   id: string;
+  saleNumber: string;
+  clientId?: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
   items: SaleItem[];
   subtotal: number;
-  discountTotal: number;
-  taxAmount: number;
+  tax: number;
+  discount: number;
   total: number;
-  paymentMethod: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto';
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  // POS specific properties (optional for API compatibility)
   cashReceived?: number;
   cashChange?: number;
-  customerId?: string;
-  customerInfo?: {
-    name: string;
-    email?: string;
-    phone?: string;
-  };
-  notes?: string;
-  status: 'draft' | 'completed' | 'cancelled' | 'refunded';
-  cashierId: string;
-  createdAt: Date;
-  completedAt?: Date;
-  cancelledAt?: Date;
+  cashierId?: string;
+  completedAt?: string;
+  cancelledAt?: string;
   // Payment adjustment properties
   originalTotal?: number;
   finalTotal?: number;
@@ -130,7 +133,7 @@ export interface POSSettings {
   allowNegativeStock: boolean;
   requireCustomerInfo: boolean;
   autoGenerateReceipt: boolean;
-  defaultPaymentMethod: Sale['paymentMethod'];
+  defaultPaymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   lowStockWarning: boolean;
   maxItemsPerSale?: number;
 }

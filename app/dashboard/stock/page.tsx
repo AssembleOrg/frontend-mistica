@@ -256,9 +256,9 @@ export default function StockDashboard() {
                       <p className='text-xs text-[#455a54]/70'>
                         {new Date(movement.createdAt).toLocaleDateString('es-AR')}
                       </p>
-                      {product && (
+                      {product && 'stock' in product && (
                         <p className='text-xs text-[#9d684e] font-medium'>
-                          Stock actual: {product.stock}
+                          Stock actual: {(product as { stock: number }).stock}
                         </p>
                       )}
                     </div>

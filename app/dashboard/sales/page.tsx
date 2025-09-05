@@ -7,14 +7,18 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { showToast } from '@/lib/toast';
 import { useSales } from '@/hooks/useSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSessionManager } from '@/hooks/useSessionManager';
+import { useSalesAPI } from '@/hooks/useSalesAPI';
+import { Sale } from '@/services/sales.service';
 import { PaymentInfo, ProductCategory } from '@/lib/types';
+import { Plus, BarChart3, ShoppingCart } from 'lucide-react';
 
 // Clean UI Components
 import { ProductSearchSection } from '@/components/dashboard/sales/ProductSearchSection';
@@ -22,6 +26,11 @@ import { ShoppingCartSection } from '@/components/dashboard/sales/ShoppingCartSe
 import { CheckoutSection } from '@/components/dashboard/sales/CheckoutSection';
 import { SalesStatsWidget } from '@/components/dashboard/sales/sales-stats-widget';
 import { SessionManager } from '@/components/dashboard/session-manager';
+import { CreateSaleModal } from '@/components/dashboard/sales/create-sale-modal';
+import { ViewSaleModal } from '@/components/dashboard/sales/view-sale-modal';
+import { EditSaleModal } from '@/components/dashboard/sales/edit-sale-modal';
+import { SalesTable } from '@/components/dashboard/sales/sales-table';
+import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
 
 export default function SalesPage() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
@@ -29,10 +38,31 @@ export default function SalesPage() {
   );
   const [searchResults, setSearchResults] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [isSearching, setIsSearching] = useState(false);
+  const [activeTab, setActiveTab] = useState<'sales' | 'stats'>('sales');
+  const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
+  const [showViewSaleModal, setShowViewSaleModal] = useState(false);
+  const [showEditSaleModal, setShowEditSaleModal] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Initialize products data from backend
   console.log('🏪 Sales Page: Inicializando datos de productos');
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
+
+  // Sales API hooks
+  const { 
+    isLoading: loadingSales, 
+    sales, 
+    dailySales, 
+    getAllSales, 
+    getDailySales, 
+    deleteSale 
+  } = useSalesAPI();
 
   // Session-aware POS operations
   const sessionManager = useSessionManager({ autoCreateSession: true });
@@ -74,6 +104,12 @@ export default function SalesPage() {
   console.log('🏪 Sales Page: Loading productos:', loadingProducts);
   console.log('🏪 Sales Page: Sesión activa:', currentSession?.id);
   console.log('🏪 Sales Page: Items en carrito de sesión:', sessionCart.length);
+
+  // Load sales data on component mount
+  useEffect(() => {
+    getAllSales();
+    getDailySales();
+  }, [getAllSales, getDailySales]);
 
   // Pure event handlers - delegate to session manager
   const handleProductSelect = async (productId: string, quantity = 1) => {
@@ -172,6 +208,62 @@ export default function SalesPage() {
     }
   };
 
+  // Sales handlers
+  const handleSaleCreated = (sale: Sale) => {
+    showToast.success('Venta creada exitosamente');
+    // Refresh sales data
+    getAllSales();
+    getDailySales();
+  };
+
+  const handleViewSale = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowViewSaleModal(true);
+  };
+
+  const handleEditSale = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowEditSaleModal(true);
+  };
+
+  const handleUpdateSale = async (saleId: string, updatedSale: Partial<Sale>) => {
+    try {
+      // TODO: Implement update sale API call
+      console.log('Updating sale:', saleId, updatedSale);
+      showToast.success('Venta actualizada exitosamente');
+      // Refresh sales data
+      getAllSales();
+      getDailySales();
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleDeleteSale = async (saleId: string) => {
+    try {
+      await deleteSale(saleId);
+      // Refresh sales data
+      getAllSales();
+      getDailySales();
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+    }
+  };
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // TODO: Call API with new page
+    console.log('Page changed to:', page);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page
+    // TODO: Call API with new page size
+    console.log('Page size changed to:', newPageSize);
+  };
+
   // Handle loading and error states to prevent hydration issues
   if (productsError) {
     return (
@@ -196,90 +288,115 @@ export default function SalesPage() {
   }
 
   return (
-    <div className='space-y-6 p-6'>
-      {/* Session Manager */}
-      <SessionManager compact={true} className="mb-4" />
-      
-      <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-      {/* Column 1: Product Search */}
-      <div className='lg:col-span-1'>
-        <Card className='border-[#9d684e]/20'>
-          <CardHeader>
-            <CardTitle className='text-[#455a54] font-tan-nimbus flex items-center gap-2'>
-              🔍 Buscar Productos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ProductSearchSection
-              onSearch={handleSearch}
-              searchResults={searchResults}
-              isSearching={isSearching}
-              onProductSelect={handleProductSelect}
-              selectedProductId={selectedProductId}
-              className='h-full'
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Column 2: Shopping Cart */}
-      <div className='lg:col-span-1'>
-        <Card className='border-[#9d684e]/20'>
-          <CardHeader>
-            <CardTitle className='text-[#455a54] font-tan-nimbus flex items-center gap-2'>
-              🛒 Carrito ({cartItemCount} items)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ShoppingCartSection
-              items={cart}
-              total={cartGrandTotal}
-              subtotal={cartTotal}
-              tax={cartTaxAmount}
-              onQuantityChange={handleQuantityChange}
-              onRemoveItem={handleRemoveItem}
-              onClearCart={handleClearCart}
-              isLoading={false}
-              className='h-full'
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Column 3: Checkout */}
-      <div className='lg:col-span-1'>
-        <div className='space-y-6'>
-          {/* Checkout Section */}
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-[#455a54] font-tan-nimbus flex items-center gap-2'>
-                💳 Checkout
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CheckoutSection
-                total={cartGrandTotal}
-                subtotal={cartTotal}
-                tax={cartTaxAmount}
-                items={cart}
-                paymentMethods={[
-                  { id: 'efectivo', name: 'Efectivo' },
-                  { id: 'tarjeta', name: 'Tarjeta' },
-                  { id: 'transferencia', name: 'Transferencia' }
-                ]}
-                onCheckout={handleCheckout}
-                isProcessing={false}
-                isDisabled={cart.length === 0}
-                className='h-full'
-              />
-            </CardContent>
-          </Card>
-
-          {/* Sales Stats */}
-          <SalesStatsWidget />
+    <div className='space-y-4 md:space-y-6 p-4 md:p-6'>
+      {/* Header with Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className='text-2xl md:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
+            Gestión de Ventas
+          </h1>
+          <p className='text-[#455a54]/70 font-winter-solid text-sm md:text-base'>
+            Administra ventas y estadísticas
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowCreateSaleModal(true)}
+            className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Venta
+          </Button>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-full sm:w-fit">
+        <Button
+          variant={activeTab === 'sales' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('sales')}
+          className={`flex-1 sm:flex-none ${activeTab === 'sales' ? 'bg-[#9d684e] text-white' : ''}`}
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Ventas</span>
+          <span className="sm:hidden">Ventas</span>
+        </Button>
+        <Button
+          variant={activeTab === 'stats' ? 'default' : 'ghost'}
+          onClick={() => setActiveTab('stats')}
+          className={`flex-1 sm:flex-none ${activeTab === 'stats' ? 'bg-[#9d684e] text-white' : ''}`}
+        >
+          <BarChart3 className="h-4 w-4 mr-2" />
+          <span className="hidden sm:inline">Estadísticas</span>
+          <span className="sm:hidden">Stats</span>
+        </Button>
       </div>
+
+      {/* Tab Content */}
+      {activeTab === 'sales' && (
+        <div className="space-y-6">
+          <Card className='border-[#9d684e]/20'>
+            <CardHeader>
+              <CardTitle className='text-[#455a54] font-tan-nimbus'>
+                Lista de Ventas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <SalesTable
+                  data={sales}
+                  isLoading={loadingSales}
+                  onViewSale={handleViewSale}
+                  onEditSale={handleEditSale}
+                  onDeleteSale={handleDeleteSale}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'stats' && (
+        <div className="space-y-6">
+          <SalesStatsCards
+            dailySales={dailySales}
+            allSales={sales}
+            isLoading={loadingSales}
+          />
+        </div>
+      )}
+
+      {/* Modals */}
+      <CreateSaleModal
+        isOpen={showCreateSaleModal}
+        onClose={() => setShowCreateSaleModal(false)}
+        onSaleCreated={handleSaleCreated}
+      />
+      
+      <ViewSaleModal
+        isOpen={showViewSaleModal}
+        onClose={() => {
+          setShowViewSaleModal(false);
+          setSelectedSale(null);
+        }}
+        sale={selectedSale}
+      />
+      
+      <EditSaleModal
+        isOpen={showEditSaleModal}
+        onClose={() => {
+          setShowEditSaleModal(false);
+          setSelectedSale(null);
+        }}
+        sale={selectedSale}
+        onSave={handleUpdateSale}
+      />
     </div>
   );
 }

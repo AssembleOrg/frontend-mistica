@@ -43,7 +43,7 @@ function StockAdjustmentsContent() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [newStock, setNewStock] = useState('');
-  const [newUnitOfMeasure, setNewUnitOfMeasure] = useState<'gramo' | 'litro'>('gramo');
+  const [newUnitOfMeasure, setNewUnitOfMeasure] = useState<'gramo' | 'litro' | 'unidad'>('gramo');
   const [reason, setReason] = useState('');
   const [_notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -409,13 +409,14 @@ function StockAdjustmentsContent() {
                   >
                     Unidad de Medida
                   </Label>
-                  <Select value={newUnitOfMeasure} onValueChange={(value: 'gramo' | 'litro') => setNewUnitOfMeasure(value)}>
+                  <Select value={newUnitOfMeasure} onValueChange={(value: 'gramo' | 'litro' | 'unidad') => setNewUnitOfMeasure(value)}>
                     <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e]'>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value='gramo'>Gramo</SelectItem>
                       <SelectItem value='litro'>Litro</SelectItem>
+                      <SelectItem value='unidad'>Unidad</SelectItem>
                     </SelectContent>
                   </Select>
                   {newUnitOfMeasure !== selectedProduct.unitOfMeasure && (

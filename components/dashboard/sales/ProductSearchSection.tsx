@@ -4,7 +4,7 @@
  * Componente UI puro para búsqueda de productos
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,7 @@ export function ProductSearchSection({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const categories = [
     { value: 'all', label: 'Todas las categorías' },
@@ -45,16 +46,18 @@ export function ProductSearchSection({
 
   const handleSearch = (query: string = searchQuery, category: string = selectedCategory) => {
     setSearchQuery(query);
-    if (query.length >= 2 || (category && category !== 'all')) {
-      onSearch(query, category === 'all' ? undefined : category);
-    } else if (category === 'all' && query.length < 2) {
-      onSearch(query, undefined);
-    }
+    // Debounce 250ms para evitar spam de búsqueda en cada tecla
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onSearch(query, category);
+    }, 250);
   };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
-    handleSearch(searchQuery, category);
+    // Ejecutar búsqueda inmediata al cambiar categoría
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    onSearch(searchQuery, category);
   };
 
   const handleBarcodeSearch = () => {
@@ -171,7 +174,7 @@ export function ProductSearchSection({
                 <div className="font-semibold text-sm text-[#455a54] font-tan-nimbus">
                   {formatCurrency(product.price)}
                 </div>
-                <div className="text-xs text-[#455a54]/70 font-winter-solid">
+                <div className="text-xs text-[#455a54]/70 font-winter-solid whitespace-nowrap">
                   Total: {formatCurrency(product.price * selectedQuantity)}
                 </div>
               </div>

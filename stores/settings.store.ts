@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export interface PaymentMethodSettings {
@@ -7,11 +7,29 @@ export interface PaymentMethodSettings {
     enabled: boolean;
   };
   tarjeta: {
+    discountPercentage: number;
     surchargePercentage: number; // Recargo por tarjeta (ej: 3% por comisión)
     enabled: boolean;
   };
   transferencia: {
-    discountPercentage: number; // Sin recargo/descuento por defecto
+    discountPercentage: number;
+    surchargePercentage: number;
+    enabled: boolean;
+  };
+  // Nuevos métodos: permiten descuento o recargo según prefiera el usuario
+  qr: {
+    discountPercentage: number;
+    surchargePercentage: number;
+    enabled: boolean;
+  };
+  giftcard: {
+    discountPercentage: number;
+    surchargePercentage: number;
+    enabled: boolean;
+  };
+  precio_lista: {
+    discountPercentage: number;
+    surchargePercentage: number;
     enabled: boolean;
   };
   mixto: {
@@ -64,11 +82,28 @@ const defaultSettings: AppSettings = {
       enabled: true,
     },
     tarjeta: {
+      discountPercentage: 0,
       surchargePercentage: 3,
       enabled: true,
     },
     transferencia: {
       discountPercentage: 0,
+      surchargePercentage: 0,
+      enabled: true,
+    },
+    qr: {
+      discountPercentage: 0,
+      surchargePercentage: 0,
+      enabled: true,
+    },
+    giftcard: {
+      discountPercentage: 0,
+      surchargePercentage: 0,
+      enabled: true,
+    },
+    precio_lista: {
+      discountPercentage: 0,
+      surchargePercentage: 0,
       enabled: true,
     },
     mixto: {
@@ -99,18 +134,21 @@ export const useSettingsStore = create<SettingsState>()(
       settings: defaultSettings,
       actions: {
         updatePaymentMethodSettings: (method, newSettings) => {
-          set(state => ({
-            settings: {
-              ...state.settings,
-              paymentMethods: {
-                ...state.settings.paymentMethods,
-                [method]: {
-                  ...state.settings.paymentMethods[method],
-                  ...newSettings,
+          set(state => {
+            const prev = state.settings.paymentMethods[method] ?? defaultSettings.paymentMethods[method];
+            return {
+              settings: {
+                ...state.settings,
+                paymentMethods: {
+                  ...state.settings.paymentMethods,
+                  [method]: {
+                    ...prev,
+                    ...(newSettings as PaymentMethodSettings[keyof PaymentMethodSettings]),
+                  },
                 },
               },
-            },
-          }));
+            };
+          });
         },
 
         updateReceiptSettings: (newSettings) => {
@@ -143,43 +181,79 @@ export const useSettingsStore = create<SettingsState>()(
 
         calculatePaymentAdjustment: (amount, paymentMethod) => {
           const { settings } = get();
-          const methodSettings = settings.paymentMethods[paymentMethod];
-
-          if (!methodSettings.enabled) {
-            return {
-              adjustmentAmount: 0,
-              adjustmentPercentage: 0,
-              finalAmount: amount,
-              adjustmentType: 'ninguno' as const,
-            };
-          }
+          const methodSettings = settings.paymentMethods[paymentMethod] ?? defaultSettings.paymentMethods[paymentMethod];
 
           let adjustmentPercentage = 0;
           let adjustmentType: 'descuento' | 'recargo' | 'ninguno' = 'ninguno';
 
           switch (paymentMethod) {
-            case 'efectivo':
-              if ('discountPercentage' in methodSettings) {
-                adjustmentPercentage = -methodSettings.discountPercentage; // Negativo para descuento
+            case 'efectivo': {
+              const s = methodSettings as PaymentMethodSettings['efectivo'];
+              if (s.discountPercentage > 0) {
+                adjustmentPercentage = -s.discountPercentage;
                 adjustmentType = 'descuento';
               }
               break;
-            case 'tarjeta':
-              if ('surchargePercentage' in methodSettings) {
-                adjustmentPercentage = methodSettings.surchargePercentage; // Positivo para recargo
+            }
+            case 'tarjeta': {
+              const s = methodSettings as PaymentMethodSettings['tarjeta'];
+              if (s.surchargePercentage > 0) {
+                adjustmentPercentage = s.surchargePercentage;
                 adjustmentType = 'recargo';
+              } else if (s.discountPercentage > 0) {
+                adjustmentPercentage = -s.discountPercentage;
+                adjustmentType = 'descuento';
               }
               break;
-            case 'transferencia':
-              if ('discountPercentage' in methodSettings) {
-                adjustmentPercentage = -methodSettings.discountPercentage; // Negativo para descuento
-                adjustmentType = methodSettings.discountPercentage > 0 ? 'descuento' : 'ninguno';
+            }
+            case 'transferencia': {
+              const s = methodSettings as PaymentMethodSettings['transferencia'];
+              if (s.surchargePercentage > 0) {
+                adjustmentPercentage = s.surchargePercentage;
+                adjustmentType = 'recargo';
+              } else if (s.discountPercentage > 0) {
+                adjustmentPercentage = -s.discountPercentage;
+                adjustmentType = 'descuento';
               }
               break;
-            case 'mixto':
-              // Para pago mixto no aplicamos descuentos/recargos automáticos
+            }
+            case 'qr': {
+              const s = methodSettings as PaymentMethodSettings['qr'];
+              if (s.surchargePercentage > 0) {
+                adjustmentPercentage = s.surchargePercentage;
+                adjustmentType = 'recargo';
+              } else if (s.discountPercentage > 0) {
+                adjustmentPercentage = -s.discountPercentage;
+                adjustmentType = 'descuento';
+              }
+              break;
+            }
+            case 'giftcard': {
+              const s = methodSettings as PaymentMethodSettings['giftcard'];
+              if (s.surchargePercentage > 0) {
+                adjustmentPercentage = s.surchargePercentage;
+                adjustmentType = 'recargo';
+              } else if (s.discountPercentage > 0) {
+                adjustmentPercentage = -s.discountPercentage;
+                adjustmentType = 'descuento';
+              }
+              break;
+            }
+            case 'precio_lista': {
+              const s = methodSettings as PaymentMethodSettings['precio_lista'];
+              if (s.surchargePercentage > 0) {
+                adjustmentPercentage = s.surchargePercentage;
+                adjustmentType = 'recargo';
+              } else if (s.discountPercentage > 0) {
+                adjustmentPercentage = -s.discountPercentage;
+                adjustmentType = 'descuento';
+              }
+              break;
+            }
+            case 'mixto': {
               adjustmentType = 'ninguno';
               break;
+            }
           }
 
           const adjustmentAmount = (amount * Math.abs(adjustmentPercentage)) / 100;
@@ -202,3 +276,7 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+
+
+

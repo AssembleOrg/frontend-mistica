@@ -1,4 +1,4 @@
-/**
+﻿/**
  * CAPA 4: PRESENTATION LAYER - EDIT SALE PAGE (CLEAN VERSION)
  * 
  * Página UI PURA que solo renderiza y delega al controller
@@ -42,6 +42,7 @@ import { showToast } from '@/lib/toast';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { useProducts } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
+import { PAYMENT_METHODS } from '@/lib/payment-methods';
 // Removed unused Dialog imports
 
 export default function EditSalePage() {
@@ -193,7 +194,7 @@ export default function EditSalePage() {
 
     // Check if sale can be edited
     if (!canEditSale(sale)) {
-      showToast.error('Esta venta no puede ser editada (más de 24 horas desde creación)');
+      showToast.error('Esta venta no puede ser editada');
       return;
     }
 
@@ -203,7 +204,13 @@ export default function EditSalePage() {
       const success = editSale(saleId, {
         paymentMethod,
         notes,
-        customerInfo
+        customerInfo,
+        items: editedItems.map(it => ({
+          productId: it.productId,
+          unitPrice: it.unitPrice,
+          quantity: it.quantity,
+          discountPercentage: it.discountPercentage
+        }))
       });
       
       if (success) {
@@ -265,18 +272,18 @@ export default function EditSalePage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
           <div className="flex items-center gap-4">
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => router.push(`/dashboard/sales/${saleId}`)}
-              className="text-[var(--color-verde-profundo)] hover:text-[var(--color-verde-profundo-hover)]"
+              className="border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Cancelar edición
             </Button>
             <div>
-              <h1 className="text-2xl font-bold text-[var(--color-ciruela-oscuro)] font-tan-nimbus">
+              <h1 className="text-2xl font-bold text-[#455a54] font-tan-nimbus">
                 Editar Venta #{sale.id.slice(-6)}
               </h1>
-              <p className="text-[var(--color-verde-profundo)] font-winter-solid">
+              <p className="text-[#455a54] font-winter-solid">
                 Modifica los productos, cantidades y detalles de la venta
               </p>
             </div>
@@ -287,7 +294,7 @@ export default function EditSalePage() {
               <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving} className="bg-[#9d684e] hover:bg-[#9d684e]/90">
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
@@ -495,10 +502,9 @@ export default function EditSalePage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="efectivo">Efectivo</SelectItem>
-                      <SelectItem value="tarjeta">Tarjeta</SelectItem>
-                      <SelectItem value="transferencia">Transferencia</SelectItem>
-                      <SelectItem value="mixto">Mixto</SelectItem>
+                      {PAYMENT_METHODS.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

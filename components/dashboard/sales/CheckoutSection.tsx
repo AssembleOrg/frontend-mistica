@@ -20,31 +20,25 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { CreditCard, DollarSign, Receipt, Calculator, TrendingDown, TrendingUp, User, Search, X } from 'lucide-react';
 import { CartItem, PaymentInfo } from '@/lib/types';
+import type { PaymentMethod, PaymentMethodDef } from '@/lib/payment-methods';
 import { formatCurrency, getTaxRateDisplay } from '@/lib/sales-calculations';
 import { cn } from '@/lib/utils';
-import { useSettingsStore } from '@/stores/settings.store';
+import { useSettingsStore, type PaymentMethodSettings } from '@/stores/settings.store';
 import { useCustomerStore, Customer } from '@/stores/customer.store';
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  icon?: React.ReactNode;
-  requiresChange?: boolean;
-}
 
 interface CheckoutSectionProps {
   total: number;
   subtotal: number;
   tax: number;
   items: CartItem[];
-  paymentMethods: PaymentMethod[];
+  paymentMethods: PaymentMethodDef[];
   onCheckout: (paymentInfo: PaymentInfo) => Promise<void>;
   isProcessing: boolean;
   isDisabled: boolean;
   className?: string;
 }
 
-const defaultPaymentMethods: PaymentMethod[] = [
+const defaultPaymentMethods: PaymentMethodDef[] = [
   {
     id: 'efectivo',
     name: 'Efectivo',
@@ -77,7 +71,7 @@ export function CheckoutSection({
   className,
 }: CheckoutSectionProps) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    useState<string>('efectivo');
+    useState<PaymentMethod>('efectivo');
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [customerNotes, setCustomerNotes] = useState<string>('');
   const [showChangeCalculator, setShowChangeCalculator] = useState(false);
@@ -104,7 +98,7 @@ export function CheckoutSection({
   const paymentAdjustment = useMemo(() => {
     return settingsActions.calculatePaymentAdjustment(
       total,
-      selectedPaymentMethod as 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'
+      selectedPaymentMethod as keyof PaymentMethodSettings
     );
   }, [total, selectedPaymentMethod, settingsActions]);
 
@@ -208,16 +202,16 @@ export function CheckoutSection({
           <div className='space-y-2'>
             <div className='flex justify-between text-sm'>
               <span>Subtotal ({items.length} items):</span>
-              <span>{formatCurrency(subtotal)}</span>
+              <span className='whitespace-nowrap'>{formatCurrency(subtotal)}</span>
             </div>
             <div className='flex justify-between text-sm'>
               <span>Impuestos ({getTaxRateDisplay(tax/subtotal)}):</span>
-              <span>{formatCurrency(tax)}</span>
+              <span className='whitespace-nowrap'>{formatCurrency(tax)}</span>
             </div>
             <Separator />
             <div className='flex justify-between font-medium'>
               <span>Subtotal con impuestos:</span>
-              <span>{formatCurrency(total)}</span>
+              <span className='whitespace-nowrap'>{formatCurrency(total)}</span>
             </div>
             
             {/* Payment Adjustment Display */}
@@ -263,7 +257,7 @@ export function CheckoutSection({
         <label className='text-sm font-medium'>Método de Pago</label>
         <Select
           value={selectedPaymentMethod}
-          onValueChange={setSelectedPaymentMethod}
+          onValueChange={(v: PaymentMethod) => setSelectedPaymentMethod(v)}
         >
           <SelectTrigger>
             <SelectValue />
@@ -505,7 +499,7 @@ export function CheckoutSection({
           ) : (
             <>
               <Receipt className='w-5 h-5 mr-2' />
-              Completar Venta
+              Guardar Venta
             </>
           )}
         </Button>

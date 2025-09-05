@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -34,7 +34,10 @@ import {
   MoreVertical,
   Printer,
 } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { useAppStore } from '@/stores/app.store';
+import { useSales } from '@/hooks/useSales';
+import { PAYMENT_METHODS, getPaymentMethodLabel, getPaymentMethodBadgeClass } from '@/lib/payment-methods';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
@@ -60,8 +63,10 @@ export default function SalesHistoryPage() {
   
   // Use new app store
   const { salesHistory } = useAppStore();
-  const { settings: receiptSettings } = useSettingsStore();
+  // Settings store available if needed
+  useSettingsStore();
   const sales = salesHistory;
+  const { finalizeDraft } = useSales();
 
   const [filters, setFilters] = useState<SalesFilters>({
     searchTerm: '',
@@ -74,10 +79,12 @@ export default function SalesHistoryPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
 
   // Filtrar y paginar ventas
   const filteredSales = useMemo(() => {
     let filtered = [...sales];
+    const toDate = (v: unknown) => (v instanceof Date ? v : new Date(String(v)));
 
     // Filtro por término de búsqueda (ID de venta o notas)
     if (filters.searchTerm) {
@@ -100,28 +107,25 @@ export default function SalesHistoryPage() {
       filtered = filtered.filter((sale) => sale.status === filters.status);
     }
 
-    // Filtro por rango de fecha
-    if (filters.dateRange !== 'all') {
-      const today = new Date();
-      let startDate: Date;
+    // Filtro por rango de fechas seleccionado
+    if (dateRange.from || dateRange.to) {
+      filtered = filtered.filter((sale) => {
+        const d = sale.createdAt;
+        const afterFrom = dateRange.from ? d >= new Date(dateRange.from as Date) : true;
+        const beforeTo = dateRange.to ? d <= new Date(dateRange.to as Date) : true;
+        return afterFrom && beforeTo;
+      });
+    }
 
-      switch (filters.dateRange) {
-        case 'today':
-          startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-          break;
-        case 'week':
-          startDate = new Date(today);
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case 'month':
-          startDate = new Date(today);
-          startDate.setMonth(startDate.getMonth() - 1);
-          break;
-        default:
-          startDate = new Date(0);
-      }
-
-      filtered = filtered.filter((sale) => sale.createdAt >= startDate);
+    // Filtro por rango de fechas seleccionado
+    if (dateRange.from || dateRange.to) {
+      filtered = filtered.filter((sale) => {
+        const d = toDate(sale.createdAt);
+        if (!isFinite(d.getTime())) return false;
+        const afterFrom = dateRange.from ? d >= new Date(dateRange.from as Date) : true;
+        const beforeTo = dateRange.to ? d <= new Date(dateRange.to as Date) : true;
+        return afterFrom && beforeTo;
+      });
     }
 
     // Filtro por monto mínimo y máximo
@@ -136,10 +140,12 @@ export default function SalesHistoryPage() {
     }
 
     // Ordenar por fecha (más recientes primero)
-    filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    filtered.sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime());
 
     return filtered;
-  }, [sales, filters]);
+  }, [sales, filters, dateRange]);
+
+  // Calendar range managed above
 
   // Paginación
   const paginatedSales = useMemo(() => {
@@ -151,20 +157,22 @@ export default function SalesHistoryPage() {
 
   // Remove duplicate formatCurrency function - now using centralized version
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateInput: unknown) => {
+    const d = dateInput instanceof Date ? dateInput : new Date(String(dateInput));
+    if (!isFinite(d.getTime())) return '-';
     return new Intl.DateTimeFormat('es-MX', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(date);
+    }).format(d);
   };
 
   const getStatusBadge = (status: Sale['status']) => {
     const statusConfig = {
       completed: { label: 'Completada', variant: 'default' as const, color: 'bg-green-100 text-green-800' },
-      draft: { label: 'Borrador', variant: 'secondary' as const, color: 'bg-gray-100 text-gray-800' },
+      draft: { label: 'Abierta', variant: 'secondary' as const, color: 'bg-blue-100 text-blue-800' },
       cancelled: { label: 'Cancelada', variant: 'destructive' as const, color: 'bg-red-100 text-red-800' },
       refunded: { label: 'Reembolsada', variant: 'outline' as const, color: 'bg-orange-100 text-orange-800' },
     };
@@ -177,21 +185,11 @@ export default function SalesHistoryPage() {
     );
   };
 
-  const getPaymentMethodBadge = (method: Sale['paymentMethod']) => {
-    const methodConfig = {
-      efectivo: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
-      tarjeta: { label: 'Tarjeta', color: 'bg-blue-100 text-blue-800' },
-      transferencia: { label: 'Transferencia', color: 'bg-purple-100 text-purple-800' },
-      mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
-    };
-
-    const config = methodConfig[method];
-    return (
-      <Badge variant="outline" className={config.color}>
-        {config.label}
-      </Badge>
-    );
-  };
+  const getPaymentMethodBadge = (method: Sale['paymentMethod']) => (
+    <Badge variant="outline" className={getPaymentMethodBadgeClass(method)}>
+      {getPaymentMethodLabel(method)}
+    </Badge>
+  );
 
   const handleViewSale = (saleId: string) => {
     router.push(`/dashboard/sales/${saleId}`);
@@ -210,6 +208,20 @@ export default function SalesHistoryPage() {
     
     showToast.success('Recibo reenviado a impresora');
     printWindow.close();
+  };
+
+  const handleCloseSaleQuick = async (sale: Sale) => {
+    try {
+      await finalizeDraft(sale.id, {
+        method: 'efectivo',
+        amount: sale.total,
+        received: sale.total,
+        reference: sale.notes,
+      });
+      showToast.success(`Venta ${sale.id.slice(-6)} cerrada`);
+    } catch (e) {
+      showToast.error('No se pudo cerrar la venta');
+    }
   };
 
   const handleDeleteSale = async (saleId: string) => {
@@ -236,10 +248,11 @@ export default function SalesHistoryPage() {
       searchTerm: '',
       paymentMethod: 'all',
       status: 'all',
-      dateRange: 'today',
+      dateRange: 'all',
       minAmount: '',
       maxAmount: '',
     });
+    setDateRange({});
     setCurrentPage(1);
   };
 
@@ -307,23 +320,23 @@ export default function SalesHistoryPage() {
                 />
               </div>
 
-              {/* Rango de fecha */}
-              <Select
-                value={filters.dateRange}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({ ...prev, dateRange: value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder='Fecha' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>Todas las fechas</SelectItem>
-                  <SelectItem value='today'>Hoy</SelectItem>
-                  <SelectItem value='week'>Última semana</SelectItem>
-                  <SelectItem value='month'>Último mes</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Rango de fecha (selector de rango simple) */}
+              <div className='flex flex-col'>
+                <span className='text-sm text-[#455a54]/80 mb-1'>Desde</span>
+                <Input
+                  type='date'
+                  value={dateRange.from ? new Date(dateRange.from).toISOString().slice(0,10) : ''}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value ? new Date(e.target.value) : undefined }))}
+                />
+              </div>
+              <div className='flex flex-col'>
+                <span className='text-sm text-[#455a54]/80 mb-1'>Hasta</span>
+                <Input
+                  type='date'
+                  value={dateRange.to ? new Date(dateRange.to).toISOString().slice(0,10) : ''}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value ? new Date(e.target.value) : undefined }))}
+                />
+              </div>
 
               {/* Estado */}
               <Select
@@ -359,10 +372,9 @@ export default function SalesHistoryPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value='all'>Todos los métodos</SelectItem>
-                  <SelectItem value='efectivo'>Efectivo</SelectItem>
-                  <SelectItem value='tarjeta'>Tarjeta</SelectItem>
-                  <SelectItem value='transferencia'>Transferencia</SelectItem>
-                  <SelectItem value='mixto'>Mixto</SelectItem>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -456,7 +468,7 @@ export default function SalesHistoryPage() {
                             {sale.items.length !== 1 ? 's' : ''}
                           </Badge>
                         </TableCell>
-                        <TableCell className='font-semibold'>
+                        <TableCell className='font-semibold text-right whitespace-nowrap font-mono'>
                           {formatCurrency(sale.total)}
                         </TableCell>
                         <TableCell>
@@ -489,11 +501,18 @@ export default function SalesHistoryPage() {
                                 <Printer className='h-4 w-4 mr-2' />
                                 Reimprimir recibo
                               </DropdownMenuItem>
+                              {sale.status === 'draft' && (
+                                <DropdownMenuItem onClick={() => handleCloseSaleQuick(sale)}>
+                                  <CheckCircle className='h-4 w-4 mr-2' />
+                                  Marcar como Completada
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
+                                disabled={sale.status === 'completed'}
                                 onClick={() => handleEditSale(sale.id)}
                               >
                                 <Edit className='h-4 w-4 mr-2' />
-                                Editar
+                                {sale.status === 'completed' ? 'Editar (bloqueado)' : 'Editar'}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleDeleteSale(sale.id)}
@@ -553,3 +572,4 @@ export default function SalesHistoryPage() {
     </div>
   );
 }
+

@@ -94,7 +94,7 @@ export function SalesStatsWidget() {
               <p className='text-sm text-[#455a54] font-medium font-winter-solid'>
                 Ingresos del Día
               </p>
-              <p className='text-2xl font-bold text-[#455a54] font-tan-nimbus leading-tight'>
+              <p className='text-2xl font-bold text-[#455a54] font-tan-nimbus leading-tight truncate'>
                 {formatCurrency(todayStats.totalRevenue)}
               </p>
             </div>

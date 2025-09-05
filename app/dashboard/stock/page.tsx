@@ -28,7 +28,7 @@ import {
 import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import type { StockMovement } from '@/lib/types';
+import type { StockMovement, Product } from '@/lib/types';
 
 export default function StockDashboard() {
   const [isLoading, setIsLoading] = useState(true);
@@ -204,10 +204,11 @@ export default function StockDashboard() {
           ) : (
             <div className='space-y-3'>
               {movements.slice(0, movementsToShow).map((movement: StockMovement) => {
-                const product = products.find(p => p.id === movement.productId) || { 
+                const product = products.find(p => p.id === movement.productId) || ({ 
                   name: 'Producto no encontrado', 
-                  id: movement.productId 
-                };
+                  id: movement.productId,
+                  stock: 0
+                } as Pick<Product, 'name' | 'id' | 'stock'>);
                 const typeColors = {
                   entrada: 'text-green-600',
                   salida: 'text-red-600',

@@ -13,7 +13,6 @@ import { showToast } from '@/lib/toast';
 import { useSales } from '@/hooks/useSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { useSessionManager } from '@/hooks/useSessionManager';
 import { PaymentInfo, ProductCategory } from '@/lib/types';
 
 // Clean UI Components
@@ -21,7 +20,8 @@ import { ProductSearchSection } from '@/components/dashboard/sales/ProductSearch
 import { ShoppingCartSection } from '@/components/dashboard/sales/ShoppingCartSection';
 import { CheckoutSection } from '@/components/dashboard/sales/CheckoutSection';
 import { SalesStatsWidget } from '@/components/dashboard/sales/sales-stats-widget';
-import { SessionManager } from '@/components/dashboard/session-manager';
+import { PAYMENT_METHODS } from '@/lib/payment-methods';
+// Sessions removed: keep sales flow simple using useSales
 
 export default function SalesPage() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
@@ -34,46 +34,19 @@ export default function SalesPage() {
   console.log('🏪 Sales Page: Inicializando datos de productos');
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
 
-  // Session-aware POS operations
-  const sessionManager = useSessionManager({ autoCreateSession: true });
-  const {
-    currentSession,
-    cart: sessionCart,
-    cartStats,
-    addProductToCart: addToSessionCart,
-    removeFromCart: removeFromSessionCart,
-    updateCartQuantity: updateSessionCartQuantity,
-    clearCart: clearSessionCart,
-    quickCheckout,
-    hasActiveSession
-  } = sessionManager;
-
-  // Fallback to old system for backward compatibility
+  // Sales using simple hook (sessions removed)
   const { searchProducts, products } = useProducts();
-  const oldSalesHook = useSales();
+  const sales = useSales();
 
-  // Convert session cart items to CartItem format for backward compatibility
-  const sessionCartAsCartItems = sessionCart.map(item => ({
-    id: item.product.id,
-    productId: item.product.id,
-    productName: item.product.name,
-    price: item.product.price,
-    quantity: item.quantity,
-    subtotal: item.product.price * item.quantity,
-    product: item.product
-  }));
-
-  // Use session cart if available, fallback to old system
-  const cart = sessionCart.length > 0 ? sessionCartAsCartItems : oldSalesHook.cart;
-  const cartTotal = sessionCart.length > 0 ? cartStats.subtotal : oldSalesHook.cartTotal;
-  const cartTaxAmount = sessionCart.length > 0 ? cartStats.tax : oldSalesHook.cartTaxAmount;
-  const cartGrandTotal = sessionCart.length > 0 ? cartStats.total : oldSalesHook.cartGrandTotal;
-  const cartItemCount = sessionCart.length > 0 ? cartStats.itemCount : oldSalesHook.cartItemCount;
+  const cart = sales.cart;
+  const cartTotal = sales.cartTotal;
+  const cartTaxAmount = sales.cartTaxAmount;
+  const cartGrandTotal = sales.cartGrandTotal;
+  const cartItemCount = sales.cartItemCount;
 
   console.log('🏪 Sales Page: Productos disponibles:', products.length);
   console.log('🏪 Sales Page: Loading productos:', loadingProducts);
-  console.log('🏪 Sales Page: Sesión activa:', currentSession?.id);
-  console.log('🏪 Sales Page: Items en carrito de sesión:', sessionCart.length);
+  // Sessions removed
 
   // Pure event handlers - delegate to session manager
   const handleProductSelect = async (productId: string, quantity = 1) => {
@@ -83,14 +56,8 @@ export default function SalesPage() {
         throw new Error('Producto no encontrado');
       }
 
-      if (hasActiveSession) {
-        // Use session-aware cart management
-        addToSessionCart(product, quantity);
-      } else {
-        // Fallback to old system
-        oldSalesHook.addProductToCart(productId, quantity);
-        showToast.success('Producto agregado al carrito');
-      }
+      sales.addProductToCart(productId, quantity);
+      showToast.success('Producto agregado al carrito');
       
       setSelectedProductId(null);
     } catch (error) {
@@ -102,11 +69,7 @@ export default function SalesPage() {
 
   const handleQuantityChange = (productId: string, quantity: number) => {
     try {
-      if (hasActiveSession) {
-        updateSessionCartQuantity(productId, quantity);
-      } else {
-        oldSalesHook.updateCartQuantity(productId, quantity);
-      }
+      sales.updateCartQuantity(productId, quantity);
     } catch (error) {
       showToast.error(
         error instanceof Error ? error.message : 'Error actualizando cantidad'
@@ -116,12 +79,8 @@ export default function SalesPage() {
 
   const handleRemoveItem = (productId: string) => {
     try {
-      if (hasActiveSession) {
-        removeFromSessionCart(productId);
-      } else {
-        oldSalesHook.removeFromCart(productId);
-        showToast.info('Producto removido');
-      }
+      sales.removeFromCart(productId);
+      showToast.info('Producto removido');
     } catch (_error) {
       showToast.error('Error removiendo producto');
     }
@@ -129,12 +88,8 @@ export default function SalesPage() {
 
   const handleClearCart = () => {
     try {
-      if (hasActiveSession) {
-        clearSessionCart();
-      } else {
-        oldSalesHook.clearCart();
-        showToast.info('Carrito limpiado');
-      }
+      sales.clearCart();
+      showToast.info('Carrito limpiado');
     } catch (_error) {
       showToast.error('Error limpiando carrito');
     }
@@ -142,12 +97,8 @@ export default function SalesPage() {
 
   const handleCheckout = async (paymentInfo: PaymentInfo) => {
     try {
-      if (hasActiveSession) {
-        await quickCheckout(paymentInfo);
-      } else {
-        oldSalesHook.checkout(paymentInfo);
-        showToast.success('Venta completada exitosamente');
-      }
+      await sales.saveOpenSale(paymentInfo);
+      showToast.success('Venta guardada (abierta)');
     } catch (error) {
       showToast.error(
         error instanceof Error ? error.message : 'Error procesando venta'
@@ -197,8 +148,7 @@ export default function SalesPage() {
 
   return (
     <div className='space-y-6 p-6'>
-      {/* Session Manager */}
-      <SessionManager compact={true} className="mb-4" />
+      {/* Comandas abiertas se gestionan desde Historial */}
       
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
       {/* Column 1: Product Search */}
@@ -262,11 +212,7 @@ export default function SalesPage() {
                 subtotal={cartTotal}
                 tax={cartTaxAmount}
                 items={cart}
-                paymentMethods={[
-                  { id: 'efectivo', name: 'Efectivo' },
-                  { id: 'tarjeta', name: 'Tarjeta' },
-                  { id: 'transferencia', name: 'Transferencia' }
-                ]}
+                paymentMethods={PAYMENT_METHODS}
                 onCheckout={handleCheckout}
                 isProcessing={false}
                 isDisabled={cart.length === 0}

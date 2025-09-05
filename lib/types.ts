@@ -100,7 +100,7 @@ export interface Sale {
   discountTotal: number;
   taxAmount: number;
   total: number;
-  paymentMethod: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto';
+  paymentMethod: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'qr' | 'giftcard' | 'precio_lista';
   cashReceived?: number;
   cashChange?: number;
   customerId?: string;
@@ -206,8 +206,10 @@ export interface CartState {
   itemCount: number;
 }
 
+import type { PaymentMethod } from '@/lib/payment-methods';
+
 export interface PaymentInfo {
-  method: string;
+  method: PaymentMethod;
   amount: number;
   received?: number;
   change?: number;

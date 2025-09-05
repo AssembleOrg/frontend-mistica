@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -22,7 +22,14 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app.store';
-import { useSettingsStore } from '@/stores/settings.store';
+import { useSales } from '@/hooks/useSales';
+import { useSettingsStore, type PaymentMethodSettings } from '@/stores/settings.store';
+import type { PaymentMethod } from '@/lib/payment-methods';
+import {
+  getPaymentMethodBadgeClass,
+  getPaymentMethodLabel,
+} from '@/lib/payment-methods';
+import { PAYMENT_METHODS } from '@/lib/payment-methods';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 import { formatCurrency } from '@/lib/sales-calculations';
@@ -33,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from '@/components/ui/dialog';
 
 export default function SaleDetailPage() {
@@ -41,15 +49,24 @@ export default function SaleDetailPage() {
   const saleId = params.id as string;
 
   const { salesHistory, settings } = useAppStore();
-  const { settings: receiptSettings } = useSettingsStore();
-  
-  const getSaleById = useCallback((id: string) => salesHistory.find(s => s.id === id), [salesHistory]);
+  const { finalizeDraft } = useSales();
+  const { settings: receiptSettings, actions: settingsActions } =
+    useSettingsStore();
+
+  const getSaleById = useCallback(
+    (id: string) => salesHistory.find((s) => s.id === id),
+    [salesHistory]
+  );
   const deleteSale = useCallback((_id: string) => {
     // TODO: Implement delete sale functionality in app store
     throw new Error('Delete sale functionality not implemented yet');
   }, []);
   const [sale, setSale] = useState<Sale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [closeMethod, setCloseMethod] =
+    useState<Sale['paymentMethod']>('efectivo');
+  const [closeCashReceived, setCloseCashReceived] = useState('');
 
   useEffect(() => {
     if (saleId) {
@@ -81,10 +98,10 @@ export default function SaleDetailPage() {
         bgColor: 'bg-green-100',
       },
       draft: {
-        label: 'Borrador',
+        label: 'Abierta',
         icon: Clock,
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-100',
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-100',
       },
       cancelled: {
         label: 'Cancelada',
@@ -98,21 +115,49 @@ export default function SaleDetailPage() {
         color: 'text-orange-600',
         bgColor: 'bg-orange-100',
       },
-    };
+    } as const;
     return configs[status];
   };
 
-  const getPaymentMethodConfig = (method: Sale['paymentMethod']) => {
-    const configs = {
-      efectivo: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
-      tarjeta: { label: 'Tarjeta', color: 'bg-blue-100 text-blue-800' },
-      transferencia: {
-        label: 'Transferencia',
-        color: 'bg-purple-100 text-purple-800',
-      },
-      mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
-    };
-    return configs[method];
+  const getPaymentMethodConfig = (method: Sale['paymentMethod']) => ({
+    label: getPaymentMethodLabel(method),
+    color: getPaymentMethodBadgeClass(method),
+  });
+
+  const handleConfirmClose = async () => {
+    if (!sale) return;
+    try {
+      // Calcular ajuste por método de pago (coherente con POS)
+      const baseTotal = sale.originalTotal ?? sale.subtotal + sale.taxAmount;
+      const adj = settingsActions.calculatePaymentAdjustment(
+        baseTotal,
+        closeMethod as keyof PaymentMethodSettings
+      );
+      const finalTotal = adj.finalAmount;
+      const received =
+        closeMethod === 'efectivo'
+          ? parseFloat(closeCashReceived || '0')
+          : finalTotal;
+      if (closeMethod === 'efectivo' && received < finalTotal) {
+        showToast.error('Efectivo insuficiente para cerrar la venta');
+        return;
+      }
+
+      await finalizeDraft(sale.id, {
+        method: closeMethod,
+        amount: finalTotal,
+        received,
+        reference: sale.notes,
+      });
+      showToast.success('Venta cerrada correctamente');
+      const updated = getSaleById(saleId);
+      setSale(updated || null);
+      setShowCloseDialog(false);
+    } catch (e) {
+      showToast.error(
+        e instanceof Error ? e.message : 'No se pudo cerrar la venta'
+      );
+    }
   };
 
   const handleEdit = () => {
@@ -141,19 +186,22 @@ export default function SaleDetailPage() {
 
   const handlePrint = () => {
     if (!sale) return;
-    
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    
+
     // Calculate payment adjustment for display
-    const adjustmentInfo = sale.originalTotal && sale.finalTotal ? {
-      originalTotal: sale.originalTotal,
-      finalTotal: sale.finalTotal,
-      adjustmentAmount: sale.adjustmentAmount || 0,
-      adjustmentType: sale.adjustmentType || 'ninguno',
-      adjustmentPercentage: sale.adjustmentPercentage || 0
-    } : null;
-    
+    const adjustmentInfo =
+      sale.originalTotal && sale.finalTotal
+        ? {
+            originalTotal: sale.originalTotal,
+            finalTotal: sale.finalTotal,
+            adjustmentAmount: sale.adjustmentAmount || 0,
+            adjustmentType: sale.adjustmentType || 'ninguno',
+            adjustmentPercentage: sale.adjustmentPercentage || 0,
+          }
+        : null;
+
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -311,16 +359,31 @@ export default function SaleDetailPage() {
         </head>
         <body>
           <div class="receipt-container">
-            ${receiptSettings.receipt.showLogo ? `
+            ${
+              receiptSettings.receipt.showLogo
+                ? `
               <div style="text-align: center; margin-bottom: 10px;">
                 <div style="width: 60px; height: 60px; background: #9d684e; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">M</div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
             
             <div class="header">
-              <div class="business-name">${receiptSettings.receipt.businessName}</div>
-              <div class="receipt-title">RECIBO DE VENTA #${sale.id.slice(-6)}</div>
-              <div class="date-info">${formatDate(sale.completedAt || sale.createdAt)}</div>
+              <div class="business-name">${
+                receiptSettings.receipt.businessName
+              }</div>
+              <div class="receipt-title">RECIBO DE VENTA #${sale.id.slice(
+                -6
+              )}</div>
+              <div class="date-info">${formatDate(
+                sale.completedAt || sale.createdAt
+              )}</div>
+            </div>
+
+            <div style="margin:8px 0;padding:6px;border:1px solid #e11d48;color:#e11d48;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:bold;border:1px solid #e11d48;border-radius:4px;padding:0 4px;">X</span>
+              <span>Documento no válido para factura</span>
             </div>
 
             <div class="business-info">
@@ -328,12 +391,24 @@ export default function SaleDetailPage() {
               ${receiptSettings.receipt.businessPhone}
             </div>
 
-            ${sale.customerInfo?.name ? `
+            ${
+              sale.customerInfo?.name
+                ? `
               <div class="section">
                 <strong>Cliente:</strong><br>
-                ${sale.customerInfo.name}${sale.customerInfo.email ? `<br>${sale.customerInfo.email}` : ''}${sale.customerInfo.phone ? `<br>${sale.customerInfo.phone}` : ''}
+                ${sale.customerInfo.name}${
+                    sale.customerInfo.email
+                      ? `<br>${sale.customerInfo.email}`
+                      : ''
+                  }${
+                    sale.customerInfo.phone
+                      ? `<br>${sale.customerInfo.phone}`
+                      : ''
+                  }
               </div>
-            ` : ''}
+            `
+                : ''
+            }
 
             <table class="items-table">
               <thead>
@@ -345,14 +420,22 @@ export default function SaleDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                ${sale.items.map(item => `
+                ${sale.items
+                  .map(
+                    (item) => `
                   <tr>
                     <td>${item.product.name}</td>
                     <td style="text-align: center;">${item.quantity}</td>
-                    <td style="text-align: right;">${formatCurrency(item.unitPrice)}</td>
-                    <td style="text-align: right;">${formatCurrency(item.subtotal)}</td>
+                    <td style="text-align: right;">${formatCurrency(
+                      item.unitPrice
+                    )}</td>
+                    <td style="text-align: right;">${formatCurrency(
+                      item.subtotal
+                    )}</td>
                   </tr>
-                `).join('')}
+                `
+                  )
+                  .join('')}
               </tbody>
             </table>
 
@@ -362,71 +445,113 @@ export default function SaleDetailPage() {
                 <span>${formatCurrency(sale.subtotal)}</span>
               </div>
               
-              ${sale.discountTotal > 0 ? `
+              ${
+                sale.discountTotal > 0
+                  ? `
                 <div class="total-line">
                   <span>Descuento:</span>
                   <span>-${formatCurrency(sale.discountTotal)}</span>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
               
               <div class="total-line">
                 <span>IVA (${receiptSettings.general.taxRate}%):</span>
                 <span>${formatCurrency(sale.taxAmount)}</span>
               </div>
               
-              ${adjustmentInfo && adjustmentInfo.adjustmentType !== 'ninguno' ? `
+              ${
+                adjustmentInfo && adjustmentInfo.adjustmentType !== 'ninguno'
+                  ? `
                 <div class="total-line">
                   <span>Subtotal con IVA:</span>
                   <span>${formatCurrency(adjustmentInfo.originalTotal)}</span>
                 </div>
-                <div class="adjustment-line ${adjustmentInfo.adjustmentType === 'descuento' ? 'adjustment-discount' : 'adjustment-surcharge'}">
-                  <span>${adjustmentInfo.adjustmentType === 'descuento' ? 'Descuento' : 'Recargo'} ${getPaymentMethodConfig(sale.paymentMethod).label} (${adjustmentInfo.adjustmentPercentage}%):</span>
-                  <span>${adjustmentInfo.adjustmentType === 'descuento' ? '-' : '+'}${formatCurrency(adjustmentInfo.adjustmentAmount)}</span>
+                <div class="adjustment-line ${
+                  adjustmentInfo.adjustmentType === 'descuento'
+                    ? 'adjustment-discount'
+                    : 'adjustment-surcharge'
+                }">
+                  <span>${
+                    adjustmentInfo.adjustmentType === 'descuento'
+                      ? 'Descuento'
+                      : 'Recargo'
+                  } ${getPaymentMethodConfig(sale.paymentMethod).label} (${
+                      adjustmentInfo.adjustmentPercentage
+                    }%):</span>
+                  <span>${
+                    adjustmentInfo.adjustmentType === 'descuento' ? '-' : '+'
+                  }${formatCurrency(adjustmentInfo.adjustmentAmount)}</span>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
               
               <div class="final-total">
                 <span>TOTAL FINAL:</span>
-                <span>${formatCurrency(adjustmentInfo?.finalTotal || sale.total)}</span>
+                <span>${formatCurrency(
+                  adjustmentInfo?.finalTotal || sale.total
+                )}</span>
               </div>
             </div>
 
             <div class="payment-section">
               <div class="total-line">
                 <span><strong>Método de pago:</strong></span>
-                <span><strong>${getPaymentMethodConfig(sale.paymentMethod).label}</strong></span>
+                <span><strong>${
+                  getPaymentMethodConfig(sale.paymentMethod).label
+                }</strong></span>
               </div>
               
-              ${sale.cashReceived ? `
+              ${
+                sale.cashReceived
+                  ? `
                 <div class="total-line">
                   <span>Efectivo recibido:</span>
                   <span>${formatCurrency(sale.cashReceived)}</span>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
               
-              ${sale.cashChange ? `
+              ${
+                sale.cashChange
+                  ? `
                 <div class="total-line">
                   <span>Cambio:</span>
                   <span>${formatCurrency(sale.cashChange)}</span>
                 </div>
-              ` : ''}
+              `
+                  : ''
+              }
             </div>
 
-            ${sale.notes && sale.notes.trim() ? `
+            ${
+              sale.notes && sale.notes.trim()
+                ? `
               <div class="section">
                 <strong>Notas:</strong><br>
                 <em>${sale.notes}</em>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
 
-            ${receiptSettings.receipt.showEmployeeInfo ? `
+            ${
+              receiptSettings.receipt.showEmployeeInfo
+                ? `
               <div class="employee-info">
                 Atendido por: ${sale.cashierId || 'Sistema'}
               </div>
-            ` : ''}
+            `
+                : ''
+            }
 
             <div class="footer">
-              <div class="footer-message">${receiptSettings.receipt.footerMessage}</div>
+              <div class="footer-message">${
+                receiptSettings.receipt.footerMessage
+              }</div>
               <div>¡Vuelve pronto!</div>
             </div>
           </div>
@@ -439,7 +564,7 @@ export default function SaleDetailPage() {
     printWindow.focus();
     printWindow.print();
     printWindow.close();
-    
+
     showToast.success('Recibo enviado a impresora');
   };
 
@@ -467,12 +592,12 @@ export default function SaleDetailPage() {
           <p className='text-gray-600 mb-4 font-winter-solid'>
             La venta con ID #{saleId.slice(-6)} no existe o ha sido eliminada.
           </p>
-          <Button 
-            variant="durazno"
+          <Button
+            variant='durazno'
             onClick={() => router.push('/dashboard/sales/history')}
-            className="font-winter-solid shadow-md hover:shadow-lg transition-all duration-200"
+            className='font-winter-solid shadow-md hover:shadow-lg transition-all duration-200'
           >
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className='h-4 w-4 mr-2' />
             Volver al historial
           </Button>
         </div>
@@ -490,9 +615,9 @@ export default function SaleDetailPage() {
         <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4'>
           <div className='flex items-center gap-4'>
             <Button
-              variant="naranja"
+              variant='naranja'
               onClick={() => router.push('/dashboard/sales/history')}
-              className="font-winter-solid shadow-md hover:shadow-lg transition-all duration-200"
+              className='font-winter-solid shadow-md hover:shadow-lg transition-all duration-200'
             >
               <ArrowLeft className='h-4 w-4 mr-2' />
               Volver al historial
@@ -512,24 +637,7 @@ export default function SaleDetailPage() {
             </div>
           </div>
 
-          <div className='flex flex-wrap gap-2'>
-            <Button
-              onClick={handleEdit}
-              variant="terracota"
-              size='sm'
-            >
-              <Edit className='h-4 w-4 mr-2' />
-              Editar
-            </Button>
-            <Button
-              onClick={handleDelete}
-              variant='destructive'
-              size='sm'
-            >
-              <Trash2 className='h-4 w-4 mr-2' />
-              Eliminar
-            </Button>
-          </div>
+          {/* Acciones duplicadas removidas: las acciones están en la tarjeta 'Acciones' */}
         </div>
 
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
@@ -718,7 +826,7 @@ export default function SaleDetailPage() {
                     <span className='text-[var(--color-verde-profundo)] font-winter-solid'>
                       Subtotal:
                     </span>
-                    <span className='font-medium font-winter-solid'>
+                    <span className='font-medium font-winter-solid whitespace-nowrap'>
                       {formatCurrency(sale.subtotal)}
                     </span>
                   </div>
@@ -736,7 +844,7 @@ export default function SaleDetailPage() {
                     <span className='text-[var(--color-verde-profundo)] font-winter-solid'>
                       IVA ({(settings.taxRate * 100).toFixed(0)}%):
                     </span>
-                    <span className='font-medium font-winter-solid'>
+                    <span className='font-medium font-winter-solid whitespace-nowrap'>
                       {formatCurrency(sale.taxAmount)}
                     </span>
                   </div>
@@ -745,7 +853,7 @@ export default function SaleDetailPage() {
 
                   <div className='flex justify-between text-lg font-bold text-[var(--color-ciruela-oscuro)]'>
                     <span className='font-winter-solid'>Total:</span>
-                    <span className='font-winter-solid'>
+                    <span className='font-winter-solid whitespace-nowrap'>
                       {formatCurrency(sale.total)}
                     </span>
                   </div>
@@ -789,20 +897,112 @@ export default function SaleDetailPage() {
               <CardContent className='space-y-3'>
                 <Button
                   onClick={handlePrint}
-                  className='w-full font-winter-solid'
-                  variant='verde'
+                  className='w-full font-winter-solid bg-[#9d684e] hover:bg-[#9d684e]/90 text-white'
                 >
                   <Printer className='h-4 w-4 mr-2' />
-                  Imprimir Recibo
+                  Recibo (No fiscal)
+                </Button>
+                <Button
+                  onClick={() => alert('Falta pegar SDK AFIP')}
+                  className='w-full font-winter-solid bg-black hover:bg-black/90 text-white'
+                >
+                  <CreditCard className='h-4 w-4 mr-2' />
+                  Factura fiscal
                 </Button>
                 <Button
                   onClick={handleEdit}
-                  className='w-full font-winter-solid'
-                  variant="terracota"
+                  className={`${
+                    sale?.status === 'completed'
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'border-[#9d684e]/30 text-[#9d684e] hover:bg-[#efcbb9]/30'
+                  } w-full font-winter-solid border`}
+                  disabled={sale?.status === 'completed'}
                 >
                   <Edit className='h-4 w-4 mr-2' />
-                  Editar Venta
+                  {sale?.status === 'completed'
+                    ? 'Editar (bloqueado)'
+                    : 'Editar Venta'}
                 </Button>
+                {sale?.status === 'draft' && (
+                  <>
+                    <Button
+                      onClick={() => setShowCloseDialog(true)}
+                      className='w-full font-winter-solid border'
+                    >
+                      <CheckCircle className='h-4 w-4 mr-2' />
+                      Cerrar Venta
+                    </Button>
+                    <Dialog
+                      open={showCloseDialog}
+                      onOpenChange={setShowCloseDialog}
+                    >
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Cerrar venta</DialogTitle>
+                          <DialogDescription>
+                            Selecciona el método de pago y confirma el cierre.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className='space-y-3'>
+                          <div>
+                            <label className='text-sm font-medium'>
+                              Método de pago
+                            </label>
+                            <div className='mt-1'>
+                              <select
+                                className='w-full border rounded p-2'
+                                value={closeMethod}
+                                onChange={(e) =>
+                                  setCloseMethod(e.target.value as PaymentMethod)
+                                }
+                              >
+                                {PAYMENT_METHODS.map((m) => (
+                                  <option
+                                    key={m.id}
+                                    value={m.id}
+                                  >
+                                    {m.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          {closeMethod === 'efectivo' && (
+                            <div>
+                              <label className='text-sm font-medium'>
+                                Efectivo recibido
+                              </label>
+                              <input
+                                type='number'
+                                className='w-full border rounded p-2'
+                                value={closeCashReceived}
+                                onChange={(e) =>
+                                  setCloseCashReceived(e.target.value)
+                                }
+                                placeholder='0.00'
+                              />
+                            </div>
+                          )}
+                          <div className='flex justify-end gap-2 pt-2'>
+                            <Button
+                              variant='outline'
+                              onClick={() => setShowCloseDialog(false)}
+                              className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              onClick={handleConfirmClose}
+                              className='bg-[#9d684e] hover:bg-[#9d684e]/90'
+                            >
+                              Confirmar cierre
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
+                )}
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button
@@ -825,9 +1025,11 @@ export default function SaleDetailPage() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className='flex justify-end gap-2 mt-4'>
-                      <Button variant='outline'>
-                        <span className='font-winter-solid'>Cancelar</span>
-                      </Button>
+                      <DialogClose asChild>
+                        <Button variant='outline'>
+                          <span className='font-winter-solid'>Cancelar</span>
+                        </Button>
+                      </DialogClose>
                       <Button
                         variant='destructive'
                         onClick={handleDelete}

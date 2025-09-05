@@ -37,6 +37,7 @@ import { useServices } from '@/hooks/useServices';
 import { useProducts } from '@/hooks/useProducts';
 import { ServiceAssignment } from '@/stores/service.store';
 import { PaymentInfo } from '@/lib/types';
+import type { PaymentMethod } from '@/lib/payment-methods';
 import { formatCurrency } from '@/lib/sales-calculations';
 
 export function ActiveServicesList() {
@@ -59,7 +60,7 @@ export function ActiveServicesList() {
   const [newServiceName, setNewServiceName] = useState('');
   const [isCreatingService, setIsCreatingService] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [productSearch, setProductSearch] = useState('');
 
@@ -407,7 +408,7 @@ export function ActiveServicesList() {
 
               <div>
                 <label className="text-sm font-medium mb-2 block">Método de Pago</label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <Select value={paymentMethod} onValueChange={(v: PaymentMethod) => setPaymentMethod(v)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import * as React from 'react';
 import { useMemo } from 'react';
@@ -44,10 +44,13 @@ const typeConfig = {
 };
 
 const paymentMethodConfig = {
-  efectivo: { label: 'Efectivo', color: 'text-[#455a54]' },
-  tarjeta: { label: 'Tarjeta', color: 'text-[#9d684e]' },
-  transferencia: { label: 'Transferencia', color: 'text-[#e0a38d]' },
-  mixto: { label: 'Mixto', color: 'text-purple-600' }
+  efectivo: { label: 'Efectivo', color: 'text-green-700 bg-green-100' },
+  tarjeta: { label: 'Tarjeta', color: 'text-blue-700 bg-blue-100' },
+  transferencia: { label: 'Transferencia', color: 'text-purple-700 bg-purple-100' },
+  mixto: { label: 'Mixto', color: 'text-yellow-700 bg-yellow-100' },
+  qr: { label: 'QR', color: 'text-teal-700 bg-teal-100' },
+  giftcard: { label: 'Gift Card', color: 'text-pink-700 bg-pink-100' },
+  precio_lista: { label: 'Precio de Lista', color: 'text-amber-700 bg-amber-100' },
 };
 
 export function TransactionsTable({ transactions, dateRange }: TransactionsTableProps) {

@@ -11,6 +11,7 @@ import {
   BarChart3,
   ArrowRight
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -28,6 +29,7 @@ import { Footer } from '@/components/ui/footer';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
   
   // Real modules with backend connection
   const realModules = [
@@ -61,7 +63,7 @@ export default function Dashboard() {
       href: '/dashboard/finances',
       icon: BarChart3,
       color: 'bg-gradient-to-r from-purple-500 to-purple-600',
-      available: false // Until we have real financial data
+      available: true
     }
   ];
   
@@ -74,12 +76,12 @@ export default function Dashboard() {
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-[#efcbb9]/20 to-white p-6'>
-      <div className='max-w-4xl mx-auto space-y-8'>
+    <div className='min-h-[100dvh] bg-gradient-to-br from-[#efcbb9]/20 to-white px-4 py-4 md:p-6'>
+      <div className='max-w-4xl mx-auto space-y-6 md:space-y-8'>
         
         {/* Real Header with Logo and User */}
         <Card className='border-[#9d684e]/20 bg-white/80 backdrop-blur-sm'>
-          <CardContent className='p-6'>
+          <CardContent className='p-4 md:p-6'>
             <div className='flex items-center justify-between'>
               <div className='flex items-center gap-4'>
                 <div className='w-16 h-16 rounded-full bg-gradient-to-r from-[#9d684e] to-[#9d684e]/80 flex items-center justify-center overflow-hidden'>
@@ -105,7 +107,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Real Navigation to Implemented Modules */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+        <div className='grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6'>
           {realModules.map((module) => {
             const IconComponent = module.icon;
             
@@ -117,8 +119,9 @@ export default function Dashboard() {
                     ? 'hover:shadow-lg cursor-pointer bg-white' 
                     : 'opacity-60 bg-gray-50'
                 }`}
+                onClick={() => module.available && router.push(module.href)}
               >
-                <CardContent className='p-6'>
+                <CardContent className='p-4 md:p-6'>
                   <div className='flex items-center justify-between'>
                     <div className='flex items-center gap-4'>
                       <div className={`p-3 rounded-xl text-white ${module.color}`}>
@@ -140,17 +143,11 @@ export default function Dashboard() {
                     </div>
                     
                     {module.available ? (
-                      <Button
-                        asChild
-                        variant='ghost'
-                        size='sm'
-                        className='text-[#9d684e] hover:text-[#9d684e]/80'
-                      >
-                        <Link href={module.href} className='flex items-center gap-2'>
-                          Abrir
-                          <ArrowRight className='h-4 w-4' />
-                        </Link>
-                      </Button>
+                      <div className='group inline-flex items-center'>
+                        <div className='p-2 rounded-md bg-[#efcbb9]/60 group-hover:bg-[#9d684e] transition-colors'>
+                          <ArrowRight className='h-4 w-4 text-[#9d684e] group-hover:text-white transition-colors' />
+                        </div>
+                      </div>
                     ) : (
                       <div className='text-gray-400'>
                         <ArrowRight className='h-4 w-4' />

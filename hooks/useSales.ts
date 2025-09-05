@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Simple Sales Hook - KISS MVP
  */
 
@@ -27,21 +27,20 @@ export function useSales() {
   const { chargeBalance, getCustomerById } = useCustomerStore();
 
   const addProductToCart = useCallback((productId: string, quantity: number = 1) => {
-    console.log('🛒 useSales: Buscando producto con ID:', productId);
-    console.log('🛒 useSales: Productos disponibles:', products.length);
-    console.log('🛒 useSales: Lista de productos:', products.map(p => ({ id: p.id, name: p.name })));
+    console.log('[useSales] Buscar producto ID:', productId);
+    console.log('[useSales] Productos disponibles:', products.length);
     
     const product = products.find(p => p.id === productId);
     if (!product) {
-      console.error('🛒 useSales: Producto NO encontrado con ID:', productId);
+      console.error('ðŸ›’ useSales: Producto NO encontrado con ID:', productId);
       throw new Error('Producto no encontrado');
     }
     
-    console.log('🛒 useSales: Producto encontrado:', product.name, 'Stock:', product.stock);
+    console.log('[useSales] Producto:', product.name, 'Stock:', product.stock);
     if (product.stock < quantity) throw new Error('Stock insuficiente');
     
     addToCart(product, quantity);
-    console.log('🛒 useSales: Producto agregado al carrito exitosamente');
+    console.log('[useSales] Producto agregado al carrito');
   }, [products, addToCart]);
 
   const checkout = useCallback((paymentInfo: PaymentInfo) => {
@@ -115,21 +114,90 @@ export function useSales() {
     return completedSale;
   }, [cart, completeSale, getCartTotal, settings.taxRate, settingsActions, chargeBalance, getCustomerById]);
 
+  // Save as open (draft/pending) — can be edited later
+  const saveOpenSale = useCallback((paymentInfo: PaymentInfo) => {
+    if (cart.length === 0) throw new Error('El carrito está vacío');
+
+    const subtotal = getCartTotal();
+    const taxAmount = subtotal * settings.taxRate;
+    const totalBeforeAdjustment = subtotal + taxAmount;
+
+    const paymentAdjustment = settingsActions.calculatePaymentAdjustment(
+      totalBeforeAdjustment,
+      paymentInfo.method as any
+    );
+
+    const saleData = {
+      paymentMethod: paymentInfo.method,
+      cashReceived: paymentInfo.received,
+      originalTotal: totalBeforeAdjustment,
+      adjustmentType: paymentAdjustment.adjustmentType,
+      adjustmentAmount: paymentAdjustment.adjustmentAmount,
+      adjustmentPercentage: paymentAdjustment.adjustmentPercentage,
+      finalTotal: paymentAdjustment.finalAmount,
+      reference: paymentInfo.reference,
+      customerId: paymentInfo.customerId,
+      customerName: paymentInfo.customerName,
+      balanceUsed: paymentInfo.balanceUsed
+    };
+
+    const { saveDraftFromCart } = useAppStore.getState();
+    return saveDraftFromCart(undefined, paymentInfo.customerId ? { name: paymentInfo.customerName } : undefined, saleData);
+  }, [cart, getCartTotal, settings.taxRate, settingsActions]);
+  // Save current cart as draft (open comanda)
+  const saveDraft = useCallback((notes?: string, customerInfo?: any) => {
+    const { saveDraftFromCart } = useAppStore.getState();
+    if (cart.length === 0) throw new Error('El carrito está vacío');
+    return saveDraftFromCart(notes, customerInfo);
+  }, [cart]);
+
+  // Load a draft into the current cart
+  const loadDraftToCart = useCallback((saleId: string) => {
+    const { loadDraftToCart } = useAppStore.getState();
+    return loadDraftToCart(saleId);
+  }, []);
+
+  // Finalize a draft using same adjustment logic as checkout
+  const finalizeDraft = useCallback((saleId: string, paymentInfo: PaymentInfo) => {
+    const { finalizeDraft } = useAppStore.getState();
+
+    const subtotal = getCartTotal();
+    const taxAmount = subtotal * settings.taxRate;
+    const totalBeforeAdjustment = subtotal + taxAmount;
+
+    const paymentAdjustment = settingsActions.calculatePaymentAdjustment(
+      totalBeforeAdjustment,
+      paymentInfo.method as any
+    );
+
+    const saleData = {
+      originalTotal: totalBeforeAdjustment,
+      adjustmentType: paymentAdjustment.adjustmentType,
+      adjustmentAmount: paymentAdjustment.adjustmentAmount,
+      adjustmentPercentage: paymentAdjustment.adjustmentPercentage,
+      finalTotal: paymentAdjustment.finalAmount,
+      reference: paymentInfo.reference,
+      customerId: paymentInfo.customerId,
+      customerName: paymentInfo.customerName,
+      balanceUsed: paymentInfo.balanceUsed
+    };
+
+    return finalizeDraft(saleId, paymentInfo, saleData);
+  }, [getCartTotal, settings.taxRate, settingsActions]);
+
   const cartTotal = getCartTotal();
   const cartTaxAmount = cartTotal * settings.taxRate;
   const cartGrandTotal = cartTotal + cartTaxAmount;
 
-  const editSale = useCallback((saleId: string, updates: { paymentMethod?: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'; notes?: string; customerInfo?: any }) => {
+  const editSale = useCallback((saleId: string, updates: { paymentMethod?: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' | 'qr' | 'giftcard' | 'precio_lista'; notes?: string; customerInfo?: any; items?: Array<{ productId: string; unitPrice: number; quantity: number; discountPercentage?: number }> }) => {
     const { editSale: editSaleInStore } = useAppStore.getState();
     return editSaleInStore(saleId, updates);
   }, []);
 
   const canEditSale = useCallback((sale: any) => {
     if (!sale) return false;
-    
-    // Only allow edits within 24 hours
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    return sale.createdAt >= twentyFourHoursAgo && sale.status === 'completed';
+    // Sin restricción de 24h: abiertas y completadas editables (según campos permitidos)
+    return true;
   }, []);
 
   const getSaleById = useCallback((id: string) => {
@@ -153,6 +221,10 @@ export function useSales() {
     updateCartQuantity,
     clearCart,
     checkout,
+    saveOpenSale,
+    saveDraft,
+    loadDraftToCart,
+    finalizeDraft,
     editSale,
     
     // Utils
@@ -160,3 +232,5 @@ export function useSales() {
     canEditSale
   };
 }
+
+

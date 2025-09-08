@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Product } from './types';
-import { categoryConfig, statusConfig } from './mock-data';
+import { categoryConfig, statusConfig } from './config';
 import { calculateProfitMargin } from './barcode-utils';
 
 /**

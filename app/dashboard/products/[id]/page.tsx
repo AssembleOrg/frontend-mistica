@@ -15,7 +15,9 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/types';
-import { mockProducts, categoryConfig, statusConfig } from '@/lib/mock-data';
+import { categoryConfig, statusConfig } from '@/lib/config';
+import { useProducts } from '@/hooks/useProducts';
+// Removed mock import - now using real API data
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import Barcode from 'react-barcode';
 
@@ -24,22 +26,26 @@ export default function ProductDetailsPage() {
   const params = useParams();
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { products } = useProducts();
 
   useEffect(() => {
-    // Simular carga de producto
+    // Load product from real data
     const loadProduct = async () => {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300)); // Small delay for UX
       
-      const foundProduct = mockProducts.find(p => p.id === params.id);
+      const foundProduct = products.find(p => p.id === params.id);
       setProduct(foundProduct || null);
       setIsLoading(false);
     };
 
-    if (params.id) {
+    if (params.id && products.length > 0) {
       loadProduct();
+    } else if (params.id && products.length === 0) {
+      // If products haven't loaded yet, keep loading state
+      setIsLoading(true);
     }
-  }, [params.id]);
+  }, [params.id, products]);
 
   const printBarcode = (barcode: string, productName: string) => {
     const printWindow = window.open('', '_blank');

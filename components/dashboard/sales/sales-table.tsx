@@ -22,6 +22,7 @@ import {
   Trash2,
   Download,
   X,
+  Receipt,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
@@ -67,6 +68,7 @@ interface SalesTableProps {
   onEditSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
   onCancelSale?: (saleId: string) => void;
+  onViewReceipt?: (sale: Sale) => void;
   // Pagination props
   currentPage?: number;
   totalPages?: number;
@@ -91,6 +93,7 @@ export function SalesTable({
   onEditSale, 
   onDeleteSale,
   onCancelSale,
+  onViewReceipt,
   currentPage = 1,
   totalPages = 1,
   pageSize = 20,
@@ -176,7 +179,7 @@ export function SalesTable({
     );
   };
 
-  const handleAction = async (saleId: string, action: 'view' | 'edit' | 'delete' | 'cancel') => {
+  const handleAction = async (saleId: string, action: 'view' | 'edit' | 'delete' | 'cancel' | 'receipt') => {
     setActionLoading((prev) => ({ ...prev, [saleId]: true }));
 
     try {
@@ -203,6 +206,12 @@ export function SalesTable({
         setSaleToCancel(saleId);
         setShowCancelDialog(true);
         return; // No continuar con la ejecución aquí
+      } else if (action === 'receipt') {
+        if (sale.status !== 'COMPLETED') {
+          showToast.error('Error', 'Solo se puede ver el comprobante de ventas completadas.');
+          return;
+        }
+        onViewReceipt?.(sale);
       }
     } catch (error) {
       console.error(`Error performing ${action}:`, error);
@@ -452,6 +461,18 @@ export function SalesTable({
                 <Eye className='mr-2 h-4 w-4' />
                 Ver detalles
               </DropdownMenuItem>
+              
+              {isCompleted && (
+                <DropdownMenuItem
+                  className='hover:bg-green-50 text-green-600'
+                  onClick={() => handleAction(sale.id, 'receipt')}
+                  disabled={isActionLoading}
+                >
+                  <Receipt className='mr-2 h-4 w-4' />
+                  Ver comprobante
+                </DropdownMenuItem>
+              )}
+              
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className={`hover:bg-[#efcbb9]/30 ${isCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}

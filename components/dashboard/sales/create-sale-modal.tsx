@@ -60,7 +60,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
 
-  const { createSale } = useSalesAPI();
+  const { createSale, updateSale } = useSalesAPI();
   const { products, searchProducts } = useProducts();
   const { clients, getAllClients } = useClientsAPI();
   const { getPrepaidsByClient, getPrepaidById } = usePrepaidsAPI();
@@ -285,8 +285,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setIsSubmitting(true);
 
     try {
-      if (editingSale && onSaleUpdated) {
-        // Edit mode
+      if (editingSale) {
+        // Edit mode - usar directamente el hook
         const updateData: UpdateSaleRequest = {
           clientId: clientId || undefined,
           customerName: customerName.trim(),
@@ -304,8 +304,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           consumedPrepaid: usePrepaid,
         };
         
-        await onSaleUpdated(editingSale.id, updateData);
-        showToast.success('Venta actualizada exitosamente');
+        await updateSale(editingSale.id, updateData);
+        
+        // Llamar callback si existe
+        if (onSaleUpdated) {
+          await onSaleUpdated(editingSale.id, updateData);
+        }
       } else {
         // Create mode
         const saleData: CreateSaleRequest = {

@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product, Sale, StockMovement, CartItem, Employee, CashTransaction, Expense, FinancialSummary } from '@/lib/types';
-import { mockProducts, mockSales, mockEmployees } from '@/lib/mock-data';
+// Removed mock imports - now using real API data
 import { useActivityStore } from './activity.store';
 
 interface AppState {
@@ -599,16 +599,16 @@ export const useAppStore = create<AppState>()(
     {
       name: 'mistica-app-store',
       onRehydrateStorage: () => (state) => {
-        // Initialize with mock data if empty
-        if (state && state.products.length === 0) {
-          state.products = mockProducts;
-        }
-        if (state && state.salesHistory.length === 0) {
-          state.salesHistory = mockSales;
-        }
-        if (state && state.employees.length === 0) {
-          state.employees = mockEmployees;
-        }
+        // NOTE: Mock data initialization removed - now using real API data
+        // if (state && state.products.length === 0) {
+        //   state.products = mockProducts;
+        // }
+        // if (state && state.salesHistory.length === 0) {
+        //   state.salesHistory = mockSales;
+        // }
+        // if (state && state.employees.length === 0) {
+        //   state.employees = mockEmployees;
+        // }
       }
     }
   )

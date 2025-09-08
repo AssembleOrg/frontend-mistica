@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -29,13 +31,16 @@ import {
   Trash2,
   Clock,
   Users,
-  DollarSign
+  DollarSign,
+  FileText
 } from 'lucide-react';
 import { useServices } from '@/hooks/useServices';
 import { useProducts } from '@/hooks/useProducts';
 import { ServiceAssignment } from '@/stores/service.store';
 import { PaymentInfo } from '@/lib/types';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { processReceiptGeneration } from '@/lib/receipt-utils';
+import { showToast } from '@/lib/toast';
 
 export function ActiveServicesList() {
   const { 
@@ -59,6 +64,10 @@ export function ActiveServicesList() {
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [productSearch, setProductSearch] = useState('');
+  const [generateInvoice, setGenerateInvoice] = useState(false);
+  const [invoiceType, setInvoiceType] = useState<string>('C');
+  const [customerCuit, setCustomerCuit] = useState('');
+  const [customerIva, setCustomerIva] = useState('');
 
   const stats = getServiceStats();
   
@@ -81,6 +90,19 @@ export function ActiveServicesList() {
   const handleCloseService = async () => {
     if (!selectedService) return;
     
+    // Validar lógica de facturación
+    if (selectedService.totalAmount > 200000 && generateInvoice) {
+      if (!customerCuit) {
+        showToast.error('Para servicios superiores a $200,000 con factura, se requiere CUIT del cliente');
+        return;
+      }
+      
+      if (invoiceType === 'A' && (!customerCuit || !customerIva)) {
+        showToast.error('Para factura tipo A se requiere CUIT e IVA del cliente');
+        return;
+      }
+    }
+    
     const paymentInfo: PaymentInfo = {
       method: paymentMethod,
       amount: selectedService.totalAmount,
@@ -89,10 +111,26 @@ export function ActiveServicesList() {
     };
 
     try {
-      await closeServiceWithSale(selectedService.id, paymentInfo);
+      const result = await closeServiceWithSale(selectedService.id, paymentInfo);
+      
+      // Generar comprobante o factura según la selección
+      if (result?.sale) {
+        const saleWithInvoiceData = {
+          ...result.sale,
+          customerCuit,
+          customerIva,
+          invoiceType: generateInvoice ? invoiceType : undefined
+        };
+        processReceiptGeneration(saleWithInvoiceData, generateInvoice);
+      }
+      
       setPaymentDialogOpen(false);
       setSelectedService(null);
       setCashReceived(0);
+      setGenerateInvoice(false);
+      setInvoiceType('C');
+      setCustomerCuit('');
+      setCustomerIva('');
     } catch (error) {
       // Error handling is done in the hook
       console.error('Error closing service:', error);
@@ -436,6 +474,68 @@ export function ActiveServicesList() {
                   )}
                 </div>
               )}
+
+              {/* Opciones de facturación */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="generateInvoiceService"
+                    checked={generateInvoice}
+                    onCheckedChange={(checked) => setGenerateInvoice(checked === true)}
+                  />
+                  <Label htmlFor="generateInvoiceService" className="text-sm font-medium text-[#455a54]">
+                    <FileText className="h-4 w-4 inline mr-1" />
+                    Realizar Factura
+                  </Label>
+                </div>
+
+                {generateInvoice && (
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="invoiceType">Tipo de factura</Label>
+                        <Select value={invoiceType} onValueChange={setInvoiceType}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="A">Factura A</SelectItem>
+                            <SelectItem value="B">Factura B</SelectItem>
+                            <SelectItem value="C">Factura C</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="customerCuit">CUIT del cliente</Label>
+                        <Input
+                          id="customerCuit"
+                          placeholder="CUIT"
+                          value={customerCuit}
+                          onChange={(e) => setCustomerCuit(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {invoiceType === 'A' && (
+                      <div>
+                        <Label htmlFor="customerIva">Alícuota IVA</Label>
+                        <Select value={customerIva} onValueChange={setCustomerIva}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar alícuota IVA" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="21">21%</SelectItem>
+                            <SelectItem value="10.5">10.5%</SelectItem>
+                            <SelectItem value="27">27%</SelectItem>
+                            <SelectItem value="0">0% (Exento)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div className="flex gap-2 pt-4">
                 <Button

@@ -163,7 +163,7 @@ export class SalesService {
   // Helper to clean payload and add required fields
   private cleanPayload(data: any): any {
     const cleaned = { ...data };
-    
+    console.table(cleaned);
     // Remove undefined fields (backend doesn't accept undefined values)
     Object.keys(cleaned).forEach(key => {
       if (cleaned[key] === undefined) {
@@ -173,12 +173,16 @@ export class SalesService {
     
     // Ensure required fields have defaults
     if (!cleaned.customerName || (typeof cleaned.customerName === 'string' && cleaned.customerName.trim() === '')) {
-      cleaned.customerName = 'Cliente Anónimo';
+      if (cleaned.status !== "COMPLETED") {
+        cleaned.customerName = 'Cliente Anónimo';
+      }
     }
     
     // Ensure items array is not empty
     if (!cleaned.items || !Array.isArray(cleaned.items) || cleaned.items.length === 0) {
-      throw new Error('La venta debe tener al menos un producto');
+      if (cleaned.status !== "COMPLETED") {
+        throw new Error('La venta debe tener al menos un producto');
+      }
     }
     
     // Ensure payment method is valid

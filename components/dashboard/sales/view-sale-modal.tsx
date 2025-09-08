@@ -7,11 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sale } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { showToast } from '@/lib/toast';
-import { X, Calendar, User, CreditCard, Package, DollarSign, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { processReceiptGeneration } from '@/lib/receipt-utils';
+import { InvoiceModal, InvoiceData } from './invoice-modal';
+import { X, Calendar, User, CreditCard, Package, DollarSign, FileText, CheckCircle, XCircle, Receipt } from 'lucide-react';
 
 interface ViewSaleModalProps {
   isOpen: boolean;
@@ -23,6 +27,8 @@ interface ViewSaleModalProps {
 export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSaleModalProps) {
   const [generateInvoice, setGenerateInvoice] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [pendingInvoiceData, setPendingInvoiceData] = useState<InvoiceData | null>(null);
   const { updateSale } = useSalesAPI();
   
   if (!sale) return null;
@@ -34,13 +40,46 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
   const handleCompleteSale = async () => {
     if (!canEdit) return;
     
+    if (generateInvoice) {
+      setShowInvoiceModal(true);
+      return;
+    }
+    
+    // Completar sin factura
+    await processCompleteSale(null);
+  };
+
+  const handleInvoiceConfirm = async (invoiceData: InvoiceData) => {
+    await processCompleteSale(invoiceData);
+  };
+
+  const processCompleteSale = async (invoiceData: InvoiceData | null) => {
     setIsUpdating(true);
     try {
-      await updateSale(sale.id, {
+      const updateData: any = {
         status: 'COMPLETED',
-        // Aquí se puede agregar lógica para generar factura si generateInvoice es true
-      });
+      };
+      
+      // Si se completó con factura tipo A, actualizar datos del cliente
+      if (invoiceData && invoiceData.invoiceType === 'A' && invoiceData.customerCuit) {
+        updateData.customerCuit = invoiceData.customerCuit;
+        updateData.customerIva = invoiceData.customerIva;
+      }
+      
+      await updateSale(sale.id, updateData);
+      
       showToast.success('Venta completada exitosamente');
+      
+      // Generar comprobante o factura según la selección
+      const saleWithUpdatedData = {
+        ...sale,
+        customerCuit: invoiceData?.customerCuit || sale.customerPhone,
+        customerIva: invoiceData?.customerIva,
+        invoiceType: invoiceData ? invoiceData.invoiceType : undefined
+      };
+      
+      processReceiptGeneration(saleWithUpdatedData, !!invoiceData);
+      
       onSaleUpdated?.();
     } catch (error) {
       console.error('Error completando venta:', error);
@@ -48,6 +87,11 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleViewReceipt = () => {
+    // Generar comprobante para venta completada
+    processReceiptGeneration(sale, false);
   };
 
   const handleCancelSale = async () => {
@@ -108,7 +152,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
             </DialogTitle>
             
             {canEdit && (
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="generateInvoice" 
@@ -321,7 +365,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
         </div>
 
         <div className="flex justify-between pt-4">
-          <div>
+          <div className="flex gap-2">
             {canEdit && (
               <Button
                 onClick={handleCancelSale}
@@ -331,6 +375,17 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
               >
                 <XCircle className="h-4 w-4 mr-2" />
                 {isUpdating ? 'Cancelando...' : 'Cancelar Venta'}
+              </Button>
+            )}
+            
+            {isCompleted && (
+              <Button
+                onClick={handleViewReceipt}
+                variant="outline"
+                className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
+              >
+                <Receipt className="h-4 w-4 mr-2" />
+                Ver Comprobante
               </Button>
             )}
           </div>
@@ -345,6 +400,14 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
           </Button>
         </div>
       </DialogContent>
+
+      {/* Modal de facturación */}
+      <InvoiceModal
+        isOpen={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        onConfirm={handleInvoiceConfirm}
+        saleTotal={sale.total}
+      />
     </Dialog>
   );
 }

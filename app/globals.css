@@ -354,3 +354,60 @@
 .mobile-card-value {
   @apply text-sm text-gray-900;
 }
+
+/* Receipt and Print Styles */
+@media print {
+  @page {
+    margin: 0;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+  
+  .receipt-thermal, .receipt-thermal * {
+    visibility: visible;
+  }
+  
+  .receipt-a4, .receipt-a4 * {
+    visibility: visible;
+  }
+  
+  .receipt-thermal {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .receipt-a4 {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .receipt-thermal {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 58mm !important;
+    min-height: auto !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+  }
+  
+  .print\:hidden {
+    display: none !important;
+  }
+}
+
+.receipt-thermal {
+  font-family: 'Courier New', monospace;
+  line-height: 1.2;
+}
+
+.receipt-a4 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}

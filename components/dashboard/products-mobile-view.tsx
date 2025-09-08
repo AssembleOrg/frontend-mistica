@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { categoryConfig, statusConfig } from '@/lib/mock-data';
+import { categoryConfig, statusConfig } from '@/lib/config';
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { DateRange } from 'react-day-picker';

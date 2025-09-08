@@ -241,9 +241,7 @@ export class ClientsService {
       errors.push('El teléfono debe tener un formato válido');
     }
 
-    if (clientData.cuit && !this.isValidCUIT(clientData.cuit)) {
-      errors.push('El CUIT debe tener un formato válido (XX-XXXXXXXX-X)');
-    }
+    // CUIT validation removed - now accepts any format
 
     return {
       isValid: errors.length === 0,
@@ -262,10 +260,7 @@ export class ClientsService {
     return phoneRegex.test(phone);
   }
 
-  private isValidCUIT(cuit: string): boolean {
-    const cuitRegex = /^\d{2}-\d{8}-\d{1}$/;
-    return cuitRegex.test(cuit);
-  }
+  // CUIT validation method removed - now accepts any format
 
   // Format client name for display
   formatClientName(client: Client): string {

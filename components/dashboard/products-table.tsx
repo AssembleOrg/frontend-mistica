@@ -46,7 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Product } from '@/lib/types';
-import { categoryConfig, statusConfig } from '@/lib/mock-data';
+import { categoryConfig, statusConfig } from '@/lib/config';
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { exportProductsToExcel, getExportSummary } from '@/lib/excel-utils';
 import { showToast } from '@/lib/toast';

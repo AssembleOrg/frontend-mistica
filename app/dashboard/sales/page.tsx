@@ -12,6 +12,7 @@ import { DateRange } from 'react-day-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { showToast } from '@/lib/toast';
+import { processReceiptGeneration } from '@/lib/receipt-utils';
 import { useSales } from '@/hooks/useSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
@@ -287,6 +288,11 @@ export default function SalesPage() {
     setShowViewSaleModal(true);
   };
 
+  const handleViewReceipt = (sale: Sale) => {
+    // Generar comprobante para venta completada
+    processReceiptGeneration(sale, false);
+  };
+
   const handleEditSale = (sale: Sale) => {
     setSelectedSale(sale);
     setShowEditSaleModal(true);
@@ -466,6 +472,7 @@ export default function SalesPage() {
                       onEditSale={handleEditSale}
                       onDeleteSale={handleDeleteSale}
                       onCancelSale={handleCancelSale}
+                      onViewReceipt={handleViewReceipt}
                       currentPage={currentPage}
                       totalPages={totalPages}
                       pageSize={pageSize}

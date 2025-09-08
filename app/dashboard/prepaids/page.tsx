@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { DateRange } from 'react-day-picker';
 import { usePrepaidsAPI } from '@/hooks/usePrepaidsAPI';
 import { PrepaidsTable } from '@/components/dashboard/prepaids/prepaids-table';
 import { PrepaidForm } from '@/components/dashboard/prepaids/prepaid-form';
@@ -9,6 +10,8 @@ import { Prepaid, CreatePrepaidRequest, UpdatePrepaidRequest } from '@/services/
 import { showToast } from '@/lib/toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
+import { PrepaidsMobileView } from '@/components/dashboard/prepaids/prepaids-mobile-view';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Plus, CreditCard } from 'lucide-react';
 
 export default function PrepaidsPage() {
@@ -33,20 +36,32 @@ export default function PrepaidsPage() {
   const [viewingPrepaid, setViewingPrepaid] = useState<Prepaid | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CONSUMED'>('ALL');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  
+  const isMobile = useIsMobile();
 
-  // Load prepaids on component mount
+  // Debounce search term
   useEffect(() => {
-    loadPrepaids();
-  }, [statusFilter]);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchQuery);
+    }, 300);
 
-  const loadPrepaids = async (page = 1, size = pageSize) => {
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Unified function to load prepaids with all filters
+  const loadPrepaidsWithFilters = async (page = 1, size = pageSize, immediate = false) => {
     try {
+      const searchToUse = immediate ? searchQuery : debouncedSearchTerm;
       let response;
+      
       if (statusFilter === 'ALL') {
         response = await getPrepaids(page, size);
       } else {
         response = await getPrepaidsByStatus(statusFilter, page, size);
       }
+      
       setCurrentPage(response.meta.page);
       setTotalPages(response.meta.totalPages);
       setTotalItems(response.meta.total);
@@ -55,22 +70,32 @@ export default function PrepaidsPage() {
     }
   };
 
+  // Consolidated useEffect for all filter changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== undefined) {
+      loadPrepaidsWithFilters(1);
+    }
+  }, [debouncedSearchTerm, statusFilter, dateRange]);
+
+  // Load prepaids on component mount
+  useEffect(() => {
+    loadPrepaidsWithFilters();
+  }, []);
+
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    // For now, just reload with current filter
-    // In a real implementation, you'd have a search endpoint
-    loadPrepaids(1, pageSize);
+    // Search will be handled by the debounced useEffect
   };
 
   const handlePageChange = (page: number) => {
-    loadPrepaids(page, pageSize);
+    loadPrepaidsWithFilters(page, pageSize, true);
     setCurrentPage(page);
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
-    loadPrepaids(1, newPageSize);
+    loadPrepaidsWithFilters(1, newPageSize, true);
   };
 
   const handleStatusFilter = (status: 'ALL' | 'PENDING' | 'CONSUMED') => {
@@ -90,7 +115,7 @@ export default function PrepaidsPage() {
       try {
         await deletePrepaid(prepaid.id);
         // Reload prepaids
-        await loadPrepaids(currentPage);
+        await loadPrepaidsWithFilters(currentPage, pageSize, true);
       } catch (error) {
         console.error('Error deleting prepaid:', error);
       }
@@ -102,7 +127,7 @@ export default function PrepaidsPage() {
       try {
         await markAsConsumed(prepaid.id);
         // Reload prepaids
-        await loadPrepaids(currentPage);
+        await loadPrepaidsWithFilters(currentPage, pageSize, true);
       } catch (error) {
         console.error('Error marking prepaid as consumed:', error);
       }
@@ -122,7 +147,7 @@ export default function PrepaidsPage() {
       setViewingPrepaid(null);
       
       // Reload prepaids
-      await loadPrepaids(currentPage);
+      await loadPrepaidsWithFilters(currentPage, pageSize, true);
     } catch (error) {
       console.error('Error saving prepaid:', error);
     }
@@ -148,7 +173,19 @@ export default function PrepaidsPage() {
   const handlePrepaidUpdated = async () => {
     setShowEditModal(false);
     setEditingPrepaid(null);
-    await loadPrepaids(currentPage);
+    await loadPrepaidsWithFilters(currentPage, pageSize, true);
+  };
+
+  // Mobile filter handlers
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setDateRange(undefined);
+    setStatusFilter('ALL');
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status as 'ALL' | 'PENDING' | 'CONSUMED');
   };
 
   if (showForm) {
@@ -255,22 +292,38 @@ export default function PrepaidsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <PrepaidsTable
-            data={prepaids}
-            isLoading={isLoading}
-            onViewPrepaid={handleViewPrepaid}
-            onEditPrepaid={handleEditPrepaid}
-            onDeletePrepaid={handleDeletePrepaid}
-            onCreatePrepaid={handleCreatePrepaid}
-            onSearch={handleSearch}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            onMarkAsConsumed={handleMarkAsConsumed}
-            pageSize={pageSize}
-            onPageSizeChange={handlePageSizeChange}
-            totalItems={totalItems}
-          />
+          {isMobile ? (
+            <PrepaidsMobileView
+              prepaids={prepaids}
+              onEdit={handleEditPrepaid}
+              onDelete={handleDeletePrepaid}
+              onMarkAsConsumed={handleMarkAsConsumed}
+              searchTerm={searchQuery}
+              onSearchChange={setSearchQuery}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              statusFilter={statusFilter}
+              onStatusFilterChange={handleStatusFilterChange}
+              onClearFilters={handleClearFilters}
+            />
+          ) : (
+            <PrepaidsTable
+              data={prepaids}
+              isLoading={isLoading}
+              onViewPrepaid={handleViewPrepaid}
+              onEditPrepaid={handleEditPrepaid}
+              onDeletePrepaid={handleDeletePrepaid}
+              onCreatePrepaid={handleCreatePrepaid}
+              onSearch={handleSearch}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              onMarkAsConsumed={handleMarkAsConsumed}
+              pageSize={pageSize}
+              onPageSizeChange={handlePageSizeChange}
+              totalItems={totalItems}
+            />
+          )}
         </CardContent>
       </Card>
 

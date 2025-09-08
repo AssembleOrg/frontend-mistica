@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { showToast } from '@/lib/toast';
-import { salesService, type Sale, type CreateSaleRequest, type SaleItem, type DailySalesData } from '@/services/sales.service';
+import { salesService, type Sale, type CreateSaleRequest, type UpdateSaleRequest, type SaleItem, type DailySalesData } from '@/services/sales.service';
 
 export function useSalesAPI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,10 +24,15 @@ export function useSalesAPI() {
     }
   }, []);
 
-  const getSales = useCallback(async (page = 1, limit = 10) => {
+  const getSalesPaginated = useCallback(async (page = 1, limit = 10, filters?: {
+    search?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+  }) => {
     setIsLoading(true);
     try {
-      const response = await salesService.getSales(page, limit);
+      const response = await salesService.getSales(page, limit, filters);
       setSales(response.data.data);
       return response.data;
     } catch (error) {
@@ -68,7 +73,7 @@ export function useSalesAPI() {
     }
   }, []);
 
-  const updateSale = useCallback(async (id: string, saleData: Partial<CreateSaleRequest>): Promise<Sale> => {
+  const updateSale = useCallback(async (id: string, saleData: UpdateSaleRequest): Promise<Sale> => {
     setIsLoading(true);
     try {
       const response = await salesService.updateSale(id, saleData);
@@ -119,7 +124,7 @@ export function useSalesAPI() {
     sales,
     dailySales,
     createSale,
-    getSales,
+    getSalesPaginated,
     getAllSales,
     getSaleById,
     updateSale,

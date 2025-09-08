@@ -18,13 +18,16 @@ import {
 import { TransactionsTable } from '@/components/dashboard/finances/transactions-table';
 import { DateRangeFilter } from '@/components/dashboard/finances/date-range-filter';
 import { ExpenseForm } from '@/components/dashboard/finances/expense-form';
+import { FinancesMobileView } from '@/components/dashboard/finances/finances-mobile-view';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { QuickActivityWidget } from '@/components/dashboard/quick-activity-widget';
 import { useFinances } from '@/hooks/useFinances';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Download, DollarSign, Minus } from 'lucide-react';
 
 export default function FinancesPage() {
   const { summary, transactions: allTransactions, exportTransactions } = useFinances();
+  const isMobile = useIsMobile();
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
     const today = new Date();
     const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -36,10 +39,15 @@ export default function FinancesPage() {
   });
   const [isExporting, setIsExporting] = useState(false);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
+  
+  // Mobile filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
 
   // Filter transactions by date range
   const transactions = React.useMemo(() => {
-    return allTransactions.filter(transaction => {
+    let filtered = allTransactions.filter(transaction => {
       const transactionDate = new Date(transaction.createdAt);
       const transactionDay = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
       const fromDay = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
@@ -47,7 +55,25 @@ export default function FinancesPage() {
       
       return transactionDay >= fromDay && transactionDay <= toDay;
     });
-  }, [allTransactions, dateRange]);
+
+    // Apply mobile filters
+    if (searchTerm) {
+      filtered = filtered.filter(transaction =>
+        transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(transaction => transaction.type === typeFilter);
+    }
+
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(transaction => transaction.category === categoryFilter);
+    }
+
+    return filtered;
+  }, [allTransactions, dateRange, searchTerm, typeFilter, categoryFilter]);
 
   const handleExport = async () => {
     setIsExporting(true);
@@ -62,6 +88,29 @@ export default function FinancesPage() {
 
   const handleExpenseSuccess = () => {
     setShowExpenseForm(false);
+  };
+
+  // Mobile filter handlers
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('all');
+    setCategoryFilter('all');
+  };
+
+  const handleEditTransaction = (transaction: any) => {
+    // TODO: Implement edit functionality
+    console.log('Edit transaction:', transaction);
+  };
+
+  const handleDeleteTransaction = (transaction: any) => {
+    // TODO: Implement delete functionality
+    console.log('Delete transaction:', transaction);
+  };
+
+  // Convert dateRange to DateRange format for mobile component
+  const mobileDateRange = {
+    from: dateRange.from,
+    to: dateRange.to,
   };
 
   if (showExpenseForm) {
@@ -226,10 +275,31 @@ export default function FinancesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <TransactionsTable
-            transactions={transactions}
-            dateRange={dateRange}
-          />
+          {isMobile ? (
+            <FinancesMobileView
+              transactions={transactions}
+              onEdit={handleEditTransaction}
+              onDelete={handleDeleteTransaction}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              dateRange={mobileDateRange}
+              onDateRangeChange={(range) => {
+                if (range?.from && range?.to) {
+                  setDateRange({ from: range.from, to: range.to });
+                }
+              }}
+              typeFilter={typeFilter}
+              onTypeFilterChange={setTypeFilter}
+              categoryFilter={categoryFilter}
+              onCategoryFilterChange={setCategoryFilter}
+              onClearFilters={handleClearFilters}
+            />
+          ) : (
+            <TransactionsTable
+              transactions={transactions}
+              dateRange={dateRange}
+            />
+          )}
         </CardContent>
       </Card>
 

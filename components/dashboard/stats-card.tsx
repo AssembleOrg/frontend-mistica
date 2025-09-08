@@ -55,18 +55,18 @@ export function StatsCard({
       className={`${colors.border} hover:shadow-md transition-shadow duration-200`}
     >
       <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-        <CardTitle className='text-sm font-medium text-[#455a54] font-winter-solid'>
+        <CardTitle className='text-xs sm:text-sm font-medium text-[#455a54] font-winter-solid'>
           {title}
         </CardTitle>
-        <Icon className={`h-4 w-4 ${colors.icon}`} />
+        <Icon className={`h-4 w-4 ${colors.icon} shrink-0`} />
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-1">
         <div
-          className={`text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold font-tan-nimbus ${colors.value} leading-tight break-all sm:break-normal`}
+          className={`text-base sm:text-lg md:text-xl lg:text-2xl font-bold font-tan-nimbus ${colors.value} leading-tight break-words`}
         >
           {value}
         </div>
-        <p className={`text-xs ${trendColor}`}>{change}</p>
+        <p className={`text-xs ${trendColor} mt-1`}>{change}</p>
       </CardContent>
     </Card>
   );

@@ -26,9 +26,38 @@ interface StockOperation {
 }
 
 export class ProductsService {
-  // Get all products with pagination
-  async getProducts(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<Product>>> {
-    return apiService.getPaginated<PaginatedResponse<Product>>('/products', page, limit);
+  // Get all products with pagination and filters
+  async getProducts(page: number = 1, limit: number = 10, filters?: {
+    search?: string;
+    from?: string;
+    to?: string;
+  }): Promise<ApiResponse<PaginatedResponse<Product>>> {
+    console.log('🏭 PRODUCTS SERVICE: Obteniendo productos paginados:', { page, limit, filters });
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+    }
+
+    const url = `/products?${params.toString()}`;
+    console.log('🏭 PRODUCTS SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Product>>(url);
+    console.log('🏭 PRODUCTS SERVICE: Productos obtenidos:', response.data?.data?.length || 0);
+    return response;
   }
 
   // Get all products without pagination
@@ -44,17 +73,43 @@ export class ProductsService {
     return apiService.get<Product>(`/products/${id}`);
   }
 
-  // Get products by category
+  // Get products by category with filters
   async getProductsByCategory(
     category: ProductCategory,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    filters?: {
+      search?: string;
+      from?: string;
+      to?: string;
+    }
   ): Promise<ApiResponse<PaginatedResponse<Product>>> {
-    return apiService.getPaginated<PaginatedResponse<Product>>(
-      `/products/category/${category}`,
-      page,
-      limit
-    );
+    console.log('🏭 PRODUCTS SERVICE: Obteniendo productos por categoría:', { category, page, limit, filters });
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+    }
+
+    const url = `/products/category/${category}?${params.toString()}`;
+    console.log('🏭 PRODUCTS SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Product>>(url);
+    console.log('🏭 PRODUCTS SERVICE: Productos por categoría obtenidos:', response.data?.data?.length || 0);
+    return response;
   }
 
   // Helper to clean payload and add required fields

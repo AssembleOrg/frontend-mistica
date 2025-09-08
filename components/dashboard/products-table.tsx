@@ -22,10 +22,12 @@ import {
   Download,
 } from 'lucide-react';
 
+import { DateRange } from 'react-day-picker';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
+import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -55,9 +57,41 @@ import { StockAdjustmentModal } from '@/components/dashboard/stock/stock-adjustm
 interface ProductsTableProps {
   data: Product[];
   isLoading?: boolean;
+  // Pagination props
+  currentPage?: number;
+  totalPages?: number;
+  pageSize?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  // Filter props
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  categoryFilter?: string;
+  onCategoryFilterChange?: (category: string) => void;
+  onRefresh?: () => void;
 }
 
-export function ProductsTable({ data }: ProductsTableProps) {
+export function ProductsTable({ 
+  data,
+  isLoading,
+  currentPage = 1,
+  totalPages = 1,
+  pageSize = 20,
+  totalItems = 0,
+  onPageChange,
+  onPageSizeChange,
+  // Filter props
+  searchValue = "",
+  onSearchChange,
+  dateRange,
+  onDateRangeChange,
+  categoryFilter = "",
+  onCategoryFilterChange,
+  onRefresh,
+}: ProductsTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -70,6 +104,24 @@ export function ProductsTable({ data }: ProductsTableProps) {
     {}
   );
   const [isExporting, setIsExporting] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Category options for filter
+  const categoryOptions: FilterOption[] = [
+    { value: 'TRATAMIENTOS_CORPORALES', label: 'Tratamientos Corporales' },
+    { value: 'TRATAMIENTOS_FACIALES', label: 'Tratamientos Faciales' },
+    { value: 'PRODUCTOS_COSMETICOS', label: 'Productos Cosméticos' },
+    { value: 'APARATOLOGIA', label: 'Aparatología' },
+    { value: 'SUPLEMENTOS', label: 'Suplementos' },
+    { value: 'ACCESORIOS', label: 'Accesorios' },
+  ];
+
+  const handleClearFilters = () => {
+    onSearchChange?.("");
+    onDateRangeChange?.(undefined);
+    onCategoryFilterChange?.("all");
+    table.resetColumnFilters();
+  };
   const [stockAdjustmentModal, setStockAdjustmentModal] = useState<{
     isOpen: boolean;
     product: Product | null;
@@ -500,42 +552,46 @@ export function ProductsTable({ data }: ProductsTableProps) {
   });
 
   return (
-    <div className='w-full'>
-      <div className='flex items-center py-4'>
-        <div className='flex gap-2'>
-          <select
-            value={
-              (table.getColumn('category')?.getFilterValue() as string) ?? ''
-            }
-            onChange={(event) =>
-              table
-                .getColumn('category')
-                ?.setFilterValue(event.target.value || undefined)
-            }
-            className='px-3 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none max-w-sm'
-          >
-            <option value=''>Todas las categorías</option>
-            <option value='organicos'>Orgánicos</option>
-            <option value='aromaticos'>Aromáticos</option>
-            <option value='wellness'>Wellness</option>
-          </select>
-        </div>
-        <div className='ml-auto flex gap-2'>
+    <div className="space-y-4">
+      <TableFilters
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        dateRange={dateRange}
+        onDateRangeChange={onDateRangeChange}
+        customFilters={[
+          {
+            key: 'category',
+            label: 'Categoría',
+            value: categoryFilter || 'all',
+            options: [{ value: 'all', label: 'Todas las categorías' }, ...categoryOptions],
+            onChange: onCategoryFilterChange || (() => {}),
+          },
+        ]}
+        onClearFilters={handleClearFilters}
+        onRefresh={() => window.location.reload()}
+        showAdvancedFilters={showAdvancedFilters}
+        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
+      />
+      
+      <div className='flex flex-col sm:flex-row items-start sm:items-center gap-3 py-4'>
+        <div className='flex gap-2 w-full sm:w-auto sm:ml-auto'>
           <Button
             onClick={handleExportFiltered}
             disabled={isExporting || data.length === 0}
             variant='outline'
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+            className='flex-1 sm:flex-none border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target text-xs sm:text-sm'
           >
             {isExporting ? (
               <>
                 <LoadingSpinner size='sm' />
-                <span className='ml-2'>Exportando...</span>
+                <span className='ml-2 hidden sm:inline'>Exportando...</span>
+                <span className='ml-2 sm:hidden'>...</span>
               </>
             ) : (
               <>
-                <Download className='mr-2 h-4 w-4' />
-                Exportar ({table.getFilteredRowModel().rows.length})
+                <Download className='mr-1 sm:mr-2 h-4 w-4' />
+                <span className='hidden sm:inline'>Exportar ({table.getFilteredRowModel().rows.length})</span>
+                <span className='sm:hidden'>Exportar</span>
               </>
             )}
           </Button>
@@ -543,9 +599,11 @@ export function ProductsTable({ data }: ProductsTableProps) {
             <DropdownMenuTrigger asChild>
               <Button
                 variant='outline'
-                className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+                className='flex-1 sm:flex-none border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target text-xs sm:text-sm'
               >
-                Columnas <ChevronDown className='ml-2 h-4 w-4' />
+                <span className='hidden sm:inline'>Columnas</span>
+                <span className='sm:hidden'>Col</span>
+                <ChevronDown className='ml-1 sm:ml-2 h-4 w-4' />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end'>
@@ -570,9 +628,9 @@ export function ProductsTable({ data }: ProductsTableProps) {
           </DropdownMenu>
         </div>
       </div>
-      <div className='rounded-md border border-[#9d684e]/20'>
-        <Table>
-          <TableHeader>
+      <div className='rounded-md border border-[#9d684e]/20 overflow-x-auto'>
+        <Table className="min-w-full">
+          <TableHeader className="bg-[#efcbb9]/20">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
@@ -602,7 +660,7 @@ export function ProductsTable({ data }: ProductsTableProps) {
                   className='hover:bg-[#efcbb9]/10'
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="text-xs sm:text-sm py-2 sm:py-3">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -615,7 +673,7 @@ export function ProductsTable({ data }: ProductsTableProps) {
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className='h-24 text-center text-[#455a54]/70'
+                  className='h-24 text-center text-[#455a54]/70 text-sm'
                 >
                   No se encontraron productos.
                 </TableCell>

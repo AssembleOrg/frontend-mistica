@@ -7,6 +7,8 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
+import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,10 +18,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ProductsTable } from '@/components/dashboard/products-table';
+import { ProductsMobileView } from '@/components/dashboard/products-mobile-view';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { Plus, Package } from 'lucide-react';
+import { Plus, Package, Grid, List } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ProductsPage() {
   // Handle initial data loading
@@ -27,6 +31,51 @@ export default function ProductsPage() {
   
   // Simple hooks API for actions and computed values
   const { products, stats } = useProducts();
+  
+  // Mobile detection and view state
+  const isMobile = useIsMobile();
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  // Filter state
+  const [searchValue, setSearchValue] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [categoryFilter, setCategoryFilter] = useState("all");
+
+  // Filter handlers
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handleCategoryFilterChange = (category: string) => {
+    setCategoryFilter(category);
+    setCurrentPage(1); // Reset to first page when filtering
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
+
+  const handleRefresh = () => {
+    // Reload the page to refresh data
+    window.location.reload();
+  };
 
   // Show error state if initial load failed
   if (error) {
@@ -58,14 +107,35 @@ export default function ProductsPage() {
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-responsive-lg font-bold text-[#455a54] font-tan-nimbus mt-6'>
             Gestión de Productos
           </h1>
-          <p className='text-[#455a54]/70 font-winter-solid'>
+          <p className='text-[#455a54]/70 font-winter-solid text-responsive-sm'>
             Administra tu catálogo de productos místicos y wellness
           </p>
         </div>
-        {/* Actions moved to dedicated widget below */}
+        
+        {/* View Toggle */}
+        <div className='hidden sm:flex items-center gap-2 border border-[#9d684e]/20 rounded-lg p-1'>
+          <Button
+            variant={viewMode === 'table' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('table')}
+            className={viewMode === 'table' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
+          >
+            <List className="h-4 w-4 mr-1" />
+            Tabla
+          </Button>
+          <Button
+            variant={viewMode === 'cards' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('cards')}
+            className={viewMode === 'cards' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
+          >
+            <Grid className="h-4 w-4 mr-1" />
+            Cards
+          </Button>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -158,10 +228,10 @@ export default function ProductsPage() {
       {/* Products Table with loading state */}
       <Card className='border-[#9d684e]/20'>
         <CardHeader>
-          <CardTitle className='text-[#455a54] font-tan-nimbus'>
+          <CardTitle className='text-[#455a54] font-tan-nimbus text-responsive-base'>
             Catálogo de Productos
           </CardTitle>
-          <CardDescription className='font-winter-solid'>
+          <CardDescription className='font-winter-solid text-responsive-sm'>
             Lista completa de productos con opciones de filtrado y ordenamiento
           </CardDescription>
         </CardHeader>
@@ -170,16 +240,70 @@ export default function ProductsPage() {
             <div className='flex items-center justify-center p-8'>
               <div className='text-center'>
                 <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e] mx-auto'></div>
-                <p className='mt-2 text-[#455a54]/70 font-winter-solid'>
+                <p className='mt-2 text-[#455a54]/70 font-winter-solid text-responsive-sm'>
                   Cargando productos...
                 </p>
               </div>
             </div>
           ) : (
-            <ProductsTable data={products} />
+            <>
+              {/* Desktop: Show table, Mobile: Show cards */}
+              <div className="hidden sm:block">
+                <ProductsTable 
+                  data={products}
+                  isLoading={isLoading}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                  searchValue={searchValue}
+                  onSearchChange={handleSearchChange}
+                  dateRange={dateRange}
+                  onDateRangeChange={handleDateRangeChange}
+                  categoryFilter={categoryFilter}
+                  onCategoryFilterChange={handleCategoryFilterChange}
+                  onRefresh={handleRefresh}
+                />
+              </div>
+              <div className="sm:hidden">
+                <ProductsMobileView 
+                  products={products} 
+                  searchValue={searchValue}
+                  onSearchChange={handleSearchChange}
+                  dateRange={dateRange}
+                  onDateRangeChange={handleDateRangeChange}
+                  categoryFilter={categoryFilter}
+                  onCategoryFilterChange={handleCategoryFilterChange}
+                  onRefresh={() => window.location.reload()}
+                  isLoading={isLoading}
+                />
+              </div>
+              
+              {/* Desktop view toggle content */}
+              <div className="hidden sm:block">
+                {viewMode === 'cards' && (
+                  <div className="mt-4">
+                    <ProductsMobileView 
+                      products={products} 
+                      searchValue={searchValue}
+                      onSearchChange={handleSearchChange}
+                      dateRange={dateRange}
+                      onDateRangeChange={handleDateRangeChange}
+                      categoryFilter={categoryFilter}
+                      onCategoryFilterChange={handleCategoryFilterChange}
+                      onRefresh={() => window.location.reload()}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
     </div>
   );
 }
+

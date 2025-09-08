@@ -1,21 +1,76 @@
 'use client';
 
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Sale } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
-import { X, Calendar, User, CreditCard, Package, DollarSign } from 'lucide-react';
+import { useSalesAPI } from '@/hooks/useSalesAPI';
+import { showToast } from '@/lib/toast';
+import { X, Calendar, User, CreditCard, Package, DollarSign, FileText, CheckCircle, XCircle } from 'lucide-react';
 
 interface ViewSaleModalProps {
   isOpen: boolean;
   onClose: () => void;
   sale: Sale | null;
+  onSaleUpdated?: () => void;
 }
 
-export function ViewSaleModal({ isOpen, onClose, sale }: ViewSaleModalProps) {
+export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSaleModalProps) {
+  const [generateInvoice, setGenerateInvoice] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { updateSale } = useSalesAPI();
+  
   if (!sale) return null;
+
+  const canEdit = sale.status === 'PENDING';
+  const isCompleted = sale.status === 'COMPLETED';
+  const isCancelled = sale.status === 'CANCELLED';
+
+  const handleCompleteSale = async () => {
+    if (!canEdit) return;
+    
+    setIsUpdating(true);
+    try {
+      await updateSale(sale.id, {
+        status: 'COMPLETED',
+        // Aquí se puede agregar lógica para generar factura si generateInvoice es true
+      });
+      showToast.success('Venta completada exitosamente');
+      onSaleUpdated?.();
+    } catch (error) {
+      console.error('Error completando venta:', error);
+      showToast.error('Error al completar la venta');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCancelSale = async () => {
+    if (!canEdit) return;
+    
+    if (!confirm('¿Estás seguro de que deseas cancelar esta venta?')) {
+      return;
+    }
+    
+    setIsUpdating(true);
+    try {
+      await updateSale(sale.id, {
+        status: 'CANCELLED'
+      });
+      showToast.success('Venta cancelada exitosamente');
+      onSaleUpdated?.();
+    } catch (error) {
+      console.error('Error cancelando venta:', error);
+      showToast.error('Error al cancelar la venta');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
@@ -43,10 +98,47 @@ export function ViewSaleModal({ isOpen, onClose, sale }: ViewSaleModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-[#455a54] font-tan-nimbus flex items-center gap-2">
-            <Package className="h-6 w-6" />
-            Venta #{sale.saleNumber}
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-bold text-[#455a54] font-tan-nimbus flex items-center gap-2">
+              <Package className="h-6 w-6" />
+              Venta #{sale.saleNumber}
+              <div className="ml-2">
+                {getStatusBadge(sale.status)}
+              </div>
+            </DialogTitle>
+            
+            {canEdit && (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="generateInvoice" 
+                    checked={generateInvoice}
+                    onCheckedChange={(checked) => setGenerateInvoice(checked === true)}
+                  />
+                  <Label htmlFor="generateInvoice" className="text-sm font-winter-solid text-[#455a54]">
+                    <FileText className="h-4 w-4 inline mr-1" />
+                    Realizar Factura
+                  </Label>
+                </div>
+                
+                <Button 
+                  onClick={handleCompleteSale}
+                  disabled={isUpdating}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {isUpdating ? 'Completando...' : 'Completar Venta'}
+                </Button>
+              </div>
+            )}
+            
+            {(isCompleted || isCancelled) && (
+              <div className="text-sm text-gray-500">
+                {isCompleted && 'Venta completada - No editable'}
+                {isCancelled && 'Venta cancelada - No editable'}
+              </div>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -173,26 +265,43 @@ export function ViewSaleModal({ isOpen, onClose, sale }: ViewSaleModalProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-[#455a54]/70 font-winter-solid">Subtotal:</span>
-                  <span className="text-[#455a54] font-winter-solid">{formatCurrency(sale.subtotal)}</span>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[#455a54]/70 font-winter-solid mb-1">Subtotal:</div>
+                  <div className="text-[#455a54] font-winter-solid text-lg">{formatCurrency(sale.subtotal)}</div>
                 </div>
-                {sale.tax > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#455a54]/70 font-winter-solid">Impuestos:</span>
-                    <span className="text-[#455a54] font-winter-solid">{formatCurrency(sale.tax)}</span>
-                  </div>
-                )}
+
                 {sale.discount > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#455a54]/70 font-winter-solid">Descuento (Seña):</span>
-                    <span className="text-[#455a54] font-winter-solid">-{formatCurrency(sale.discount)}</span>
+                  <div>
+                    <div className="text-blue-600 font-winter-solid mb-1">Descuento:</div>
+                    <div className="text-blue-600 font-winter-solid text-lg">
+                      -{formatCurrency(sale.subtotal * (sale.discount / 100))}
+                      {sale.subtotal > 0 && (
+                        <span className="text-sm text-blue-500 ml-2">
+                          ({sale.discount} %)
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
-                <div className="flex justify-between items-center border-t border-[#9d684e]/20 pt-3">
-                  <span className="text-lg font-bold text-[#455a54] font-tan-nimbus">Total:</span>
-                  <span className="text-lg font-bold text-[#9d684e] font-tan-nimbus">{formatCurrency(sale.total)}</span>
+
+                {sale.prepaidUsed && sale.prepaidUsed > 0 && (
+                  <div>
+                    <div className="text-green-600 font-winter-solid mb-1">Seña:</div>
+                    <div className="text-green-600 font-winter-solid text-lg">-{formatCurrency(sale.prepaidUsed)}</div>
+                  </div>
+                )}
+
+                {sale.tax > 0 && (
+                  <div>
+                    <div className="text-[#455a54]/70 font-winter-solid mb-1">Impuestos:</div>
+                    <div className="text-[#455a54] font-winter-solid text-lg">{formatCurrency(sale.tax)}</div>
+                  </div>
+                )}
+
+                <div className="border-t border-[#9d684e]/20 pt-4">
+                  <div className="text-[#455a54] font-tan-nimbus mb-1">Total:</div>
+                  <div className="text-[#9d684e] font-tan-nimbus text-2xl font-bold">{formatCurrency(sale.total)}</div>
                 </div>
               </div>
             </CardContent>
@@ -211,7 +320,21 @@ export function ViewSaleModal({ isOpen, onClose, sale }: ViewSaleModalProps) {
           )}
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-between pt-4">
+          <div>
+            {canEdit && (
+              <Button
+                onClick={handleCancelSale}
+                disabled={isUpdating}
+                variant="outline"
+                className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                {isUpdating ? 'Cancelando...' : 'Cancelar Venta'}
+              </Button>
+            )}
+          </div>
+          
           <Button
             onClick={onClose}
             variant="outline"

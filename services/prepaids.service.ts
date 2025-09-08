@@ -40,10 +40,40 @@ interface PaginatedResponse<T> {
 }
 
 export class PrepaidsService {
-  // Get all prepaids with pagination
-  async getPrepaids(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<Prepaid>>> {
-    console.log('💰 PREPAIDS SERVICE: Obteniendo prepaids paginados:', { page, limit });
-    const response = await apiService.getPaginated<PaginatedResponse<Prepaid>>('/prepaids/paginated', page, limit);
+  // Get all prepaids with pagination and filters
+  async getPrepaids(page: number = 1, limit: number = 10, filters?: {
+    search?: string;
+    from?: string;
+    to?: string;
+    status?: string;
+  }): Promise<ApiResponse<PaginatedResponse<Prepaid>>> {
+    console.log('💰 PREPAIDS SERVICE: Obteniendo prepaids paginados:', { page, limit, filters });
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+      if (filters.status && filters.status !== 'all') {
+        params.append('status', filters.status);
+      }
+    }
+
+    const url = `/prepaids/paginated?${params.toString()}`;
+    console.log('💰 PREPAIDS SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Prepaid>>(url);
     console.log('💰 PREPAIDS SERVICE: Prepaids obtenidos:', response.data?.data?.length || 0);
     return response;
   }
@@ -140,16 +170,37 @@ export class PrepaidsService {
   async getPrepaidsByStatus(
     status: 'PENDING' | 'CONSUMED',
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    filters?: {
+      search?: string;
+      from?: string;
+      to?: string;
+    }
   ): Promise<ApiResponse<PaginatedResponse<Prepaid>>> {
-    console.log('💰 PREPAIDS SERVICE: Obteniendo prepaids por estado:', status);
+    console.log('💰 PREPAIDS SERVICE: Obteniendo prepaids por estado:', { status, page, limit, filters });
+    
     const params = new URLSearchParams({
       status,
       page: page.toString(),
       limit: limit.toString(),
     });
 
-    const response = await apiService.get<PaginatedResponse<Prepaid>>(`/prepaids/paginated?${params.toString()}`);
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+    }
+
+    const url = `/prepaids/status?${params.toString()}`;
+    console.log('💰 PREPAIDS SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Prepaid>>(url);
     console.log('💰 PREPAIDS SERVICE: Prepaids por estado obtenidos:', response.data?.data?.length || 0);
     return response;
   }

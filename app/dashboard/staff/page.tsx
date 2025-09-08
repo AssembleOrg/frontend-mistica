@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -19,9 +20,11 @@ import { Input } from '@/components/ui/input';
 import { EmployeesTable } from '@/components/dashboard/staff/employees-table';
 import { StaffStatsWidget } from '@/components/dashboard/staff/staff-stats-widget';
 import { EmployeeForm } from '@/components/dashboard/staff/employee-form';
+import { StaffMobileView } from '@/components/dashboard/staff/staff-mobile-view';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { useEmployees } from '@/hooks/useEmployees';
 import { useInitialEmployeesData } from '@/hooks/useInitialEmployeesData';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Plus, Search, Users } from 'lucide-react';
 
 export default function StaffPage() {
@@ -30,6 +33,48 @@ export default function StaffPage() {
   
   const { employees, stats, loading, filteredEmployees, setSearchQuery, setSelectedRole, searchQuery, selectedRole } = useEmployees();
   const [showForm, setShowForm] = useState(false);
+  const isMobile = useIsMobile();
+
+  // Filter state for TableFilters
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  // Filter handlers
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+  };
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    // TODO: Implement date filtering in the hook
+  };
+
+  const handleRoleFilterChange = (role: string) => {
+    setSelectedRole(role as typeof selectedRole);
+  };
+
+  const handleRefresh = () => {
+    // Clear filters and reload
+    setSearchQuery('');
+    setSelectedRole('all');
+    setDateRange(undefined);
+  };
+
+  // Mobile filter handlers
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setSelectedRole('all');
+    setDateRange(undefined);
+  };
+
+  const handleEditEmployee = (employee: any) => {
+    // TODO: Implement edit employee functionality
+    console.log('Edit employee:', employee);
+  };
+
+  const handleDeleteEmployee = (employee: any) => {
+    // TODO: Implement delete employee functionality
+    console.log('Delete employee:', employee);
+  };
 
   const handleFormSuccess = () => {
     setShowForm(false);
@@ -226,8 +271,31 @@ export default function StaffPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e]"></div>
               <span className="ml-2 text-[#455a54]/70">Cargando empleados...</span>
             </div>
+          ) : isMobile ? (
+            <StaffMobileView
+              employees={filteredEmployees}
+              onEdit={handleEditEmployee}
+              onDelete={handleDeleteEmployee}
+              searchTerm={searchQuery}
+              onSearchChange={handleSearchChange}
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+              roleFilter={selectedRole}
+              onRoleFilterChange={handleRoleFilterChange}
+              onClearFilters={handleClearFilters}
+            />
           ) : (
-            <EmployeesTable data={filteredEmployees} />
+            <EmployeesTable 
+              data={filteredEmployees}
+              isLoading={loading}
+              searchValue={searchQuery}
+              onSearchChange={handleSearchChange}
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+              roleFilter={selectedRole}
+              onRoleFilterChange={handleRoleFilterChange}
+              onRefresh={handleRefresh}
+            />
           )}
         </CardContent>
       </Card>

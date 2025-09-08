@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { DateRange } from 'react-day-picker';
 import {
   Table,
   TableBody,
@@ -12,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { 
   Search, 
   Plus, 
@@ -27,39 +29,69 @@ import { PaginationControls } from '@/components/ui/pagination-controls';
 interface ClientsTableProps {
   data: Client[];
   isLoading?: boolean;
+  // Pagination props
+  currentPage?: number;
+  totalPages?: number;
+  pageSize?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  // Filter props
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (status: string) => void;
+  onRefresh?: () => void;
+  // Action props
   onViewClient?: (client: Client) => void;
   onEditClient?: (client: Client) => void;
   onDeleteClient?: (client: Client) => void;
   onCreateClient?: () => void;
-  onSearch?: (query: string) => void;
-  currentPage?: number;
-  totalPages?: number;
-  onPageChange?: (page: number) => void;
-  pageSize?: number;
-  onPageSizeChange?: (pageSize: number) => void;
-  totalItems?: number;
 }
 
 export function ClientsTable({ 
   data, 
-  isLoading, 
+  isLoading,
+  currentPage = 1,
+  totalPages = 1,
+  pageSize = 20,
+  totalItems = 0,
+  onPageChange,
+  onPageSizeChange,
+  // Filter props
+  searchValue = "",
+  onSearchChange,
+  dateRange,
+  onDateRangeChange,
+  statusFilter = "all",
+  onStatusFilterChange,
+  onRefresh,
+  // Action props
   onViewClient, 
   onEditClient, 
   onDeleteClient, 
-  onCreateClient,
-  onSearch,
-  currentPage = 1,
-  totalPages = 1,
-  onPageChange,
-  pageSize = 20,
-  onPageSizeChange,
-  totalItems = 0
+  onCreateClient
 }: ClientsTableProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Status options for filter
+  const statusOptions: FilterOption[] = [
+    { value: 'activo', label: 'Activo' },
+    { value: 'inactivo', label: 'Inactivo' },
+    { value: 'suspendido', label: 'Suspendido' },
+  ];
+
+  const handleClearFilters = () => {
+    onSearchChange?.("");
+    onDateRangeChange?.(undefined);
+    onStatusFilterChange?.("all");
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch?.(searchQuery);
+    // This function is no longer needed as we use TableFilters
   };
 
   const formatCurrency = (amount: number) => {
@@ -107,21 +139,26 @@ export function ClientsTable({
 
   return (
     <div className="space-y-4">
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#455a54]/50 h-4 w-4" />
-          <Input
-            placeholder="Buscar clientes por nombre, teléfono o email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20"
-          />
-        </div>
-        <Button type="submit" variant="outline" className="border-[#9d684e] text-[#9d684e] hover:bg-[#9d684e] hover:text-white">
-          Buscar
-        </Button>
-      </form>
+      <TableFilters
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Buscar clientes por nombre, teléfono o email..."
+        dateRange={dateRange}
+        onDateRangeChange={onDateRangeChange}
+        customFilters={[
+          {
+            key: 'status',
+            label: 'Estado',
+            value: statusFilter || 'all',
+            options: [{ value: 'all', label: 'Todos los estados' }, ...statusOptions],
+            onChange: onStatusFilterChange || (() => {}),
+          },
+        ]}
+        onClearFilters={handleClearFilters}
+        onRefresh={onRefresh || (() => window.location.reload())}
+        showAdvancedFilters={showAdvancedFilters}
+        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
+      />
 
       {/* Table */}
       <div className="border border-[#9d684e]/20 rounded-lg overflow-hidden">

@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Minus, Trash2, Save, X } from 'lucide-react';
+import { Plus, Minus, Trash2, Save, X, Percent } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { CreateSaleRequest, UpdateSaleRequest, SaleItem, Sale } from '@/services/sales.service';
@@ -54,8 +54,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [clientPrepaid, setClientPrepaid] = useState<{id: string, amount: number} | null>(null);
   const [usePrepaid, setUsePrepaid] = useState(false);
   const [lastProcessedBarcode, setLastProcessedBarcode] = useState<string>('');
-  const [lastProcessedTime, setLastProcessedTime] = useState<number>(0);
   const [barcodeProcessingTimeout, setBarcodeProcessingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [discountPercentage, setDiscountPercentage] = useState(0);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
 
@@ -110,6 +111,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // Load prepaid details
         loadPrepaidDetails(editingSale.prepaidId);
         setUsePrepaid(editingSale.consumedPrepaid || false);
+      }
+      
+      // Load discount if exists
+      if (editingSale.discount && editingSale.discount > 0) {
+        setDiscountPercentage(editingSale.discount);
+        setShowDiscountInput(true);
       }
     }
   }, [editingSale, isOpen]);
@@ -252,14 +259,15 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const calculateTotals = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
     const tax = 0; // No tax for now
-    const discount = 0; // No discount for now
-    const prepaidAmount = usePrepaid && clientPrepaid ? clientPrepaid.amount : 0;
-    const total = subtotal + tax - discount - prepaidAmount;
+    const discountAmount = (subtotal * discountPercentage) / 100;
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    const prepaidAmount = usePrepaid && clientPrepaid ? Math.min(clientPrepaid.amount, subtotalAfterDiscount) : 0;
+    const total = subtotalAfterDiscount + tax - prepaidAmount;
 
-    return { subtotal, tax, discount, prepaidAmount, total };
+    return { subtotal, tax, discountAmount, prepaidAmount, total };
   };
 
-  const { subtotal, tax, discount, prepaidAmount, total } = calculateTotals();
+  const { subtotal, tax, discountAmount, prepaidAmount, total } = calculateTotals();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,6 +297,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             quantity: item.quantity,
             unitPrice: item.unitPrice,
           })),
+          discount: discountPercentage,
           paymentMethod,
           notes: notes.trim() || undefined,
           prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
@@ -309,6 +318,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             quantity: item.quantity,
             unitPrice: item.unitPrice,
           })),
+          discount: discountPercentage,
           paymentMethod,
           notes: notes.trim() || undefined,
           prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
@@ -333,6 +343,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       setClientPrepaid(null);
       setUsePrepaid(false);
       setLastProcessedBarcode('');
+      setDiscountPercentage(0);
+      setShowDiscountInput(false);
       
       // Clear any pending barcode timeout
       if (barcodeProcessingTimeout) {
@@ -361,6 +373,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setSearchQuery('');
     setSearchResults([]);
     setLastProcessedBarcode('');
+    setDiscountPercentage(0);
+    setShowDiscountInput(false);
     
     // Clear any pending barcode timeout
     if (barcodeProcessingTimeout) {
@@ -376,24 +390,20 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto border-[#9d684e]/20">
-        <DialogHeader>
-          <DialogTitle className="text-[#455a54] font-tan-nimbus text-xl">
-            {editingSale ? 'Editar Venta' : 'Nueva Venta'}
+      <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[95vh] overflow-y-auto border-[#9d684e]/20 p-0">
+        <DialogHeader className="px-4 sm:px-6 py-4 border-b border-gray-100">
+          <DialogTitle className="text-[#455a54] font-tan-nimbus text-lg sm:text-xl">
+            {editingSale ? 'Editar Venta' : 'Crear Nueva Venta'}
           </DialogTitle>
-          <DialogDescription className="font-winter-solid">
-            {editingSale 
-              ? 'Modifica la venta agregando o quitando productos y actualizando la información del cliente'
-              : 'Crea una nueva venta agregando productos y completando la información del cliente'
-            }
-          </DialogDescription>
+          <DialogDescription className="font-winter-solid text-sm">
+                      </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="flex flex-col h-full px-4 sm:px-6 pb-4 sm:pb-6 space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             {/* Customer Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-[#455a54] font-winter-solid">
+            <div className="space-y-3">
+              <h3 className="text-base sm:text-lg font-medium text-[#455a54] font-winter-solid">
                 Información del Cliente
               </h3>
               
@@ -462,13 +472,13 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   Método de Pago *
                 </Label>
                 <Select value={paymentMethod} onValueChange={(value: 'CASH' | 'CARD' | 'TRANSFER') => setPaymentMethod(value)}>
-                  <SelectTrigger className="bg-white border-2 border-gray-700 hover:border-gray-800 focus:border-gray-900 focus:ring-2 focus:ring-gray-300">
+                  <SelectTrigger className="bg-white border-2 border-gray-700 hover:border-gray-800 focus:border-gray-900 focus:ring-2 focus:ring-gray-300 touch-target">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CASH">Efectivo</SelectItem>
-                    <SelectItem value="CARD">Tarjeta</SelectItem>
-                    <SelectItem value="TRANSFER">Transferencia</SelectItem>
+                    <SelectItem value="CASH" className="touch-target">Efectivo</SelectItem>
+                    <SelectItem value="CARD" className="touch-target">Tarjeta</SelectItem>
+                    <SelectItem value="TRANSFER" className="touch-target">Transferencia</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -540,8 +550,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             </div>
 
             {/* Product Search and Cart */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-[#455a54] font-winter-solid">
+            <div className="space-y-3">
+              <h3 className="text-base sm:text-lg font-medium text-[#455a54] font-winter-solid">
                 Productos
               </h3>
 
@@ -614,36 +624,36 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   )}
                 </div>
 
-                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-md">
+                <div className="max-h-48 sm:max-h-60 overflow-y-auto border border-gray-200 rounded-md">
                   {cartItems.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
+                    <div className="p-4 text-center text-gray-500 text-sm">
                       No hay productos en el carrito
                     </div>
                   ) : (
                     cartItems.map((item) => (
-                      <div key={item.productId} className="p-3 border-b border-gray-100 last:border-b-0">
-                        <div className="flex justify-between items-start">
+                      <div key={item.productId} className="p-2 sm:p-3 border-b border-gray-100 last:border-b-0">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                           <div className="flex-1">
-                            <p className="font-medium text-[#455a54]">{item.productName}</p>
-                            <p className="text-sm text-gray-500">${item.unitPrice.toFixed(2)} c/u</p>
+                            <p className="font-medium text-[#455a54] text-sm sm:text-base">{item.productName}</p>
+                            <p className="text-xs sm:text-sm text-gray-500">${item.unitPrice.toFixed(2)} c/u</p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 sm:flex-row">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 touch-target"
                             >
                               <Minus className="h-4 w-4" />
                             </Button>
-                            <span className="w-8 text-center font-medium">{item.quantity}</span>
+                            <span className="w-8 text-center font-medium text-sm">{item.quantity}</span>
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              className="h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 touch-target"
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
@@ -652,14 +662,14 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               variant="outline"
                               size="sm"
                               onClick={() => removeFromCart(item.productId)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 touch-target"
                             >
                               <X className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
                         <div className="text-right mt-1">
-                          <p className="font-medium text-[#9d684e]">
+                          <p className="font-medium text-[#9d684e] text-sm sm:text-base">
                             ${item.subtotal.toFixed(2)}
                           </p>
                         </div>
@@ -671,28 +681,82 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
               {/* Totals */}
               {cartItems.length > 0 && (
-                <div className="border-t border-gray-200 pt-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                <div className="border-t border-gray-200 pt-3 space-y-3">
+                  {/* Discount Section */}
+                  <div className="space-y-2">
+                    {!showDiscountInput ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowDiscountInput(true)}
+                        className="w-full border-[#9d684e]/30 text-[#9d684e] hover:bg-[#9d684e]/10 touch-target"
+                      >
+                        <Percent className="h-4 w-4 mr-2" />
+                        Aplicar Descuento
+                      </Button>
+                    ) : (
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="discountAmount" className="text-blue-800 font-winter-solid text-sm">
+                            Descuento (%)
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setShowDiscountInput(false);
+                              setDiscountPercentage(0);
+                            }}
+                            className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Input
+                          id="discountAmount"
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={discountPercentage || ''}
+                          onChange={(e) => setDiscountPercentage(parseFloat(e.target.value) || 0)}
+                          placeholder="0.00%"
+                          className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
+                        />
+                        <p className="text-xs text-blue-600">
+                          Descuento: {formatCurrency(calculateTotals().discountAmount)}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Impuestos:</span>
-                    <span>${tax.toFixed(2)}</span>
-                  </div>
-                  {/* <div className="flex justify-between text-sm">
-                    <span>Descuentos:</span>
-                    <span>-${discount.toFixed(2)}</span>
-                  </div> */}
-                  {usePrepaid && prepaidAmount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600">
-                      <span>Seña aplicada:</span>
-                      <span>-${prepaidAmount.toFixed(2)}</span>
+                  
+                  {/* Totals Summary */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs sm:text-sm">
+                      <span>Subtotal:</span>
+                      <span>{formatCurrency(subtotal)}</span>
                     </div>
-                  )}
-                  <div className="flex justify-between font-bold text-lg border-t border-gray-200 pt-2">
-                    <span>Total:</span>
-                    <span className="text-[#9d684e]">${total.toFixed(2)}</span>
+                    {discountPercentage > 0 && (
+                      <div className="flex justify-between text-xs sm:text-sm text-blue-600">
+                        <span>Descuento:</span>
+                        <span>-{formatCurrency(discountAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs sm:text-sm">
+                      <span>Impuestos:</span>
+                      <span>{formatCurrency(tax)}</span>
+                    </div>
+                    {usePrepaid && prepaidAmount > 0 && (
+                      <div className="flex justify-between text-xs sm:text-sm text-green-600">
+                        <span>Seña aplicada:</span>
+                        <span>-{formatCurrency(prepaidAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
+                      <span>Total:</span>
+                      <span className="text-[#9d684e]">{formatCurrency(total)}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -700,20 +764,20 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-200">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
               disabled={isSubmitting}
-              className="flex-1 border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30"
+              className="flex-1 border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={!customerName.trim() || cartItems.length === 0 || isSubmitting}
-              className="flex-1 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid"
+              className="flex-1 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid touch-target"
             >
               {isSubmitting ? (
                 <>

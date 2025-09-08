@@ -20,9 +20,38 @@ interface PaginatedResponse<T> {
 }
 
 export class EmployeesService {
-  // Get all employees with pagination
-  async getEmployees(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<Employee>>> {
-    return apiService.getPaginated<PaginatedResponse<Employee>>('/employees', page, limit);
+  // Get all employees with pagination and filters
+  async getEmployees(page: number = 1, limit: number = 10, filters?: {
+    search?: string;
+    from?: string;
+    to?: string;
+  }): Promise<ApiResponse<PaginatedResponse<Employee>>> {
+    console.log('👨‍💼 EMPLOYEES SERVICE: Obteniendo empleados paginados:', { page, limit, filters });
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+    }
+
+    const url = `/employees?${params.toString()}`;
+    console.log('👨‍💼 EMPLOYEES SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Employee>>(url);
+    console.log('👨‍💼 EMPLOYEES SERVICE: Empleados obtenidos:', response.data?.data?.length || 0);
+    return response;
   }
 
   // Get all employees without pagination

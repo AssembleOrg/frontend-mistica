@@ -269,15 +269,15 @@ export function ProductForm({
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-responsive-lg font-bold text-[#455a54] font-tan-nimbus mt-6'>
             {mode === 'add' ? 'Agregar Producto' : 'Editar Producto'}
           </h1>
-          <p className='text-[#455a54]/70 font-winter-solid'>
+          <p className='text-[#455a54]/70 font-winter-solid text-responsive-sm'>
             {mode === 'add'
               ? 'Complete la información del nuevo producto'
               : 'Modifique la información del producto'}
           </p>
-          <p className='text-sm text-[#455a54]/60 font-winter-solid mt-1'>
+          <p className='text-xs sm:text-sm text-[#455a54]/60 font-winter-solid mt-1'>
             Los campos marcados con <span className='text-red-500'>*</span> son obligatorios
           </p>
         </div>
@@ -287,28 +287,28 @@ export function ProductForm({
       {/* Edit Form */}
       <form
         onSubmit={handleSubmit}
-        className='space-y-6'
+        className='space-y-4 sm:space-y-6'
       >
-        <div className='grid grid-cols-1 lg:grid-cols-2 gap-6'>
+        <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6'>
           {/* Basic Information */}
           <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-[#455a54] font-tan-nimbus'>Información Básica</CardTitle>
-              <CardDescription className='text-[#455a54]/70 font-winter-solid'>Datos principales del producto</CardDescription>
+            <CardHeader className="pb-4">
+              <CardTitle className='text-[#455a54] font-tan-nimbus text-base sm:text-lg'>Información Básica</CardTitle>
+              <CardDescription className='text-[#455a54]/70 font-winter-solid text-sm'>Datos principales del producto</CardDescription>
             </CardHeader>
-            <CardContent className='space-y-4'>
+            <CardContent className='space-y-3 sm:space-y-4'>
               {/* Name */}
               <div>
-                <Label htmlFor='name' className='text-[#455a54] font-winter-solid'>Nombre del Producto <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='name' className='text-[#455a54] font-winter-solid text-sm'>Nombre del Producto <span className='text-red-500'>*</span></Label>
                 <Input
                   id='name'
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder='Ingrese el nombre del producto'
-                  className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 ${validationErrors.name ? 'border-red-500' : ''}`}
+                  className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 touch-target ${validationErrors.name ? 'border-red-500' : ''}`}
                 />
                 {validationErrors.name && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
+                  <p className='text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
                     <AlertCircle className='w-3 h-3' />
                     {validationErrors.name}
                   </p>
@@ -317,27 +317,27 @@ export function ProductForm({
 
               {/* Barcode */}
               <div>
-                <Label htmlFor='barcode' className='text-[#455a54] font-winter-solid'>Código de Barras <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='barcode' className='text-[#455a54] font-winter-solid text-sm'>Código de Barras <span className='text-red-500'>*</span></Label>
                 <div className="relative">
                   <Input
                     id='barcode'
                     value={formData.barcode}
                     onChange={(e) => handleInputChange('barcode', e.target.value)}
                     placeholder='Código de barras único'
-                    className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 pr-10 ${validationErrors.barcode ? 'border-red-500' : ''}`}
+                    className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 pr-12 touch-target ${validationErrors.barcode ? 'border-red-500' : ''}`}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10 touch-target"
                     onClick={handleOpenBarcodeModal}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
                 {validationErrors.barcode && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
+                  <p className='text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
                     <AlertCircle className='w-3 h-3' />
                     {validationErrors.barcode}
                   </p>

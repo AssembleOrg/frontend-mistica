@@ -269,7 +269,25 @@ export interface EmployeeCreationData {
   startDate: Date;
 }
 
-// Financial Management Types
+// Customer/Client Management Types
+export interface Client {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  taxId?: string; // CUIT/CUIL
+  notes?: string;
+  preferredPaymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  totalPurchases?: number;
+  purchaseCount?: number;
+  lastPurchase?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  isActive: boolean;
+}
+
+// Financial Summary Types
 export interface CashTransaction {
   id: string;
   type: 'ingreso' | 'egreso';

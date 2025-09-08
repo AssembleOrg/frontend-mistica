@@ -54,10 +54,36 @@ interface PaginatedResponse<T> {
 }
 
 export class ClientsService {
-  // Get all clients with pagination
-  async getClients(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<Client>>> {
-    console.log('👥 CLIENTS SERVICE: Obteniendo clientes paginados:', { page, limit });
-    const response = await apiService.getPaginated<PaginatedResponse<Client>>('/clients/paginated', page, limit);
+  // Get all clients with pagination and filters
+  async getClients(page: number = 1, limit: number = 10, filters?: {
+    search?: string;
+    from?: string;
+    to?: string;
+  }): Promise<ApiResponse<PaginatedResponse<Client>>> {
+    console.log('👥 CLIENTS SERVICE: Obteniendo clientes paginados:', { page, limit, filters });
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+    }
+
+    const url = `/clients/paginated?${params.toString()}`;
+    console.log('👥 CLIENTS SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Client>>(url);
     console.log('👥 CLIENTS SERVICE: Clientes obtenidos:', response.data?.data?.length || 0);
     return response;
   }

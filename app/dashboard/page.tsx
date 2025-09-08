@@ -79,10 +79,10 @@ export default function Dashboard() {
         
         {/* Real Header with Logo and User */}
         <Card className='border-[#9d684e]/20 bg-white/80 backdrop-blur-sm'>
-          <CardContent className='p-6'>
-            <div className='flex items-center justify-between'>
-              <div className='flex items-center gap-4'>
-                <div className='w-16 h-16 rounded-full bg-gradient-to-r from-[#9d684e] to-[#9d684e]/80 flex items-center justify-center overflow-hidden'>
+          <CardContent className='p-4 sm:p-6'>
+            <div className='flex flex-col sm:flex-row items-center sm:items-start sm:justify-between gap-4'>
+              <div className='flex flex-col sm:flex-row items-center gap-3 sm:gap-4'>
+                <div className='w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-[#9d684e] to-[#9d684e]/80 flex items-center justify-center overflow-hidden'>
                   <Image
                     src='/Logo-2-mistica.png'
                     alt='MÍSTICA Logo'
@@ -91,11 +91,11 @@ export default function Dashboard() {
                     className='object-contain'
                   />
                 </div>
-                <div>
-                  <h1 className='text-2xl font-bold text-[#455a54] font-tan-nimbus'>
+                <div className='text-center sm:text-left'>
+                  <h1 className='text-lg sm:text-2xl font-bold text-[#455a54] font-tan-nimbus'>
                     ¡Hola, {user?.name}! 👋
                   </h1>
-                  <p className='text-[#455a54]/70 font-winter-solid'>
+                  <p className='text-xs sm:text-base text-[#455a54]/70 font-winter-solid'>
                     {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })} • {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
                   </p>
                 </div>
@@ -105,7 +105,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Real Navigation to Implemented Modules */}
-        <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6'>
           {realModules.map((module) => {
             const IconComponent = module.icon;
             
@@ -118,17 +118,17 @@ export default function Dashboard() {
                     : 'opacity-60 bg-gray-50'
                 }`}
               >
-                <CardContent className='p-6'>
+                <CardContent className='p-4 sm:p-6'>
                   <div className='flex items-center justify-between'>
-                    <div className='flex items-center gap-4'>
-                      <div className={`p-3 rounded-xl text-white ${module.color}`}>
-                        <IconComponent className='h-6 w-6' />
+                    <div className='flex items-center gap-3 sm:gap-4 flex-1'>
+                      <div className={`p-2 sm:p-3 rounded-xl text-white ${module.color} shrink-0`}>
+                        <IconComponent className='h-5 w-5 sm:h-6 sm:w-6' />
                       </div>
-                      <div>
-                        <h3 className='text-lg font-semibold text-[#455a54] font-tan-nimbus'>
+                      <div className='flex-1 min-w-0'>
+                        <h3 className='text-base sm:text-lg font-semibold text-[#455a54] font-tan-nimbus truncate'>
                           {module.name}
                         </h3>
-                        <p className='text-[#455a54]/70 font-winter-solid'>
+                        <p className='text-xs sm:text-sm text-[#455a54]/70 font-winter-solid'>
                           {module.description}
                         </p>
                         {!module.available && (
@@ -144,15 +144,15 @@ export default function Dashboard() {
                         asChild
                         variant='ghost'
                         size='sm'
-                        className='text-[#9d684e] hover:text-[#9d684e]/80'
+                        className='text-[#9d684e] hover:text-[#9d684e]/80 touch-target shrink-0'
                       >
-                        <Link href={module.href} className='flex items-center gap-2'>
-                          Abrir
+                        <Link href={module.href} className='flex items-center gap-1 sm:gap-2 text-xs sm:text-sm'>
+                          <span className='hidden sm:inline'>Abrir</span>
                           <ArrowRight className='h-4 w-4' />
                         </Link>
                       </Button>
                     ) : (
-                      <div className='text-gray-400'>
+                      <div className='text-gray-400 shrink-0'>
                         <ArrowRight className='h-4 w-4' />
                       </div>
                     )}

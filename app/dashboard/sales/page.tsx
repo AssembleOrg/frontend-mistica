@@ -8,6 +8,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { DateRange } from 'react-day-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { showToast } from '@/lib/toast';
@@ -30,7 +31,9 @@ import { CreateSaleModal } from '@/components/dashboard/sales/create-sale-modal'
 import { ViewSaleModal } from '@/components/dashboard/sales/view-sale-modal';
 import { EditSaleModal } from '@/components/dashboard/sales/edit-sale-modal';
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
+import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
 import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function SalesPage() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
@@ -50,6 +53,15 @@ export default function SalesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // Filter state
+  const [searchValue, setSearchValue] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Mobile responsive
+  const isMobile = useIsMobile();
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
+
   // Initialize products data from backend
   console.log('🏪 Sales Page: Inicializando datos de productos');
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
@@ -59,7 +71,7 @@ export default function SalesPage() {
     isLoading: loadingSales, 
     sales, 
     dailySales, 
-    getAllSales, 
+    getSalesPaginated, 
     getDailySales, 
     deleteSale 
   } = useSalesAPI();
@@ -67,9 +79,6 @@ export default function SalesPage() {
   // Session-aware POS operations
   const sessionManager = useSessionManager({ autoCreateSession: true });
   const {
-    currentSession,
-    cart: sessionCart,
-    cartStats,
     addProductToCart: addToSessionCart,
     removeFromCart: removeFromSessionCart,
     updateCartQuantity: updateSessionCartQuantity,
@@ -82,34 +91,91 @@ export default function SalesPage() {
   const { searchProducts, products } = useProducts();
   const oldSalesHook = useSales();
 
-  // Convert session cart items to CartItem format for backward compatibility
-  const sessionCartAsCartItems = sessionCart.map(item => ({
-    id: item.product.id,
-    productId: item.product.id,
-    productName: item.product.name,
-    price: item.product.price,
-    quantity: item.quantity,
-    subtotal: item.product.price * item.quantity,
-    product: item.product
-  }));
 
-  // Use session cart if available, fallback to old system
-  const cart = sessionCart.length > 0 ? sessionCartAsCartItems : oldSalesHook.cart;
-  const cartTotal = sessionCart.length > 0 ? cartStats.subtotal : oldSalesHook.cartTotal;
-  const cartTaxAmount = sessionCart.length > 0 ? cartStats.tax : oldSalesHook.cartTaxAmount;
-  const cartGrandTotal = sessionCart.length > 0 ? cartStats.total : oldSalesHook.cartGrandTotal;
-  const cartItemCount = sessionCart.length > 0 ? cartStats.itemCount : oldSalesHook.cartItemCount;
-
-  console.log('🏪 Sales Page: Productos disponibles:', products.length);
-  console.log('🏪 Sales Page: Loading productos:', loadingProducts);
-  console.log('🏪 Sales Page: Sesión activa:', currentSession?.id);
-  console.log('🏪 Sales Page: Items en carrito de sesión:', sessionCart.length);
-
-  // Load sales data on component mount
+  // Unified useEffect for all data loading (debounced for search, immediate for pagination/status)
   useEffect(() => {
-    getAllSales();
+    // Immediate loading for pagination and status changes (no debounce needed)
+    if (searchValue.trim() === '') {
+      console.log('🔍 Sales Page: Loading immediately - no search term');
+      loadSalesWithFilters();
+      return;
+    }
+
+    // Debounced loading for search text
+    const searchTimeout = setTimeout(() => {
+      console.log('🔍 Sales Page: Loading with debounced search');
+      loadSalesWithFilters();
+    }, 500);
+
+    return () => clearTimeout(searchTimeout);
+  }, [currentPage, pageSize, searchValue, statusFilter, dateRange]);
+
+  // Load daily sales data only once on mount
+  useEffect(() => {
     getDailySales();
-  }, [getAllSales, getDailySales]);
+  }, []);
+
+  // Function to load sales with current filters
+  const loadSalesWithFilters = async () => {
+    const filters: {
+      search?: string;
+      status?: string;
+      from?: string;
+      to?: string;
+    } = {};
+
+    // Solo agregar filtros si tienen valores válidos
+    if (searchValue.trim()) {
+      filters.search = searchValue.trim();
+    }
+    
+    if (statusFilter && statusFilter !== "all") {
+      filters.status = statusFilter;
+    }
+    
+    if (dateRange?.from) {
+      filters.from = dateRange.from.toISOString().split('T')[0]; // YYYY-MM-DD format
+    }
+    
+    if (dateRange?.to) {
+      filters.to = dateRange.to.toISOString().split('T')[0]; // YYYY-MM-DD format
+    }
+
+    console.log('🔍 Loading sales with filters:', { page: currentPage, pageSize, filters });
+    
+    try {
+      const result = await getSalesPaginated(currentPage, pageSize, filters);
+      if (result) {
+        setTotalPages(result.meta?.totalPages || 1);
+        setTotalItems(result.meta?.total || 0);
+      }
+    } catch (error) {
+      console.error('Error loading sales:', error);
+    }
+  };
+
+  // Filter handlers
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    setCurrentPage(1); // Reset to first page when searching
+  };
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    console.log('🔍 Sales Page: Date range changed:', range);
+    setDateRange(range);
+    setCurrentPage(1);
+    // La carga de datos será manejada por el useEffect debounced
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
+
+  const handleRefresh = () => {
+    loadSalesWithFilters();
+    getDailySales();
+  };
 
   // Pure event handlers - delegate to session manager
   const handleProductSelect = async (productId: string, quantity = 1) => {
@@ -212,7 +278,7 @@ export default function SalesPage() {
   const handleSaleCreated = (sale: Sale) => {
     showToast.success('Venta creada exitosamente');
     // Refresh sales data
-    getAllSales();
+    loadSalesWithFilters();
     getDailySales();
   };
 
@@ -232,7 +298,7 @@ export default function SalesPage() {
       console.log('Updating sale:', saleId, updatedSale);
       showToast.success('Venta actualizada exitosamente');
       // Refresh sales data
-      getAllSales();
+      loadSalesWithFilters();
       getDailySales();
     } catch (error) {
       throw error;
@@ -243,25 +309,32 @@ export default function SalesPage() {
     try {
       await deleteSale(saleId);
       // Refresh sales data
-      getAllSales();
+      loadSalesWithFilters();
       getDailySales();
     } catch (error) {
       console.error('Error deleting sale:', error);
     }
   };
 
+  const handleCancelSale = async (saleId: string) => {
+    try {
+      // Update sale status to CANCELLED
+      await handleUpdateSale(saleId, { status: 'CANCELLED' });
+      showToast.success('Venta cancelada exitosamente');
+    } catch (error) {
+      console.error('Error cancelling sale:', error);
+      showToast.error('Error al cancelar la venta');
+    }
+  };
+
   // Pagination handlers
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // TODO: Call API with new page
-    console.log('Page changed to:', page);
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1); // Reset to first page
-    // TODO: Call API with new page size
-    console.log('Page size changed to:', newPageSize);
   };
 
   // Handle loading and error states to prevent hydration issues
@@ -334,28 +407,99 @@ export default function SalesPage() {
 
       {/* Tab Content */}
       {activeTab === 'sales' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-[#455a54] font-tan-nimbus'>
-                Lista de Ventas
-              </CardTitle>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className='text-[#455a54] font-tan-nimbus text-base sm:text-lg'>
+                  Lista de Ventas
+                </CardTitle>
+                {/* View Toggle for Desktop */}
+                <div className='hidden sm:flex items-center gap-2 border border-[#9d684e]/20 rounded-lg p-1'>
+                  <Button
+                    variant={viewMode === 'table' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className={viewMode === 'table' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
+                  >
+                    <ShoppingCart className="h-4 w-4 mr-1" />
+                    Tabla
+                  </Button>
+                  <Button
+                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('cards')}
+                    className={viewMode === 'cards' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
+                  >
+                    <BarChart3 className="h-4 w-4 mr-1" />
+                    Cards
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <SalesTable
-                  data={sales}
+              {/* Mobile: Always show cards, Desktop: Based on viewMode */}
+              <div className="sm:hidden p-4">
+                <SalesMobileView
+                  sales={sales}
+                  onView={handleViewSale}
+                  onEdit={handleEditSale}
+                  onDelete={handleDeleteSale}
+                  searchValue={searchValue}
+                  onSearchChange={handleSearchChange}
+                  dateRange={dateRange}
+                  onDateRangeChange={handleDateRangeChange}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={handleStatusFilterChange}
+                  onRefresh={handleRefresh}
                   isLoading={loadingSales}
-                  onViewSale={handleViewSale}
-                  onEditSale={handleEditSale}
-                  onDeleteSale={handleDeleteSale}
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  pageSize={pageSize}
-                  totalItems={totalItems}
-                  onPageChange={handlePageChange}
-                  onPageSizeChange={handlePageSizeChange}
                 />
+              </div>
+              
+              <div className="hidden sm:block">
+                {viewMode === 'table' ? (
+                  <div className="overflow-x-auto">
+                    <SalesTable
+                      data={sales}
+                      isLoading={loadingSales}
+                      onViewSale={handleViewSale}
+                      onEditSale={handleEditSale}
+                      onDeleteSale={handleDeleteSale}
+                      onCancelSale={handleCancelSale}
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={pageSize}
+                      totalItems={totalItems}
+                      onPageChange={handlePageChange}
+                      onPageSizeChange={handlePageSizeChange}
+                      searchValue={searchValue}
+                      onSearchChange={handleSearchChange}
+                      dateRange={dateRange}
+                      onDateRangeChange={handleDateRangeChange}
+                      statusFilter={statusFilter}
+                      onStatusFilterChange={handleStatusFilterChange}
+                      onRefresh={handleRefresh}
+                    />
+                  </div>
+                ) : (
+                  <div className="p-4">
+                    <SalesMobileView
+                      sales={sales}
+                      onView={handleViewSale}
+                      onEdit={handleEditSale}
+                      onDelete={handleDeleteSale}
+                      onCancel={handleCancelSale}
+                      searchValue={searchValue}
+                      onSearchChange={handleSearchChange}
+                      dateRange={dateRange}
+                      onDateRangeChange={handleDateRangeChange}
+                      statusFilter={statusFilter}
+                      onStatusFilterChange={handleStatusFilterChange}
+                      onRefresh={handleRefresh}
+                      isLoading={loadingSales}
+                    />
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -386,6 +530,12 @@ export default function SalesPage() {
           setSelectedSale(null);
         }}
         sale={selectedSale}
+        onSaleUpdated={() => {
+          loadSalesWithFilters();
+          getDailySales();
+          setShowViewSaleModal(false);
+          setSelectedSale(null);
+        }}
       />
       
       <EditSaleModal

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { DateRange } from 'react-day-picker';
 import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { ClientsTable } from '@/components/dashboard/clients/clients-table';
 import { ClientForm } from '@/components/dashboard/clients/client-form';
@@ -27,16 +28,31 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   // const [viewingClient, setViewingClient] = useState<Client | null>(null);
 
-  // Load clients on component mount
+  // Debounce search term
   useEffect(() => {
-    loadClients();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchQuery);
+    }, 300);
 
-  const loadClients = async (page = 1, size = pageSize) => {
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Unified function to load clients with all filters
+  const loadClientsWithFilters = async (page = 1, size = pageSize, immediate = false) => {
     try {
-      const response = await getClients(page, size);
+      const searchToUse = immediate ? searchQuery : debouncedSearchTerm;
+      let response;
+      
+      if (searchToUse.trim()) {
+        response = await searchClients(searchToUse, page, size);
+      } else {
+        response = await getClients(page, size);
+      }
+      
       setCurrentPage(response.meta.page);
       setTotalPages(response.meta.totalPages);
       setTotalItems(response.meta.total);
@@ -45,39 +61,32 @@ export default function ClientsPage() {
     }
   };
 
+  // Consolidated useEffect for all filter changes
+  useEffect(() => {
+    if (debouncedSearchTerm !== undefined) {
+      loadClientsWithFilters(1);
+    }
+  }, [debouncedSearchTerm, dateRange]);
+
+  // Load clients on component mount
+  useEffect(() => {
+    loadClientsWithFilters();
+  }, []);
+
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      try {
-        const response = await searchClients(query, 1, pageSize);
-        setCurrentPage(response.meta.page);
-        setTotalPages(response.meta.totalPages);
-        setTotalItems(response.meta.total);
-      } catch (error) {
-        console.error('Error searching clients:', error);
-      }
-    } else {
-      loadClients(1);
-    }
+    // Search will be handled by the debounced useEffect
   };
 
   const handlePageChange = (page: number) => {
-    if (searchQuery.trim()) {
-      searchClients(searchQuery, page, pageSize);
-    } else {
-      loadClients(page, pageSize);
-    }
+    loadClientsWithFilters(page, pageSize, true);
     setCurrentPage(page);
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
-    if (searchQuery.trim()) {
-      searchClients(searchQuery, 1, newPageSize);
-    } else {
-      loadClients(1, newPageSize);
-    }
+    loadClientsWithFilters(1, newPageSize, true);
   };
 
   const handleCreateClient = () => {
@@ -103,11 +112,7 @@ export default function ClientsPage() {
       try {
         await deleteClient(client.id);
         // Reload clients
-        if (searchQuery.trim()) {
-          await searchClients(searchQuery, currentPage, 10);
-        } else {
-          await loadClients(currentPage);
-        }
+        await loadClientsWithFilters(currentPage, pageSize, true);
       } catch (error) {
         console.error('Error deleting client:', error);
       }
@@ -127,11 +132,7 @@ export default function ClientsPage() {
       // setViewingClient(null);
       
       // Reload clients
-      if (searchQuery.trim()) {
-        await searchClients(searchQuery, currentPage, 10);
-      } else {
-        await loadClients(currentPage);
-      }
+      await loadClientsWithFilters(currentPage, pageSize, true);
     } catch (error) {
       console.error('Error saving client:', error);
     }
@@ -206,7 +207,8 @@ export default function ClientsPage() {
             onEditClient={handleEditClient}
             onDeleteClient={handleDeleteClient}
             onCreateClient={handleCreateClient}
-            onSearch={handleSearch}
+            searchValue={searchQuery}
+            onSearchChange={handleSearch}
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={handlePageChange}

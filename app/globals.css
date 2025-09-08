@@ -149,8 +149,56 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
+  html {
+    /* Prevent horizontal scroll on mobile */
+    overflow-x: hidden;
+  }
+  
   body {
     @apply bg-background text-foreground;
+    /* Prevent horizontal scroll on mobile */
+    overflow-x: hidden;
+    /* Better mobile text rendering */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+  
+  /* Mobile-first responsive utilities */
+  .container-mobile {
+    @apply w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  /* Mobile-friendly interactive elements */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Mobile scroll improvements */
+  .scroll-smooth-mobile {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
 }
 
@@ -165,6 +213,39 @@
 
   .font-winter-solid {
     font-family: var(--font-winter-solid);
+  }
+
+  /* Mobile card components */
+  .mobile-card {
+    @apply bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-sm;
+  }
+
+  .mobile-card-header {
+    @apply flex justify-between items-start gap-3;
+  }
+
+  .mobile-card-title {
+    @apply font-medium text-gray-900 text-sm flex-1;
+  }
+
+  .mobile-card-actions {
+    @apply flex gap-1 shrink-0;
+  }
+
+  .mobile-card-content {
+    @apply space-y-2 text-sm text-gray-600;
+  }
+
+  .mobile-card-row {
+    @apply flex justify-between items-center;
+  }
+
+  .mobile-card-label {
+    @apply text-xs text-gray-500 font-medium;
+  }
+
+  .mobile-card-value {
+    @apply text-sm text-gray-900;
   }
 
   /* Global input styles */
@@ -239,4 +320,37 @@
     transform: translate(-50%, -50%) scale(1.3);
     opacity: 1;
   }
+}
+
+/* Mobile card components */
+.mobile-card {
+  @apply bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-sm;
+}
+
+.mobile-card-header {
+  @apply flex justify-between items-start gap-3;
+}
+
+.mobile-card-title {
+  @apply font-medium text-gray-900 text-sm flex-1;
+}
+
+.mobile-card-actions {
+  @apply flex gap-1 shrink-0;
+}
+
+.mobile-card-content {
+  @apply space-y-2 text-sm text-gray-600;
+}
+
+.mobile-card-row {
+  @apply flex justify-between items-center;
+}
+
+.mobile-card-label {
+  @apply text-xs text-gray-500 font-medium;
+}
+
+.mobile-card-value {
+  @apply text-sm text-gray-900;
 }

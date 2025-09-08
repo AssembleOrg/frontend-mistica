@@ -14,10 +14,12 @@ export interface CreateSaleRequest {
     quantity: number;
     unitPrice: number;
   }[];
+  tax?: number;
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   notes?: string;
   prepaidId?: string;
   consumedPrepaid?: boolean;
+  discount?: number;
 }
 
 export interface UpdateSaleRequest {
@@ -35,6 +37,7 @@ export interface UpdateSaleRequest {
   status?: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   prepaidId?: string;
   consumedPrepaid?: boolean;
+  discount?: number;
 }
 
 // Sale interfaces
@@ -57,11 +60,12 @@ export interface Sale {
   subtotal: number;
   tax: number;
   discount: number;
+  prepaidUsed?: number;
+  prepaidId?: string;
   total: number;
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
-  prepaidId?: string;
   consumedPrepaid?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -103,9 +107,39 @@ interface DailySalesData {
 
 export class SalesService {
   // Get all sales with pagination
-  async getSales(page: number = 1, limit: number = 10): Promise<ApiResponse<PaginatedResponse<Sale>>> {
-    console.log('💰 SALES SERVICE: Obteniendo ventas paginadas:', { page, limit });
-    const response = await apiService.getPaginated<PaginatedResponse<Sale>>('/sales', page, limit);
+  async getSales(page: number = 1, limit: number = 10, filters?: {
+    search?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+  }): Promise<ApiResponse<PaginatedResponse<Sale>>> {
+    console.log('💰 SALES SERVICE: Obteniendo ventas paginadas:', { page, limit, filters });
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+
+    if (filters) {
+      if (filters.search && filters.search.trim()) {
+        params.append('search', filters.search.trim());
+      }
+      if (filters.status && filters.status !== 'all') {
+        params.append('status', filters.status);
+      }
+      if (filters.from) {
+        params.append('from', filters.from);
+      }
+      if (filters.to) {
+        params.append('to', filters.to);
+      }
+    }
+
+    const url = `/sales/paginated?${params.toString()}`;
+    console.log('💰 SALES SERVICE: URL construida:', url);
+    
+    const response = await apiService.get<PaginatedResponse<Sale>>(url);
     console.log('💰 SALES SERVICE: Ventas obtenidas:', response.data?.data?.length || 0);
     return response;
   }

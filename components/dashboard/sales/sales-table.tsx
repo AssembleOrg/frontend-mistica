@@ -21,7 +21,9 @@ import {
   Edit,
   Trash2,
   Download,
+  X,
 } from 'lucide-react';
+import { DateRange } from 'react-day-picker';
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -37,6 +39,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Table,
   TableBody,
   TableCell,
@@ -45,6 +55,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { Sale } from '@/services/sales.service';
 import { showToast } from '@/lib/toast';
 import { PaginationControls } from '@/components/ui/pagination-controls';
@@ -55,6 +66,7 @@ interface SalesTableProps {
   onViewSale?: (sale: Sale) => void;
   onEditSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
+  onCancelSale?: (saleId: string) => void;
   // Pagination props
   currentPage?: number;
   totalPages?: number;
@@ -62,6 +74,14 @@ interface SalesTableProps {
   totalItems?: number;
   onPageChange?: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
+  // Filter props
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (status: string) => void;
+  onRefresh?: () => void;
 }
 
 export function SalesTable({ 
@@ -70,18 +90,37 @@ export function SalesTable({
   onViewSale, 
   onEditSale, 
   onDeleteSale,
+  onCancelSale,
   currentPage = 1,
   totalPages = 1,
   pageSize = 20,
   totalItems = 0,
   onPageChange,
-  onPageSizeChange
+  onPageSizeChange,
+  // Filter props
+  searchValue = "",
+  onSearchChange,
+  dateRange,
+  onDateRangeChange,
+  statusFilter = "",
+  onStatusFilterChange,
+  onRefresh,
 }: SalesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [saleToCancel, setSaleToCancel] = useState<string | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Status options for filter
+  const statusOptions: FilterOption[] = [
+    { value: 'PENDING', label: 'Pendiente' },
+    { value: 'COMPLETED', label: 'Completada' },
+    { value: 'CANCELLED', label: 'Cancelada' },
+  ];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-AR', {
@@ -95,8 +134,6 @@ export function SalesTable({
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
@@ -116,27 +153,30 @@ export function SalesTable({
       CANCELLED: 'Cancelada',
     };
 
-    const getVariant = (status: string) => {
+    const getStatusStyles = (status: string) => {
       switch (status) {
         case 'COMPLETED':
-          return 'default';
+          return 'bg-green-50 text-green-800 border-green-200';
         case 'PENDING':
-          return 'secondary';
+          return 'bg-yellow-50 text-yellow-800 border-yellow-200';
         case 'CANCELLED':
-          return 'outline';
+          return 'bg-red-50 text-red-800 border-red-200';
         default:
-          return 'default';
+          return 'bg-gray-50 text-gray-800 border-gray-200';
       }
     };
 
     return (
-      <Badge variant={getVariant(status)}>
+      <Badge 
+        variant="outline" 
+        className={`${getStatusStyles(status)} font-winter-solid`}
+      >
         {labels[status as keyof typeof labels] || status}
       </Badge>
     );
   };
 
-  const handleAction = async (saleId: string, action: 'view' | 'edit' | 'delete') => {
+  const handleAction = async (saleId: string, action: 'view' | 'edit' | 'delete' | 'cancel') => {
     setActionLoading((prev) => ({ ...prev, [saleId]: true }));
 
     try {
@@ -146,21 +186,61 @@ export function SalesTable({
       if (action === 'view') {
         onViewSale?.(sale);
       } else if (action === 'edit') {
+        if (sale.status === 'COMPLETED') {
+          showToast.error('Error', 'No se puede editar una venta completada.');
+          return;
+        }
         onEditSale?.(sale);
       } else if (action === 'delete') {
         if (confirm('¿Estás seguro de que quieres eliminar esta venta?')) {
           onDeleteSale?.(saleId);
         }
+      } else if (action === 'cancel') {
+        if (sale.status !== 'PENDING') {
+          showToast.error('Error', 'Solo se pueden cancelar ventas pendientes.');
+          return;
+        }
+        setSaleToCancel(saleId);
+        setShowCancelDialog(true);
+        return; // No continuar con la ejecución aquí
       }
     } catch (error) {
       console.error(`Error performing ${action}:`, error);
       showToast.error(
         'Error',
-        `Error al ${action === 'delete' ? 'eliminar' : 'procesar'} la venta.`
+        `Error al ${action === 'delete' ? 'eliminar' : action === 'cancel' ? 'cancelar' : 'procesar'} la venta.`
       );
     } finally {
       setActionLoading((prev) => ({ ...prev, [saleId]: false }));
     }
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!saleToCancel) return;
+    
+    setActionLoading((prev) => ({ ...prev, [saleToCancel]: true }));
+    try {
+      onCancelSale?.(saleToCancel);
+    } catch (error) {
+      console.error('Error cancelling sale:', error);
+      showToast.error('Error', 'Error al cancelar la venta.');
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [saleToCancel]: false }));
+      setShowCancelDialog(false);
+      setSaleToCancel(null);
+    }
+  };
+
+  const handleCancelDialog = () => {
+    setShowCancelDialog(false);
+    setSaleToCancel(null);
+  };
+
+  const handleClearFilters = () => {
+    onSearchChange?.("");
+    onDateRangeChange?.(undefined);
+    onStatusFilterChange?.("all");
+    table.resetColumnFilters();
   };
 
   const columns: ColumnDef<Sale>[] = [
@@ -223,12 +303,12 @@ export function SalesTable({
         return (
           <div>
             <div className='font-medium text-[#455a54]'>{sale.customerName}</div>
-            {sale.customerEmail && (
+            {/* {sale.customerEmail && (
               <div className='text-sm text-gray-500'>{sale.customerEmail}</div>
             )}
             {sale.customerPhone && (
               <div className='text-sm text-gray-500'>{sale.customerPhone}</div>
-            )}
+            )} */}
           </div>
         );
       },
@@ -247,6 +327,34 @@ export function SalesTable({
               {items.slice(0, 2).map(item => item.productName).join(', ')}
               {items.length > 2 && ` +${items.length - 2} más`}
             </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'details',
+      header: 'Detalles',
+      cell: ({ row }) => {
+        const sale = row.original;
+        const hasDiscount = typeof sale.discount === 'number' && sale.discount > 0;
+        const hasPrepaid = typeof sale.prepaidUsed === 'number' && sale.prepaidUsed > 0;
+        
+        return (
+          <div className='text-xs space-y-1 min-w-[120px]'>
+            <div className='text-[#455a54]'>
+              Subtotal: {formatCurrency(sale.subtotal)}
+            </div>
+            {(hasDiscount || hasPrepaid) ? (
+              <div className='text-gray-500'>
+                {hasDiscount && 'Con descuento'}
+                {hasDiscount && hasPrepaid && ' • '}
+                {hasPrepaid && 'Con seña'}
+              </div>
+            ) : (
+              <div className='text-gray-500'>
+                Sin descuentos
+              </div>
+            )}
           </div>
         );
       },
@@ -315,6 +423,8 @@ export function SalesTable({
       cell: ({ row }) => {
         const sale = row.original;
         const isActionLoading = actionLoading[sale.id] || false;
+        const isCompleted = sale.status === 'COMPLETED';
+        const isPending = sale.status === 'PENDING';
 
         return (
           <DropdownMenu>
@@ -344,13 +454,24 @@ export function SalesTable({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className='hover:bg-[#efcbb9]/30'
+                className={`hover:bg-[#efcbb9]/30 ${isCompleted ? 'opacity-50 cursor-not-allowed' : ''}`}
                 onClick={() => handleAction(sale.id, 'edit')}
-                disabled={isActionLoading}
+                disabled={isActionLoading || isCompleted}
               >
                 <Edit className='mr-2 h-4 w-4' />
                 Editar venta
+                {isCompleted && <span className='ml-2 text-xs text-gray-500'>(Bloqueado)</span>}
               </DropdownMenuItem>
+              {isPending && (
+                <DropdownMenuItem
+                  className='hover:bg-orange-50 text-orange-600'
+                  onClick={() => handleAction(sale.id, 'cancel')}
+                  disabled={isActionLoading}
+                >
+                  <X className='mr-2 h-4 w-4' />
+                  Cancelar comanda
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className='hover:bg-red-50 text-red-600'
                 onClick={() => handleAction(sale.id, 'delete')}
@@ -401,56 +522,54 @@ export function SalesTable({
 
   return (
     <div className='w-full'>
-      <div className='flex items-center py-4'>
-        <div className='flex gap-2'>
-          <select
-            value={
-              (table.getColumn('status')?.getFilterValue() as string) ?? ''
-            }
-            onChange={(event) =>
-              table
-                .getColumn('status')
-                ?.setFilterValue(event.target.value || undefined)
-            }
-            className='px-3 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none max-w-sm'
-          >
-            <option value=''>Todos los estados</option>
-            <option value='COMPLETED'>Completadas</option>
-            <option value='PENDING'>Pendientes</option>
-            <option value='CANCELLED'>Canceladas</option>
-          </select>
-        </div>
-        <div className='ml-auto flex gap-2'>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant='outline'
-                className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
-              >
-                Columnas <ChevronDown className='ml-2 h-4 w-4' />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align='end'>
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className='hover:bg-[#efcbb9]/30 capitalize'
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      {/* Table Filters */}
+      <TableFilters
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Buscar ventas..."
+        dateRange={dateRange}
+        onDateRangeChange={onDateRangeChange}
+        statusValue={statusFilter}
+        onStatusChange={onStatusFilterChange}
+        statusOptions={statusOptions}
+        onClearFilters={handleClearFilters}
+        onRefresh={onRefresh}
+        showAdvancedFilters={showAdvancedFilters}
+        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        isLoading={isLoading}
+      />
+
+      {/* Column visibility controls */}
+      <div className='flex justify-end py-4'>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant='outline'
+              className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+            >
+              Columnas <ChevronDown className='ml-2 h-4 w-4' />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align='end'>
+            {table
+              .getAllColumns()
+              .filter((column) => column.getCanHide())
+              .map((column) => {
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className='hover:bg-[#efcbb9]/30 capitalize'
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className='rounded-md border border-[#9d684e]/20'>
         <Table>
@@ -522,6 +641,36 @@ export function SalesTable({
           totalItems={totalItems}
         />
       </div>
+
+      {/* Modal de confirmación para cancelar */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-tan-nimbus text-[#455a54]">
+              Cancelar Venta
+            </DialogTitle>
+            <DialogDescription className="font-winter-solid text-[#455a54]/70">
+              ¿Estás seguro de que quieres cancelar esta venta? Esta acción cambiará el estado de la venta a "Cancelada".
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={handleCancelDialog}
+              className="border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 font-winter-solid"
+            >
+              No, mantener
+            </Button>
+            <Button
+              onClick={handleConfirmCancel}
+              disabled={actionLoading[saleToCancel || ''] || false}
+              className="bg-orange-600 hover:bg-orange-700 text-white font-winter-solid"
+            >
+              {actionLoading[saleToCancel || ''] ? 'Cancelando...' : 'Sí, cancelar venta'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

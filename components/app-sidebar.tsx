@@ -149,7 +149,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             width={400}
             height={32}
             alt='MÍSTICA Logo'
-            className='object-contain'
+            className='object-contain h-8 w-auto'
           />
         </div>
       </SidebarHeader>
@@ -161,24 +161,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {item.enabled ? (
                 <SidebarMenuButton
                   asChild
-                  className='text-[#455a54] hover:bg-[#9d684e]/10 hover:text-[#9d684e]'
+                  tooltip={item.title}
+                  className='text-[#455a54] hover:bg-[#9d684e]/10 hover:text-[#9d684e] touch-target'
                 >
                   <Link
                     href={item.url}
                     className='flex items-center gap-2'
                   >
-                    <item.icon className='h-4 w-4' />
-                    <span className='font-winter-solid'>{item.title}</span>
+                    <item.icon className='h-5 w-5 sm:h-4 sm:w-4' />
+                    <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               ) : (
                 <SidebarMenuButton
-                  className='text-[#455a54]/50 cursor-not-allowed opacity-50'
+                  className='text-[#455a54]/50 cursor-not-allowed opacity-50 touch-target'
                   disabled
-                  title='Próximamente disponible'
+                  tooltip='Próximamente disponible'
                 >
-                  <item.icon className='h-4 w-4' />
-                  <span className='font-winter-solid'>{item.title}</span>
+                  <item.icon className='h-5 w-5 sm:h-4 sm:w-4' />
+                  <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>{item.title}</span>
                 </SidebarMenuButton>
               )}
             </SidebarMenuItem>
@@ -191,10 +192,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              className='text-[#455a54] hover:bg-red-50 hover:text-red-600'
+              tooltip="Cerrar Sesión"
+              className='text-[#455a54] hover:bg-red-50 hover:text-red-600 touch-target'
             >
-              <LogOut className='h-4 w-4' />
-              <span className='font-winter-solid'>Cerrar Sesión</span>
+              <LogOut className='h-5 w-5 sm:h-4 sm:w-4' />
+              <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>Cerrar Sesión</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

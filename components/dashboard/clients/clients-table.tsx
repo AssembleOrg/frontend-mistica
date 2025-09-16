@@ -14,13 +14,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Phone, 
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Phone,
   Mail
 } from 'lucide-react';
 import { Client } from '@/services/clients.service';
@@ -231,14 +230,6 @@ export function ClientsTable({
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onViewClient?.(client)}
-                          className="text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

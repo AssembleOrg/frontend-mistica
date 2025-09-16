@@ -78,12 +78,12 @@ const navigationItems = [
     icon: Users,
     enabled: true,
   },
-  {
-    title: 'Configuración',
-    url: '/dashboard/settings',
-    icon: Settings,
-    enabled: true,
-  },
+  // {
+  //   title: 'Configuración',
+  //   url: '/dashboard/settings',
+  //   icon: Settings,
+  //   enabled: true,
+  // },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -109,19 +109,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const filteredNavItems = navigationItems.filter((item) => {
     if (!user) return true; // Show all if no user (shouldn't happen)
-    
+
     const uiRole = getUserRole();
-    
+
     // Note: 'cajero' role not implemented in backend yet
     // if (uiRole === 'cajero') {
     //   return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
     // }
-    
+
     if (uiRole === 'gerente') {
       // Gerente: Todo menos Personal
       return item.title !== 'Personal';
     }
-    
+
     // Admin: Ve todo
     return true;
   });
@@ -169,7 +169,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     className='flex items-center gap-2'
                   >
                     <item.icon className='h-5 w-5 sm:h-4 sm:w-4' />
-                    <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>{item.title}</span>
+                    <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>
+                      {item.title}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               ) : (
@@ -179,7 +181,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   tooltip='Próximamente disponible'
                 >
                   <item.icon className='h-5 w-5 sm:h-4 sm:w-4' />
-                  <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>{item.title}</span>
+                  <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>
+                    {item.title}
+                  </span>
                 </SidebarMenuButton>
               )}
             </SidebarMenuItem>
@@ -192,11 +196,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              tooltip="Cerrar Sesión"
+              tooltip='Cerrar Sesión'
               className='text-[#455a54] hover:bg-red-50 hover:text-red-600 touch-target'
             >
               <LogOut className='h-5 w-5 sm:h-4 sm:w-4' />
-              <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>Cerrar Sesión</span>
+              <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>
+                Cerrar Sesión
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -204,4 +210,3 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     </Sidebar>
   );
 }
-

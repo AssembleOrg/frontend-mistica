@@ -582,7 +582,7 @@ export function ProductForm({
       </form>
 
       {/* Barcode Edit Modal */}
-      <Dialog open={showBarcodeModal} onOpenChange={() => {}}>
+      <Dialog open={showBarcodeModal} onOpenChange={() => setShowBarcodeModal(false)}>
         <DialogContent className="sm:max-w-md border-[#9d684e]/20" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className='text-[#455a54] font-tan-nimbus'>Editar Código de Barras</DialogTitle>

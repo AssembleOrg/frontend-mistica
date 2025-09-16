@@ -16,8 +16,10 @@ export function Footer({ className = '', variant = 'minimal' }: FooterProps) {
   if (variant === 'minimal') {
     return (
       <div className={`text-center py-4 ${className}`}>
-        <div className='flex items-center justify-center gap-3 text-sm text-[#455a54]/60 font-winter-solid'>
-          <span>Panel de gestión MÍSTICA - Desarrollado por</span>
+        <div className='flex items-center justify-center text-sm text-[#455a54]/60 font-winter-solid'>
+          <span className='mt-4'>
+            Panel de gestión MÍSTICA - Desarrollado por
+          </span>
           <button
             onClick={handlePisTechClick}
             className='inline-flex items-center gap-2 px-3 py-1 rounded-md hover:bg-[#efcbb9]/20 transition-colors duration-200 cursor-pointer'
@@ -45,7 +47,7 @@ export function Footer({ className = '', variant = 'minimal' }: FooterProps) {
               Panel de gestión MÍSTICA
             </span>
           </div>
-          
+
           <div className='flex items-center gap-2'>
             <span className='text-sm text-[#455a54]/60 font-winter-solid'>
               Desarrollado por
@@ -65,7 +67,7 @@ export function Footer({ className = '', variant = 'minimal' }: FooterProps) {
             </button>
           </div>
         </div>
-        
+
         <div className='mt-4 pt-4 border-t border-[#9d684e]/5'>
           <p className='text-xs text-[#455a54]/50 text-center font-winter-solid'>
             Sistema de gestión integral para emprendimientos místicos y wellness

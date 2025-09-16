@@ -12,14 +12,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  CheckCircle,
-  Clock
+import {
+  Search,
+  Plus,
+  Edit,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import { Prepaid } from '@/services/prepaids.service';
 import { PaginationControls } from '@/components/ui/pagination-controls';
@@ -202,40 +200,11 @@ export function PrepaidsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => onViewPrepaid?.(prepaid)}
-                        className="text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10"
-                        title="Ver detalles"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
                         onClick={() => onEditPrepaid?.(prepaid)}
                         className="text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10"
                         title="Editar seña"
                       >
                         <Edit className="h-4 w-4" />
-                      </Button>
-                      {prepaid.status === 'PENDING' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onMarkAsConsumed?.(prepaid)}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          title="Marcar como consumido"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDeletePrepaid?.(prepaid)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        title="Eliminar seña"
-                      >
-                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>

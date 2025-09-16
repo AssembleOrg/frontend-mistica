@@ -2,15 +2,11 @@
 
 // Real Production Dashboard - Only real data from backend
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useSidebar } from '@/components/ui/sidebar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  ShoppingCart, 
-  Package, 
-  Users, 
-  BarChart3,
-  ArrowRight
-} from 'lucide-react';
+import { ShoppingCart, Package, Users, BarChart3, MoreHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -19,7 +15,7 @@ import { Footer } from '@/components/ui/footer';
 
 /**
  * REAL PRODUCTION DASHBOARD
- * 
+ *
  * - Uses real authenticated user data
  * - Shows only implemented modules
  * - No fake/mock data
@@ -28,7 +24,14 @@ import { Footer } from '@/components/ui/footer';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
-  
+  const isMobile = useIsMobile();
+  const { setOpenMobile } = useSidebar();
+
+  // Handle "Ver más" click
+  const handleShowMore = () => {
+    setOpenMobile(true);
+  };
+
   // Real modules with backend connection
   const realModules = [
     {
@@ -37,7 +40,7 @@ export default function Dashboard() {
       href: '/dashboard/sales',
       icon: ShoppingCart,
       color: 'bg-gradient-to-r from-[#9d684e] to-[#9d684e]/90',
-      available: true
+      available: true,
     },
     {
       name: 'Productos',
@@ -45,15 +48,15 @@ export default function Dashboard() {
       href: '/dashboard/products',
       icon: Package,
       color: 'bg-gradient-to-r from-green-500 to-green-600',
-      available: true
+      available: true,
     },
     {
       name: 'Personal',
-      description: 'Personal de Mistica Autentica',
+      description: 'Personal',
       href: '/dashboard/staff',
       icon: Users,
       color: 'bg-gradient-to-r from-blue-500 to-blue-600',
-      available: true
+      available: true,
     },
     {
       name: 'Finanzas',
@@ -61,10 +64,10 @@ export default function Dashboard() {
       href: '/dashboard/finances',
       icon: BarChart3,
       color: 'bg-gradient-to-r from-purple-500 to-purple-600',
-      available: false // Until we have real financial data
-    }
+      available: true,
+    },
   ];
-  
+
   if (!isAuthenticated) {
     return (
       <div className='flex items-center justify-center min-h-screen'>
@@ -76,7 +79,6 @@ export default function Dashboard() {
   return (
     <div className='min-h-screen bg-gradient-to-br from-[#efcbb9]/20 to-white p-6'>
       <div className='max-w-4xl mx-auto space-y-8'>
-        
         {/* Real Header with Logo and User */}
         <Card className='border-[#9d684e]/20 bg-white/80 backdrop-blur-sm'>
           <CardContent className='p-4 sm:p-6'>
@@ -96,7 +98,8 @@ export default function Dashboard() {
                     ¡Hola, {user?.name}! 👋
                   </h1>
                   <p className='text-xs sm:text-base text-[#455a54]/70 font-winter-solid'>
-                    {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })} • {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
+                    {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })} •{' '}
+                    {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
                   </p>
                 </div>
               </div>
@@ -108,20 +111,46 @@ export default function Dashboard() {
         <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6'>
           {realModules.map((module) => {
             const IconComponent = module.icon;
-            
-            return (
-              <Card 
-                key={module.name}
-                className={`border-[#9d684e]/20 hover:border-[#9d684e]/40 transition-all duration-200 ${
-                  module.available 
-                    ? 'hover:shadow-lg cursor-pointer bg-white' 
-                    : 'opacity-60 bg-gray-50'
-                }`}
-              >
-                <CardContent className='p-4 sm:p-6'>
-                  <div className='flex items-center justify-between'>
-                    <div className='flex items-center gap-3 sm:gap-4 flex-1'>
-                      <div className={`p-2 sm:p-3 rounded-xl text-white ${module.color} shrink-0`}>
+
+            if (module.available) {
+              return (
+                <Link
+                  key={module.name}
+                  href={module.href}
+                  className='block h-full'
+                >
+                  <Card className='border-[#9d684e]/20 hover:border-[#9d684e]/40 transition-all duration-200 hover:shadow-lg cursor-pointer bg-white h-full'>
+                    <CardContent className='p-4 sm:p-6 h-full flex items-center'>
+                      <div className='flex items-center gap-3 sm:gap-4 w-full'>
+                        <div
+                          className={`p-2 sm:p-3 rounded-xl text-white ${module.color} shrink-0`}
+                        >
+                          <IconComponent className='h-5 w-5 sm:h-6 sm:w-6' />
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <h3 className='text-base sm:text-lg font-semibold text-[#455a54] font-tan-nimbus truncate'>
+                            {module.name}
+                          </h3>
+                          <p className='text-xs sm:text-sm text-[#455a54]/70 font-winter-solid'>
+                            {module.description}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            } else {
+              return (
+                <Card
+                  key={module.name}
+                  className='border-[#9d684e]/20 opacity-60 bg-gray-50 h-full'
+                >
+                  <CardContent className='p-4 sm:p-6 h-full flex items-center'>
+                    <div className='flex items-center gap-3 sm:gap-4 w-full'>
+                      <div
+                        className={`p-2 sm:p-3 rounded-xl text-white ${module.color} shrink-0`}
+                      >
                         <IconComponent className='h-5 w-5 sm:h-6 sm:w-6' />
                       </div>
                       <div className='flex-1 min-w-0'>
@@ -131,40 +160,44 @@ export default function Dashboard() {
                         <p className='text-xs sm:text-sm text-[#455a54]/70 font-winter-solid'>
                           {module.description}
                         </p>
-                        {!module.available && (
-                          <p className='text-xs text-amber-600 font-winter-solid mt-1'>
-                            Próximamente
-                          </p>
-                        )}
+                        <p className='text-xs text-amber-600 font-winter-solid mt-1'>
+                          Próximamente
+                        </p>
                       </div>
                     </div>
-                    
-                    {module.available ? (
-                      <Button
-                        asChild
-                        variant='ghost'
-                        size='sm'
-                        className='text-[#9d684e] hover:text-[#9d684e]/80 touch-target shrink-0'
-                      >
-                        <Link href={module.href} className='flex items-center gap-1 sm:gap-2 text-xs sm:text-sm'>
-                          <span className='hidden sm:inline'>Abrir</span>
-                          <ArrowRight className='h-4 w-4' />
-                        </Link>
-                      </Button>
-                    ) : (
-                      <div className='text-gray-400 shrink-0'>
-                        <ArrowRight className='h-4 w-4' />
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
+                  </CardContent>
+                </Card>
+              );
+            }
           })}
+
+          {/* "Ver más" card - Only visible on mobile */}
+          {isMobile && (
+            <Card
+              onClick={handleShowMore}
+              className="border-[#9d684e]/20 hover:border-[#9d684e]/40 transition-all duration-200 hover:shadow-lg cursor-pointer bg-white h-full"
+            >
+              <CardContent className='p-4 sm:p-6 h-full flex items-center'>
+                <div className='flex items-center gap-3 sm:gap-4 w-full'>
+                  <div className="p-2 sm:p-3 rounded-xl text-white bg-gradient-to-r from-gray-500 to-gray-600 shrink-0">
+                    <MoreHorizontal className='h-5 w-5 sm:h-6 sm:w-6' />
+                  </div>
+                  <div className='flex-1 min-w-0'>
+                    <h3 className='text-base sm:text-lg font-semibold text-[#455a54] font-tan-nimbus truncate'>
+                      Ver más
+                    </h3>
+                    <p className='text-xs sm:text-sm text-[#455a54]/70 font-winter-solid'>
+                      Más herramientas disponibles
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-        
+
         {/* Footer with PisTech branding and WhatsApp contact */}
-        <Footer variant="minimal" />
+        <Footer variant='minimal' />
       </div>
     </div>
   );

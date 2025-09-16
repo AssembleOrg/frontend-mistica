@@ -124,7 +124,7 @@ export function StockAdjustmentModal({ isOpen, onClose, product }: StockAdjustme
   if (!product) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] border-[#9d684e]/20">
         <DialogHeader>
           <DialogTitle className="text-[#455a54] font-tan-nimbus text-xl">

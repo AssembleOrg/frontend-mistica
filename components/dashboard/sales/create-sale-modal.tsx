@@ -393,7 +393,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[95vh] overflow-y-auto border-[#9d684e]/20 p-0">
         <DialogHeader className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <DialogTitle className="text-[#455a54] font-tan-nimbus text-lg sm:text-xl">

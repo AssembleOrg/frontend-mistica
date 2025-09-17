@@ -304,11 +304,11 @@ export default function FinancesPage() {
       </Card>
 
       {/* Recent Financial Activity */}
-      <QuickActivityWidget
+      {/* <QuickActivityWidget
         title="Actividad Financiera"
         filterTypes={['ingreso', 'egreso', 'venta_realizada']}
         limit={6}
-      />
+      /> */}
     </div>
   );
 }

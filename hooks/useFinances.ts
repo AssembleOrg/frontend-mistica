@@ -1,50 +1,123 @@
 /**
  * useFinances Hook - Business logic for financial management
+ * Backend-only implementation - no local storage
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAppStore } from '@/stores/app.store';
-import { CashTransaction, Expense, FinancialSummary } from '@/lib/types';
+import { useAuthStore } from '@/stores/auth.store';
+import { CashTransaction, FinancialSummary } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { useEgressesAPI } from './useEgressesAPI';
+import { egressMapping } from '@/lib/egress-types';
+import type { Egress } from '@/services/egresses.service';
 
 export function useFinances() {
   const { 
     cashTransactions, 
-    expenses, 
-    addExpense, 
     addCashTransaction, 
     getFinancialSummary 
   } = useAppStore();
 
+  // Get current user for userId
+  const { user } = useAuthStore();
+
+  // Backend API integration - only backend
+  const egressesAPI = useEgressesAPI();
+  const [egresses, setEgresses] = useState<Egress[]>([]);
+
+  // Load egresses from backend on mount
+  useEffect(() => {
+    loadEgresses();
+  }, []);
+
+  // Load egresses from backend
+  const loadEgresses = useCallback(async () => {
+    try {
+      console.log('🔄 Loading egresses from backend...');
+      const egressesData = await egressesAPI.getAllEgresses();
+      console.log('📊 Egresses loaded from backend:', egressesData);
+      setEgresses(egressesData);
+    } catch (error) {
+      console.error('Error loading egresses:', error);
+      showToast.error('Error', 'No se pudieron cargar los egresos del servidor.');
+    }
+  }, [egressesAPI]);
+
+  // Convert egresses to local expense format for compatibility
+  const expenses = useMemo(() => {
+    console.log('🔄 Mapping egresses to expenses:', egresses);
+    const mappedExpenses = egresses.map(egress => egressMapping.mapApiEgressToExpense(egress));
+    console.log('📊 Mapped expenses:', mappedExpenses);
+    return mappedExpenses;
+  }, [egresses]);
+
   // Get today's summary by default
   const summary = useMemo(() => {
-    return getFinancialSummary(new Date());
+    // Create a temporary store state for summary calculation
+    const tempSummary = getFinancialSummary(new Date());
+    
+    // Add expenses to the summary
+    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    
+    return {
+      ...tempSummary,
+      totalEgresos: tempSummary.totalEgresos + totalExpenses,
+      netBalance: tempSummary.netBalance - totalExpenses,
+    };
   }, [getFinancialSummary, cashTransactions, expenses]);
 
   // Get all transactions for current view (can be filtered later)
   const transactions = useMemo(() => {
-    return [...cashTransactions].sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    // Combine cash transactions and expenses (egresos from backend)
+    const allTransactions = [
+      ...cashTransactions,
+      ...expenses.map(expense => ({
+        id: expense.id,
+        type: 'egreso' as const,
+        description: expense.description,
+        amount: expense.amount,
+        category: expense.category,
+        paymentMethod: expense.paymentMethod,
+        notes: expense.notes,
+        userId: expense.userId,
+        createdAt: expense.createdAt, // Keep as Date object
+      }))
+    ];
+    
+    return allTransactions.sort((a, b) => 
+      b.createdAt.getTime() - a.createdAt.getTime()
     );
-  }, [cashTransactions]);
+  }, [cashTransactions, expenses]);
 
-  const createExpense = useCallback(async (expenseData: Omit<Expense, 'id' | 'createdAt'>) => {
+  const createExpense = useCallback(async (expenseData: Omit<import('@/lib/types').Expense, 'id' | 'createdAt' | 'userId'>) => {
     try {
-      const expense: Expense = {
-        ...expenseData,
-        id: crypto.randomUUID(),
-        createdAt: new Date()
-      };
+      // Check if user is authenticated
+      if (!user?.id) {
+        throw new Error('Usuario no autenticado');
+      }
 
-      addExpense(expense);
-      showToast.success('Gasto registrado', 'El gasto ha sido agregado correctamente.');
-      return expense;
+      // Create in backend only with authenticated user ID
+      const createEgressData = {
+        ...egressMapping.mapExpenseToCreateEgress(expenseData),
+        userId: user.id,
+        paymentMethod: expenseData.paymentMethod as 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER',
+      } as import('@/services/egresses.service').CreateEgressRequest;
+      
+      const createdEgress = await egressesAPI.createEgress(createEgressData);
+      
+      // Update local state
+      setEgresses(prev => [...prev, createdEgress]);
+      showToast.success('Egreso registrado', 'El egreso ha sido registrado en el servidor.');
+      
+      // Return in local format for compatibility
+      return egressMapping.mapApiEgressToExpense(createdEgress);
     } catch (error) {
       console.error('Error creating expense:', error);
-      showToast.error('Error', 'No se pudo registrar el gasto.');
+      showToast.error('Error', 'No se pudo registrar el egreso en el servidor.');
       throw error;
     }
-  }, [addExpense]);
+  }, [egressesAPI, user]);
 
   const createCashTransaction = useCallback(async (transactionData: Omit<CashTransaction, 'id' | 'createdAt'>) => {
     try {
@@ -125,12 +198,21 @@ export function useFinances() {
     balance: summary.netBalance
   }), [cashTransactions.length, expenses.length, summary]);
 
+  // Refresh data from backend
+  const refreshData = useCallback(async () => {
+    await loadEgresses();
+  }, [loadEgresses]);
+
   return {
     // Data
     transactions,
-    expenses,
+    expenses, // Backend egresses converted to local format
     summary,
     stats,
+    
+    // Backend integration
+    refreshData,
+    isLoading: egressesAPI.isLoading,
     
     // Actions
     createExpense,

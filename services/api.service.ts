@@ -2,6 +2,7 @@
 
 import type { paths } from '@/lib/api-types';
 import { useAuthStore } from '@/stores/auth.store';
+import { API_CONFIG, getBaseUrl } from '@/lib/api-config';
 
 // Base API response interface
 export interface ApiResponse<T> {
@@ -42,14 +43,21 @@ export class ApiService {
   private activeRequests = 0;
 
   constructor(
-    baseURL: string = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    baseURL: string = getBaseUrl()
   ) {
     this.baseURL = baseURL;
   }
 
   // Get authentication token
   private getAuthToken(): string | null {
-    const token = useAuthStore.getState().token;
+    const authState = useAuthStore.getState();
+    const token = authState.token;
+    console.log('🔍 API: Auth state:', { 
+      hasToken: !!token, 
+      tokenLength: token?.length || 0,
+      isAuthenticated: authState.isAuthenticated,
+      hasUser: !!authState.user 
+    });
     return token;
   }
 
@@ -63,10 +71,12 @@ export class ApiService {
     const token = this.getAuthToken();
     if (token) {
       headers.Authorization = `Bearer ${token}`;
+      console.log('✅ API: Token encontrado, agregando Authorization header');
     } else {
-      console.log('🔍 API: No hay token - request sin Authorization header');
+      console.log('❌ API: No hay token - request sin Authorization header');
     }
 
+    console.log('🔍 API: Headers finales:', headers);
     return headers;
   }
 

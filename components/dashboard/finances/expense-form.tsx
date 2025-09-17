@@ -13,10 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useAppStore } from '@/stores/app.store';
+import { useFinances } from '@/hooks/useFinances';
 import { showToast } from '@/lib/toast';
 import { Expense } from '@/lib/types';
-import { Minus, X } from 'lucide-react';
+import { Minus, X, RefreshCw, Database } from 'lucide-react';
 
 interface ExpenseFormProps {
   onSuccess?: () => void;
@@ -46,8 +46,8 @@ const categoryLabels = {
 };
 
 export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
-  const { addExpense } = useAppStore();
-  const [isLoading, setIsLoading] = useState(false);
+  const { createExpense, refreshData, isLoading } = useFinances();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState({
     description: '',
@@ -59,7 +59,7 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
 
     try {
       if (!formData.description.trim()) {
@@ -78,19 +78,24 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
         throw new Error('El método de pago es requerido');
       }
 
-      const expense: Expense = {
-        id: crypto.randomUUID(),
+      const expenseData: Omit<Expense, 'id' | 'createdAt' | 'userId'> = {
         description: formData.description.trim(),
         amount: parseFloat(formData.amount),
         category: formData.category,
         paymentMethod: formData.paymentMethod,
         notes: formData.notes.trim() || undefined,
-        userId: 'current-user-id', // TODO: Get from auth context
-        createdAt: new Date(),
       };
 
-      addExpense(expense);
-      showToast.success('Egreso registrado', 'El gasto ha sido registrado correctamente.');
+      await createExpense(expenseData);
+      
+      // Reset form
+      setFormData({
+        description: '',
+        amount: '',
+        category: '',
+        paymentMethod: '',
+        notes: '',
+      });
       
       onSuccess?.();
     } catch (error) {
@@ -100,7 +105,7 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
         error instanceof Error ? error.message : 'Error al registrar el gasto'
       );
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -114,10 +119,25 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
   return (
     <Card className='border-[#9d684e]/20'>
       <CardHeader>
-        <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-          <Minus className='h-5 w-5' />
-          Registrar Egreso
-        </CardTitle>
+        <div className='flex items-center justify-between'>
+          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+            <Minus className='h-5 w-5' />
+            Registrar Egreso
+          </CardTitle>
+          <div className='flex items-center gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={refreshData}
+              disabled={isLoading}
+              className='flex items-center gap-1 bg-blue-50 border-blue-200 text-blue-700'
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className='space-y-4'>
@@ -181,7 +201,7 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
               </Label>
               <Select
                 value={formData.paymentMethod}
-                onValueChange={(value: 'efectivo' | 'tarjeta' | 'transferencia') => 
+                onValueChange={(value: 'CASH' | 'CARD' | 'TRANSFER') => 
                   handleInputChange('paymentMethod', value)
                 }
               >
@@ -189,9 +209,9 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
                   <SelectValue placeholder='Seleccionar método' />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value='efectivo'>Efectivo</SelectItem>
-                  <SelectItem value='tarjeta'>Tarjeta</SelectItem>
-                  <SelectItem value='transferencia'>Transferencia</SelectItem>
+                  <SelectItem value='CASH'>Efectivo</SelectItem>
+                  <SelectItem value='CARD'>Tarjeta</SelectItem>
+                  <SelectItem value='TRANSFER'>Transferencia</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -213,23 +233,29 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
           <div className='flex gap-3 pt-4'>
             <Button
               type='submit'
-              disabled={isLoading}
+              disabled={isSubmitting || isLoading}
               className='bg-red-600 hover:bg-red-700 text-white flex-1'
             >
-              {isLoading ? 'Registrando...' : 'Registrar Egreso'}
+              {isSubmitting ? 'Registrando...' : 'Registrar Egreso'}
             </Button>
             {onCancel && (
               <Button
                 type='button'
                 variant='outline'
                 onClick={onCancel}
-                disabled={isLoading}
+                disabled={isSubmitting || isLoading}
                 className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
               >
                 <X className='mr-2 h-4 w-4' />
                 Cancelar
               </Button>
             )}
+          </div>
+          
+          {/* Status indicator */}
+          <div className='text-xs text-gray-500 flex items-center gap-2'>
+            <Database className='h-3 w-3' />
+            Guardando en el servidor
           </div>
         </form>
       </CardContent>

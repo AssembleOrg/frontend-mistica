@@ -515,11 +515,7 @@ export default function SalesPage() {
 
       {activeTab === 'stats' && (
         <div className="space-y-6">
-          <SalesStatsCards
-            dailySales={dailySales}
-            allSales={sales}
-            isLoading={loadingSales}
-          />
+          <SalesStatsCards />
         </div>
       )}
 

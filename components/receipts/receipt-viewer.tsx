@@ -2,13 +2,14 @@
 
 import { Sale } from '@/services/sales.service';
 import { useCurrencyFormat } from '@/hooks/use-currency-format';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Printer, Download, X } from 'lucide-react';
 import QRCode from 'qrcode';
+import { hasAfipData } from '@/lib/receipt-utils';
 
 interface ReceiptViewerProps {
   sale: Sale;
@@ -64,6 +65,18 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
     return format(date, "dd/MM/yyyy HH:mm", { locale: es });
   };
 
+  const formatAfipDate = (dateString: string): string => {
+    try {
+      // El formato del backend es YYYYMMDD
+      const parsed = parse(dateString, 'yyyyMMdd', new Date());
+      return format(parsed, 'dd/MM/yyyy', { locale: es });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const isInvoice = hasAfipData(sale);
+
   const handlePrint = () => {
     window.print();
   };
@@ -104,10 +117,15 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         <div className="text-xs">{companyInfo.phone}</div>
       </div>
 
-      {/* Comprobante Info */}
+      {/* Comprobante/Factura Info */}
       <div className="text-center border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="font-bold text-xs uppercase">TICKET DE VENTA</div>
+        <div className="font-bold text-xs uppercase">
+          {isInvoice ? 'FACTURA' : 'TICKET DE VENTA'}
+        </div>
         <div className="text-xs">No: {sale.saleNumber}</div>
+        {isInvoice && sale.afipNumero && (
+          <div className="text-xs">Factura AFIP: {sale.afipNumero}</div>
+        )}
         <div className="text-xs">{formatDate(new Date(sale.createdAt))}</div>
       </div>
 
@@ -169,9 +187,17 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       <div className="text-center text-xs">
         <div className="mb-1">¡Gracias por su compra!</div>
         <div>{companyInfo.website}</div>
-        <div className="mt-2 text-xs border-t border-dashed border-gray-800 pt-2">
-          <strong>COMPROBANTE NO VÁLIDO COMO FACTURA</strong>
-        </div>
+        {isInvoice && sale.afipCae && sale.afipFechaVto && (
+          <div className="mt-2 text-xs border-t border-dashed border-gray-800 pt-2">
+            <div><strong>CAE:</strong> {sale.afipCae}</div>
+            <div><strong>Vto. CAE:</strong> {formatAfipDate(sale.afipFechaVto)}</div>
+          </div>
+        )}
+        {!isInvoice && (
+          <div className="mt-2 text-xs border-t border-dashed border-gray-800 pt-2">
+            <strong>COMPROBANTE NO VÁLIDO COMO FACTURA</strong>
+          </div>
+        )}
         <div className="mt-2 text-xs">
           {formatDate(new Date())}
         </div>
@@ -203,10 +229,13 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         
         <div className="text-right">
           <div className="bg-[#9d684e] text-white px-4 py-2 rounded-lg inline-block mb-2">
-            <span className="text-lg font-bold">COMPROBANTE</span>
+            <span className="text-lg font-bold">{isInvoice ? 'FACTURA' : 'COMPROBANTE'}</span>
           </div>
           <div className="text-sm text-gray-600">
             <div><strong>No:</strong> {sale.saleNumber}</div>
+            {isInvoice && sale.afipNumero && (
+              <div><strong>Factura AFIP:</strong> {sale.afipNumero}</div>
+            )}
             <div><strong>Fecha:</strong> {formatDate(new Date(sale.createdAt))}</div>
           </div>
         </div>
@@ -303,9 +332,18 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           {/* Left side - Company info */}
           <div className="flex-1">
             <div className="text-xl font-bold text-[#455a54] mb-2">¡Gracias por su compra!</div>
-            <div className="text-sm text-gray-600">
-              Este es un comprobante de venta no fiscal
-            </div>
+            {isInvoice && sale.afipCae && sale.afipFechaVto && (
+              <div className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded-lg">
+                <div className="font-semibold mb-1">Datos de Facturación AFIP:</div>
+                <div><strong>CAE:</strong> {sale.afipCae}</div>
+                <div><strong>Vencimiento CAE:</strong> {formatAfipDate(sale.afipFechaVto)}</div>
+              </div>
+            )}
+            {!isInvoice && (
+              <div className="text-sm text-gray-600">
+                Este es un comprobante de venta no fiscal
+              </div>
+            )}
             <div className="text-sm text-gray-600">
               Para cualquier consulta, contáctenos en {companyInfo.phone} o {companyInfo.email}
             </div>

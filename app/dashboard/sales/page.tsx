@@ -12,7 +12,7 @@ import { DateRange } from 'react-day-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { showToast } from '@/lib/toast';
-import { processReceiptGeneration } from '@/lib/receipt-utils';
+import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { useSales } from '@/hooks/useSales';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
@@ -289,8 +289,9 @@ export default function SalesPage() {
   };
 
   const handleViewReceipt = (sale: Sale) => {
-    // Generar comprobante para venta completada
-    processReceiptGeneration(sale, false);
+    // Verificar si es factura o comprobante
+    const isInvoice = hasAfipData(sale);
+    processReceiptGeneration(sale, isInvoice);
   };
 
   const handleEditSale = (sale: Sale) => {

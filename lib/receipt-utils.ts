@@ -20,28 +20,33 @@ export function openReceiptInNewTab(sale: Sale, options: ReceiptOptions): void {
   window.open(url, '_blank', 'width=800,height=1000,scrollbars=yes,resizable=yes');
 }
 
+/**
+ * Verifica si una venta tiene datos de facturación AFIP
+ */
+export function hasAfipData(sale: Sale): boolean {
+  return !!(sale.afipCae && sale.afipNumero && sale.afipFechaVto);
+}
+
+/**
+ * Procesa la generación de comprobante o factura
+ * Si la venta tiene datos de AFIP, genera factura automáticamente
+ */
 export function processReceiptGeneration(sale: Sale, generateInvoice: boolean): void {
-  if (generateInvoice) {
-    // Log temporal para factura externa - aquí irá la integración futura
-    console.log('🧾 Generando factura externa para venta:', sale.id);
-    console.log('📄 Datos de la venta:', {
-      saleNumber: sale.saleNumber,
-      customer: sale.customerName,
-      total: sale.total,
-      items: sale.items.length,
-      paymentMethod: sale.paymentMethod
-    });
-    
-    // TODO: Integrar con servicio de facturación externa
-    // Ejemplo de como podría ser:
-    // await externalInvoiceService.generateInvoice(sale);
-    
-    alert('Factura externa se generará próximamente. Consulte los logs para detalles.');
+  // Si la venta tiene datos de AFIP, es una factura
+  const isInvoice = hasAfipData(sale);
+  
+  if (isInvoice) {
+    // Generar factura con datos de AFIP
+    console.log('🧾 Generando factura AFIP para venta:', sale.id);
+    openReceiptInNewTab(sale, { type: 'a4', generateInvoice: true });
+  } else if (generateInvoice) {
+    // Si se solicitó factura pero aún no hay datos, esperar respuesta del backend
+    // El backend generará la factura y actualizará la venta con los datos de AFIP
+    console.log('⏳ Esperando generación de factura por el backend para venta:', sale.id);
+    // No hacer nada aquí, el backend se encargará
   } else {
     // Generar comprobante interno
     console.log('📝 Generando comprobante interno para venta:', sale.id);
-    
-    // Abrir comprobante A4 por defecto
     openReceiptInNewTab(sale, { type: 'a4', generateInvoice: false });
   }
 }

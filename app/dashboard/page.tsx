@@ -58,14 +58,14 @@ export default function Dashboard() {
       color: 'bg-gradient-to-r from-blue-500 to-blue-600',
       available: true,
     },
-    {
-      name: 'Finanzas',
-      description: 'Reportes y caja',
-      href: '/dashboard/finances',
-      icon: BarChart3,
-      color: 'bg-gradient-to-r from-purple-500 to-purple-600',
-      available: true,
-    },
+    // {
+    //   name: 'Finanzas',
+    //   description: 'Reportes y caja',
+    //   href: '/dashboard/finances',
+    //   icon: BarChart3,
+    //   color: 'bg-gradient-to-r from-purple-500 to-purple-600',
+    //   available: true,
+    // },
   ];
 
   if (!isAuthenticated) {

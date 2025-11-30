@@ -13,8 +13,8 @@ import { Sale } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { showToast } from '@/lib/toast';
-import { processReceiptGeneration } from '@/lib/receipt-utils';
-import { InvoiceModal, InvoiceData } from './invoice-modal';
+import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
+import { GeneratingPdfDialog } from '@/components/ui/generating-pdf-dialog';
 import { X, Calendar, User, CreditCard, Package, DollarSign, FileText, CheckCircle, XCircle, Receipt } from 'lucide-react';
 
 interface ViewSaleModalProps {
@@ -27,9 +27,8 @@ interface ViewSaleModalProps {
 export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSaleModalProps) {
   const [generateInvoice, setGenerateInvoice] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [pendingInvoiceData, setPendingInvoiceData] = useState<InvoiceData | null>(null);
-  const { updateSale } = useSalesAPI();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const { updateSale, getSaleById } = useSalesAPI();
   
   if (!sale) return null;
 
@@ -40,45 +39,42 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
   const handleCompleteSale = async () => {
     if (!canEdit) return;
     
-    if (generateInvoice) {
-      setShowInvoiceModal(true);
-      return;
-    }
-    
-    // Completar sin factura
-    await processCompleteSale(null);
-  };
-
-  const handleInvoiceConfirm = async (invoiceData: InvoiceData) => {
-    await processCompleteSale(invoiceData);
-  };
-
-  const processCompleteSale = async (invoiceData: InvoiceData | null) => {
     setIsUpdating(true);
+    setIsGeneratingPdf(generateInvoice);
+    
     try {
       const updateData: any = {
         status: 'COMPLETED',
+        shouldInvoice: generateInvoice, // El backend manejará la facturación
       };
       
-      // Si se completó con factura tipo A, actualizar datos del cliente
-      if (invoiceData && invoiceData.invoiceType === 'A' && invoiceData.customerCuit) {
-        updateData.customerCuit = invoiceData.customerCuit;
-        updateData.customerIva = invoiceData.customerIva;
-      }
-      
-      await updateSale(sale.id, updateData);
+      const updatedSale = await updateSale(sale.id, updateData);
       
       showToast.success('Venta completada exitosamente');
       
-      // Generar comprobante o factura según la selección
-      const saleWithUpdatedData = {
-        ...sale,
-        customerCuit: invoiceData?.customerCuit || sale.customerPhone,
-        customerIva: invoiceData?.customerIva,
-        invoiceType: invoiceData ? invoiceData.invoiceType : undefined
-      };
-      
-      processReceiptGeneration(saleWithUpdatedData, !!invoiceData);
+      // Si se solicitó factura, esperar a que el backend la genere y actualice la venta
+      if (generateInvoice) {
+        // Hacer polling para verificar si la factura ya fue generada
+        let attempts = 0;
+        const maxAttempts = 10; // 10 segundos máximo
+        let saleWithAfip = updatedSale;
+        
+        while (attempts < maxAttempts && !hasAfipData(saleWithAfip)) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          saleWithAfip = await getSaleById(sale.id);
+          attempts++;
+        }
+        
+        // Si tiene datos de AFIP, generar el PDF de factura
+        if (hasAfipData(saleWithAfip)) {
+          processReceiptGeneration(saleWithAfip, true);
+        } else {
+          showToast.error('La factura está siendo procesada. Intente ver el comprobante más tarde.');
+        }
+      } else {
+        // Generar comprobante interno
+        processReceiptGeneration(updatedSale, false);
+      }
       
       onSaleUpdated?.();
     } catch (error) {
@@ -86,12 +82,14 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
       showToast.error('Error al completar la venta');
     } finally {
       setIsUpdating(false);
+      setIsGeneratingPdf(false);
     }
   };
 
   const handleViewReceipt = () => {
-    // Generar comprobante para venta completada
-    processReceiptGeneration(sale, false);
+    // Verificar si es factura o comprobante
+    const isInvoice = hasAfipData(sale);
+    processReceiptGeneration(sale, isInvoice);
   };
 
   const handleCancelSale = async () => {
@@ -401,13 +399,8 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
         </div>
       </DialogContent>
 
-      {/* Modal de facturación */}
-      <InvoiceModal
-        isOpen={showInvoiceModal}
-        onClose={() => setShowInvoiceModal(false)}
-        onConfirm={handleInvoiceConfirm}
-        saleTotal={sale.total}
-      />
+      {/* Dialog de generación de PDF */}
+      <GeneratingPdfDialog isOpen={isGeneratingPdf} />
     </Dialog>
   );
 }

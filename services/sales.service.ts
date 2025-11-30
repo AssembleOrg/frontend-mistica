@@ -38,6 +38,7 @@ export interface UpdateSaleRequest {
   prepaidId?: string;
   consumedPrepaid?: boolean;
   discount?: number;
+  shouldInvoice?: boolean;
 }
 
 // Sale interfaces
@@ -69,6 +70,10 @@ export interface Sale {
   consumedPrepaid?: boolean;
   createdAt: string;
   updatedAt: string;
+  // Campos opcionales de AFIP
+  afipCae?: string;
+  afipNumero?: number;
+  afipFechaVto?: string;
 }
 
 // Paginated response interface

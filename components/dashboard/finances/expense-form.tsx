@@ -120,10 +120,10 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
     <Card className='border-[#9d684e]/20'>
       <CardHeader>
         <div className='flex items-center justify-between'>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <Minus className='h-5 w-5' />
-            Registrar Egreso
-          </CardTitle>
+        <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+          <Minus className='h-5 w-5' />
+          Registrar Egreso
+        </CardTitle>
           <div className='flex items-center gap-2'>
             <Button
               type='button'

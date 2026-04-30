@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuth } from '@/hooks/useAuth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,23 +16,23 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'form'>) {
-  const [email, setEmail] = useState('admin@mistica.com');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@gmail.com');
+  const [password, setPassword] = useState('adminPistech2025');
   const router = useRouter();
 
-  const { login, status, error } = useAuthStore();
+  const { login, loading, error } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login(email, password);
+      await login({ email, password });
       router.push('/dashboard');
     } catch (_err) {
       console.error('Fallo el intento de login');
     }
   };
 
-  const isLoading = status === 'loading';
+  const isLoading = loading;
 
   return (
     <form
@@ -90,7 +90,7 @@ export function LoginForm({
           />
         </div>
 
-        {status === 'error' && (
+        {error && (
           <p className='text-sm text-center text-red-600 font-semibold'>
             {error}
           </p>

@@ -22,6 +22,7 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/app.store';
+import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 import { formatCurrency } from '@/lib/sales-calculations';
@@ -40,6 +41,7 @@ export default function SaleDetailPage() {
   const saleId = params.id as string;
 
   const { salesHistory, settings } = useAppStore();
+  const { settings: receiptSettings } = useSettingsStore();
   
   const getSaleById = useCallback((id: string) => salesHistory.find(s => s.id === id), [salesHistory]);
   const deleteSale = useCallback((_id: string) => {
@@ -97,7 +99,7 @@ export default function SaleDetailPage() {
         bgColor: 'bg-orange-100',
       },
     };
-    return configs[status];
+    return configs[status as keyof typeof configs] || configs.draft;
   };
 
   const getPaymentMethodConfig = (method: Sale['paymentMethod']) => {
@@ -110,7 +112,7 @@ export default function SaleDetailPage() {
       },
       mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
     };
-    return configs[method];
+    return configs[method as keyof typeof configs] || configs.efectivo;
   };
 
   const handleEdit = () => {
@@ -139,113 +141,289 @@ export default function SaleDetailPage() {
 
   const handlePrint = () => {
     if (!sale) return;
-
+    
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-
+    
+    // Calculate payment adjustment for display
+    const adjustmentInfo = sale.originalTotal && sale.finalTotal ? {
+      originalTotal: sale.originalTotal,
+      finalTotal: sale.finalTotal,
+      adjustmentAmount: sale.adjustmentAmount || 0,
+      adjustmentType: sale.adjustmentType || 'ninguno',
+      adjustmentPercentage: sale.adjustmentPercentage || 0
+    } : null;
+    
     const printContent = `
       <!DOCTYPE html>
       <html>
         <head>
           <title>Recibo - Venta #${sale.id.slice(-6)}</title>
+          <meta charset="UTF-8">
           <style>
-            body { font-family: Arial, sans-serif; font-size: 14px; margin: 20px; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .section { margin-bottom: 15px; }
-            .items table { width: 100%; border-collapse: collapse; }
-            .items th, .items td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
-            .total { font-weight: bold; font-size: 16px; }
-            .separator { border-top: 2px solid #333; margin: 10px 0; }
+            body { 
+              font-family: 'Arial', 'Helvetica', sans-serif; 
+              font-size: 12px; 
+              margin: 0; 
+              padding: 10px;
+              color: #333;
+              max-width: 300px;
+              line-height: 1.4;
+            }
+            
+            .receipt-container {
+              border: 1px solid #ddd;
+              padding: 15px;
+              background: white;
+            }
+            
+            .header { 
+              text-align: center; 
+              margin-bottom: 20px; 
+              border-bottom: 2px solid #9d684e;
+              padding-bottom: 15px;
+            }
+            
+            .business-name {
+              font-size: 20px;
+              font-weight: bold;
+              color: #9d684e;
+              margin-bottom: 5px;
+              letter-spacing: 2px;
+            }
+            
+            .receipt-title {
+              font-size: 14px;
+              font-weight: bold;
+              margin-bottom: 8px;
+              color: #455a54;
+            }
+            
+            .date-info {
+              font-size: 11px;
+              color: #666;
+            }
+            
+            .section { 
+              margin-bottom: 15px; 
+            }
+            
+            .business-info {
+              text-align: center;
+              font-size: 11px;
+              color: #666;
+              margin-bottom: 15px;
+              border-bottom: 1px dashed #ccc;
+              padding-bottom: 10px;
+            }
+            
+            .items-table { 
+              width: 100%; 
+              border-collapse: collapse;
+              margin-bottom: 15px;
+            }
+            
+            .items-table th {
+              text-align: left; 
+              padding: 6px 4px; 
+              border-bottom: 2px solid #9d684e;
+              font-size: 11px;
+              font-weight: bold;
+              color: #455a54;
+            }
+            
+            .items-table td {
+              text-align: left; 
+              padding: 4px; 
+              border-bottom: 1px dotted #ccc;
+              font-size: 11px;
+            }
+            
+            .totals-section {
+              border-top: 2px solid #9d684e;
+              padding-top: 10px;
+              margin-bottom: 15px;
+            }
+            
+            .total-line {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 4px;
+              font-size: 12px;
+            }
+            
+            .final-total {
+              display: flex;
+              justify-content: space-between;
+              font-size: 14px;
+              font-weight: bold;
+              color: #9d684e;
+              border-top: 1px solid #9d684e;
+              padding-top: 6px;
+              margin-top: 8px;
+            }
+            
+            .adjustment-line {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 4px;
+              font-size: 11px;
+              color: #666;
+              font-style: italic;
+            }
+            
+            .adjustment-discount { color: #10b981; }
+            .adjustment-surcharge { color: #f59e0b; }
+            
+            .payment-section {
+              border-top: 1px dashed #ccc;
+              padding-top: 10px;
+              margin-bottom: 15px;
+            }
+            
+            .footer {
+              text-align: center;
+              margin-top: 20px;
+              padding-top: 15px;
+              border-top: 2px solid #9d684e;
+              font-size: 11px;
+              color: #666;
+            }
+            
+            .footer-message {
+              font-weight: bold;
+              color: #9d684e;
+              margin-bottom: 5px;
+            }
+            
+            .employee-info {
+              font-size: 10px;
+              color: #888;
+              text-align: center;
+              margin-bottom: 10px;
+            }
+            
+            @media print { 
+              body { margin: 0; padding: 5px; } 
+              .no-print { display: none; } 
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h2>MÍSTICA</h2>
-            <h3>Recibo de Venta</h3>
-            <p>Venta #${sale.id.slice(-6)}</p>
-          </div>
-          
-          <div class="section">
-            <strong>Fecha:</strong> ${formatDate(
-              sale.completedAt || sale.createdAt
-            )}<br>
-            <strong>Cajero:</strong> ${sale.cashierId}<br>
-            <strong>Cliente:</strong> ${
-              sale.customerInfo?.name || 'Cliente general'
-            }
-          </div>
+          <div class="receipt-container">
+            ${receiptSettings.receipt.showLogo ? `
+              <div style="text-align: center; margin-bottom: 10px;">
+                <div style="width: 60px; height: 60px; background: #9d684e; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px;">M</div>
+              </div>
+            ` : ''}
+            
+            <div class="header">
+              <div class="business-name">${receiptSettings.receipt.businessName}</div>
+              <div class="receipt-title">RECIBO DE VENTA #${sale.id.slice(-6)}</div>
+              <div class="date-info">${formatDate(new Date(sale.completedAt || sale.createdAt))}</div>
+            </div>
 
-          <div class="items">
-            <table>
+            <div class="business-info">
+              ${receiptSettings.receipt.businessAddress}<br>
+              ${receiptSettings.receipt.businessPhone}
+            </div>
+
+        
+
+            <table class="items-table">
               <thead>
                 <tr>
                   <th>Producto</th>
-                  <th>Cant.</th>
-                  <th>Precio</th>
-                  <th>Subtotal</th>
+                  <th style="text-align: center;">Cant.</th>
+                  <th style="text-align: right;">Precio</th>
+                  <th style="text-align: right;">Total</th>
                 </tr>
               </thead>
               <tbody>
-                ${sale.items
-                  .map(
-                    (item) => `
+                ${sale.items.map(item => `
                   <tr>
-                    <td>${item.product.name}</td>
-                    <td>${item.quantity}</td>
-                    <td>${formatCurrency(item.unitPrice)}</td>
-                    <td>${formatCurrency(item.subtotal)}</td>
+                    <td>${item.product?.name}</td>
+                    <td style="text-align: center;">${item.quantity}</td>
+                    <td style="text-align: right;">${formatCurrency(item.unitPrice)}</td>
+                    <td style="text-align: right;">${formatCurrency(item.subtotal)}</td>
                   </tr>
-                `
-                  )
-                  .join('')}
+                `).join('')}
               </tbody>
             </table>
-          </div>
 
-          <div class="separator"></div>
-          
-          <div class="section">
-            <strong>Subtotal:</strong> ${formatCurrency(sale.subtotal)}<br>
-            ${
-              sale.discountTotal > 0
-                ? `<strong>Descuento:</strong> -${formatCurrency(
-                    sale.discountTotal
-                  )}<br>`
-                : ''
-            }
-            <strong>IVA:</strong> ${formatCurrency(sale.taxAmount)}<br>
-            <div class="total">TOTAL: ${formatCurrency(sale.total)}</div>
-          </div>
+            <div class="totals-section">
+              <div class="total-line">
+                <span>Subtotal (${sale.items.length} items):</span>
+                <span>${formatCurrency(sale.subtotal)}</span>
+              </div>
+              
+              ${sale.discount > 0 ? `
+                <div class="total-line">
+                  <span>Descuento:</span>
+                  <span>-${formatCurrency(sale.discount)}</span>
+                </div>
+              ` : ''}
+              
+              <div class="total-line">
+                <span>IVA (${receiptSettings.general.taxRate}%):</span>
+                <span>${formatCurrency(sale.tax)}</span>
+              </div>
+              
+              ${adjustmentInfo && adjustmentInfo.adjustmentType !== 'ninguno' ? `
+                <div class="total-line">
+                  <span>Subtotal con IVA:</span>
+                  <span>${formatCurrency(adjustmentInfo.originalTotal)}</span>
+                </div>
+                <div class="adjustment-line ${adjustmentInfo.adjustmentType === 'descuento' ? 'adjustment-discount' : 'adjustment-surcharge'}">
+                  <span>${adjustmentInfo.adjustmentType === 'descuento' ? 'Descuento' : 'Recargo'} ${getPaymentMethodConfig(sale.paymentMethod).label} (${adjustmentInfo.adjustmentPercentage}%):</span>
+                  <span>${adjustmentInfo.adjustmentType === 'descuento' ? '-' : '+'}${formatCurrency(adjustmentInfo.adjustmentAmount)}</span>
+                </div>
+              ` : ''}
+              
+              <div class="final-total">
+                <span>TOTAL FINAL:</span>
+                <span>${formatCurrency(adjustmentInfo?.finalTotal || sale.total)}</span>
+              </div>
+            </div>
 
-          <div class="section">
-            <strong>Método de pago:</strong> ${
-              getPaymentMethodConfig(sale.paymentMethod).label
-            }<br>
-            ${
-              sale.cashReceived
-                ? `<strong>Efectivo recibido:</strong> ${formatCurrency(
-                    sale.cashReceived
-                  )}<br>`
-                : ''
-            }
-            ${
-              sale.cashChange
-                ? `<strong>Cambio:</strong> ${formatCurrency(
-                    sale.cashChange
-                  )}<br>`
-                : ''
-            }
-          </div>
+            <div class="payment-section">
+              <div class="total-line">
+                <span><strong>Método de pago:</strong></span>
+                <span><strong>${getPaymentMethodConfig(sale.paymentMethod).label}</strong></span>
+              </div>
+              
+              ${sale.cashReceived ? `
+                <div class="total-line">
+                  <span>Efectivo recibido:</span>
+                  <span>${formatCurrency(sale.cashReceived)}</span>
+                </div>
+              ` : ''}
+              
+              ${sale.cashChange ? `
+                <div class="total-line">
+                  <span>Cambio:</span>
+                  <span>${formatCurrency(sale.cashChange)}</span>
+                </div>
+              ` : ''}
+            </div>
 
-          ${
-            sale.notes
-              ? `<div class="section"><strong>Notas:</strong> ${sale.notes}</div>`
-              : ''
-          }
+            ${sale.notes && sale.notes.trim() ? `
+              <div class="section">
+                <strong>Notas:</strong><br>
+                <em>${sale.notes}</em>
+              </div>
+            ` : ''}
 
-          <div style="text-align: center; margin-top: 30px; font-size: 12px;">
-            ¡Gracias por tu compra!<br>
-            www.mistica.com
+            ${receiptSettings.receipt.showEmployeeInfo ? `
+              <div class="employee-info">
+                Atendido por: ${sale.cashierId || 'Sistema'}
+              </div>
+            ` : ''}
+
+            <div class="footer">
+              <div class="footer-message">${receiptSettings.receipt.footerMessage}</div>
+              <div>¡Vuelve pronto!</div>
+            </div>
           </div>
         </body>
       </html>
@@ -256,6 +434,8 @@ export default function SaleDetailPage() {
     printWindow.focus();
     printWindow.print();
     printWindow.close();
+    
+    showToast.success('Recibo enviado a impresora');
   };
 
   if (isLoading) {
@@ -369,7 +549,7 @@ export default function SaleDetailPage() {
                         Fecha de creación
                       </p>
                       <p className='font-medium font-winter-solid'>
-                        {formatDate(sale.createdAt)}
+                        {formatDate(new Date(sale.createdAt))}
                       </p>
                     </div>
                   </div>
@@ -382,7 +562,7 @@ export default function SaleDetailPage() {
                           Fecha de completado
                         </p>
                         <p className='font-medium font-winter-solid'>
-                          {formatDate(sale.completedAt)}
+                          {formatDate(new Date(sale.completedAt))}
                         </p>
                       </div>
                     </div>
@@ -417,7 +597,7 @@ export default function SaleDetailPage() {
                   </div>
                 </div>
 
-                {sale.customerInfo && (
+                {sale.customerName && (
                   <>
                     <Separator />
                     <div>
@@ -429,22 +609,22 @@ export default function SaleDetailPage() {
                           <span className='text-[var(--color-verde-profundo)]'>
                             Nombre:
                           </span>{' '}
-                          {sale.customerInfo.name}
+                          {sale.customerName}
                         </p>
-                        {sale.customerInfo.email && (
+                        {sale.customerEmail && (
                           <p className='text-sm font-winter-solid'>
                             <span className='text-[var(--color-verde-profundo)]'>
                               Email:
                             </span>{' '}
-                            {sale.customerInfo.email}
+                            {sale.customerEmail}
                           </p>
                         )}
-                        {sale.customerInfo.phone && (
+                        {sale.customerPhone && (
                           <p className='text-sm font-winter-solid'>
                             <span className='text-[var(--color-verde-profundo)]'>
                               Teléfono:
                             </span>{' '}
-                            {sale.customerInfo.phone}
+                            {sale.customerPhone}
                           </p>
                         )}
                       </div>
@@ -487,7 +667,7 @@ export default function SaleDetailPage() {
                     >
                       <div className='flex-1'>
                         <h4 className='font-medium text-[var(--color-ciruela-oscuro)] font-winter-solid'>
-                          {item.product.name}
+                          {item.product?.name}
                         </h4>
                         <div className='flex items-center gap-4 mt-1 text-sm text-[var(--color-verde-profundo)]'>
                           <span className='font-winter-solid'>
@@ -497,12 +677,12 @@ export default function SaleDetailPage() {
                             Cantidad: {item.quantity}
                           </span>
                           <Badge variant='secondary'>
-                            {item.product.category}
+                            {item.product?.category}
                           </Badge>
                         </div>
                         {item.discountAmount && item.discountAmount > 0 && (
                           <p className='text-sm text-orange-600 mt-1 font-winter-solid'>
-                            Descuento: -{formatCurrency(item.discountAmount)} (
+                            Descuento(Seña): -{formatCurrency(item.discountAmount)} (
                             {item.discountPercentage}%)
                           </p>
                         )}
@@ -538,11 +718,11 @@ export default function SaleDetailPage() {
                     </span>
                   </div>
 
-                  {sale.discountTotal > 0 && (
+                  {sale.discount > 0 && (
                     <div className='flex justify-between text-orange-600'>
                       <span className='font-winter-solid'>Descuento:</span>
                       <span className='font-winter-solid'>
-                        -{formatCurrency(sale.discountTotal)}
+                        -{formatCurrency(sale.discount)}
                       </span>
                     </div>
                   )}
@@ -552,7 +732,7 @@ export default function SaleDetailPage() {
                       IVA ({(settings.taxRate * 100).toFixed(0)}%):
                     </span>
                     <span className='font-medium font-winter-solid'>
-                      {formatCurrency(sale.taxAmount)}
+                      {formatCurrency(sale.tax)}
                     </span>
                   </div>
 
@@ -566,7 +746,7 @@ export default function SaleDetailPage() {
                   </div>
                 </div>
 
-                {sale.paymentMethod === 'efectivo' && (
+                {sale.paymentMethod === 'CASH' && (
                   <>
                     <Separator />
                     <div className='space-y-2'>

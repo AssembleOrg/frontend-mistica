@@ -186,7 +186,24 @@ export function TransactionsTable({ transactions, dateRange }: TransactionsTable
       },
       cell: ({ row }) => {
         const method = row.getValue('paymentMethod') as CashTransaction['paymentMethod'];
-        const config = paymentMethodConfig[method];
+        const transformedMethod = (method: string) => {
+          switch (method) {
+            case 'CASH':
+              return 'efectivo';
+            case 'CARD':
+              return 'tarjeta';
+            case 'TRANSFER':
+              return 'transferencia';
+            default:
+              return 'otro';
+          }
+        }
+        
+        console.log('🔍 Método de pago:', method, '->', transformedMethod(method));
+        const config = paymentMethodConfig[method as keyof typeof paymentMethodConfig] || { 
+          label: transformedMethod(method), 
+          color: 'text-gray-600' 
+        };
         return (
           <div className={`text-sm font-medium ${config.color}`}>
             {config.label}
@@ -273,6 +290,7 @@ export function TransactionsTable({ transactions, dateRange }: TransactionsTable
         </div>
         
         <DropdownMenu>
+          {/* @ts-ignore - shadcn/ui type issue */}
           <DropdownMenuTrigger asChild>
             <Button
               variant='outline'
@@ -287,11 +305,12 @@ export function TransactionsTable({ transactions, dateRange }: TransactionsTable
               .filter((column) => column.getCanHide())
               .map((column) => {
                 return (
+                  // @ts-ignore - shadcn/ui type issue
                   <DropdownMenuCheckboxItem
                     key={column.id}
                     className='hover:bg-[#efcbb9]/30 capitalize'
                     checked={column.getIsVisible()}
-                    onCheckedChange={(value) =>
+                    onCheckedChange={(value: boolean) =>
                       column.toggleVisibility(!!value)
                     }
                   >

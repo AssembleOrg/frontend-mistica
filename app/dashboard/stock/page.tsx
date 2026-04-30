@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { StatsCard } from '@/components/dashboard/stats-card';
+import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { Button } from '@/components/ui/button';
 import {
   AlertTriangle,
@@ -24,24 +25,30 @@ import {
   Package,
   Plus,
 } from 'lucide-react';
-import Link from 'next/link';
 import { useStock } from '@/hooks/useStock';
+import { useProducts } from '@/hooks/useProducts';
+import { useInitialProductsData } from '@/hooks/useInitialProductsData';
+import type { StockMovement } from '@/lib/types';
 
 export default function StockDashboard() {
   const [isLoading, setIsLoading] = useState(true);
+  const [movementsToShow, setMovementsToShow] = useState(5);
   
-  // Simple hooks API
+  // Load initial data and hooks
+  const { isLoading: loadingProducts } = useInitialProductsData();
   const { stockSummary, getStockMovements } = useStock();
+  const { products } = useProducts();
   const movements = getStockMovements();
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
+    // Wait for products to load before showing content
+    if (!loadingProducts) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [loadingProducts]);
 
   if (isLoading) {
     return (
@@ -87,81 +94,95 @@ export default function StockDashboard() {
       </div>
 
       {/* Quick Actions */}
+      <QuickActionsWidget
+        title="Gestión de Inventario"
+        description="Acciones rápidas para el stock"
+        layout="horizontal"
+        actions={[
+          {
+            id: 'adjust-stock',
+            title: 'Ajustar Stock',
+            description: 'Corregir cantidades manualmente',
+            href: '/dashboard/stock/adjustments',
+            icon: Plus,
+            color: 'primary'
+          }
+        ]}
+      />
+
+      {/* Stock Statistics - Following Panel de Control Pattern */}
       <Card className='border-[#9d684e]/20'>
         <CardHeader>
-          <CardTitle className='text-[#455a54] font-tan-nimbus'>
-            Acción Principal
+          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+            <Package className='h-5 w-5' />
+            Control de Inventario
           </CardTitle>
-          <CardDescription className='font-winter-solid'>
-            Gestión directa de inventario
+          <CardDescription className='text-[#455a54]/70'>
+            Resumen de stock y estado del inventario
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
-            {stockActions.map((action) => (
-              <Button
-                key={action.href}
-                asChild
-                className={`h-auto p-4 flex flex-col items-center justify-center gap-2 text-white text-center ${action.color}`}
-              >
-                <Link href={action.href}>
-                  <action.icon className='h-7 w-7 mb-1' />
-                  <div>
-                    <div className='font-winter-solid font-semibold'>
-                      {action.title}
-                    </div>
-                    <p className='text-xs opacity-80 font-light'>
-                      {action.description}
-                    </p>
+          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4'>
+            <div className='bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 rounded-lg border border-orange-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-lg sm:text-xl md:text-2xl font-bold font-tan-nimbus text-orange-600'>
+                    {stockSummary.lowStock}
                   </div>
-                </Link>
-              </Button>
-            ))}
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Stock Bajo</div>
+                </div>
+                <AlertTriangle className='h-6 w-6 text-orange-500/40' />
+              </div>
+            </div>
+            
+            <div className='bg-gradient-to-br from-red-500/10 to-red-500/5 p-4 rounded-lg border border-red-500/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-lg sm:text-xl md:text-2xl font-bold font-tan-nimbus text-red-600'>
+                    {stockSummary.outOfStock}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Agotados</div>
+                </div>
+                <div className='w-6 h-6 rounded-full bg-red-100 flex items-center justify-center'>
+                  <div className='w-3 h-3 rounded-full bg-red-500'></div>
+                </div>
+              </div>
+            </div>
+            
+            <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-3 sm:p-4 rounded-lg border border-green-500/20'>
+              <div className='flex items-center justify-between'>
+                <div className='min-w-0 flex-1 pr-2'>
+                  <div className='text-sm sm:text-base md:text-lg lg:text-xl font-bold font-tan-nimbus text-green-600 break-all'>
+                    <span className='hidden sm:inline'>$</span>
+                    <span className='sm:hidden'>$</span>
+                    {stockSummary.totalValue > 999999 
+                      ? `${(stockSummary.totalValue / 1000000).toFixed(1)}M`
+                      : stockSummary.totalValue.toLocaleString('es-AR', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        })
+                    }
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Valor Total</div>
+                </div>
+                <Package className='h-5 w-5 sm:h-6 sm:w-6 text-green-500/40 flex-shrink-0' />
+              </div>
+            </div>
+            
+            <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <div className='text-lg sm:text-xl md:text-2xl font-bold font-tan-nimbus text-[#9d684e]'>
+                    {movements.length}
+                  </div>
+                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Movimientos</div>
+                </div>
+                <TrendingUp className='h-6 w-6 text-[#9d684e]/40' />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
-
-      {/* Stock Statistics */}
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
-        <StatsCard
-          title='Productos con Stock Bajo'
-          value={stockSummary.lowStock}
-          change='Requieren atención'
-          icon={AlertTriangle}
-          trend='neutral'
-          color='orange'
-        />
-
-        <StatsCard
-          title='Sin Stock'
-          value={stockSummary.outOfStock}
-          change='Requieren reposición'
-          icon={TrendingDown}
-          trend='down'
-          color='red'
-        />
-
-        <StatsCard
-          title='Valor Total Inventario'
-          value={`$${stockSummary.totalValue.toLocaleString('es-AR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-          })}`}
-          change='Precio de costo'
-          icon={Package}
-          trend='up'
-          color='green'
-        />
-
-        <StatsCard
-          title='Movimientos Recientes'
-          value={movements.length}
-          change='Últimos 7 días'
-          icon={TrendingUp}
-          trend='up'
-          color='terracota'
-        />
-      </div>
 
       {/* Recent Movements */}
       <Card className='border-[#9d684e]/20'>
@@ -182,8 +203,11 @@ export default function StockDashboard() {
             </div>
           ) : (
             <div className='space-y-3'>
-              {movements.map((movement: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-                const product = { name: 'Producto', id: movement.productId }; // Mock product data
+              {movements.slice(0, movementsToShow).map((movement: StockMovement) => {
+                const product = products.find(p => p.id === movement.productId) || { 
+                  name: 'Producto no encontrado', 
+                  id: movement.productId 
+                };
                 const typeColors = {
                   entrada: 'text-green-600',
                   salida: 'text-red-600',
@@ -215,6 +239,9 @@ export default function StockDashboard() {
                         <p className='text-sm text-[#455a54]/70'>
                           {movement.reason}
                         </p>
+                        <p className='text-xs text-[#455a54]/50'>
+                          {movement.previousStock} → {movement.newStock} unidades
+                        </p>
                       </div>
                     </div>
                     <div className='text-right'>
@@ -229,12 +256,42 @@ export default function StockDashboard() {
                       <p className='text-xs text-[#455a54]/70'>
                         {new Date(movement.createdAt).toLocaleDateString('es-AR')}
                       </p>
+                      {product && 'stock' in product && (
+                        <p className='text-xs text-[#9d684e] font-medium'>
+                          Stock actual: {(product as { stock: number }).stock}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })}
 
-              <div className='text-center pt-3'></div>
+              {/* Pagination Controls */}
+              {movements.length > movementsToShow && (
+                <div className='text-center pt-4 border-t border-[#9d684e]/10'>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMovementsToShow(prev => prev + 5)}
+                    className='text-[#9d684e] border-[#9d684e]/30 hover:bg-[#9d684e]/10'
+                  >
+                    Ver más movimientos ({movements.length - movementsToShow} restantes)
+                  </Button>
+                </div>
+              )}
+              
+              {movementsToShow > 5 && (
+                <div className='text-center pt-2'>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setMovementsToShow(5)}
+                    className='text-[#455a54]/70 hover:text-[#9d684e]'
+                  >
+                    Ver menos
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

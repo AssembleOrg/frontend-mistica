@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useState } from 'react';
+import { DateRange } from 'react-day-picker';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -25,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
+import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -49,14 +51,47 @@ import { useRouter } from 'next/navigation';
 interface EmployeesTableProps {
   data: Employee[];
   isLoading?: boolean;
+  // Pagination props
+  currentPage?: number;
+  totalPages?: number;
+  pageSize?: number;
+  totalItems?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  // Filter props
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+  roleFilter?: string;
+  onRoleFilterChange?: (role: string) => void;
+  onRefresh?: () => void;
 }
 
 const roleConfig = {
   gerente: { label: 'Gerente', color: '#9d684e', bgColor: '#9d684e/10' },
-  cajero: { label: 'Cajero', color: '#e0a38d', bgColor: '#e0a38d/10' }
+  cajero: { label: 'Cajero', color: '#e0a38d', bgColor: '#e0a38d/10' },
+  mozo: { label: 'Mozo', color: '#455a54', bgColor: '#455a54/10' }
 };
 
-export function EmployeesTable({ data }: EmployeesTableProps) {
+export function EmployeesTable({ 
+  data,
+  isLoading,
+  currentPage = 1,
+  totalPages = 1,
+  pageSize = 20,
+  totalItems = 0,
+  onPageChange,
+  onPageSizeChange,
+  // Filter props
+  searchValue = "",
+  onSearchChange,
+  dateRange,
+  onDateRangeChange,
+  roleFilter = "all",
+  onRoleFilterChange,
+  onRefresh,
+}: EmployeesTableProps) {
   const router = useRouter();
   const { deleteEmployee } = useEmployees();
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -64,6 +99,21 @@ export function EmployeesTable({ data }: EmployeesTableProps) {
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Role options for filter
+  const roleOptions: FilterOption[] = [
+    { value: 'gerente', label: 'Gerente' },
+    { value: 'cajero', label: 'Cajero' },
+    { value: 'mozo', label: 'Mozo' },
+  ];
+
+  const handleClearFilters = () => {
+    onSearchChange?.("");
+    onDateRangeChange?.(undefined);
+    onRoleFilterChange?.("all");
+    table.resetColumnFilters();
+  };
 
   const handleAction = async (employeeId: string, action: 'edit' | 'delete') => {
     setActionLoading((prev) => ({ ...prev, [employeeId]: true }));
@@ -75,7 +125,7 @@ export function EmployeesTable({ data }: EmployeesTableProps) {
       }
 
       if (action === 'delete') {
-        deleteEmployee(employeeId);
+        await deleteEmployee(employeeId);
         showToast.success('Empleado eliminado', 'El empleado ha sido eliminado correctamente.');
       }
     } catch (error) {
@@ -281,25 +331,30 @@ export function EmployeesTable({ data }: EmployeesTableProps) {
   });
 
   return (
+    <div className="space-y-4">
+      <TableFilters
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        searchPlaceholder="Buscar empleados por nombre o email..."
+        dateRange={dateRange}
+        onDateRangeChange={onDateRangeChange}
+        customFilters={[
+          {
+            key: 'role',
+            label: 'Rol',
+            value: roleFilter || 'all',
+            options: [{ value: 'all', label: 'Todos los roles' }, ...roleOptions],
+            onChange: onRoleFilterChange || (() => {}),
+          },
+        ]}
+        onClearFilters={handleClearFilters}
+        onRefresh={onRefresh || (() => window.location.reload())}
+        showAdvancedFilters={showAdvancedFilters}
+        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
+      />
+
     <div className='w-full'>
       <div className='flex items-center py-4'>
-        <div className='flex gap-2'>
-          <select
-            value={
-              (table.getColumn('role')?.getFilterValue() as string) ?? ''
-            }
-            onChange={(event) =>
-              table
-                .getColumn('role')
-                ?.setFilterValue(event.target.value || undefined)
-            }
-            className='px-3 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none max-w-sm'
-          >
-            <option value=''>Todos los roles</option>
-            <option value='gerente'>Gerente</option>
-            <option value='cajero'>Cajero</option>
-          </select>
-        </div>
         <div className='ml-auto'>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -412,6 +467,7 @@ export function EmployeesTable({ data }: EmployeesTableProps) {
           </Button>
         </div>
       </div>
+    </div>
     </div>
   );
 }

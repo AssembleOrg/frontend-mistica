@@ -1,14 +1,16 @@
 // Product related types
+export type ProductCategory = 'organicos' | 'aromaticos' | 'wellness';
+
 export interface Product {
   id: string;
   name: string;
   barcode: string; // Código de barras único generado por la app
-  category: 'organicos' | 'aromaticos' | 'wellness';
+  category: ProductCategory;
   price: number; // Precio de venta
   costPrice: number; // Precio de costo
   stock: number;
-  unitOfMeasure: 'litro' | 'gramo';
-  image: string;
+  unitOfMeasure: 'litro' | 'gramo' | 'unidad';
+  image?: string;
   description: string;
   status: 'active' | 'inactive' | 'out_of_stock';
   createdAt: Date;
@@ -80,12 +82,14 @@ export interface StatusConfig {
 
 // Sales/POS System Types
 export interface SaleItem {
-  id: string;
   productId: string;
-  product: Product;
+  productName: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  // Optional properties for enhanced functionality
+  id?: string;
+  product?: Product;
   discountAmount?: number;
   discountPercentage?: number;
   notes?: string;
@@ -93,26 +97,35 @@ export interface SaleItem {
 
 export interface Sale {
   id: string;
+  saleNumber: string;
+  clientId?: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
   items: SaleItem[];
   subtotal: number;
-  discountTotal: number;
-  taxAmount: number;
+  tax: number;
+  discount: number;
   total: number;
-  paymentMethod: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto';
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  // POS specific properties (optional for API compatibility)
   cashReceived?: number;
   cashChange?: number;
-  customerId?: string;
-  customerInfo?: {
-    name: string;
-    email?: string;
-    phone?: string;
-  };
-  notes?: string;
-  status: 'draft' | 'completed' | 'cancelled' | 'refunded';
-  cashierId: string;
-  createdAt: Date;
-  completedAt?: Date;
-  cancelledAt?: Date;
+  cashierId?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  // Payment adjustment properties
+  originalTotal?: number;
+  finalTotal?: number;
+  adjustmentAmount?: number;
+  adjustmentType?: 'descuento' | 'recargo' | 'ninguno';
+  adjustmentPercentage?: number;
+  // Customer balance properties
+  balanceUsed?: number;
 }
 
 export interface POSSettings {
@@ -120,7 +133,7 @@ export interface POSSettings {
   allowNegativeStock: boolean;
   requireCustomerInfo: boolean;
   autoGenerateReceipt: boolean;
-  defaultPaymentMethod: Sale['paymentMethod'];
+  defaultPaymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   lowStockWarning: boolean;
   maxItemsPerSale?: number;
 }
@@ -205,6 +218,10 @@ export interface PaymentInfo {
   cashReceived?: number;
   cardReference?: string;
   transferReference?: string;
+  // Customer balance information
+  customerId?: string;
+  customerName?: string;
+  balanceUsed?: number;
 }
 
 // Store state interfaces
@@ -219,15 +236,15 @@ export interface POSSettingsState {
   isLoading: boolean;
 }
 
-// User types
+// User types (aligned with backend API)
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'gerente' | 'cajero';
+  role: 'admin' | 'user'; // Backend uses 'admin' | 'user', UI can map roles
   avatar?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Employee Management Types
@@ -235,7 +252,7 @@ export interface Employee {
   id: string;
   name: string;
   email: string;
-  role: 'cajero' | 'gerente';
+  role: 'cajero' | 'gerente' | 'mozo';
   phone?: string;
   address?: string;
   startDate: Date;
@@ -252,7 +269,25 @@ export interface EmployeeCreationData {
   startDate: Date;
 }
 
-// Financial Management Types
+// Customer/Client Management Types
+export interface Client {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  taxId?: string; // CUIT/CUIL
+  notes?: string;
+  preferredPaymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  totalPurchases?: number;
+  purchaseCount?: number;
+  lastPurchase?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  isActive: boolean;
+}
+
+// Financial Summary Types
 export interface CashTransaction {
   id: string;
   type: 'ingreso' | 'egreso';

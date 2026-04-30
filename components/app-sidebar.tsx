@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
   Warehouse,
+  UserCheck,
+  CreditCard,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -23,7 +25,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { useAuthStore } from '@/stores/auth.store';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
 
@@ -41,11 +43,23 @@ const navigationItems = [
     enabled: true,
   },
   {
-    title: 'Caja y Finanzas',
-    url: '/dashboard/finances',
-    icon: DollarSign,
+    title: 'Clientes',
+    url: '/dashboard/clients',
+    icon: UserCheck,
     enabled: true,
   },
+  {
+    title: 'Señas',
+    url: '/dashboard/prepaids',
+    icon: CreditCard,
+    enabled: true,
+  },
+  // {
+  //   title: 'Caja y Finanzas',
+  //   url: '/dashboard/finances',
+  //   icon: DollarSign,
+  //   enabled: true,
+  // },
   {
     title: 'Productos',
     url: '/dashboard/products',
@@ -64,16 +78,16 @@ const navigationItems = [
     icon: Users,
     enabled: true,
   },
-  {
-    title: 'Configuración',
-    url: '/dashboard/settings',
-    icon: Settings,
-    enabled: false,
-  },
+  // {
+  //   title: 'Configuración',
+  //   url: '/dashboard/settings',
+  //   icon: Settings,
+  //   enabled: true,
+  // },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { logout, user } = useAuthStore();
+  const { logout, user } = useAuth();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -85,19 +99,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   // Filter navigation items based on user role
+  // Map backend roles to UI roles for navigation logic
+  const getUserRole = () => {
+    if (!user) return null;
+    // For now, map backend roles to UI expectations
+    // Backend: 'admin' | 'user'  ->  UI logic expects: 'admin' | 'gerente' | 'cajero'
+    return user.role === 'admin' ? 'admin' : 'gerente';
+  };
+
   const filteredNavItems = navigationItems.filter((item) => {
     if (!user) return true; // Show all if no user (shouldn't happen)
-    
-    if (user.role === 'cajero') {
-      // Cajero: Solo Dashboard, Productos (lectura), Ventas
-      return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
-    }
-    
-    if (user.role === 'gerente') {
+
+    const uiRole = getUserRole();
+
+    // Note: 'cajero' role not implemented in backend yet
+    // if (uiRole === 'cajero') {
+    //   return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
+    // }
+
+    if (uiRole === 'gerente') {
       // Gerente: Todo menos Personal
       return item.title !== 'Personal';
     }
-    
+
     // Admin: Ve todo
     return true;
   });
@@ -125,7 +149,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             width={400}
             height={32}
             alt='MÍSTICA Logo'
-            className='object-contain'
+            className='object-contain h-8 w-auto'
           />
         </div>
       </SidebarHeader>
@@ -137,24 +161,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {item.enabled ? (
                 <SidebarMenuButton
                   asChild
-                  className='text-[#455a54] hover:bg-[#9d684e]/10 hover:text-[#9d684e]'
+                  tooltip={item.title}
+                  className='text-[#455a54] hover:bg-[#9d684e]/10 hover:text-[#9d684e] touch-target'
                 >
                   <Link
                     href={item.url}
                     className='flex items-center gap-2'
                   >
-                    <item.icon className='h-4 w-4' />
-                    <span className='font-winter-solid'>{item.title}</span>
+                    <item.icon className='h-5 w-5 sm:h-4 sm:w-4' />
+                    <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>
+                      {item.title}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               ) : (
                 <SidebarMenuButton
-                  className='text-[#455a54]/50 cursor-not-allowed opacity-50'
+                  className='text-[#455a54]/50 cursor-not-allowed opacity-50 touch-target'
                   disabled
-                  title='Próximamente disponible'
+                  tooltip='Próximamente disponible'
                 >
-                  <item.icon className='h-4 w-4' />
-                  <span className='font-winter-solid'>{item.title}</span>
+                  <item.icon className='h-5 w-5 sm:h-4 sm:w-4' />
+                  <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>
+                    {item.title}
+                  </span>
                 </SidebarMenuButton>
               )}
             </SidebarMenuItem>
@@ -167,10 +196,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}
-              className='text-[#455a54] hover:bg-red-50 hover:text-red-600'
+              tooltip='Cerrar Sesión'
+              className='text-[#455a54] hover:bg-red-50 hover:text-red-600 touch-target'
             >
-              <LogOut className='h-4 w-4' />
-              <span className='font-winter-solid'>Cerrar Sesión</span>
+              <LogOut className='h-5 w-5 sm:h-4 sm:w-4' />
+              <span className='font-winter-solid text-sm sm:text-base group-data-[collapsible=icon]:hidden'>
+                Cerrar Sesión
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -178,4 +210,3 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     </Sidebar>
   );
 }
-

@@ -2,75 +2,39 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { User } from '@/lib/types';
+import { authService, AuthResponse, User } from '@/services/auth.service';
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  status: 'idle' | 'loading' | 'success' | 'error';
-  error: string | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  
+  // Simple synchronous setters (following 4-layer architecture)
+  setUser: (user: User | null) => void;
+  setToken: (token: string | null) => void;
+  setAuthenticated: (isAuthenticated: boolean) => void;
   logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       token: null,
-      status: 'idle',
-      error: null,
       isAuthenticated: false,
 
-      login: async (email, password) => {
-        set({ status: 'loading', error: null });
-        try {
-          // Mock users for different roles
-          let user;
-          
-          if (email === 'admin@mistica.com') {
-            user = { id: '1', email, name: 'Administrador', role: 'admin' as const };
-          } else if (email === 'gerente@mistica.com') {
-            user = { id: '2', email, name: 'Carlos Rodríguez', role: 'gerente' as const };
-          } else if (email === 'cajero@mistica.com') {
-            user = { id: '3', email, name: 'Ana López', role: 'cajero' as const };
-          } else {
-            // Default admin for any other email
-            user = { id: '1', email, name: email.split('@')[0], role: 'admin' as const };
-          }
-          
-          const token = 'mock-token-' + Date.now();
-
-          set({ 
-            user, 
-            token, 
-            isAuthenticated: true, 
-            status: 'success',
-            error: null 
-          });
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Error inesperado';
-          set({
-            status: 'error',
-            error: errorMessage,
-            isAuthenticated: false,
-            user: null,
-            token: null,
-          });
-
-          throw error;
-        }
-      },
-
+      // Simple synchronous setters (no async logic in store)
+      setUser: (user: User | null) => set({ user }),
+      
+      setToken: (token: string | null) => set({ token }),
+      
+      setAuthenticated: (isAuthenticated: boolean) => set({ isAuthenticated }),
+      
       logout: () => {
         set({ 
           user: null,
           token: null,
-          isAuthenticated: false, 
-          status: 'idle', 
-          error: null 
+          isAuthenticated: false
         });
       },
     }),
@@ -86,17 +50,13 @@ export const useAuthStore = create<AuthState>()(
       // Automatically restore authentication state on hydration
       onRehydrateStorage: () => (state) => {
         if (state && state.token && state.user) {
-          // Token exists, validate and restore authenticated state
+          // Token exists, restore authenticated state
           state.isAuthenticated = true;
-          state.status = 'success';
-          state.error = null;
         } else if (state) {
           // No token, ensure clean state
           state.isAuthenticated = false;
           state.user = null;
           state.token = null;
-          state.status = 'idle';
-          state.error = null;
         }
       },
     }

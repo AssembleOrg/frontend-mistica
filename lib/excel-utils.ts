@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Product } from './types';
-import { categoryConfig, statusConfig } from './mock-data';
+import { categoryConfig, statusConfig } from './config';
 import { calculateProfitMargin } from './barcode-utils';
 
 /**
@@ -17,7 +17,8 @@ export function exportProductsToExcel(products: Product[], filename?: string): v
   // Mapear unidades de medida a etiquetas cortas
   const unitLabels = {
     gramo: 'g',
-    litro: 'L'
+    litro: 'L',
+    unidad: 'unid'
   };
 
   // Transformar datos para Excel con headers en español y formato Argentina

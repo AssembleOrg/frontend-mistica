@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Product, Sale, StockMovement, CartItem, Employee, CashTransaction, Expense, FinancialSummary } from '@/lib/types';
-import { mockProducts, mockSales, mockEmployees } from '@/lib/mock-data';
+// Removed mock imports - now using real API data
 import { useActivityStore } from './activity.store';
 
 interface AppState {
@@ -55,11 +55,11 @@ interface AppState {
   clearCart: () => void;
   
   // Sales Actions
-  completeSale: (paymentMethod: string, cashReceived?: number) => Sale;
+  completeSale: (paymentMethod: string, cashReceived?: number, saleData?: any) => Sale;
   editSale: (saleId: string, updates: { paymentMethod?: Sale['paymentMethod']; notes?: string; customerInfo?: any }) => boolean;
   
   // Stock Actions
-  adjustStock: (productId: string, quantity: number, reason: string) => void;
+  adjustStock: (productId: string, quantity: number, reason: string, previousStock: number, newStock: number, productName: string) => void;
   
   // Computed
   getCartTotal: () => number;
@@ -204,36 +204,54 @@ export const useAppStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
 
       // Sales Actions
-      completeSale: (paymentMethod, cashReceived) => {
+      completeSale: (paymentMethod, cashReceived, saleData) => {
         const state = get();
         const subtotal = state.getCartTotal();
         const taxAmount = subtotal * state.settings.taxRate;
-        const total = subtotal + taxAmount;
+        const originalTotal = subtotal + taxAmount;
+        
+        // Use final total from saleData if available (includes payment adjustments)
+        const finalTotal = saleData?.finalTotal || originalTotal;
 
         const sale: Sale = {
           id: crypto.randomUUID(),
+          saleNumber: `SALE-${Date.now()}`,
           items: state.cart.map(item => {
             const product = state.products.find(p => p.id === item.productId)!;
             return {
-              id: crypto.randomUUID(),
               productId: item.productId,
-              product: product,
+              productName: item.productName,
               quantity: item.quantity,
               unitPrice: item.price,
               subtotal: item.subtotal
             };
           }),
           subtotal,
-          discountTotal: 0,
-          taxAmount,
-          total,
-          paymentMethod: paymentMethod as any,
+          discount: 0,
+          tax: taxAmount,
+          total: finalTotal,
+          paymentMethod: paymentMethod as 'CASH' | 'CARD' | 'TRANSFER',
+          status: 'COMPLETED',
+          customerName: saleData?.customerName || 'Cliente',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          // POS specific properties
           cashReceived,
-          cashChange: cashReceived ? Math.max(0, cashReceived - total) : undefined,
-          status: 'completed',
+          cashChange: cashReceived ? Math.max(0, cashReceived - finalTotal) : undefined,
           cashierId: 'user',
-          createdAt: new Date(),
-          completedAt: new Date()
+          completedAt: new Date().toISOString(),
+          // Payment adjustment properties from saleData
+          originalTotal: saleData?.originalTotal,
+          finalTotal: saleData?.finalTotal,
+          adjustmentAmount: saleData?.adjustmentAmount,
+          adjustmentType: saleData?.adjustmentType,
+          adjustmentPercentage: saleData?.adjustmentPercentage,
+          notes: saleData?.reference,
+          // Customer balance properties
+          clientId: saleData?.customerId,
+          customerEmail: saleData?.customerEmail,
+          customerPhone: saleData?.customerPhone,
+          balanceUsed: saleData?.balanceUsed
         };
 
         // Update product stock
@@ -270,7 +288,7 @@ export const useAppStore = create<AppState>()(
         useActivityStore.getState().addActivity({
           type: 'ingreso',
           description: `Venta completada - ${state.cart.length} items`,
-          amount: total,
+          amount: finalTotal,
           metadata: { 
             saleId: sale.id, 
             paymentMethod, 
@@ -283,7 +301,7 @@ export const useAppStore = create<AppState>()(
         const cashTransaction: CashTransaction = {
           id: crypto.randomUUID(),
           type: 'ingreso',
-          amount: total,
+          amount: finalTotal,
           description: `Venta #${sale.id.slice(-8)}`,
           category: 'venta',
           paymentMethod: paymentMethod as any,
@@ -307,7 +325,8 @@ export const useAppStore = create<AppState>()(
         
         // Restriction: Only allow edits within 24 hours
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        if (sale.createdAt < twentyFourHoursAgo) {
+        const saleDate = new Date(sale.createdAt);
+        if (saleDate < twentyFourHoursAgo) {
           return false;
         }
         
@@ -315,11 +334,10 @@ export const useAppStore = create<AppState>()(
         const allowedUpdates: Partial<Sale> = {};
         if (updates.paymentMethod) allowedUpdates.paymentMethod = updates.paymentMethod;
         if (updates.notes !== undefined) allowedUpdates.notes = updates.notes;
-        if (updates.customerInfo) allowedUpdates.customerInfo = updates.customerInfo;
         
         set(state => ({
           salesHistory: state.salesHistory.map(s =>
-            s.id === saleId ? { ...s, ...allowedUpdates, updatedAt: new Date() } : s
+            s.id === saleId ? { ...s, ...allowedUpdates, updatedAt: new Date().toISOString() } : s
           )
         }));
         
@@ -338,14 +356,7 @@ export const useAppStore = create<AppState>()(
       },
 
       // Stock Actions
-      adjustStock: (productId, quantity, reason) => {
-        const state = get();
-        const product = state.products.find(p => p.id === productId);
-        if (!product) return;
-
-        const newStock = product.stock + quantity;
-        state.updateProduct(productId, { stock: newStock });
-
+      adjustStock: (productId, quantity, reason, previousStock, newStock, productName) => {
         const movement: StockMovement = {
           id: crypto.randomUUID(),
           productId,
@@ -354,7 +365,7 @@ export const useAppStore = create<AppState>()(
           reason,
           userId: 'user',
           createdAt: new Date(),
-          previousStock: product.stock,
+          previousStock,
           newStock
         };
 
@@ -365,11 +376,11 @@ export const useAppStore = create<AppState>()(
         // Log stock activity
         useActivityStore.getState().addActivity({
           type: quantity > 0 ? 'ingreso' : 'egreso',
-          description: `Ajuste de stock: ${product.name} (${quantity > 0 ? '+' : ''}${quantity})`,
+          description: `Ajuste de stock: ${productName} (${quantity > 0 ? '+' : ''}${quantity})`,
           metadata: { 
             productId, 
             movementId: movement.id,
-            previousStock: product.stock,
+            previousStock,
             newStock,
             reason,
             action: 'stock_adjustment'
@@ -498,9 +509,10 @@ export const useAppStore = create<AppState>()(
           e.createdAt >= startOfDay && e.createdAt < endOfDay
         );
 
-        const daySales = state.salesHistory.filter(s => 
-          s.createdAt >= startOfDay && s.createdAt < endOfDay
-        );
+        const daySales = state.salesHistory.filter(s => {
+          const saleDate = new Date(s.createdAt);
+          return saleDate >= startOfDay && saleDate < endOfDay;
+        });
 
         // Calculate totals
         const totalIngresos = dayTransactions
@@ -511,7 +523,7 @@ export const useAppStore = create<AppState>()(
           .filter(t => t.type === 'egreso')
           .reduce((sum, t) => sum + t.amount, 0);
 
-        // Payment method breakdown
+        // Payment method breakdown with proper mapping
         const paymentMethodBreakdown = {
           efectivo: 0,
           tarjeta: 0,
@@ -520,7 +532,20 @@ export const useAppStore = create<AppState>()(
         };
 
         daySales.forEach(sale => {
-          paymentMethodBreakdown[sale.paymentMethod] += sale.total;
+          switch (sale.paymentMethod) {
+            case 'CASH':
+              paymentMethodBreakdown.efectivo += sale.total;
+              break;
+            case 'CARD':
+              paymentMethodBreakdown.tarjeta += sale.total;
+              break;
+            case 'TRANSFER':
+              paymentMethodBreakdown.transferencia += sale.total;
+              break;
+            default:
+              paymentMethodBreakdown.mixto += sale.total;
+              break;
+          }
         });
 
         // Top expense categories
@@ -574,16 +599,16 @@ export const useAppStore = create<AppState>()(
     {
       name: 'mistica-app-store',
       onRehydrateStorage: () => (state) => {
-        // Initialize with mock data if empty
-        if (state && state.products.length === 0) {
-          state.products = mockProducts;
-        }
-        if (state && state.salesHistory.length === 0) {
-          state.salesHistory = mockSales;
-        }
-        if (state && state.employees.length === 0) {
-          state.employees = mockEmployees;
-        }
+        // NOTE: Mock data initialization removed - now using real API data
+        // if (state && state.products.length === 0) {
+        //   state.products = mockProducts;
+        // }
+        // if (state && state.salesHistory.length === 0) {
+        //   state.salesHistory = mockSales;
+        // }
+        // if (state && state.employees.length === 0) {
+        //   state.employees = mockEmployees;
+        // }
       }
     }
   )

@@ -1,0 +1,2910 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["App"]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "AppController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["App"]
+      }
+    },
+    "/api/db-info": {
+      "get": {
+        "operationId": "AppController_getDatabaseInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["App"]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login exitoso"
+          },
+          "401": {
+            "description": "Credenciales inválidas"
+          }
+        },
+        "summary": "Iniciar sesión",
+        "tags": ["Autenticación"]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario registrado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "summary": "Registrar nuevo usuario",
+        "tags": ["Autenticación"]
+      }
+    },
+    "/api/auth/admin/register": {
+      "post": {
+        "operationId": "AuthController_createAdminUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Administrador registrado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "401": {
+            "description": "No autorizado"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar nuevo usuario administrador",
+        "tags": ["Autenticación"]
+      }
+    },
+    "/api/employees": {
+      "post": {
+        "operationId": "EmployeesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Empleado creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo empleado",
+        "tags": ["Empleados"]
+      },
+      "get": {
+        "operationId": "EmployeesController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de empleados obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los empleados con paginación",
+        "tags": ["Empleados"]
+      }
+    },
+    "/api/employees/all": {
+      "get": {
+        "operationId": "EmployeesController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de empleados obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los empleados sin paginación",
+        "tags": ["Empleados"]
+      }
+    },
+    "/api/employees/{id}": {
+      "get": {
+        "operationId": "EmployeesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empleado encontrado exitosamente"
+          },
+          "404": {
+            "description": "Empleado no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener empleado por ID",
+        "tags": ["Empleados"]
+      },
+      "patch": {
+        "operationId": "EmployeesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Empleado actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "404": {
+            "description": "Empleado no encontrado"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar empleado",
+        "tags": ["Empleados"]
+      },
+      "delete": {
+        "operationId": "EmployeesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empleado eliminado exitosamente"
+          },
+          "404": {
+            "description": "Empleado no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar empleado (soft delete)",
+        "tags": ["Empleados"]
+      }
+    },
+    "/api/users": {
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo usuario",
+        "tags": ["Usuarios"]
+      },
+      "get": {
+        "operationId": "UsersController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filtrar por estado",
+            "schema": {
+              "enum": ["PENDING", "COMPLETED", "CANCELLED"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de usuarios obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los usuarios con paginación",
+        "tags": ["Usuarios"]
+      }
+    },
+    "/api/users/all": {
+      "get": {
+        "operationId": "UsersController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de usuarios obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los usuarios sin paginación",
+        "tags": ["Usuarios"]
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "operationId": "UsersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario encontrado exitosamente"
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener usuario por ID",
+        "tags": ["Usuarios"]
+      },
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Usuario actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar usuario",
+        "tags": ["Usuarios"]
+      },
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario eliminado exitosamente"
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar usuario (soft delete)",
+        "tags": ["Usuarios"]
+      }
+    },
+    "/api/products": {
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Producto creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos o precio inválido"
+          },
+          "409": {
+            "description": "Código de barras ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo producto",
+        "tags": ["Productos"]
+      },
+      "get": {
+        "operationId": "ProductsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de productos obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los productos con paginación",
+        "tags": ["Productos"]
+      }
+    },
+    "/api/products/all": {
+      "get": {
+        "operationId": "ProductsController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de productos obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los productos sin paginación",
+        "tags": ["Productos"]
+      }
+    },
+    "/api/products/category/{category}": {
+      "get": {
+        "operationId": "ProductsController_findByCategory",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "path",
+            "description": "Categoría del producto",
+            "schema": {
+              "enum": ["organicos", "aromaticos", "wellness"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda para filtrar por nombre",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio para filtrar por createdAt (YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss.sssZ)",
+            "schema": {
+              "format": "date-time",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin para filtrar por createdAt (YYYY-MM-DD o YYYY-MM-DDTHH:mm:ss.sssZ)",
+            "schema": {
+              "format": "date-time",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de productos por categoría obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener productos por categoría con paginación",
+        "tags": ["Productos"]
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto encontrado exitosamente"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener producto por ID",
+        "tags": ["Productos"]
+      },
+      "patch": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos o precio inválido"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          },
+          "409": {
+            "description": "Código de barras ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar producto",
+        "tags": ["Productos"]
+      },
+      "delete": {
+        "operationId": "ProductsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto eliminado exitosamente"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar producto (soft delete)",
+        "tags": ["Productos"]
+      }
+    },
+    "/api/products/{id}/stock/add": {
+      "patch": {
+        "operationId": "ProductsController_addStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock actualizado exitosamente"
+          },
+          "400": {
+            "description": "Cantidad inválida"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Agregar stock al producto",
+        "tags": ["Productos"]
+      }
+    },
+    "/api/products/{id}/stock/subtract": {
+      "patch": {
+        "operationId": "ProductsController_subtractStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock actualizado exitosamente"
+          },
+          "400": {
+            "description": "Stock insuficiente o cantidad inválida"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Restar stock del producto",
+        "tags": ["Productos"]
+      }
+    },
+    "/api/sales": {
+      "post": {
+        "operationId": "SalesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Venta creada exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos o stock insuficiente"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nueva venta",
+        "tags": ["Ventas"]
+      }
+    },
+    "/api/sales/paginated": {
+      "get": {
+        "operationId": "SalesController_findAllPaginated",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filtrar por status de la venta",
+            "schema": {
+              "enum": ["PENDING", "COMPLETED", "CANCELLED"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de ventas obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todas las ventas con paginación",
+        "tags": ["Ventas"]
+      }
+    },
+    "/api/sales/all": {
+      "get": {
+        "operationId": "SalesController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de ventas obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todas las ventas sin paginación",
+        "tags": ["Ventas"]
+      }
+    },
+    "/api/sales/daily": {
+      "get": {
+        "operationId": "SalesController_getDailySales",
+        "parameters": [
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Fecha en formato YYYY-MM-DD (default: hoy)",
+            "schema": {
+              "example": "2025-08-26",
+              "type": "string"
+            }
+          },
+          {
+            "name": "timezone",
+            "required": false,
+            "in": "query",
+            "description": "Zona horaria (default: America/Argentina/Buenos_Aires)",
+            "schema": {
+              "default": "America/Argentina/Buenos_Aires",
+              "example": "America/Argentina/Buenos_Aires",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ventas del día obtenidas exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener ventas del día",
+        "tags": ["Ventas"]
+      }
+    },
+    "/api/sales/{id}": {
+      "get": {
+        "operationId": "SalesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID de la venta",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Venta encontrada exitosamente"
+          },
+          "404": {
+            "description": "Venta no encontrada"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener venta por ID",
+        "tags": ["Ventas"]
+      },
+      "patch": {
+        "operationId": "SalesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID de la venta",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSaleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Venta actualizada exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos o venta no modificable"
+          },
+          "404": {
+            "description": "Venta no encontrada"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar venta",
+        "tags": ["Ventas"]
+      },
+      "delete": {
+        "operationId": "SalesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID de la venta",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Venta eliminada exitosamente"
+          },
+          "404": {
+            "description": "Venta no encontrada"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar venta (soft delete)",
+        "tags": ["Ventas"]
+      }
+    },
+    "/api/prepaids/{clientId}": {
+      "post": {
+        "operationId": "PrepaidsController_create",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePrepaidDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prepaid creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo prepaid para un cliente",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/paginated": {
+      "get": {
+        "operationId": "PrepaidsController_findAllPaginated",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filtrar por status",
+            "schema": {
+              "enum": ["PENDING", "CONSUMED"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de prepaids obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los prepaids con paginación",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/all": {
+      "get": {
+        "operationId": "PrepaidsController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de prepaids obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los prepaids sin paginación",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/status": {
+      "get": {
+        "operationId": "PrepaidsController_findByStatus",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "description": "Status del prepaid",
+            "schema": {
+              "enum": ["PENDING", "CONSUMED"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepaids filtrados por status obtenidos exitosamente"
+          },
+          "400": {
+            "description": "Status requerido"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener prepaids filtrados por status con paginación",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/{id}": {
+      "get": {
+        "operationId": "PrepaidsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del prepaid",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepaid encontrado exitosamente"
+          },
+          "404": {
+            "description": "Prepaid no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener prepaid por ID",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/client/{clientId}": {
+      "get": {
+        "operationId": "PrepaidsController_findByClientId",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepaids del cliente obtenidos exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener prepaids de un cliente",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/client/{clientId}/pending": {
+      "get": {
+        "operationId": "PrepaidsController_findPendingByClientId",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepaids pendientes obtenidos exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener prepaids pendientes de un cliente",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/prepaids/client/{clientId}/total": {
+      "get": {
+        "operationId": "PrepaidsController_getClientTotalPrepaidAmount",
+        "parameters": [
+          {
+            "name": "clientId",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monto total obtenido exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener monto total de prepaids pendientes de un cliente",
+        "tags": ["Prepaids"]
+      }
+    },
+    "/api/clients": {
+      "post": {
+        "operationId": "ClientsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cliente creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email o CUIT ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo cliente",
+        "tags": ["Clientes"]
+      }
+    },
+    "/api/clients/paginated": {
+      "get": {
+        "operationId": "ClientsController_findAllPaginated",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de clientes obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los clientes con paginación",
+        "tags": ["Clientes"]
+      }
+    },
+    "/api/clients/all": {
+      "get": {
+        "operationId": "ClientsController_findAllWithoutPagination",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Término de búsqueda",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista completa de clientes obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los clientes sin paginación",
+        "tags": ["Clientes"]
+      }
+    },
+    "/api/clients/{id}": {
+      "get": {
+        "operationId": "ClientsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cliente encontrado exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener cliente por ID",
+        "tags": ["Clientes"]
+      },
+      "patch": {
+        "operationId": "ClientsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClientDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cliente actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          },
+          "409": {
+            "description": "Email o CUIT ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar cliente",
+        "tags": ["Clientes"]
+      },
+      "delete": {
+        "operationId": "ClientsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cliente eliminado exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar cliente (soft delete)",
+        "tags": ["Clientes"]
+      }
+    },
+    "/api/clients/{id}/prepaids": {
+      "get": {
+        "operationId": "ClientsController_getClientPrepaids",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepaids del cliente obtenidos exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener prepaids del cliente",
+        "tags": ["Clientes"]
+      }
+    },
+    "/api/clients/{id}/prepaids/pending": {
+      "get": {
+        "operationId": "ClientsController_getClientPendingPrepaids",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del cliente",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prepaids pendientes obtenidos exitosamente"
+          },
+          "404": {
+            "description": "Cliente no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener prepaids pendientes del cliente",
+        "tags": ["Clientes"]
+      }
+    },
+    "/api/egresses": {
+      "post": {
+        "operationId": "EgressesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEgressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Egreso creado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos de entrada inválidos"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear un nuevo egreso",
+        "tags": ["Egresos"]
+      },
+      "get": {
+        "operationId": "EgressesController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite de elementos por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Búsqueda por concepto, notas o autorizado por",
+            "schema": {
+              "maxLength": 100,
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "format": "date-time",
+              "example": "2025-09-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "format": "date-time",
+              "example": "2025-09-30",
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filtrar por estado",
+            "schema": {
+              "enum": ["PENDING", "COMPLETED", "CANCELLED"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "description": "Filtrar por tipo",
+            "schema": {
+              "enum": ["WITHDRAWAL", "EXPENSE", "REFUND", "TRANSFER", "OTHER"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "currency",
+            "required": false,
+            "in": "query",
+            "description": "Filtrar por moneda",
+            "schema": {
+              "enum": ["USD", "EUR", "UYU", "ARS", "BRL"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de egresos obtenida exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener lista paginada de egresos con filtros",
+        "tags": ["Egresos"]
+      }
+    },
+    "/api/egresses/statistics": {
+      "get": {
+        "operationId": "EgressesController_getStatistics",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de inicio (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Fecha de fin (YYYY-MM-DD)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estadísticas obtenidas exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener estadísticas de egresos por período",
+        "tags": ["Egresos"]
+      }
+    },
+    "/api/egresses/{id}": {
+      "get": {
+        "operationId": "EgressesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del egreso",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Egreso encontrado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Egreso no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener un egreso por ID",
+        "tags": ["Egresos"]
+      },
+      "patch": {
+        "operationId": "EgressesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del egreso",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEgressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Egreso actualizado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El egreso no puede ser actualizado"
+          },
+          "404": {
+            "description": "Egreso no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar un egreso",
+        "tags": ["Egresos"]
+      },
+      "delete": {
+        "operationId": "EgressesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del egreso",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Egreso eliminado exitosamente"
+          },
+          "400": {
+            "description": "El egreso no puede ser eliminado"
+          },
+          "404": {
+            "description": "Egreso no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar un egreso (soft delete)",
+        "tags": ["Egresos"]
+      }
+    },
+    "/api/egresses/{id}/complete": {
+      "patch": {
+        "operationId": "EgressesController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del egreso",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Egreso completado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El egreso no puede ser completado"
+          },
+          "404": {
+            "description": "Egreso no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Marcar un egreso como completado",
+        "tags": ["Egresos"]
+      }
+    },
+    "/api/egresses/{id}/cancel": {
+      "patch": {
+        "operationId": "EgressesController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "ID del egreso",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Egreso cancelado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "El egreso no puede ser cancelado"
+          },
+          "404": {
+            "description": "Egreso no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Cancelar un egreso",
+        "tags": ["Egresos"]
+      }
+    }
+  },
+  "info": {
+    "title": "Mistica Autentica API",
+    "description": "API para la gestión del café bar Mistica Autentica",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Autenticación",
+      "description": "Endpoints para autenticación de usuarios"
+    },
+    {
+      "name": "Empleados",
+      "description": "Gestión de empleados del café"
+    },
+    {
+      "name": "Usuarios",
+      "description": "Gestión de usuarios del sistema"
+    },
+    {
+      "name": "Productos",
+      "description": "Gestión de productos del café"
+    },
+    {
+      "name": "Ventas",
+      "description": "Gestión de ventas del café"
+    },
+    {
+      "name": "Clientes",
+      "description": "Gestión de clientes del café"
+    },
+    {
+      "name": "Prepaids",
+      "description": "Gestión de prepaids de clientes"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "LoginUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email del usuario"
+          },
+          "password": {
+            "type": "string",
+            "description": "Contraseña del usuario"
+          }
+        },
+        "required": ["email", "password"]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email del usuario"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del usuario"
+          },
+          "password": {
+            "type": "string",
+            "description": "Contraseña del usuario"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "user"],
+            "description": "Rol del usuario"
+          },
+          "avatar": {
+            "type": "string",
+            "description": "Avatar del usuario"
+          }
+        },
+        "required": ["email", "name", "password", "role"]
+      },
+      "CreateEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del empleado"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email del empleado"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["cajero", "gerente", "mozo"],
+            "description": "Rol del empleado"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Teléfono del empleado"
+          },
+          "address": {
+            "type": "string",
+            "description": "Dirección del empleado"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Fecha de inicio"
+          }
+        },
+        "required": ["name", "email", "role", "startDate"]
+      },
+      "UpdateEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del empleado"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email del empleado"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["cajero", "gerente", "mozo"],
+            "description": "Rol del empleado"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Teléfono del empleado"
+          },
+          "address": {
+            "type": "string",
+            "description": "Dirección del empleado"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Fecha de inicio"
+          }
+        }
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email del usuario"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del usuario"
+          },
+          "password": {
+            "type": "string",
+            "description": "Contraseña del usuario"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "user"],
+            "description": "Rol del usuario"
+          },
+          "avatar": {
+            "type": "string",
+            "description": "Avatar del usuario"
+          }
+        }
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
+          },
+          "barcode": {
+            "type": "string",
+            "description": "Código de barras del producto"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["organicos", "aromaticos", "wellness"],
+            "description": "Categoría del producto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio de venta"
+          },
+          "costPrice": {
+            "type": "number",
+            "description": "Precio de costo"
+          },
+          "stock": {
+            "type": "number",
+            "description": "Stock disponible"
+          },
+          "unitOfMeasure": {
+            "type": "string",
+            "enum": ["litro", "gramo", "unidad"],
+            "description": "Unidad de medida"
+          },
+          "image": {
+            "type": "string",
+            "description": "URL de la imagen del producto"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "out_of_stock"],
+            "description": "Estado del producto"
+          },
+          "profitMargin": {
+            "type": "number",
+            "description": "Margen de ganancia"
+          },
+          "specialProduct": {
+            "type": "boolean",
+            "description": "Producto especial",
+            "default": false
+          }
+        },
+        "required": [
+          "name",
+          "barcode",
+          "category",
+          "price",
+          "costPrice",
+          "stock",
+          "unitOfMeasure",
+          "image",
+          "description",
+          "status"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
+          },
+          "barcode": {
+            "type": "string",
+            "description": "Código de barras del producto"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["organicos", "aromaticos", "wellness"],
+            "description": "Categoría del producto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio de venta"
+          },
+          "costPrice": {
+            "type": "number",
+            "description": "Precio de costo"
+          },
+          "stock": {
+            "type": "number",
+            "description": "Stock disponible"
+          },
+          "unitOfMeasure": {
+            "type": "string",
+            "enum": ["litro", "gramo", "unidad"],
+            "description": "Unidad de medida"
+          },
+          "image": {
+            "type": "string",
+            "description": "URL de la imagen del producto"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive", "out_of_stock"],
+            "description": "Estado del producto"
+          },
+          "profitMargin": {
+            "type": "number",
+            "description": "Margen de ganancia"
+          },
+          "specialProduct": {
+            "type": "boolean",
+            "description": "Producto especial"
+          }
+        }
+      },
+      "CreateSaleItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "ID del producto"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Cantidad del producto",
+            "minimum": 1
+          },
+          "unitPrice": {
+            "type": "number",
+            "description": "Precio unitario del producto",
+            "minimum": 0
+          }
+        },
+        "required": ["productId", "quantity", "unitPrice"]
+      },
+      "CreateSaleDto": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "description": "ID del cliente"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Nombre del cliente"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Email del cliente"
+          },
+          "customerPhone": {
+            "type": "string",
+            "description": "Teléfono del cliente"
+          },
+          "items": {
+            "description": "Items de la venta",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSaleItemDto"
+            }
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Método de pago",
+            "enum": ["CASH", "CARD", "TRANSFER"]
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas adicionales"
+          },
+          "tax": {
+            "type": "number",
+            "description": "Porcentaje de impuesto a aplicar (0-100)",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 0
+          },
+          "discount": {
+            "type": "number",
+            "description": "Porcentaje de descuento a aplicar (0-100)",
+            "minimum": 0,
+            "maximum": 100,
+            "default": 0
+          },
+          "prepaidUsed": {
+            "type": "number",
+            "description": "Monto en dinero usado de prepaid",
+            "minimum": 0,
+            "default": 0
+          },
+          "prepaidId": {
+            "type": "string",
+            "description": "ID del prepaid a consumir",
+            "example": "68ba80bd888b3960426b7f55"
+          },
+          "consumedPrepaid": {
+            "type": "boolean",
+            "description": "Indica si se debe consumir el prepaid especificado",
+            "default": false,
+            "example": true
+          }
+        },
+        "required": ["items", "paymentMethod"]
+      },
+      "UpdateSaleDto": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "description": "ID del cliente"
+          },
+          "customerName": {
+            "type": "string",
+            "description": "Nombre del cliente"
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Email del cliente"
+          },
+          "customerPhone": {
+            "type": "string",
+            "description": "Teléfono del cliente"
+          },
+          "items": {
+            "description": "Items de la venta",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSaleItemDto"
+            }
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Método de pago",
+            "enum": ["CASH", "CARD", "TRANSFER"]
+          },
+          "status": {
+            "type": "string",
+            "description": "Estado de la venta",
+            "enum": ["PENDING", "COMPLETED", "CANCELLED"]
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas adicionales"
+          },
+          "tax": {
+            "type": "number",
+            "description": "Porcentaje de impuesto a aplicar (0-100)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "discount": {
+            "type": "number",
+            "description": "Porcentaje de descuento a aplicar (0-100)",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "prepaidUsed": {
+            "type": "number",
+            "description": "Monto en dinero usado de prepaid",
+            "minimum": 0
+          },
+          "prepaidId": {
+            "type": "string",
+            "description": "ID del prepaid a consumir",
+            "example": "68ba80bd888b3960426b7f55"
+          },
+          "consumedPrepaid": {
+            "type": "boolean",
+            "description": "Indica si se debe consumir el prepaid especificado",
+            "default": false,
+            "example": true
+          }
+        }
+      },
+      "CreatePrepaidDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "description": "Monto del prepago",
+            "minimum": 0.01
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas del prepago"
+          }
+        },
+        "required": ["amount"]
+      },
+      "CreateClientDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "description": "Nombre completo del cliente"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Teléfono del cliente"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email del cliente"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas del cliente"
+          },
+          "cuit": {
+            "type": "string",
+            "description": "CUIT del cliente"
+          },
+          "prepaids": {
+            "description": "Prepaids del cliente",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreatePrepaidDto"
+            }
+          }
+        },
+        "required": ["fullName"]
+      },
+      "UpdateClientDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "description": "Nombre completo del cliente"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Teléfono del cliente"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email del cliente"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas del cliente"
+          },
+          "cuit": {
+            "type": "string",
+            "description": "CUIT del cliente"
+          },
+          "prepaids": {
+            "description": "Prepaids del cliente",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreatePrepaidDto"
+            }
+          }
+        }
+      },
+      "CreateEgressDto": {
+        "type": "object",
+        "properties": {
+          "concept": {
+            "type": "string",
+            "description": "Concepto o explicación del egreso",
+            "example": "Retiro de caja chica para gastos operativos",
+            "minLength": 3
+          },
+          "amount": {
+            "type": "number",
+            "description": "Monto del egreso",
+            "example": 150.5,
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Moneda del egreso",
+            "enum": ["USD", "EUR", "UYU", "ARS", "BRL"],
+            "example": "USD"
+          },
+          "type": {
+            "type": "string",
+            "description": "Tipo de egreso",
+            "enum": ["WITHDRAWAL", "EXPENSE", "REFUND", "TRANSFER", "OTHER"],
+            "example": "WITHDRAWAL"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas adicionales sobre el egreso",
+            "example": "Autorizado por gerencia para mantenimiento de equipos"
+          },
+          "authorizedBy": {
+            "type": "string",
+            "description": "Persona que autoriza el egreso",
+            "example": "Juan Pérez - Gerente"
+          },
+          "userId": {
+            "type": "string",
+            "description": "ID del usuario que registra el egreso",
+            "example": "507f1f77bcf86cd799439011"
+          }
+        },
+        "required": ["concept", "amount", "currency", "type"]
+      },
+      "UpdateEgressDto": {
+        "type": "object",
+        "properties": {
+          "concept": {
+            "type": "string",
+            "description": "Concepto o explicación del egreso",
+            "example": "Retiro de caja chica para gastos operativos",
+            "minLength": 3
+          },
+          "amount": {
+            "type": "number",
+            "description": "Monto del egreso",
+            "example": 150.5,
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "description": "Moneda del egreso",
+            "enum": ["USD", "EUR", "UYU", "ARS", "BRL"],
+            "example": "USD"
+          },
+          "type": {
+            "type": "string",
+            "description": "Tipo de egreso",
+            "enum": ["WITHDRAWAL", "EXPENSE", "REFUND", "TRANSFER", "OTHER"],
+            "example": "WITHDRAWAL"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notas adicionales sobre el egreso",
+            "example": "Autorizado por gerencia para mantenimiento de equipos"
+          },
+          "authorizedBy": {
+            "type": "string",
+            "description": "Persona que autoriza el egreso",
+            "example": "Juan Pérez - Gerente"
+          },
+          "userId": {
+            "type": "string",
+            "description": "ID del usuario que registra el egreso",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "status": {
+            "type": "string",
+            "description": "Estado del egreso",
+            "enum": ["PENDING", "COMPLETED", "CANCELLED"],
+            "example": "COMPLETED"
+          }
+        }
+      }
+    }
+  }
+}

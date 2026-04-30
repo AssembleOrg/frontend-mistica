@@ -1,14 +1,13 @@
 /**
- * CAPA 4: PRESENTATION LAYER - STOCK ADJUSTMENTS PAGE (CLEAN VERSION)
- * 
+ * CAPA 4: PRESENTATION LAYER - STOCK ADJUSTMENTS PAGE
+ *
  * Página UI PURA que solo renderiza y delega al controller
  * Sin lógica de negocio, sin acceso directo a stores
  */
 
-/*  eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -19,35 +18,93 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Package, Search, Save } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowLeft, Package, Search, Save, Filter, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { showToast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
+import { useInitialProductsData } from '@/hooks/useInitialProductsData';
+import { PaginationWithMore } from '@/components/ui/pagination-with-more';
+import type { Product } from '@/lib/types';
 
-export default function StockAdjustmentsPage() {
+function StockAdjustmentsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [newStock, setNewStock] = useState('');
+  const [newUnitOfMeasure, setNewUnitOfMeasure] = useState<'gramo' | 'litro' | 'unidad'>('gramo');
   const [reason, setReason] = useState('');
   const [_notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Handle initial data loading
+  const { isLoading: loadingProducts } = useInitialProductsData();
 
   // Simple hooks API
   const { adjustStockQuantity } = useStock();
-  const { products } = useProducts();
+  const { products, updateProduct } = useProducts();
 
-  // Filter products based on search
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.barcode.includes(searchQuery)
-  );
+  // Pre-select product from URL parameters
+  useEffect(() => {
+    const productId = searchParams.get('product');
+    if (productId && products.length > 0 && !selectedProduct) {
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        setSelectedProduct(product);
+        setNewStock(product.stock.toString());
+        setNewUnitOfMeasure(product.unitOfMeasure);
+        console.log('🎯 Pre-seleccionado producto desde URL:', product.name);
+      }
+    }
+  }, [searchParams, products, selectedProduct]);
 
-  const handleProductSelect = (product: any) => {
+  // Filter products based on search and category - optimized with useMemo
+  const filteredProducts = useMemo(() => {
+    const filtered = products.filter((product) => {
+      const matchesSearch =
+        searchQuery === '' ||
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.barcode.includes(searchQuery);
+
+      const matchesCategory =
+        selectedCategory === 'all' || product.category === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+
+    // Only log when values actually change
+    console.log(
+      '📦 StockAdjustments: Productos cargados:',
+      products.length,
+      'Filtrados:',
+      filtered.length
+    );
+
+    return filtered;
+  }, [products, searchQuery, selectedCategory]);
+
+  const categories = [
+    { value: 'all', label: 'Todas las categorías' },
+    { value: 'organicos', label: 'Orgánicos' },
+    { value: 'aromaticos', label: 'Aromáticos' },
+    { value: 'wellness', label: 'Wellness' },
+  ];
+
+  const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
     setNewStock(product.stock.toString());
+    setNewUnitOfMeasure(product.unitOfMeasure);
     setSearchQuery('');
   };
 
@@ -59,20 +116,46 @@ export default function StockAdjustmentsPage() {
       return;
     }
 
+    if (!reason.trim()) {
+      showToast.error('Debe especificar un motivo para el ajuste');
+      return;
+    }
+
     const newStockValue = parseInt(newStock);
+    if (isNaN(newStockValue) || newStockValue < 0) {
+      showToast.error('El stock debe ser un número válido mayor o igual a 0');
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       // Calculate the adjustment quantity
       const adjustment = newStockValue - selectedProduct.stock;
-      
-      // Use simple hook to adjust stock
-      adjustStockQuantity(selectedProduct.id, adjustment, reason);
 
-      showToast.success(`Stock de "${selectedProduct.name}" actualizado correctamente`);
+      if (adjustment === 0) {
+        showToast.info('No hay cambios en el stock');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if unit of measure has changed and update it
+      if (newUnitOfMeasure !== selectedProduct.unitOfMeasure) {
+        console.log('🔄 Actualizando unidad de medida:', selectedProduct.unitOfMeasure, '→', newUnitOfMeasure);
+        await updateProduct(selectedProduct.id, { unitOfMeasure: newUnitOfMeasure });
+      }
+
+      // Use simple hook to adjust stock with backend integration
+      await adjustStockQuantity(selectedProduct.id, adjustment, reason);
+
+      showToast.success(
+        `Stock de "${selectedProduct.name}" actualizado correctamente`
+      );
 
       // Reset form
       setSelectedProduct(null);
       setNewStock('');
+      setNewUnitOfMeasure('gramo');
       setReason('');
       setNotes('');
 
@@ -81,14 +164,20 @@ export default function StockAdjustmentsPage() {
         router.push('/dashboard/stock');
       }, 1500);
     } catch (error) {
-      showToast.error(error instanceof Error ? error.message : 'Error al realizar ajuste');
+      console.error('Error en ajuste de stock:', error);
+      showToast.error(
+        error instanceof Error ? error.message : 'Error al realizar ajuste'
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const difference =
-    selectedProduct && newStock
+  const difference = useMemo(() => {
+    return selectedProduct && newStock
       ? parseInt(newStock) - selectedProduct.stock
       : 0;
+  }, [selectedProduct, newStock]);
 
   return (
     <div className='space-y-6 mt-6'>
@@ -131,35 +220,60 @@ export default function StockAdjustmentsPage() {
           >
             {/* Product Search */}
             {!selectedProduct && (
-              <div className='space-y-2'>
-                <Label
-                  htmlFor='search'
-                  className='text-[#455a54] font-winter-solid'
-                >
+              <div className='space-y-4'>
+                <Label className='text-[#455a54] font-winter-solid'>
                   Buscar Producto
                 </Label>
-                <div className='relative'>
-                  <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#455a54]/50' />
-                  <Input
-                    id='search'
-                    type='text'
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder='Buscar por nombre o código de barras...'
-                    className='pl-10 border-[#9d684e]/20 focus:border-[#9d684e]'
-                  />
+
+                {/* Search and Filter Controls */}
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-3'>
+                  <div className='relative'>
+                    <Search className='absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#455a54]/50' />
+                    <Input
+                      type='text'
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder='Buscar por nombre o código...'
+                      className='pl-10 border-[#9d684e]/20 focus:border-[#9d684e]'
+                    />
+                  </div>
+
+                  <Select
+                    value={selectedCategory}
+                    onValueChange={setSelectedCategory}
+                  >
+                    <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e]'>
+                      <Filter className='h-4 w-4 mr-2' />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem
+                          key={category.value}
+                          value={category.value}
+                        >
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {/* Search Results */}
-                {searchQuery && (
-                  <div className='max-h-48 overflow-y-auto border border-[#9d684e]/20 rounded-md'>
-                    {filteredProducts.length > 0 ? (
-                      filteredProducts.slice(0, 5).map((product) => (
+                {/* Product Results with Pagination */}
+                {(searchQuery || selectedCategory !== 'all') && (
+                  <div className='border border-[#9d684e]/20 rounded-md max-h-80 overflow-hidden'>
+                    <PaginationWithMore
+                      items={filteredProducts}
+                      itemsPerPage={10}
+                      loading={loadingProducts}
+                      className='p-2'
+                      noItemsText='No se encontraron productos'
+                      renderItem={(product) => (
                         <button
                           key={product.id}
                           type='button'
                           onClick={() => handleProductSelect(product)}
-                          className='w-full text-left p-3 hover:bg-[#efcbb9]/20 border-b border-[#9d684e]/10 last:border-b-0'
+                          className='w-full text-left p-3 hover:bg-[#efcbb9]/20 border border-[#9d684e]/10 rounded-md'
                         >
                           <div className='flex justify-between items-center'>
                             <div>
@@ -167,7 +281,7 @@ export default function StockAdjustmentsPage() {
                                 {product.name}
                               </p>
                               <p className='text-sm text-[#455a54]/70'>
-                                {product.barcode}
+                                {product.barcode} • {product.category}
                               </p>
                             </div>
                             <div className='text-right'>
@@ -180,12 +294,8 @@ export default function StockAdjustmentsPage() {
                             </div>
                           </div>
                         </button>
-                      ))
-                    ) : (
-                      <div className='p-3 text-center text-[#455a54]/70'>
-                        No se encontraron productos
-                      </div>
-                    )}
+                      )}
+                    />
                   </div>
                 )}
               </div>
@@ -202,7 +312,7 @@ export default function StockAdjustmentsPage() {
                         {selectedProduct.name}
                       </h3>
                       <p className='text-sm text-[#455a54]/70'>
-                        Código: {selectedProduct.barcode}
+                        {selectedProduct.category} • Código: {selectedProduct.barcode}
                       </p>
                     </div>
                   </div>
@@ -222,6 +332,7 @@ export default function StockAdjustmentsPage() {
                   onClick={() => {
                     setSelectedProduct(null);
                     setNewStock('');
+                    setNewUnitOfMeasure('gramo');
                     setReason('');
                     setNotes('');
                   }}
@@ -291,12 +402,37 @@ export default function StockAdjustmentsPage() {
                   />
                 </div>
 
+                <div className='space-y-2'>
+                  <Label
+                    htmlFor='unitOfMeasure'
+                    className='text-[#455a54] font-winter-solid'
+                  >
+                    Unidad de Medida
+                  </Label>
+                  <Select value={newUnitOfMeasure} onValueChange={(value: 'gramo' | 'litro' | 'unidad') => setNewUnitOfMeasure(value)}>
+                    <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e]'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='gramo'>Gramo</SelectItem>
+                      <SelectItem value='litro'>Litro</SelectItem>
+                      <SelectItem value='unidad'>Unidad</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {newUnitOfMeasure !== selectedProduct.unitOfMeasure && (
+                    <p className='text-xs text-orange-600 flex items-center gap-1'>
+                      <AlertCircle className='w-3 h-3' />
+                      Se cambiará de &ldquo;{selectedProduct.unitOfMeasure}&rdquo; a &ldquo;{newUnitOfMeasure}&rdquo;
+                    </p>
+                  )}
+                </div>
+
                 <Button
                   type='submit'
-                  disabled={!newStock || !reason}
+                  disabled={!newStock || !reason || isSubmitting}
                   className='w-full bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid'
                 >
-                  {false ? (
+                  {isSubmitting ? (
                     <>
                       <LoadingSpinner size='sm' />
                       <span className='ml-2'>Procesando...</span>
@@ -314,5 +450,13 @@ export default function StockAdjustmentsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function StockAdjustmentsPage() {
+  return (
+    <Suspense fallback={<div className="space-y-6 mt-6"><div className="animate-pulse h-8 bg-gray-200 rounded w-64"></div></div>}>
+      <StockAdjustmentsContent />
+    </Suspense>
   );
 }

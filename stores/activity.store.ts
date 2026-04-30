@@ -3,13 +3,77 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Activity types for tracking different operations
+// Activity types for tracking different operations - EXPANDED FOR AUDIT
 type ActivityType =
+  // Financial
   | 'ingreso'
   | 'egreso'
+  // Product Management
   | 'cambio_producto'
   | 'cambio_precio'
+  | 'producto_creado'
+  | 'producto_editado'
+  | 'producto_eliminado'
+  // Stock Management
+  | 'ajuste_stock'
+  | 'stock_entrada'
+  | 'stock_salida'
+  // Employee Management
+  | 'empleado_creado'
+  | 'empleado_editado'
+  | 'empleado_eliminado'
+  // Sales & Service
+  | 'venta_realizada'
+  | 'venta_asignada'
+  | 'servicio_iniciado'
+  | 'servicio_cerrado'
+  // Authentication & Security
+  | 'login'
+  | 'logout'
+  | 'acceso_denegado'
+  // General
   | 'otro';
+
+// Enhanced metadata structure for better tracking
+interface ActivityMetadata {
+  // User tracking
+  userId?: string;
+  employeeName?: string;
+  employeeRole?: string;
+  
+  // Product/Stock context  
+  productId?: string;
+  productName?: string;
+  oldValue?: any;
+  newValue?: any;
+  quantityChanged?: number;
+  
+  // Service/Sales context
+  serviceId?: string;
+  customerId?: string;
+  paymentMethod?: string;
+  itemsCount?: number;
+  saleId?: string;
+  
+  // Action context
+  action?: string;
+  updates?: any;
+  performedBy?: string;
+  movementId?: string;
+  employeeId?: string;
+  expenseId?: string;
+  transactionId?: string;
+  itemCount?: number;
+  previousStock?: number;
+  newStock?: number;
+  category?: string;
+  reason?: string;
+  
+  // System context
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId?: string;
+}
 
 interface Activity {
   id: string;
@@ -18,7 +82,7 @@ interface Activity {
   amount?: number;
   date: Date;
   userId?: string;
-  metadata?: Record<string, any>;
+  metadata?: ActivityMetadata;
 }
 
 interface ActivityState {
@@ -107,4 +171,4 @@ export const useActivityStore = create<ActivityState>()(
 );
 
 // Export types for component usage
-export type { Activity, ActivityType };
+export type { Activity, ActivityType, ActivityMetadata };

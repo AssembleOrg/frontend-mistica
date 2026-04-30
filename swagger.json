@@ -1,0 +1,1208 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "AppController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/db-info": {
+      "get": {
+        "operationId": "AppController_getDatabaseInfo",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "App"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login exitoso"
+          },
+          "401": {
+            "description": "Credenciales inválidas"
+          }
+        },
+        "summary": "Iniciar sesión",
+        "tags": [
+          "Autenticación"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario registrado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "summary": "Registrar nuevo usuario",
+        "tags": [
+          "Autenticación"
+        ]
+      }
+    },
+    "/auth/admin/register": {
+      "post": {
+        "operationId": "AuthController_createAdminUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Administrador registrado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "401": {
+            "description": "No autorizado"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar nuevo usuario administrador",
+        "tags": [
+          "Autenticación"
+        ]
+      }
+    },
+    "/employees": {
+      "post": {
+        "operationId": "EmployeesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Empleado creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo empleado",
+        "tags": [
+          "Empleados"
+        ]
+      },
+      "get": {
+        "operationId": "EmployeesController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de empleados obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los empleados con paginación",
+        "tags": [
+          "Empleados"
+        ]
+      }
+    },
+    "/employees/all": {
+      "get": {
+        "operationId": "EmployeesController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de empleados obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los empleados sin paginación",
+        "tags": [
+          "Empleados"
+        ]
+      }
+    },
+    "/employees/{id}": {
+      "get": {
+        "operationId": "EmployeesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empleado encontrado exitosamente"
+          },
+          "404": {
+            "description": "Empleado no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener empleado por ID",
+        "tags": [
+          "Empleados"
+        ]
+      },
+      "patch": {
+        "operationId": "EmployeesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Empleado actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "404": {
+            "description": "Empleado no encontrado"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar empleado",
+        "tags": [
+          "Empleados"
+        ]
+      },
+      "delete": {
+        "operationId": "EmployeesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empleado eliminado exitosamente"
+          },
+          "404": {
+            "description": "Empleado no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar empleado (soft delete)",
+        "tags": [
+          "Empleados"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Usuario creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo usuario",
+        "tags": [
+          "Usuarios"
+        ]
+      },
+      "get": {
+        "operationId": "UsersController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de usuarios obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los usuarios con paginación",
+        "tags": [
+          "Usuarios"
+        ]
+      }
+    },
+    "/users/all": {
+      "get": {
+        "operationId": "UsersController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de usuarios obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los usuarios sin paginación",
+        "tags": [
+          "Usuarios"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "operationId": "UsersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario encontrado exitosamente"
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener usuario por ID",
+        "tags": [
+          "Usuarios"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Usuario actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos"
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          },
+          "409": {
+            "description": "Email ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar usuario",
+        "tags": [
+          "Usuarios"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario eliminado exitosamente"
+          },
+          "404": {
+            "description": "Usuario no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar usuario (soft delete)",
+        "tags": [
+          "Usuarios"
+        ]
+      }
+    },
+    "/products": {
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Producto creado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos o precio inválido"
+          },
+          "409": {
+            "description": "Código de barras ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Crear nuevo producto",
+        "tags": [
+          "Productos"
+        ]
+      },
+      "get": {
+        "operationId": "ProductsController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de productos obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los productos con paginación",
+        "tags": [
+          "Productos"
+        ]
+      }
+    },
+    "/products/all": {
+      "get": {
+        "operationId": "ProductsController_findAllWithoutPagination",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Lista completa de productos obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener todos los productos sin paginación",
+        "tags": [
+          "Productos"
+        ]
+      }
+    },
+    "/products/category/{category}": {
+      "get": {
+        "operationId": "ProductsController_findByCategory",
+        "parameters": [
+          {
+            "name": "category",
+            "required": true,
+            "in": "path",
+            "description": "Categoría del producto",
+            "schema": {
+              "enum": [
+                "organicos",
+                "aromaticos",
+                "wellness"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Número de página",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Límite por página",
+            "schema": {
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de productos por categoría obtenida exitosamente"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener productos por categoría con paginación",
+        "tags": [
+          "Productos"
+        ]
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto encontrado exitosamente"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtener producto por ID",
+        "tags": [
+          "Productos"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Producto actualizado exitosamente"
+          },
+          "400": {
+            "description": "Datos inválidos o precio inválido"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          },
+          "409": {
+            "description": "Código de barras ya registrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Actualizar producto",
+        "tags": [
+          "Productos"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Producto eliminado exitosamente"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Eliminar producto (soft delete)",
+        "tags": [
+          "Productos"
+        ]
+      }
+    },
+    "/products/{id}/stock/add": {
+      "patch": {
+        "operationId": "ProductsController_addStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock actualizado exitosamente"
+          },
+          "400": {
+            "description": "Cantidad inválida"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Agregar stock al producto",
+        "tags": [
+          "Productos"
+        ]
+      }
+    },
+    "/products/{id}/stock/subtract": {
+      "patch": {
+        "operationId": "ProductsController_subtractStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock actualizado exitosamente"
+          },
+          "400": {
+            "description": "Stock insuficiente o cantidad inválida"
+          },
+          "404": {
+            "description": "Producto no encontrado"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Restar stock del producto",
+        "tags": [
+          "Productos"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Mistica Autentica API",
+    "description": "API para la gestión del café bar Mistica Autentica",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Autenticación",
+      "description": "Endpoints para autenticación de usuarios"
+    },
+    {
+      "name": "Empleados",
+      "description": "Gestión de empleados del café"
+    },
+    {
+      "name": "Usuarios",
+      "description": "Gestión de usuarios del sistema"
+    },
+    {
+      "name": "Productos",
+      "description": "Gestión de productos del café"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "LoginUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email del usuario"
+          },
+          "password": {
+            "type": "string",
+            "description": "Contraseña del usuario"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email del usuario"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del usuario"
+          },
+          "password": {
+            "type": "string",
+            "description": "Contraseña del usuario"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ],
+            "description": "Rol del usuario"
+          },
+          "avatar": {
+            "type": "string",
+            "description": "Avatar del usuario"
+          }
+        },
+        "required": [
+          "email",
+          "name",
+          "password",
+          "role"
+        ]
+      },
+      "CreateEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del empleado"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email del empleado"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "cajero",
+              "gerente",
+              "mozo"
+            ],
+            "description": "Rol del empleado"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Teléfono del empleado"
+          },
+          "address": {
+            "type": "string",
+            "description": "Dirección del empleado"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Fecha de inicio"
+          }
+        },
+        "required": [
+          "name",
+          "email",
+          "role",
+          "startDate"
+        ]
+      },
+      "UpdateEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del empleado"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email del empleado"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "cajero",
+              "gerente",
+              "mozo"
+            ],
+            "description": "Rol del empleado"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Teléfono del empleado"
+          },
+          "address": {
+            "type": "string",
+            "description": "Dirección del empleado"
+          },
+          "startDate": {
+            "type": "string",
+            "description": "Fecha de inicio"
+          }
+        }
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email del usuario"
+          },
+          "name": {
+            "type": "string",
+            "description": "Nombre del usuario"
+          },
+          "password": {
+            "type": "string",
+            "description": "Contraseña del usuario"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ],
+            "description": "Rol del usuario"
+          },
+          "avatar": {
+            "type": "string",
+            "description": "Avatar del usuario"
+          }
+        }
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
+          },
+          "barcode": {
+            "type": "string",
+            "description": "Código de barras del producto"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "organicos",
+              "aromaticos",
+              "wellness"
+            ],
+            "description": "Categoría del producto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio de venta"
+          },
+          "costPrice": {
+            "type": "number",
+            "description": "Precio de costo"
+          },
+          "stock": {
+            "type": "number",
+            "description": "Stock disponible"
+          },
+          "unitOfMeasure": {
+            "type": "string",
+            "enum": [
+              "litro",
+              "gramo"
+            ],
+            "description": "Unidad de medida"
+          },
+          "image": {
+            "type": "string",
+            "description": "URL de la imagen del producto"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "out_of_stock"
+            ],
+            "description": "Estado del producto"
+          },
+          "profitMargin": {
+            "type": "number",
+            "description": "Margen de ganancia"
+          }
+        },
+        "required": [
+          "name",
+          "barcode",
+          "category",
+          "price",
+          "costPrice",
+          "stock",
+          "unitOfMeasure",
+          "image",
+          "description",
+          "status"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nombre del producto"
+          },
+          "barcode": {
+            "type": "string",
+            "description": "Código de barras del producto"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "organicos",
+              "aromaticos",
+              "wellness"
+            ],
+            "description": "Categoría del producto"
+          },
+          "price": {
+            "type": "number",
+            "description": "Precio de venta"
+          },
+          "costPrice": {
+            "type": "number",
+            "description": "Precio de costo"
+          },
+          "stock": {
+            "type": "number",
+            "description": "Stock disponible"
+          },
+          "unitOfMeasure": {
+            "type": "string",
+            "enum": [
+              "litro",
+              "gramo"
+            ],
+            "description": "Unidad de medida"
+          },
+          "image": {
+            "type": "string",
+            "description": "URL de la imagen del producto"
+          },
+          "description": {
+            "type": "string",
+            "description": "Descripción del producto"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "out_of_stock"
+            ],
+            "description": "Estado del producto"
+          },
+          "profitMargin": {
+            "type": "number",
+            "description": "Margen de ganancia"
+          }
+        }
+      }
+    }
+  }
+}

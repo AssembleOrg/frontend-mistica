@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { EmployeeForm } from '@/components/dashboard/staff/employee-form';
 import { useEmployees } from '@/hooks/useEmployees';
+import { useInitialEmployeesData } from '@/hooks/useInitialEmployeesData';
 import { Employee } from '@/lib/types';
 import { ArrowLeft } from 'lucide-react';
 
@@ -22,6 +23,10 @@ interface EditEmployeePageProps {
 
 export default function EditEmployeePage({ params }: EditEmployeePageProps) {
   const router = useRouter();
+  
+  // Initialize employees data
+  useInitialEmployeesData();
+  
   const { getEmployeeById } = useEmployees();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);

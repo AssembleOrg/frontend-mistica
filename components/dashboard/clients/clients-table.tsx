@@ -160,7 +160,7 @@ export function ClientsTable({
       />
 
       {/* Table */}
-      <div className="border border-[#9d684e]/20 rounded-lg overflow-hidden">
+      <div className="border border-[#9d684e]/20 rounded-lg overflow-x-auto">
         <Table>
           <TableHeader className="bg-[#9d684e]/5">
             <TableRow className="border-[#9d684e]/10">

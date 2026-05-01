@@ -15,7 +15,7 @@ export default function SettingsPage() {
     <div className='p-4 space-y-4'>
       <div className='flex items-center gap-3 mb-4'>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
             Configuración
           </h1>
           <p className='text-gray-600'>

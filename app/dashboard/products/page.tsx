@@ -83,7 +83,7 @@ export default function ProductsPage() {
       <div className='space-y-6'>
         <div className='flex items-center justify-between'>
           <div>
-            <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+            <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
               Gestión de Productos
             </h1>
             <p className='text-red-500 font-winter-solid'>

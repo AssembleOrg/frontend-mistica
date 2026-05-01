@@ -85,7 +85,7 @@ export default function StockDashboard() {
     <div className='space-y-6 mt-6'>
       {/* Header */}
       <div>
-        <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus'>
+        <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
           Gestión de Stock
         </h1>
         <p className='text-[#455a54]/70 font-winter-solid'>

@@ -207,7 +207,7 @@ export default function PrepaidsPage() {
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
             Gestión de Señas
           </h1>
           <p className='text-[#455a54]/70 font-winter-solid'>

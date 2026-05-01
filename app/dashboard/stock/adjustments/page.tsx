@@ -193,7 +193,7 @@ function StockAdjustmentsContent() {
           </Link>
         </Button>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
             Ajustar Stock
           </h1>
           <p className='text-[#455a54]/70 font-winter-solid'>

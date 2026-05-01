@@ -52,7 +52,7 @@ export default function EditEmployeePage({ params }: EditEmployeePageProps) {
       <div className='space-y-6'>
         <div className='flex items-center justify-between'>
           <div>
-            <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+            <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
               Cargando...
             </h1>
           </div>
@@ -66,7 +66,7 @@ export default function EditEmployeePage({ params }: EditEmployeePageProps) {
       <div className='space-y-6'>
         <div className='flex items-center justify-between'>
           <div>
-            <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+            <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
               Empleado no encontrado
             </h1>
             <p className='text-[#455a54]/70 font-winter-solid'>
@@ -90,7 +90,7 @@ export default function EditEmployeePage({ params }: EditEmployeePageProps) {
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
             Editar Empleado
           </h1>
           <p className='text-[#455a54]/70 font-winter-solid'>

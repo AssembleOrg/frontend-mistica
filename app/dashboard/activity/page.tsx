@@ -81,18 +81,18 @@ export default function ActivityPage() {
   return (
     <div className='space-y-6 mt-6'>
       {/* Header */}
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
         <div className='space-y-1'>
-          <h1 className='text-3xl font-tan-nimbus font-bold text-[var(--color-verde-profundo)]'>
+          <h1 className='text-2xl sm:text-3xl font-tan-nimbus font-bold text-[var(--color-verde-profundo)]'>
             Historial de Actividades
           </h1>
-          <p className='text-[var(--color-ciruela-oscuro)]/70 font-winter-solid'>
+          <p className='text-[var(--color-ciruela-oscuro)]/70 font-winter-solid text-sm sm:text-base'>
             Registro completo de movimientos y cambios en tu negocio
           </p>
         </div>
         <Button
           onClick={handleAddDemoActivity}
-          className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid'
+          className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid w-full sm:w-auto'
         >
           <Plus className='w-4 h-4 mr-2' />
           Demo Sistema Auditoría
@@ -100,7 +100,7 @@ export default function ActivityPage() {
       </div>
 
       {/* Enhanced Stats Cards */}
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6'>
+      <div className='grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'>
         <Card className='border-[#10b981]/20'>
           <CardHeader className='pb-2'>
             <CardTitle className='text-sm font-winter-solid text-[#10b981] flex items-center gap-2'>

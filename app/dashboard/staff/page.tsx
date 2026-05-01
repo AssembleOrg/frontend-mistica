@@ -83,19 +83,19 @@ export default function StaffPage() {
   if (showForm) {
     return (
       <div className='space-y-6'>
-        <div className='flex items-center justify-between'>
+        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
           <div>
-            <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+            <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
               Nuevo Empleado
             </h1>
-            <p className='text-[#455a54]/70 font-winter-solid'>
+            <p className='text-[#455a54]/70 font-winter-solid text-sm sm:text-base'>
               Agregar un nuevo miembro al equipo
             </p>
           </div>
           <Button
             variant='outline'
             onClick={() => setShowForm(false)}
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 w-full sm:w-auto'
           >
             Volver a la lista
           </Button>
@@ -114,10 +114,10 @@ export default function StaffPage() {
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
             Gestión de Personal
           </h1>
-          <p className='text-[#455a54]/70 font-winter-solid'>
+          <p className='text-[#455a54]/70 font-winter-solid text-sm sm:text-base'>
             Administra el equipo de trabajo de MÍSTICA
           </p>
         </div>
@@ -200,7 +200,7 @@ export default function StaffPage() {
                     <Search className='h-4 w-4' />
                     Buscar Empleados
                   </label>
-                  <div className='flex gap-3'>
+                  <div className='flex flex-col sm:flex-row gap-3'>
                     <div className='flex-1'>
                       <Input
                         placeholder='Buscar por nombre, email o teléfono...'
@@ -212,7 +212,7 @@ export default function StaffPage() {
                     <select
                       value={selectedRole}
                       onChange={(e) => setSelectedRole(e.target.value as typeof selectedRole)}
-                      className='px-4 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none h-11 min-w-[140px]'
+                      className='px-4 py-2 border border-[#9d684e]/20 rounded-md focus:border-[#9d684e] focus:outline-none h-11 w-full sm:min-w-[140px] sm:w-auto'
                     >
                       <option value='all'>Todos</option>
                       <option value='gerente'>Gerente</option>

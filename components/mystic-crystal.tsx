@@ -10,11 +10,12 @@ export function MysticCrystal({
   className = ''
 }: MysticCrystalProps) {
   return (
-    <div 
-      className={`fixed top-4 right-4 z-50 ${className}`}
+    <div
+      className={`pointer-events-none fixed top-4 right-4 z-10 ${className}`}
       style={{
         animation: 'mystical-float 6s ease-in-out infinite',
       }}
+      aria-hidden="true"
     >
       <div
         className="relative w-12 h-12 rotate-45"

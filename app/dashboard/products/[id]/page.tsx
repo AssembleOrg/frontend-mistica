@@ -147,20 +147,20 @@ export default function ProductDetailsPage() {
   const profitMargin = calculateProfitMargin(product.price, product.costPrice);
 
   return (
-    <div className="max-w-2xl mx-auto mt-6 space-y-6">
+    <div className="max-w-2xl mx-auto mt-6 space-y-6 px-4 sm:px-0">
       {/* Header con navegación */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2">
         <Button
           variant="outline"
           onClick={() => router.push('/dashboard/products')}
-          className="border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30"
+          className="border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 w-full sm:w-auto"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
         </Button>
         <Button
           onClick={() => router.push(`/dashboard/products/${product.id}/edit`)}
-          className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white"
+          className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto"
         >
           <Edit className="mr-2 h-4 w-4" />
           Editar Producto

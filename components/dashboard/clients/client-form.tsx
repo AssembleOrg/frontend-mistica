@@ -11,7 +11,6 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
 import { formatCurrency } from '@/lib/sales-calculations';
-import { isNumber } from 'util';
 
 interface PrepaidItem {
   amount: number;

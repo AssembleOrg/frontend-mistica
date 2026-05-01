@@ -12,7 +12,7 @@ const ACCESS_TOKEN_COOKIE = 'access_token';
  * o inválido, devuelve 401 y el interceptor en `api.service.ts` se encarga
  * del logout en runtime.
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get(ACCESS_TOKEN_COOKIE);
   if (token) return NextResponse.next();
 

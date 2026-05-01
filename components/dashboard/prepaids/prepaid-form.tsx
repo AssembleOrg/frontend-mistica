@@ -36,8 +36,14 @@ export function PrepaidForm({
   const [searchResults, setSearchResults] = useState<Client[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    amount: number;
+    paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+    receivedAmount?: number;
+    notes: string;
+  }>({
     amount: 0,
+    paymentMethod: 'CASH',
     notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -47,6 +53,8 @@ export function PrepaidForm({
     if (prepaid) {
       setFormData({
         amount: prepaid.amount,
+        paymentMethod: prepaid.paymentMethod ?? 'CASH',
+        receivedAmount: prepaid.receivedAmount,
         notes: prepaid.notes || '',
       });
       setSelectedClientId(prepaid.clientId);
@@ -54,6 +62,7 @@ export function PrepaidForm({
     } else {
       setFormData({
         amount: 0,
+        paymentMethod: 'CASH',
         notes: '',
       });
       setSelectedClientId(initialClientId || '');
@@ -181,10 +190,20 @@ export function PrepaidForm({
     }
 
     try {
-      const prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest = {
-        amount: formData.amount,
-        notes: formData.notes || undefined,
-      };
+      // Para CASH, si entregaron más, calculamos vuelto en el backend
+      // (acá sólo mandamos lo entregado).
+      const prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest = prepaid
+        ? {
+            amount: formData.amount,
+            notes: formData.notes || undefined,
+          }
+        : {
+            amount: formData.amount,
+            paymentMethod: formData.paymentMethod,
+            receivedAmount:
+              formData.paymentMethod === 'CASH' ? formData.receivedAmount : undefined,
+            notes: formData.notes || undefined,
+          };
 
       await onSave(selectedClientId, prepaidData);
     } catch (error) {
@@ -333,6 +352,58 @@ export function PrepaidForm({
               <p className="text-sm text-red-500 font-winter-solid">{errors.amount}</p>
             )}
           </div>
+
+          {/* Método de pago — sólo en creación. En edición no se cambia para
+               no romper la trazabilidad contable de la seña ya cobrada. */}
+          {!prepaid && (
+            <div className="space-y-2">
+              <Label className="text-[#455a54] font-winter-solid">Método de Pago *</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['CASH', 'CARD', 'TRANSFER'] as const).map((m) => {
+                  const label = m === 'CASH' ? 'Efectivo' : m === 'CARD' ? 'Tarjeta' : 'Transferencia';
+                  const active = formData.paymentMethod === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          paymentMethod: m,
+                          // Al salir de CASH limpiamos el "entregado".
+                          receivedAmount: m === 'CASH' ? prev.receivedAmount : undefined,
+                        }))
+                      }
+                      className={`px-3 py-2 rounded-md border text-sm font-winter-solid transition ${
+                        active
+                          ? 'bg-[#9d684e] text-white border-[#9d684e]'
+                          : 'bg-white border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/10'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Recibido (sólo CASH en creación) */}
+          {!prepaid && formData.paymentMethod === 'CASH' && (
+            <div className="space-y-2">
+              <Label className="text-[#455a54] font-winter-solid">Entregado (efectivo)</Label>
+              <CurrencyInput
+                value={formData.receivedAmount ?? formData.amount}
+                onChange={(v) => setFormData((prev) => ({ ...prev, receivedAmount: v }))}
+                placeholder="0,00"
+              />
+              {(formData.receivedAmount ?? 0) > formData.amount && (
+                <p className="text-xs text-[#9d684e] font-winter-solid">
+                  Vuelto: {formatCurrency((formData.receivedAmount ?? 0) - formData.amount)}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-2">

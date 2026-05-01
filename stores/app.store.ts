@@ -56,7 +56,7 @@ interface AppState {
   
   // Sales Actions
   completeSale: (paymentMethod: string, cashReceived?: number, saleData?: any) => Sale;
-  editSale: (saleId: string, updates: { paymentMethod?: Sale['paymentMethod']; notes?: string; customerInfo?: any }) => boolean;
+  editSale: (saleId: string, updates: { notes?: string; customerInfo?: any }) => boolean;
   
   // Stock Actions
   adjustStock: (productId: string, quantity: number, reason: string, previousStock: number, newStock: number, productName: string) => void;
@@ -230,24 +230,26 @@ export const useAppStore = create<AppState>()(
           discount: 0,
           tax: taxAmount,
           total: finalTotal,
-          paymentMethod: paymentMethod as 'CASH' | 'CARD' | 'TRANSFER',
+          payments: (() => {
+            const method = paymentMethod as 'CASH' | 'CARD' | 'TRANSFER';
+            if (method === 'CASH') {
+              const received = cashReceived ?? finalTotal;
+              return [{
+                method,
+                amount: finalTotal,
+                receivedAmount: received,
+                changeGiven: Math.max(0, received - finalTotal),
+              }];
+            }
+            return [{ method, amount: finalTotal }];
+          })(),
           status: 'COMPLETED',
           customerName: saleData?.customerName || 'Cliente',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          // POS specific properties
-          cashReceived,
-          cashChange: cashReceived ? Math.max(0, cashReceived - finalTotal) : undefined,
           cashierId: 'user',
           completedAt: new Date().toISOString(),
-          // Payment adjustment properties from saleData
-          originalTotal: saleData?.originalTotal,
-          finalTotal: saleData?.finalTotal,
-          adjustmentAmount: saleData?.adjustmentAmount,
-          adjustmentType: saleData?.adjustmentType,
-          adjustmentPercentage: saleData?.adjustmentPercentage,
           notes: saleData?.reference,
-          // Customer balance properties
           clientId: saleData?.customerId,
           customerEmail: saleData?.customerEmail,
           customerPhone: saleData?.customerPhone,
@@ -332,7 +334,6 @@ export const useAppStore = create<AppState>()(
         
         // Only allow editing certain fields (not quantities or items)
         const allowedUpdates: Partial<Sale> = {};
-        if (updates.paymentMethod) allowedUpdates.paymentMethod = updates.paymentMethod;
         if (updates.notes !== undefined) allowedUpdates.notes = updates.notes;
         
         set(state => ({
@@ -532,19 +533,26 @@ export const useAppStore = create<AppState>()(
         };
 
         daySales.forEach(sale => {
-          switch (sale.paymentMethod) {
-            case 'CASH':
-              paymentMethodBreakdown.efectivo += sale.total;
-              break;
-            case 'CARD':
-              paymentMethodBreakdown.tarjeta += sale.total;
-              break;
-            case 'TRANSFER':
-              paymentMethodBreakdown.transferencia += sale.total;
-              break;
-            default:
-              paymentMethodBreakdown.mixto += sale.total;
-              break;
+          // Cada venta puede tener múltiples pagos. Sumamos cada `payment.amount`
+          // a su método correspondiente. Si la venta tiene varios métodos,
+          // cada uno suma a su propio bucket (no se duplica el total).
+          for (const p of sale.payments ?? []) {
+            switch (p.method) {
+              case 'CASH':
+                paymentMethodBreakdown.efectivo += p.amount;
+                break;
+              case 'CARD':
+                paymentMethodBreakdown.tarjeta += p.amount;
+                break;
+              case 'TRANSFER':
+                paymentMethodBreakdown.transferencia += p.amount;
+                break;
+            }
+          }
+          // Si la venta es multi-pago, también la marcamos en `mixto` para
+          // poder reportarla. Suma el total una sola vez.
+          if ((sale.payments?.length ?? 0) > 1) {
+            paymentMethodBreakdown.mixto += sale.total;
           }
         });
 

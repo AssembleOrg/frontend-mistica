@@ -95,6 +95,17 @@ export interface SaleItem {
   notes?: string;
 }
 
+export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
+
+export interface SalePayment {
+  method: PaymentMethodCode;
+  amount: number;
+  /** Sólo CASH: lo que entregó el cliente físicamente (≥ amount). */
+  receivedAmount?: number;
+  /** Sólo CASH: vuelto entregado (= receivedAmount - amount). */
+  changeGiven?: number;
+}
+
 export interface Sale {
   id: string;
   saleNumber: string;
@@ -107,23 +118,14 @@ export interface Sale {
   tax: number;
   discount: number;
   total: number;
-  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  payments: SalePayment[];
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
   createdAt: string;
   updatedAt: string;
-  // POS specific properties (optional for API compatibility)
-  cashReceived?: number;
-  cashChange?: number;
   cashierId?: string;
   completedAt?: string;
   cancelledAt?: string;
-  // Payment adjustment properties
-  originalTotal?: number;
-  finalTotal?: number;
-  adjustmentAmount?: number;
-  adjustmentType?: 'descuento' | 'recargo' | 'ninguno';
-  adjustmentPercentage?: number;
   // Customer balance properties
   balanceUsed?: number;
 }
@@ -133,7 +135,7 @@ export interface POSSettings {
   allowNegativeStock: boolean;
   requireCustomerInfo: boolean;
   autoGenerateReceipt: boolean;
-  defaultPaymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  defaultPaymentMethod: PaymentMethodCode;
   lowStockWarning: boolean;
   maxItemsPerSale?: number;
 }
@@ -158,7 +160,7 @@ export interface SalesStats {
     quantitySold: number;
     revenue: number;
   }>;
-  salesByPaymentMethod: Record<Sale['paymentMethod'], number>;
+  salesByPaymentMethod: Record<PaymentMethodCode, number>;
   salesByHour: Record<number, number>;
 }
 
@@ -278,7 +280,7 @@ export interface Client {
   address?: string;
   taxId?: string; // CUIT/CUIL
   notes?: string;
-  preferredPaymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  preferredPaymentMethod?: PaymentMethodCode;
   totalPurchases?: number;
   purchaseCount?: number;
   lastPurchase?: Date;
@@ -294,7 +296,7 @@ export interface CashTransaction {
   amount: number;
   description: string;
   category: string;
-  paymentMethod: Sale['paymentMethod'];
+  paymentMethod: PaymentMethodCode;
   reference?: string; // Reference to sale ID, expense ID, etc.
   userId: string;
   createdAt: Date;
@@ -305,7 +307,7 @@ export interface Expense {
   amount: number;
   description: string;
   category: 'operativo' | 'compras' | 'servicios' | 'otros';
-  paymentMethod: Sale['paymentMethod'];
+  paymentMethod: PaymentMethodCode;
   receipt?: string; // Receipt/invoice reference
   notes?: string;
   userId: string;

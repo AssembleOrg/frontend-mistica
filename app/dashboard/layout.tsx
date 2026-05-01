@@ -6,6 +6,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { MysticCrystal } from '@/components/mystic-crystal';
+import { CashboxStatusPill } from '@/components/dashboard/cashbox/cashbox-status-pill';
 
 export default function DashboardLayout({
   children,
@@ -24,6 +25,7 @@ export default function DashboardLayout({
             <div className='text-sm text-[#455a54] font-winter-solid truncate flex-1'>
               Dashboard / Panel Principal
             </div>
+            <CashboxStatusPill />
           </div>
         </header>
         <div

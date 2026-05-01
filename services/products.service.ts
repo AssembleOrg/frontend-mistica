@@ -181,6 +181,26 @@ export class ProductsService {
     return apiService.patch<Product[]>('/products/bulk/prices', { updates });
   }
 
+  /**
+   * Bulk-update por barcode (un solo request al backend).
+   * Cada item identifica el producto por su barcode y trae los campos a
+   * actualizar. El backend devuelve qué barcodes se actualizaron, cuáles no
+   * existen en el catálogo y cuáles fallaron por validación.
+   */
+  async bulkUpdateByBarcode(
+    items: Array<{ barcode: string; fields: Partial<UpdateProductRequest> }>
+  ): Promise<ApiResponse<{
+    updated: string[];
+    notFound: string[];
+    errors: Array<{ barcode: string; message: string }>;
+  }>> {
+    return apiService.post<{
+      updated: string[];
+      notFound: string[];
+      errors: Array<{ barcode: string; message: string }>;
+    }>('/products/bulk-update', { items });
+  }
+
   // Search products (if backend supports it)
   async searchProducts(
     query: string,

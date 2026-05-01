@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { formatCurrency } from '@/lib/sales-calculations';
+import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
@@ -36,13 +36,15 @@ interface SalesMobileViewProps {
 const paymentMethodLabels = {
   CASH: 'Efectivo',
   CARD: 'Tarjeta',
-  TRANSFER: 'Transferencia'
+  TRANSFER: 'Transferencia',
+  MIXED: 'Mixto',
 } as const;
 
 const paymentMethodColors = {
   CASH: 'bg-green-100 text-green-800 border-green-200',
-  CARD: 'bg-blue-100 text-blue-800 border-blue-200', 
-  TRANSFER: 'bg-purple-100 text-purple-800 border-purple-200'
+  CARD: 'bg-blue-100 text-blue-800 border-blue-200',
+  TRANSFER: 'bg-purple-100 text-purple-800 border-purple-200',
+  MIXED: 'bg-amber-100 text-amber-800 border-amber-200',
 } as const;
 
 const statusLabels = {
@@ -145,11 +147,14 @@ export function SalesMobileView({
                   <h3 className="mobile-card-title">
                     Venta #{sale.id.slice(-6).toUpperCase()}
                   </h3>
-                  <Badge 
-                    className={`text-xs ${paymentMethodColors[sale.paymentMethod]}`}
-                  >
-                    {paymentMethodLabels[sale.paymentMethod]}
-                  </Badge>
+                  {(() => {
+                    const primary = getPrimaryPaymentMethod(sale);
+                    return (
+                      <Badge className={`text-xs ${paymentMethodColors[primary]}`}>
+                        {paymentMethodLabels[primary]}
+                      </Badge>
+                    );
+                  })()}
                   <Badge 
                     variant="outline"
                     className={`text-xs ${statusColors[sale.status as keyof typeof statusColors]}`}

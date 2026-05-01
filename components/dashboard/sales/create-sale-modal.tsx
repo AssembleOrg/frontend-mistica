@@ -22,12 +22,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Minus, Trash2, Save, X, Percent } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
-import { CreateSaleRequest, UpdateSaleRequest, SaleItem, Sale } from '@/services/sales.service';
+import {
+  CreateSaleRequest,
+  SalePayment,
+  UpdateSaleRequest,
+  SaleItem,
+  Sale,
+} from '@/services/sales.service';
 import { useProducts } from '@/hooks/useProducts';
 import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { usePrepaidsAPI } from '@/hooks/usePrepaidsAPI';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { BarcodeScanner, BarcodeScannerRef } from './barcode-scanner';
+import { PaymentsEditor, paymentsAreValid } from './payments-editor';
 import { formatCurrency } from '@/lib/sales-calculations';
 import type { Product } from '@/lib/types';
 
@@ -45,7 +52,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'TRANSFER'>('CASH');
+  const [payments, setPayments] = useState<SalePayment[]>([]);
   const [notes, setNotes] = useState('');
   const [cartItems, setCartItems] = useState<SaleItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,7 +100,14 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       setCustomerName(editingSale.customerName || '');
       setCustomerEmail(editingSale.customerEmail || '');
       setCustomerPhone(editingSale.customerPhone || '');
-      setPaymentMethod(editingSale.paymentMethod);
+      setPayments(
+        (editingSale.payments || []).map((p) => ({
+          method: p.method,
+          amount: p.amount,
+          receivedAmount: p.receivedAmount,
+          changeGiven: p.changeGiven,
+        }))
+      );
       setNotes(editingSale.notes || '');
       
       // Convert sale items to cart items
@@ -269,6 +283,23 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const { subtotal, tax, discountAmount, prepaidAmount, total } = calculateTotals();
 
+  // Auto-actualizar la línea CASH cuando hay un solo método y cambia el total
+  // (caso típico del POS rápido). Si el operador armó un split, no tocamos.
+  useEffect(() => {
+    if (payments.length === 0 && total > 0) {
+      setPayments([{ method: 'CASH', amount: total, receivedAmount: total }]);
+      return;
+    }
+    if (payments.length === 1 && payments[0].method === 'CASH') {
+      setPayments([{
+        method: 'CASH',
+        amount: total,
+        receivedAmount: Math.max(payments[0].receivedAmount ?? total, total),
+      }]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -279,6 +310,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     if (cartItems.length === 0) {
       showToast.error('Debe agregar al menos un producto');
+      return;
+    }
+
+    if (!paymentsAreValid(payments, total)) {
+      showToast.error('La distribución del pago no coincide con el total');
       return;
     }
 
@@ -298,12 +334,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             unitPrice: item.unitPrice,
           })),
           discount: discountPercentage,
-          paymentMethod,
+          payments,
           notes: notes.trim() || undefined,
           prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
           consumedPrepaid: usePrepaid,
         };
-        
+
         await updateSale(editingSale.id, updateData);
         
         // Llamar callback si existe
@@ -323,12 +359,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             unitPrice: item.unitPrice,
           })),
           discount: discountPercentage,
-          paymentMethod,
+          payments,
           notes: notes.trim() || undefined,
           prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
           consumedPrepaid: usePrepaid,
         };
-        
+
         const createdSale = await createSale(saleData);
         onSaleCreated?.(createdSale);
         showToast.success('Venta creada exitosamente');
@@ -339,7 +375,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       setCustomerName('');
       setCustomerEmail('');
       setCustomerPhone('');
-      setPaymentMethod('CASH');
+      setPayments([]);
       setNotes('');
       setCartItems([]);
       setSearchQuery('');
@@ -371,7 +407,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
-    setPaymentMethod('CASH');
+    setPayments([]);
     setNotes('');
     setCartItems([]);
     setSearchQuery('');
@@ -471,21 +507,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="paymentMethod" className="text-[#455a54] font-winter-solid">
-                  Método de Pago *
-                </Label>
-                <Select value={paymentMethod} onValueChange={(value: 'CASH' | 'CARD' | 'TRANSFER') => setPaymentMethod(value)}>
-                  <SelectTrigger className="bg-white border-2 border-gray-700 hover:border-gray-800 focus:border-gray-900 focus:ring-2 focus:ring-gray-300 touch-target">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CASH" className="touch-target">Efectivo</SelectItem>
-                    <SelectItem value="CARD" className="touch-target">Tarjeta</SelectItem>
-                    <SelectItem value="TRANSFER" className="touch-target">Transferencia</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <PaymentsEditor
+                total={total}
+                value={payments}
+                onChange={setPayments}
+                disabled={isSubmitting}
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="notes" className="text-[#455a54] font-winter-solid">

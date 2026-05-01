@@ -3,7 +3,19 @@
 import { apiService, ApiResponse } from './api.service';
 import type { paths } from '@/lib/api-types';
 
-// Define types manually since they might not be in the OpenAPI schema yet
+export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
+
+// Una línea de pago de la venta. Una venta puede tener varias (cash + card,
+// cash + transfer, etc.). El backend valida que la suma iguale el total.
+export interface SalePayment {
+  method: PaymentMethodCode;
+  amount: number;
+  /** Sólo CASH: lo que entregó el cliente físicamente (≥ amount). */
+  receivedAmount?: number;
+  /** Sólo CASH: vuelto entregado al cliente (= receivedAmount - amount). */
+  changeGiven?: number;
+}
+
 export interface CreateSaleRequest {
   clientId?: string;
   customerName: string;
@@ -15,7 +27,8 @@ export interface CreateSaleRequest {
     unitPrice: number;
   }[];
   tax?: number;
-  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  /** Distribución del pago — una entrada por método; suma === total. */
+  payments: SalePayment[];
   notes?: string;
   prepaidId?: string;
   consumedPrepaid?: boolean;
@@ -32,7 +45,7 @@ export interface UpdateSaleRequest {
     quantity: number;
     unitPrice: number;
   }[];
-  paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  payments?: SalePayment[];
   notes?: string;
   status?: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   prepaidId?: string;
@@ -64,7 +77,7 @@ export interface Sale {
   prepaidUsed?: number;
   prepaidId?: string;
   total: number;
-  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  payments: SalePayment[];
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
   consumedPrepaid?: boolean;
@@ -102,6 +115,8 @@ interface DailySalesData {
       CARD: number;
       TRANSFER: number;
     };
+    /** Total entregado de vuelto en cash en el rango. */
+    totalCashChange: number;
     totalByStatus: {
       COMPLETED: number;
       PENDING: number;
@@ -190,12 +205,6 @@ export class SalesService {
       }
     }
     
-    // Ensure payment method is valid
-    const validPaymentMethods = ['CASH', 'CARD', 'TRANSFER'];
-    if (!validPaymentMethods.includes(cleaned.paymentMethod as string)) {
-      cleaned.paymentMethod = 'CASH';
-    }
-    
     return cleaned;
   }
 
@@ -275,21 +284,21 @@ export class SalesService {
     return response;
   }
 
-  // Get sales by payment method
+  // Get sales by payment method (busca ventas que tengan al menos un pago de ese método)
   async getSalesByPaymentMethod(
-    paymentMethod: 'CASH' | 'CARD' | 'TRANSFER',
+    paymentMethod: PaymentMethodCode,
     page: number = 1,
     limit: number = 10
   ): Promise<ApiResponse<PaginatedResponse<Sale>>> {
-    console.log('💰 SALES SERVICE: Obteniendo ventas por método de pago:', paymentMethod);
     const params = new URLSearchParams({
       paymentMethod,
       page: page.toString(),
       limit: limit.toString(),
     });
 
-    const response = await apiService.get<PaginatedResponse<Sale>>(`/sales/payment-method?${params.toString()}`);
-    console.log('💰 SALES SERVICE: Ventas por método obtenidas:', response.data?.data?.length || 0);
+    const response = await apiService.get<PaginatedResponse<Sale>>(
+      `/sales/payment-method?${params.toString()}`
+    );
     return response;
   }
 
@@ -392,14 +401,31 @@ export class SalesService {
       });
     }
 
-    const validPaymentMethods = ['CASH', 'CARD', 'TRANSFER'];
-    if (!validPaymentMethods.includes(saleData.paymentMethod)) {
-      errors.push('El método de pago debe ser válido');
+    if (!saleData.payments || saleData.payments.length === 0) {
+      errors.push('La venta debe tener al menos un pago');
+    } else {
+      const validMethods: PaymentMethodCode[] = ['CASH', 'CARD', 'TRANSFER'];
+      const seen = new Set<PaymentMethodCode>();
+      for (const p of saleData.payments) {
+        if (!validMethods.includes(p.method)) {
+          errors.push(`Método de pago inválido: ${p.method}`);
+        }
+        if (seen.has(p.method)) {
+          errors.push(`Hay más de un pago en ${p.method} — combinálos en uno solo`);
+        }
+        seen.add(p.method);
+        if (!p.amount || p.amount <= 0) {
+          errors.push(`El monto del pago en ${p.method} debe ser mayor a 0`);
+        }
+        if (p.method === 'CASH' && p.receivedAmount !== undefined && p.receivedAmount < p.amount) {
+          errors.push('El efectivo recibido no puede ser menor al monto a cobrar');
+        }
+      }
     }
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 

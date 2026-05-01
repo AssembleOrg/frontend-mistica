@@ -257,3 +257,34 @@ export function verifySaleCalculation(
     differences
   };
 }
+
+// =====================================================================
+// Helpers para mostrar el desglose de pagos en UI heredada que asume
+// "un solo método". Si la venta es multi-pago, devolvemos `MIXED`.
+// =====================================================================
+
+import type { PaymentMethodCode, SalePayment, Sale } from '@/services/sales.service';
+
+export type DisplayPaymentMethod = PaymentMethodCode | 'MIXED';
+
+export function getPrimaryPaymentMethod(
+  sale: Pick<Sale, 'payments'> | { payments?: SalePayment[] } | null | undefined,
+): DisplayPaymentMethod {
+  const payments = sale?.payments ?? [];
+  if (payments.length === 0) return 'CASH';
+  if (payments.length === 1) return payments[0].method;
+  return 'MIXED';
+}
+
+export function getCashPayment(
+  sale: Pick<Sale, 'payments'> | { payments?: SalePayment[] } | null | undefined,
+): SalePayment | undefined {
+  return sale?.payments?.find((p) => p.method === 'CASH');
+}
+
+export const PAYMENT_METHOD_LABELS: Record<DisplayPaymentMethod, string> = {
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  TRANSFER: 'Transferencia',
+  MIXED: 'Mixto',
+};

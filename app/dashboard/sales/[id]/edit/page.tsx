@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { Sale, SaleItem, Product } from '@/lib/types';
 import { showToast } from '@/lib/toast';
-import { formatCurrency } from '@/lib/sales-calculations';
+import { formatCurrency, getCashPayment, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { useProducts } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
 // Removed unused Dialog imports
@@ -68,16 +68,21 @@ export default function EditSalePage() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
 
   // Helper function to map payment method values
-  const mapPaymentMethod = (method: Sale['paymentMethod']): 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' => {
+  const mapPaymentMethod = (
+    method: 'CASH' | 'CARD' | 'TRANSFER' | 'MIXED',
+  ): 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto' => {
     switch (method) {
       case 'CASH': return 'efectivo';
       case 'CARD': return 'tarjeta';
       case 'TRANSFER': return 'transferencia';
+      case 'MIXED': return 'mixto';
       default: return 'efectivo';
     }
   };
 
-  const mapPaymentMethodToAPI = (method: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'): Sale['paymentMethod'] => {
+  const mapPaymentMethodToAPI = (
+    method: 'efectivo' | 'tarjeta' | 'transferencia' | 'mixto',
+  ): 'CASH' | 'CARD' | 'TRANSFER' => {
     switch (method) {
       case 'efectivo': return 'CASH';
       case 'tarjeta': return 'CARD';
@@ -96,9 +101,10 @@ export default function EditSalePage() {
         setCustomerName(foundSale.customerName || '');
         setCustomerEmail(foundSale.customerEmail || '');
         setCustomerPhone(foundSale.customerPhone || '');
-        setPaymentMethod(mapPaymentMethod(foundSale.paymentMethod));
+        setPaymentMethod(mapPaymentMethod(getPrimaryPaymentMethod(foundSale)));
         setNotes(foundSale.notes || '');
-        setCashReceived(foundSale.cashReceived?.toString() || '');
+        const cashPay = getCashPayment(foundSale);
+        setCashReceived(cashPay?.receivedAmount?.toString() || '');
       }
       setIsLoading(false);
     }
@@ -217,14 +223,16 @@ export default function EditSalePage() {
     setIsSaving(true);
     
     try {
+      // El método de pago ya no se edita en este flujo legacy; usá el modal
+      // de venta para reasignar pagos. Mantenemos sólo notas y datos de cliente.
+      void mapPaymentMethodToAPI; // anti unused-var
       const success = editSale(saleId, {
-        paymentMethod: mapPaymentMethodToAPI(paymentMethod),
         notes,
         customerInfo: {
           name: customerName,
           email: customerEmail,
-          phone: customerPhone
-        }
+          phone: customerPhone,
+        },
       });
       
       if (success) {

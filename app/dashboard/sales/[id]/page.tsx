@@ -25,7 +25,7 @@ import { useAppStore } from '@/stores/app.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
-import { formatCurrency } from '@/lib/sales-calculations';
+import { formatCurrency, getCashPayment, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import {
   Dialog,
   DialogContent,
@@ -102,17 +102,14 @@ export default function SaleDetailPage() {
     return configs[status as keyof typeof configs] || configs.draft;
   };
 
-  const getPaymentMethodConfig = (method: Sale['paymentMethod']) => {
-    const configs = {
-      efectivo: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
-      tarjeta: { label: 'Tarjeta', color: 'bg-blue-100 text-blue-800' },
-      transferencia: {
-        label: 'Transferencia',
-        color: 'bg-purple-100 text-purple-800',
-      },
-      mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
+  const getPaymentMethodConfig = (method: 'CASH' | 'CARD' | 'TRANSFER' | 'MIXED') => {
+    const configs: Record<string, { label: string; color: string }> = {
+      CASH: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
+      CARD: { label: 'Tarjeta', color: 'bg-blue-100 text-blue-800' },
+      TRANSFER: { label: 'Transferencia', color: 'bg-purple-100 text-purple-800' },
+      MIXED: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
     };
-    return configs[method as keyof typeof configs] || configs.efectivo;
+    return configs[method] || configs.CASH;
   };
 
   const handleEdit = () => {
@@ -145,14 +142,8 @@ export default function SaleDetailPage() {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
-    // Calculate payment adjustment for display
-    const adjustmentInfo = sale.originalTotal && sale.finalTotal ? {
-      originalTotal: sale.originalTotal,
-      finalTotal: sale.finalTotal,
-      adjustmentAmount: sale.adjustmentAmount || 0,
-      adjustmentType: sale.adjustmentType || 'ninguno',
-      adjustmentPercentage: sale.adjustmentPercentage || 0
-    } : null;
+    // Los campos de "ajuste de pago" del POS legacy ya no existen en el modelo.
+    // El recibo muestra directamente el total y el desglose de pagos.
     
     const printContent = `
       <!DOCTYPE html>
@@ -368,43 +359,34 @@ export default function SaleDetailPage() {
                 <span>IVA (${receiptSettings.general.taxRate}%):</span>
                 <span>${formatCurrency(sale.tax)}</span>
               </div>
-              
-              ${adjustmentInfo && adjustmentInfo.adjustmentType !== 'ninguno' ? `
-                <div class="total-line">
-                  <span>Subtotal con IVA:</span>
-                  <span>${formatCurrency(adjustmentInfo.originalTotal)}</span>
-                </div>
-                <div class="adjustment-line ${adjustmentInfo.adjustmentType === 'descuento' ? 'adjustment-discount' : 'adjustment-surcharge'}">
-                  <span>${adjustmentInfo.adjustmentType === 'descuento' ? 'Descuento' : 'Recargo'} ${getPaymentMethodConfig(sale.paymentMethod).label} (${adjustmentInfo.adjustmentPercentage}%):</span>
-                  <span>${adjustmentInfo.adjustmentType === 'descuento' ? '-' : '+'}${formatCurrency(adjustmentInfo.adjustmentAmount)}</span>
-                </div>
-              ` : ''}
-              
+
               <div class="final-total">
                 <span>TOTAL FINAL:</span>
-                <span>${formatCurrency(adjustmentInfo?.finalTotal || sale.total)}</span>
+                <span>${formatCurrency(sale.total)}</span>
               </div>
             </div>
 
             <div class="payment-section">
-              <div class="total-line">
-                <span><strong>Método de pago:</strong></span>
-                <span><strong>${getPaymentMethodConfig(sale.paymentMethod).label}</strong></span>
-              </div>
-              
-              ${sale.cashReceived ? `
+              ${(sale.payments ?? []).map((p) => `
                 <div class="total-line">
-                  <span>Efectivo recibido:</span>
-                  <span>${formatCurrency(sale.cashReceived)}</span>
+                  <span><strong>${getPaymentMethodConfig(p.method).label}:</strong></span>
+                  <span><strong>${formatCurrency(p.amount)}</strong></span>
                 </div>
-              ` : ''}
-              
-              ${sale.cashChange ? `
-                <div class="total-line">
-                  <span>Cambio:</span>
-                  <span>${formatCurrency(sale.cashChange)}</span>
-                </div>
-              ` : ''}
+              `).join('')}
+              ${(() => {
+                const cash = sale.payments?.find((p) => p.method === 'CASH');
+                if (!cash || !cash.changeGiven) return '';
+                return `
+                  <div class="total-line">
+                    <span>Efectivo recibido:</span>
+                    <span>${formatCurrency(cash.receivedAmount ?? 0)}</span>
+                  </div>
+                  <div class="total-line">
+                    <span>Vuelto:</span>
+                    <span>${formatCurrency(cash.changeGiven ?? 0)}</span>
+                  </div>
+                `;
+              })()}
             </div>
 
             ${sale.notes && sale.notes.trim() ? `
@@ -586,13 +568,11 @@ export default function SaleDetailPage() {
                       <p className='text-sm text-[var(--color-verde-profundo)] font-winter-solid'>
                         Método de pago
                       </p>
-                      <Badge
-                        className={
-                          getPaymentMethodConfig(sale.paymentMethod).color
-                        }
-                      >
-                        {getPaymentMethodConfig(sale.paymentMethod).label}
-                      </Badge>
+                      {(() => {
+                        const primary = getPrimaryPaymentMethod(sale);
+                        const cfg = getPaymentMethodConfig(primary);
+                        return <Badge className={cfg.color}>{cfg.label}</Badge>;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -746,31 +726,31 @@ export default function SaleDetailPage() {
                   </div>
                 </div>
 
-                {sale.paymentMethod === 'CASH' && (
-                  <>
-                    <Separator />
-                    <div className='space-y-2'>
-                      {sale.cashReceived && (
+                {(() => {
+                  const cash = getCashPayment(sale);
+                  if (!cash || !cash.changeGiven) return null;
+                  return (
+                    <>
+                      <Separator />
+                      <div className='space-y-2'>
                         <div className='flex justify-between'>
                           <span className='text-[var(--color-verde-profundo)] font-winter-solid'>
                             Efectivo recibido:
                           </span>
                           <span className='font-medium font-winter-solid'>
-                            {formatCurrency(sale.cashReceived)}
+                            {formatCurrency(cash.receivedAmount ?? 0)}
                           </span>
                         </div>
-                      )}
-                      {sale.cashChange && (
                         <div className='flex justify-between text-green-600'>
-                          <span className='font-winter-solid'>Cambio:</span>
+                          <span className='font-winter-solid'>Vuelto:</span>
                           <span className='font-bold font-winter-solid'>
-                            {formatCurrency(sale.cashChange)}
+                            {formatCurrency(cash.changeGiven)}
                           </span>
                         </div>
-                      )}
-                    </div>
-                  </>
-                )}
+                      </div>
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
 

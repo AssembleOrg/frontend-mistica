@@ -10,6 +10,7 @@ import {
   Warehouse,
   UserCheck,
   CreditCard,
+  DollarSign,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -62,12 +63,12 @@ const navigationItems = [
     icon: CreditCard,
     enabled: true,
   },
-  // {
-  //   title: 'Caja y Finanzas',
-  //   url: '/dashboard/finances',
-  //   icon: DollarSign,
-  //   enabled: true,
-  // },
+  {
+    title: 'Caja y Finanzas',
+    url: '/dashboard/finances',
+    icon: DollarSign,
+    enabled: true,
+  },
   {
     title: 'Productos',
     url: '/dashboard/products',

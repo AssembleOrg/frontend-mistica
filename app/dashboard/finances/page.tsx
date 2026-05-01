@@ -1,314 +1,497 @@
-/**
- * FINANCES DASHBOARD PAGE
- *
- * Módulo de Caja y Finanzas - MVP básico correlacionado con ventas
- */
-
 'use client';
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { DateRange } from 'react-day-picker';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { TransactionsTable } from '@/components/dashboard/finances/transactions-table';
-import { DateRangeFilter } from '@/components/dashboard/finances/date-range-filter';
-import { ExpenseForm } from '@/components/dashboard/finances/expense-form';
-import { FinancesMobileView } from '@/components/dashboard/finances/finances-mobile-view';
-import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
-import { QuickActivityWidget } from '@/components/dashboard/quick-activity-widget';
-import { useFinances } from '@/hooks/useFinances';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Download, DollarSign, Minus } from 'lucide-react';
+  Banknote,
+  CreditCard,
+  Send,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  AlertTriangle,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { financeService, type FinanceSummary } from '@/services/finance.service';
+import { formatCurrency } from '@/lib/sales-calculations';
+import { showToast } from '@/lib/toast';
+import { QuickEgressDialog } from '@/components/dashboard/finances/quick-egress-dialog';
+
+function isoDate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfMonth() {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 export default function FinancesPage() {
-  const { summary, transactions: allTransactions, exportTransactions } = useFinances();
-  const isMobile = useIsMobile();
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() => {
-    const today = new Date();
-    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
-    return {
-      from: startOfDay,
-      to: endOfDay,
-    };
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(),
+    to: new Date(),
   });
-  const [isExporting, setIsExporting] = useState(false);
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  
-  // Mobile filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [paymentMethod, setPaymentMethod] = useState<'all' | 'CASH' | 'CARD' | 'TRANSFER'>('all');
+  const [saleStatus, setSaleStatus] = useState<'all' | 'PENDING' | 'COMPLETED' | 'CANCELLED'>('all');
+  const [clientFilter, setClientFilter] = useState<'all' | 'named' | 'anonymous'>('all');
+  const [productId, setProductId] = useState('');
 
-  // Filter transactions by date range
-  const transactions = React.useMemo(() => {
-    let filtered = allTransactions.filter(transaction => {
-      const transactionDate = new Date(transaction.createdAt);
-      const transactionDay = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
-      const fromDay = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate());
-      const toDay = new Date(dateRange.to.getFullYear(), dateRange.to.getMonth(), dateRange.to.getDate());
-      
-      return transactionDay >= fromDay && transactionDay <= toDay;
-    });
+  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showNewEgress, setShowNewEgress] = useState(false);
 
-    // Apply mobile filters
-    if (searchTerm) {
-      filtered = filtered.filter(transaction =>
-        transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        transaction.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(transaction => transaction.type === typeFilter);
-    }
-
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(transaction => transaction.category === categoryFilter);
-    }
-
-    return filtered;
-  }, [allTransactions, dateRange, searchTerm, typeFilter, categoryFilter]);
-
-  const handleExport = async () => {
-    setIsExporting(true);
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      await exportTransactions(dateRange.from, dateRange.to);
-    } catch (error) {
-      console.error('Export error:', error);
+      const res = await financeService.summary({
+        from: dateRange?.from ? isoDate(dateRange.from) : undefined,
+        to: dateRange?.to ? isoDate(dateRange.to) : undefined,
+        paymentMethod: paymentMethod === 'all' ? undefined : paymentMethod,
+        saleStatus: saleStatus === 'all' ? undefined : saleStatus,
+        clientId: clientFilter === 'anonymous' ? 'anonymous' : undefined,
+        productId: productId || undefined,
+      });
+      setSummary(res.data);
+    } catch (err) {
+      console.error(err);
+      showToast.error('No se pudo cargar el resumen');
     } finally {
-      setIsExporting(false);
+      setLoading(false);
     }
-  };
+  }, [dateRange, paymentMethod, saleStatus, clientFilter, productId]);
 
-  const handleExpenseSuccess = () => {
-    setShowExpenseForm(false);
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // Mobile filter handlers
-  const handleClearFilters = () => {
-    setSearchTerm('');
-    setTypeFilter('all');
-    setCategoryFilter('all');
-  };
-
-  const handleEditTransaction = (transaction: any) => {
-    // TODO: Implement edit functionality
-    console.log('Edit transaction:', transaction);
-  };
-
-  const handleDeleteTransaction = (transaction: any) => {
-    // TODO: Implement delete functionality
-    console.log('Delete transaction:', transaction);
-  };
-
-  // Convert dateRange to DateRange format for mobile component
-  const mobileDateRange = {
-    from: dateRange.from,
-    to: dateRange.to,
-  };
-
-  if (showExpenseForm) {
+  const expectedCash = useMemo(() => {
+    if (!summary) return 0;
+    // Lo esperado en caja del rango (suma de aperturas + ventas cash + prepaids cash − egresos cash − vueltos)
+    const sessions = summary.cashSessions;
+    const opening = sessions.reduce((s, x) => s + x.openingCash, 0);
     return (
-      <div className='space-y-6'>
-        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-          <div>
-            <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
-              Registrar Egreso
-            </h1>
-            <p className='text-[#455a54]/70 font-winter-solid text-sm sm:text-base'>
-              Agregar un nuevo gasto al sistema financiero
-            </p>
-          </div>
-          <Button
-            variant='outline'
-            onClick={() => setShowExpenseForm(false)}
-            className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 w-full sm:w-auto'
-          >
-            Volver a Finanzas
-          </Button>
-        </div>
-
-        <ExpenseForm
-          onSuccess={handleExpenseSuccess}
-          onCancel={() => setShowExpenseForm(false)}
-        />
-      </div>
+      opening +
+      summary.byPaymentMethod.CASH +
+      summary.prepaids.byPaymentMethod.CASH -
+      summary.expenses.byPaymentMethod.CASH -
+      summary.totalCashChange
     );
-  }
+  }, [summary]);
 
   return (
-    <div className='space-y-6'>
-      {/* Header */}
-      <div className='flex items-center justify-between'>
+    <div className='space-y-6 mt-6'>
+      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
         <div>
-          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
             Caja y Finanzas
           </h1>
-          <p className='text-[#455a54]/70 font-winter-solid'>
-            Control financiero y resumen de movimientos de caja
+          <p className='text-[#455a54]/70 font-winter-solid text-sm sm:text-base'>
+            Resumen contable, caja y movimientos del período
           </p>
         </div>
-        {/* Actions moved to dedicated widget below */}
+        <Button
+          onClick={() => setShowNewEgress(true)}
+          className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto'
+        >
+          <ArrowDownRight className='h-4 w-4 mr-2' />
+          Registrar egreso
+        </Button>
       </div>
 
-      {/* Quick Actions */}
-      <QuickActionsWidget
-        title="Acciones de Caja"
-        description="Gestión rápida de movimientos financieros"
-        layout="horizontal"
-        actions={[
-          {
-            id: 'expense',
-            title: 'Registrar Egreso',
-            description: 'Agregar nuevo gasto al sistema',
-            icon: Minus,
-            color: 'danger',
-            onClick: () => setShowExpenseForm(true)
-          },
-          {
-            id: 'export',
-            title: isExporting ? 'Exportando...' : 'Exportar Excel',
-            description: 'Descargar reporte del período',
-            icon: Download,
-            color: 'secondary',
-            onClick: handleExport
-          }
-        ]}
+      <QuickEgressDialog
+        open={showNewEgress}
+        onOpenChange={setShowNewEgress}
+        onCreated={load}
       />
 
-      {/* Combined Filters & Quick Stats */}
+      {/* Filtros */}
       <Card className='border-[#9d684e]/20'>
-        <CardHeader>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <DollarSign className='h-5 w-5' />
-            Panel de Control
-          </CardTitle>
-          <CardDescription className='text-[#455a54]/70'>
-            Filtros y resumen ejecutivo del período
-          </CardDescription>
+        <CardHeader className='pb-3'>
+          <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>Filtros</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className='grid grid-cols-1 lg:grid-cols-3 gap-6'>
-            {/* Filters Section */}
-            <div className='lg:col-span-1'>
-              <div className='space-y-4'>
-                <div>
-                  <label className='text-sm font-winter-solid text-[#455a54] mb-2 block'>
-                    Período de Consulta
-                  </label>
-                  <DateRangeFilter
-                    dateRange={dateRange}
-                    onDateRangeChange={setDateRange}
-                  />
-                </div>
-                <div className='text-sm text-[#455a54]/70 bg-[#efcbb9]/20 p-3 rounded-lg'>
-                  📊 {transactions.length} transacciones encontradas
-                </div>
-              </div>
-            </div>
-            
-            {/* Quick Stats - Compact Version */}
-            <div className='lg:col-span-2'>
-              <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-                <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
-                  <div className='text-lg font-bold font-tan-nimbus text-[#455a54]'>
-                    {summary.salesCount}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Ventas</div>
-                </div>
-                
-                <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
-                  <div className={`text-lg font-bold font-tan-nimbus ${
-                    summary.netBalance >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    ${summary.netBalance.toLocaleString('es-AR', {
-                      signDisplay: 'always',
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0
-                    })}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Balance</div>
-                </div>
-                
-                <div className='bg-gradient-to-br from-[#e0a38d]/10 to-[#e0a38d]/5 p-4 rounded-lg border border-[#e0a38d]/20'>
-                  <div className='text-lg font-bold font-tan-nimbus text-[#9d684e]'>
-                    ${summary.paymentMethodBreakdown.efectivo.toLocaleString('es-AR', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0
-                    })}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Efectivo</div>
-                </div>
-                
-                <div className='bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-4 rounded-lg border border-blue-500/20'>
-                  <div className='text-lg font-bold font-tan-nimbus text-blue-600'>
-                    ${(
-                      summary.paymentMethodBreakdown.tarjeta + 
-                      summary.paymentMethodBreakdown.transferencia
-                    ).toLocaleString('es-AR', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0
-                    })}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Digital</div>
-                </div>
-              </div>
-            </div>
+        <CardContent className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3'>
+          <div className='space-y-1 lg:col-span-2'>
+            <Label className='text-xs'>Rango de fechas</Label>
+            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+          </div>
+          <div className='space-y-1'>
+            <Label className='text-xs'>Método de pago</Label>
+            <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='all'>Todos</SelectItem>
+                <SelectItem value='CASH'>Efectivo</SelectItem>
+                <SelectItem value='CARD'>Tarjeta</SelectItem>
+                <SelectItem value='TRANSFER'>Transferencia</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className='space-y-1'>
+            <Label className='text-xs'>Cliente</Label>
+            <Select value={clientFilter} onValueChange={(v) => setClientFilter(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='all'>Todos</SelectItem>
+                <SelectItem value='named'>Con nombre</SelectItem>
+                <SelectItem value='anonymous'>Anónimos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className='space-y-1'>
+            <Label className='text-xs'>Estado de venta</Label>
+            <Select value={saleStatus} onValueChange={(v) => setSaleStatus(v as any)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='all'>Todos</SelectItem>
+                <SelectItem value='COMPLETED'>Completadas</SelectItem>
+                <SelectItem value='PENDING'>Pendientes</SelectItem>
+                <SelectItem value='CANCELLED'>Canceladas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className='space-y-1 sm:col-span-2'>
+            <Label className='text-xs'>Producto (ID, opcional)</Label>
+            <Input
+              value={productId}
+              onChange={(e) => setProductId(e.target.value)}
+              placeholder='ID interno del producto'
+            />
+          </div>
+          <div className='space-y-1 sm:col-span-2 lg:col-span-3 flex items-end'>
+            <Button onClick={load} disabled={loading} className='w-full sm:w-auto bg-[#9d684e] hover:bg-[#9d684e]/90 text-white'>
+              {loading ? 'Cargando…' : 'Aplicar filtros'}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Transactions Table */}
-      <Card className='border-[#9d684e]/20'>
-        <CardHeader>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54]'>
-            Movimientos de Caja
-          </CardTitle>
-          <CardDescription className='text-[#455a54]/70'>
-            Todas las transacciones, ventas y gastos del período seleccionado
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isMobile ? (
-            <FinancesMobileView
-              transactions={transactions}
-              onEdit={handleEditTransaction}
-              onDelete={handleDeleteTransaction}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              dateRange={mobileDateRange}
-              onDateRangeChange={(range) => {
-                if (range?.from && range?.to) {
-                  setDateRange({ from: range.from, to: range.to });
-                }
-              }}
-              typeFilter={typeFilter}
-              onTypeFilterChange={setTypeFilter}
-              categoryFilter={categoryFilter}
-              onCategoryFilterChange={setCategoryFilter}
-              onClearFilters={handleClearFilters}
+      {/* Métricas top */}
+      {summary && (
+        <>
+          <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
+            <MetricCard
+              label='Ingresos'
+              value={formatCurrency(summary.totalRevenue)}
+              icon={<TrendingUp className='h-4 w-4 text-green-700' />}
+              tone='green'
             />
-          ) : (
-            <TransactionsTable
-              transactions={transactions}
-              dateRange={dateRange}
+            <MetricCard
+              label='Ventas'
+              value={String(summary.salesCount)}
+              icon={<ArrowUpRight className='h-4 w-4 text-blue-700' />}
+              tone='blue'
             />
-          )}
-        </CardContent>
-      </Card>
+            <MetricCard
+              label='Ticket promedio'
+              value={formatCurrency(summary.averageTicket)}
+              tone='gray'
+            />
+            <MetricCard
+              label='Balance neto'
+              value={formatCurrency(summary.netBalance)}
+              icon={
+                summary.netBalance >= 0 ? (
+                  <TrendingUp className='h-4 w-4 text-emerald-700' />
+                ) : (
+                  <TrendingDown className='h-4 w-4 text-red-700' />
+                )
+              }
+              tone={summary.netBalance >= 0 ? 'emerald' : 'red'}
+            />
+          </div>
 
-      {/* Recent Financial Activity */}
-      {/* <QuickActivityWidget
-        title="Actividad Financiera"
-        filterTypes={['ingreso', 'egreso', 'venta_realizada']}
-        limit={6}
-      /> */}
+          {/* Por medio de pago */}
+          <Card className='border-[#9d684e]/20'>
+            <CardHeader>
+              <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>
+                Cobrado por medio de pago
+              </CardTitle>
+            </CardHeader>
+            <CardContent className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
+              <PaymentMethodCard
+                icon={<Banknote className='h-4 w-4 text-green-700' />}
+                label='Efectivo'
+                value={formatCurrency(summary.byPaymentMethod.CASH)}
+                tone='green'
+              />
+              <PaymentMethodCard
+                icon={<CreditCard className='h-4 w-4 text-blue-700' />}
+                label='Tarjeta'
+                value={formatCurrency(summary.byPaymentMethod.CARD)}
+                tone='blue'
+              />
+              <PaymentMethodCard
+                icon={<Send className='h-4 w-4 text-purple-700' />}
+                label='Transferencia'
+                value={formatCurrency(summary.byPaymentMethod.TRANSFER)}
+                tone='purple'
+              />
+            </CardContent>
+            {summary.totalCashChange > 0 && (
+              <CardContent className='pt-0 text-xs text-[#455a54]/70 font-winter-solid'>
+                Vueltos entregados en efectivo en el rango:{' '}
+                <span className='font-semibold text-[#9d684e]'>
+                  {formatCurrency(summary.totalCashChange)}
+                </span>{' '}
+                (sale físicamente de la caja)
+              </CardContent>
+            )}
+          </Card>
+
+          {/* Caja: estado por sesión */}
+          <Card className='border-[#9d684e]/20'>
+            <CardHeader>
+              <div className='flex items-center justify-between gap-2'>
+                <div>
+                  <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>
+                    Estado de caja
+                  </CardTitle>
+                  <p className='text-xs text-[#455a54]/70 font-winter-solid'>
+                    Sesiones abiertas en el rango y diferencias de cierre
+                  </p>
+                </div>
+                <Badge
+                  className={
+                    summary.totalDiscrepancy === 0
+                      ? 'bg-green-100 text-green-800'
+                      : summary.totalDiscrepancy > 0
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-red-100 text-red-800'
+                  }
+                >
+                  Diferencia neta: {formatCurrency(summary.totalDiscrepancy)}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {summary.cashSessions.length === 0 ? (
+                <p className='text-sm text-[#455a54]/60'>
+                  No hubo aperturas de caja en este rango.
+                </p>
+              ) : (
+                <div className='space-y-2'>
+                  {summary.cashSessions.map((s) => (
+                    <div
+                      key={s.id}
+                      className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border border-[#9d684e]/15 bg-white p-3 text-sm'
+                    >
+                      <div>
+                        <div className='font-winter-solid text-[#455a54]'>
+                          {new Date(s.openedAt).toLocaleString('es-AR')} →{' '}
+                          {s.closedAt ? new Date(s.closedAt).toLocaleString('es-AR') : 'Abierta'}
+                        </div>
+                        <div className='text-xs text-[#455a54]/60'>
+                          Apertura {formatCurrency(s.openingCash)}
+                          {s.expectedClosingCash !== null && (
+                            <>
+                              {' · '}Esperado {formatCurrency(s.expectedClosingCash)}
+                            </>
+                          )}
+                          {s.countedClosingCash !== null && (
+                            <>
+                              {' · '}Contado {formatCurrency(s.countedClosingCash)}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {s.discrepancy !== null && s.discrepancy !== 0 && (
+                        <Badge
+                          className={
+                            s.discrepancy > 0
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-red-100 text-red-800'
+                          }
+                        >
+                          <AlertTriangle className='h-3 w-3 mr-1' />
+                          {s.discrepancy > 0 ? 'Sobrante' : 'Faltante'}{' '}
+                          {formatCurrency(Math.abs(s.discrepancy))}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Egresos / Prepaids */}
+          <div className='grid grid-cols-1 lg:grid-cols-2 gap-3'>
+            <Card className='border-[#9d684e]/20'>
+              <CardHeader>
+                <CardTitle className='text-base font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+                  <ArrowDownRight className='h-4 w-4 text-red-600' />
+                  Egresos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-1 text-sm font-winter-solid'>
+                <div className='flex justify-between'>
+                  <span>Total ({summary.expenses.count})</span>
+                  <span className='font-semibold'>{formatCurrency(summary.expenses.total)}</span>
+                </div>
+                <div className='text-xs text-[#455a54]/70 space-y-0.5 pt-1'>
+                  <div>Efectivo: {formatCurrency(summary.expenses.byPaymentMethod.CASH)}</div>
+                  <div>Tarjeta: {formatCurrency(summary.expenses.byPaymentMethod.CARD)}</div>
+                  <div>Transferencia: {formatCurrency(summary.expenses.byPaymentMethod.TRANSFER)}</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className='border-[#9d684e]/20'>
+              <CardHeader>
+                <CardTitle className='text-base font-tan-nimbus text-[#455a54] flex items-center gap-2'>
+                  <Wallet className='h-4 w-4 text-[#9d684e]' />
+                  Señas cobradas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-1 text-sm font-winter-solid'>
+                <div className='flex justify-between'>
+                  <span>Total ({summary.prepaids.count})</span>
+                  <span className='font-semibold'>{formatCurrency(summary.prepaids.total)}</span>
+                </div>
+                <div className='text-xs text-[#455a54]/70 space-y-0.5 pt-1'>
+                  <div>Efectivo: {formatCurrency(summary.prepaids.byPaymentMethod.CASH)}</div>
+                  <div>Tarjeta: {formatCurrency(summary.prepaids.byPaymentMethod.CARD)}</div>
+                  <div>Transferencia: {formatCurrency(summary.prepaids.byPaymentMethod.TRANSFER)}</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Clientes */}
+          <Card className='border-[#9d684e]/20'>
+            <CardHeader>
+              <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>Clientes</CardTitle>
+            </CardHeader>
+            <CardContent className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm font-winter-solid'>
+              <div className='rounded-md border border-[#9d684e]/15 p-3'>
+                <div className='text-xs text-[#455a54]/70'>Con nombre</div>
+                <div className='text-lg font-semibold text-[#455a54]'>
+                  {formatCurrency(summary.byClient.named.total)}
+                </div>
+                <div className='text-xs text-[#455a54]/60'>{summary.byClient.named.count} ventas</div>
+              </div>
+              <div className='rounded-md border border-[#9d684e]/15 p-3'>
+                <div className='text-xs text-[#455a54]/70'>Anónimos</div>
+                <div className='text-lg font-semibold text-[#455a54]'>
+                  {formatCurrency(summary.byClient.anonymous.total)}
+                </div>
+                <div className='text-xs text-[#455a54]/60'>
+                  {summary.byClient.anonymous.count} ventas
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Top productos */}
+          <Card className='border-[#9d684e]/20'>
+            <CardHeader>
+              <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>
+                Top productos del rango
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {summary.topProducts.length === 0 ? (
+                <p className='text-sm text-[#455a54]/60'>Sin ventas en el rango.</p>
+              ) : (
+                <div className='space-y-1 text-sm font-winter-solid'>
+                  {summary.topProducts.map((p, i) => (
+                    <div
+                      key={p.productId}
+                      className='flex items-center justify-between py-1.5 border-b border-[#9d684e]/10 last:border-0'
+                    >
+                      <span className='text-[#455a54]'>
+                        <span className='text-xs text-[#455a54]/50 mr-2'>#{i + 1}</span>
+                        {p.productName}
+                      </span>
+                      <span>
+                        <span className='text-xs text-[#455a54]/60 mr-2'>{p.quantity} u.</span>
+                        <span className='font-semibold text-[#455a54]'>
+                          {formatCurrency(p.revenue)}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+interface MetricCardProps {
+  label: string;
+  value: string;
+  icon?: React.ReactNode;
+  tone?: 'green' | 'blue' | 'red' | 'gray' | 'emerald';
+}
+
+function MetricCard({ label, value, icon, tone = 'gray' }: MetricCardProps) {
+  const toneClasses: Record<NonNullable<MetricCardProps['tone']>, string> = {
+    green: 'bg-green-50 border-green-200 text-green-800',
+    blue: 'bg-blue-50 border-blue-200 text-blue-800',
+    red: 'bg-red-50 border-red-200 text-red-800',
+    gray: 'bg-white border-[#9d684e]/20 text-[#455a54]',
+    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+  };
+  return (
+    <div className={`rounded-md border p-3 ${toneClasses[tone]}`}>
+      <div className='flex items-center gap-1 text-xs font-winter-solid uppercase tracking-wide'>
+        {icon}
+        {label}
+      </div>
+      <div className='text-xl sm:text-2xl font-bold mt-1 font-tan-nimbus'>{value}</div>
+    </div>
+  );
+}
+
+function PaymentMethodCard({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone: 'green' | 'blue' | 'purple';
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    green: 'bg-green-50 border-green-200',
+    blue: 'bg-blue-50 border-blue-200',
+    purple: 'bg-purple-50 border-purple-200',
+  };
+  return (
+    <div className={`rounded-md border p-3 ${toneClasses[tone]}`}>
+      <div className='flex items-center gap-1 text-xs font-winter-solid uppercase tracking-wide text-[#455a54]'>
+        {icon}
+        {label}
+      </div>
+      <div className='text-lg font-bold mt-1 font-tan-nimbus text-[#455a54]'>{value}</div>
     </div>
   );
 }

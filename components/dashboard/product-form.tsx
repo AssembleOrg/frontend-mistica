@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,16 +29,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Save, X, AlertCircle, Calculator, Edit } from 'lucide-react';
+import { AlertCircle, Calculator, CheckCircle2, RefreshCw, Save, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useProducts } from '@/hooks/useProducts';
 import { Product } from '@/lib/types';
@@ -97,10 +89,13 @@ export function ProductForm({
   // Simple hooks API
   const { createProduct, updateProduct } = useProducts();
 
-  // Form state
+  // Form state.
+  // En modo "add" el barcode arranca VACÍO: el primer gesto del operador es
+  // disparar el scanner. Si el producto no tiene barcode externo (artesanal),
+  // el botón "Generar" lo llena con un código nuevo.
   const [formData, setFormData] = useState<FormData>({
     name: product?.name || '',
-    barcode: product?.barcode || generateBarcode(),
+    barcode: product?.barcode || '',
     category: product?.category || 'organicos',
     price: product?.price || 0,
     costPrice: product?.costPrice || 0,
@@ -115,17 +110,34 @@ export function ProductForm({
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
   >({});
-  
+
   const [isLoading, setIsLoading] = useState(false);
-  const [showBarcodeModal, setShowBarcodeModal] = useState(false);
-  const [tempBarcode, setTempBarcode] = useState('');
-  const [barcodeValidation, setBarcodeValidation] = useState<{
-    isValid: boolean;
-    format: string | null;
-    message: string;
-  } | null>(null);
-  const [lastValidatedBarcode, setLastValidatedBarcode] = useState<string>('');
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Estado del barcode reconocido (se muestra como badge debajo del input).
+  const [barcodeFormat, setBarcodeFormat] = useState<string | null>(null);
+
+  // Refs para el flow scanner-first: al detectar un código válido, el foco
+  // salta del input de barcode al de nombre.
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus inicial en el barcode cuando estamos creando un producto
+  // (caso típico: el operador apenas abre la pantalla y dispara el scanner).
+  useEffect(() => {
+    if (mode === 'add' && !formData.barcode) {
+      barcodeInputRef.current?.focus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Si entró un barcode válido al hidratar (mode='edit'), mostramos su formato.
+  useEffect(() => {
+    if (formData.barcode) {
+      const v = validateBarcode(formData.barcode);
+      setBarcodeFormat(v.isValid ? v.format : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Computed values
   const profitMargin =
@@ -193,76 +205,60 @@ export function ProductForm({
     router.back();
   };
 
-  const handleOpenBarcodeModal = () => {
-    setTempBarcode(''); // Iniciar con campo vacío para facilitar escaneo
-    setBarcodeValidation(null);
-    setLastValidatedBarcode(''); // Reset del último código validado
-    setShowBarcodeModal(true);
-  };
+  // Scanner-first: al cambiar el barcode (sea por scanner o tipeo manual),
+  // si quedó un código válido (EAN-13, UPC-A, EAN-8 o el MST interno) movemos
+  // foco al siguiente campo (Nombre) para que el operador siga sin clicks.
+  // Para evitar saltos repetidos al re-tipear el mismo código, recordamos
+  // el último valor con el que avanzamos.
+  const lastAdvancedBarcodeRef = useRef<string>('');
 
-  const handleSaveBarcode = () => {
-    const trimmedBarcode = tempBarcode.trim();
-    if (trimmedBarcode) {
-      handleInputChange('barcode', trimmedBarcode);
+  const handleBarcodeInput = (value: string) => {
+    handleInputChange('barcode', value);
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      setBarcodeFormat(null);
+      lastAdvancedBarcodeRef.current = '';
+      return;
     }
-    setShowBarcodeModal(false);
-  };
 
-  const handleCancelBarcode = () => {
-    setTempBarcode(''); // Limpiar al cancelar
-    setBarcodeValidation(null);
-    setLastValidatedBarcode(''); // Reset del último código validado
-    setShowBarcodeModal(false);
-  };
+    const v = validateBarcode(trimmed);
+    setBarcodeFormat(v.isValid ? v.format : null);
 
-  const handleBarcodeChange = (value: string) => {
-    setTempBarcode(value);
-    
-    // Clear previous timeout
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    
-    if (value.trim().length > 0) {
-      // Debounce validation to avoid multiple rapid validations
-      debounceTimeoutRef.current = setTimeout(() => {
-        const validation = validateBarcode(value);
-        setBarcodeValidation({
-          isValid: validation.isValid,
-          format: validation.format,
-          message: validation.message
-        });
-
-        // Auto-accept if barcode is valid and should be auto-accepted
-        // Only show notification if it's a new valid barcode (not the same as last one)
-        if (validation.autoAccept && value.trim() !== lastValidatedBarcode) {
-          setLastValidatedBarcode(value.trim()); // Mark this barcode as validated
-          
-          // Clear any existing toasts before showing new one
-          showToast.dismiss();
-          
-          setTimeout(() => {
-            handleInputChange('barcode', value.trim());
-            setShowBarcodeModal(false);
-            setBarcodeValidation(null);
-            showToast.success(`Código ${validation.format} escaneado correctamente`);
-          }, 300); // Reduced delay
-        }
-      }, 200); // Debounce delay
-    } else {
-      setBarcodeValidation(null);
-      setLastValidatedBarcode(''); // Reset when field is empty
+    if (v.autoAccept && trimmed !== lastAdvancedBarcodeRef.current) {
+      lastAdvancedBarcodeRef.current = trimmed;
+      // Pequeño delay para que el scanner termine de "tipear" y para que el
+      // toast no compita con el cambio de foco.
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+        nameInputRef.current?.select();
+      }, 50);
     }
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
+  // Algunos scanners disparan Enter al final; en ese caso forzamos avance
+  // aunque el código no haya superado todavía la longitud típica.
+  const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (formData.barcode.trim()) {
+        nameInputRef.current?.focus();
+        nameInputRef.current?.select();
       }
-    };
-  }, []);
+    }
+  };
+
+  // Generar un código interno (producto artesanal sin GTIN del proveedor).
+  const handleGenerateBarcode = () => {
+    const generated = generateBarcode();
+    handleInputChange('barcode', generated);
+    setBarcodeFormat(null);
+    lastAdvancedBarcodeRef.current = generated;
+    setTimeout(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    }, 50);
+  };
 
   return (
     <div className='space-y-6'>
@@ -297,49 +293,66 @@ export function ProductForm({
               <CardDescription className='text-[#455a54]/70 font-winter-solid text-sm'>Datos principales del producto</CardDescription>
             </CardHeader>
             <CardContent className='space-y-3 sm:space-y-4'>
+              {/* Barcode (PRIMER campo: foco automático en alta) */}
+              <div>
+                <Label htmlFor='barcode' className='text-[#455a54] font-winter-solid text-sm'>
+                  Código de Barras <span className='text-red-500'>*</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id='barcode'
+                    ref={barcodeInputRef}
+                    value={formData.barcode}
+                    onChange={(e) => handleBarcodeInput(e.target.value)}
+                    onKeyDown={handleBarcodeKeyDown}
+                    placeholder='Escaneá el código (o tipealo)'
+                    autoComplete='off'
+                    inputMode='text'
+                    className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 pr-28 touch-target font-mono ${validationErrors.barcode ? 'border-red-500' : ''}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 px-2 text-xs text-[#9d684e] hover:bg-[#9d684e]/10 touch-target"
+                    onClick={handleGenerateBarcode}
+                    title="Generar código interno (producto sin barcode externo)"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Generar
+                  </Button>
+                </div>
+                {/* Indicador del formato detectado */}
+                {barcodeFormat && (
+                  <p className='text-xs text-green-700 mt-1 flex items-center gap-1 font-winter-solid'>
+                    <CheckCircle2 className='w-3 h-3' />
+                    {barcodeFormat} detectado
+                  </p>
+                )}
+                {validationErrors.barcode && (
+                  <p className='text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
+                    <AlertCircle className='w-3 h-3' />
+                    {validationErrors.barcode}
+                  </p>
+                )}
+              </div>
+
               {/* Name */}
               <div>
                 <Label htmlFor='name' className='text-[#455a54] font-winter-solid text-sm'>Nombre del Producto <span className='text-red-500'>*</span></Label>
                 <Input
                   id='name'
+                  ref={nameInputRef}
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder='Ingrese el nombre del producto'
+                  autoComplete='off'
                   className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 touch-target ${validationErrors.name ? 'border-red-500' : ''}`}
                 />
                 {validationErrors.name && (
                   <p className='text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
                     <AlertCircle className='w-3 h-3' />
                     {validationErrors.name}
-                  </p>
-                )}
-              </div>
-
-              {/* Barcode */}
-              <div>
-                <Label htmlFor='barcode' className='text-[#455a54] font-winter-solid text-sm'>Código de Barras <span className='text-red-500'>*</span></Label>
-                <div className="relative">
-                  <Input
-                    id='barcode'
-                    value={formData.barcode}
-                    onChange={(e) => handleInputChange('barcode', e.target.value)}
-                    placeholder='Código de barras único'
-                    className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 pr-12 touch-target ${validationErrors.barcode ? 'border-red-500' : ''}`}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10 touch-target"
-                    onClick={handleOpenBarcodeModal}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
-                {validationErrors.barcode && (
-                  <p className='text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
-                    <AlertCircle className='w-3 h-3' />
-                    {validationErrors.barcode}
                   </p>
                 )}
               </div>
@@ -580,75 +593,6 @@ export function ProductForm({
           </Button>
         </div>
       </form>
-
-      {/* Barcode Edit Modal */}
-      <Dialog open={showBarcodeModal} onOpenChange={() => setShowBarcodeModal(false)}>
-        <DialogContent className="sm:max-w-md border-[#9d684e]/20" onPointerDownOutside={(e) => e.preventDefault()}>
-          <DialogHeader>
-            <DialogTitle className='text-[#455a54] font-tan-nimbus'>Editar Código de Barras</DialogTitle>
-            <DialogDescription className='text-[#455a54]/70 font-winter-solid'>
-              Modifique el código de barras del producto. Deje vacío para mantener el código actual.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-4">
-            <Input
-              value={tempBarcode}
-              onChange={(e) => handleBarcodeChange(e.target.value)}
-              placeholder="Escanee o ingrese el código de barras"
-              className="border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20"
-              autoFocus
-            />
-            
-            {barcodeValidation && (
-              <div className={`p-3 rounded-lg border-2 ${
-                barcodeValidation.isValid 
-                  ? 'border-green-500 bg-green-50 text-green-800' 
-                  : 'border-red-500 bg-red-50 text-red-800'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="font-medium font-winter-solid">
-                    {barcodeValidation.format && `${barcodeValidation.format}: `}
-                    {barcodeValidation.message}
-                  </span>
-                </div>
-                {barcodeValidation.isValid && barcodeValidation.format && (
-                  <p className="text-sm mt-1 font-winter-solid">
-                    El código será aceptado automáticamente...
-                  </p>
-                )}
-              </div>
-            )}
-            
-            <div className="text-xs text-[#455a54]/70 font-winter-solid">
-              <p className="font-medium mb-1">Formatos soportados:</p>
-              <ul className="space-y-1">
-                <li>• EAN-13: 13 dígitos (productos internacionales)</li>
-                <li>• UPC-A: 12 dígitos (productos norteamericanos)</li>
-                <li>• EAN-8: 8 dígitos (productos pequeños)</li>
-                <li>• Code 128: 4-48 caracteres alfanuméricos</li>
-              </ul>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancelBarcode}
-              className='border-[#9d684e] text-[#9d684e] hover:bg-[#9d684e] hover:text-white'
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveBarcode}
-              className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white'
-            >
-              Guardar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
     </div>
   );

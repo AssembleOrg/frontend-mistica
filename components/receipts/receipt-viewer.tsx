@@ -176,11 +176,32 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         </div>
       </div>
 
-      {/* Payment method */}
+      {/* Payment breakdown */}
       <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="text-xs">
-          <span>Pago: {getPaymentMethodLabel(sale.paymentMethod)}</span>
-        </div>
+        {(sale.payments ?? []).map((p, i) => (
+          <div key={`${p.method}-${i}`} className="text-xs flex justify-between">
+            <span>{getPaymentMethodLabel(p.method)}</span>
+            <span>{formatCurrency(p.amount)}</span>
+          </div>
+        ))}
+        {(() => {
+          const cash = sale.payments?.find((p) => p.method === 'CASH');
+          if (cash && (cash.changeGiven ?? 0) > 0) {
+            return (
+              <>
+                <div className="text-xs flex justify-between">
+                  <span>Recibido</span>
+                  <span>{formatCurrency(cash.receivedAmount ?? 0)}</span>
+                </div>
+                <div className="text-xs flex justify-between">
+                  <span>Vuelto</span>
+                  <span>{formatCurrency(cash.changeGiven ?? 0)}</span>
+                </div>
+              </>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Footer */}
@@ -316,8 +337,19 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       {/* Payment Information */}
       <div className="bg-blue-50 rounded-lg p-4 mb-6">
         <h3 className="font-semibold text-[#455a54] mb-2">Información de Pago</h3>
-        <div className="text-sm">
-          <div><span className="font-medium">Método de pago:</span> {getPaymentMethodLabel(sale.paymentMethod)}</div>
+        <div className="text-sm space-y-1">
+          {(sale.payments ?? []).map((p, i) => (
+            <div key={`${p.method}-${i}`}>
+              <span className="font-medium">{getPaymentMethodLabel(p.method)}:</span>{' '}
+              {formatCurrency(p.amount)}
+              {p.method === 'CASH' && (p.changeGiven ?? 0) > 0 && (
+                <span className="text-xs text-gray-600 ml-2">
+                  (entregó {formatCurrency(p.receivedAmount ?? 0)} · vuelto{' '}
+                  {formatCurrency(p.changeGiven ?? 0)})
+                </span>
+              )}
+            </div>
+          ))}
           {sale.notes && (
             <div className="mt-2">
               <span className="font-medium">Notas:</span> {sale.notes}

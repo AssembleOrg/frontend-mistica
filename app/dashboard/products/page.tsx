@@ -20,21 +20,24 @@ import {
 import { ProductsTable } from '@/components/dashboard/products-table';
 import { ProductsMobileView } from '@/components/dashboard/products-mobile-view';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
+import { BulkUpdateProductsDialog } from '@/components/dashboard/products/bulk-update-dialog';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { Plus, Package, Grid, List } from 'lucide-react';
+import { Plus, Package, Grid, List, Download, Upload } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { exportProductsToExcel } from '@/lib/excel-utils';
 
 export default function ProductsPage() {
   // Handle initial data loading
   const { isLoading, error } = useInitialProductsData();
-  
+
   // Simple hooks API for actions and computed values
-  const { products, stats } = useProducts();
-  
+  const { products, stats, fetchProducts } = useProducts();
+
   // Mobile detection and view state
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
+  const [showBulkUpdate, setShowBulkUpdate] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -150,9 +153,34 @@ export default function ProductsPage() {
             description: 'Agregar al catálogo',
             href: '/dashboard/products/add',
             icon: Plus,
-            color: 'primary'
-          }
+            color: 'primary',
+          },
+          {
+            id: 'export-excel',
+            title: 'Exportar Excel',
+            description: 'Descargar template editable',
+            icon: Download,
+            color: 'secondary',
+            onClick: () => exportProductsToExcel(products),
+          },
+          {
+            id: 'bulk-update',
+            title: 'Actualizar desde Excel',
+            description: 'Carga masiva por barcode',
+            icon: Upload,
+            color: 'secondary',
+            onClick: () => setShowBulkUpdate(true),
+          },
         ]}
+      />
+
+      <BulkUpdateProductsDialog
+        open={showBulkUpdate}
+        onOpenChange={setShowBulkUpdate}
+        onApplied={() => {
+          // Refresca el catálogo en el store sin recargar la página.
+          fetchProducts();
+        }}
       />
 
       {/* Inventory Stats - Following Panel de Control Pattern */}

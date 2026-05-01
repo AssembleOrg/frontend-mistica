@@ -15,7 +15,8 @@ import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { showToast } from '@/lib/toast';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { GeneratingPdfDialog } from '@/components/ui/generating-pdf-dialog';
-import { X, Calendar, User, CreditCard, Package, DollarSign, FileText, CheckCircle, XCircle, Receipt } from 'lucide-react';
+import { IssueCreditNoteDialog } from './issue-credit-note-dialog';
+import { X, Calendar, User, CreditCard, Package, DollarSign, FileText, CheckCircle, XCircle, Receipt, RotateCcw } from 'lucide-react';
 
 interface ViewSaleModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
   const [generateInvoice, setGenerateInvoice] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showCreditNote, setShowCreditNote] = useState(false);
   const { updateSale, getSaleById } = useSalesAPI();
   
   if (!sale) return null;
@@ -222,14 +224,25 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
                     {getStatusBadge(sale.status)}
                   </div>
                 </div>
-                <div>
+                <div className="sm:col-span-2">
                   <label className="text-sm font-medium text-[#455a54]/70 font-winter-solid">
-                    Método de Pago
+                    Pagos
                   </label>
-                  <p className="text-[#455a54] font-winter-solid flex items-center gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    {getPaymentMethodLabel(sale.paymentMethod)}
-                  </p>
+                  <ul className="mt-1 space-y-1 text-[#455a54] font-winter-solid">
+                    {(sale.payments ?? []).map((p, i) => (
+                      <li key={`${p.method}-${i}`} className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4 text-[#9d684e]" />
+                        <span className="font-medium">{getPaymentMethodLabel(p.method)}:</span>
+                        <span>{formatCurrency(p.amount)}</span>
+                        {p.method === 'CASH' && (p.changeGiven ?? 0) > 0 && (
+                          <span className="text-xs text-[#9d684e]/80">
+                            (entregó {formatCurrency(p.receivedAmount ?? 0)} · vuelto{' '}
+                            {formatCurrency(p.changeGiven ?? 0)})
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </CardContent>
@@ -386,6 +399,17 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
                 Ver Comprobante
               </Button>
             )}
+
+            {(isCompleted || isCancelled) && (
+              <Button
+                onClick={() => setShowCreditNote(true)}
+                variant="outline"
+                className="border-[#9d684e] text-[#9d684e] hover:bg-[#9d684e] hover:text-white"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Emitir NC
+              </Button>
+            )}
           </div>
           
           <Button
@@ -401,6 +425,14 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
 
       {/* Dialog de generación de PDF */}
       <GeneratingPdfDialog isOpen={isGeneratingPdf} />
+
+      {/* Dialog de emisión de Nota de Crédito */}
+      <IssueCreditNoteDialog
+        open={showCreditNote}
+        onOpenChange={setShowCreditNote}
+        sale={sale}
+        onIssued={() => onSaleUpdated?.()}
+      />
     </Dialog>
   );
 }

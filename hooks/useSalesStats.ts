@@ -133,9 +133,12 @@ export function useSalesStats() {
     let completedCountStatus = 0;
     let cancelledCount = 0;
     for (const sale of sales) {
-      if (sale.paymentMethod === 'CASH') cashAmount += sale.total;
-      else if (sale.paymentMethod === 'CARD') cardAmount += sale.total;
-      else if (sale.paymentMethod === 'TRANSFER') transferAmount += sale.total;
+      // Cada venta puede tener varios pagos; sumamos por método.
+      for (const p of sale.payments ?? []) {
+        if (p.method === 'CASH') cashAmount += p.amount;
+        else if (p.method === 'CARD') cardAmount += p.amount;
+        else if (p.method === 'TRANSFER') transferAmount += p.amount;
+      }
 
       if (sale.status === 'PENDING') pendingCount++;
       else if (sale.status === 'COMPLETED') completedCountStatus++;

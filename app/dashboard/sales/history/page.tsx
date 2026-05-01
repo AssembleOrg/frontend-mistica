@@ -38,7 +38,7 @@ import { useAppStore } from '@/stores/app.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
-import { formatCurrency } from '@/lib/sales-calculations';
+import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -90,9 +90,12 @@ export default function SalesHistoryPage() {
       );
     }
 
-    // Filtro por método de pago
+    // Filtro por método de pago: la venta matchea si tiene al menos un pago
+    // del método elegido.
     if (filters.paymentMethod !== 'all') {
-      filtered = filtered.filter((sale) => sale.paymentMethod === filters.paymentMethod);
+      filtered = filtered.filter((sale) =>
+        (sale.payments ?? []).some((p) => p.method === filters.paymentMethod)
+      );
     }
 
     // Filtro por estado
@@ -177,15 +180,15 @@ export default function SalesHistoryPage() {
     );
   };
 
-  const getPaymentMethodBadge = (method: Sale['paymentMethod']) => {
-    const methodConfig = {
-      efectivo: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
-      tarjeta: { label: 'Tarjeta', color: 'bg-blue-100 text-blue-800' },
-      transferencia: { label: 'Transferencia', color: 'bg-purple-100 text-purple-800' },
-      mixto: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
+  const getPaymentMethodBadge = (method: 'CASH' | 'CARD' | 'TRANSFER' | 'MIXED') => {
+    const methodConfig: Record<string, { label: string; color: string }> = {
+      CASH: { label: 'Efectivo', color: 'bg-green-100 text-green-800' },
+      CARD: { label: 'Tarjeta', color: 'bg-blue-100 text-blue-800' },
+      TRANSFER: { label: 'Transferencia', color: 'bg-purple-100 text-purple-800' },
+      MIXED: { label: 'Mixto', color: 'bg-yellow-100 text-yellow-800' },
     };
 
-    const config = methodConfig[method as keyof typeof methodConfig] || { label: 'Desconocido', color: 'bg-gray-100 text-gray-800' };
+    const config = methodConfig[method] || { label: 'Desconocido', color: 'bg-gray-100 text-gray-800' };
     return (
       <Badge variant="outline" className={config.color}>
         {config.label}
@@ -460,7 +463,7 @@ export default function SalesHistoryPage() {
                           {formatCurrency(sale.total)}
                         </TableCell>
                         <TableCell>
-                          {getPaymentMethodBadge(sale.paymentMethod)}
+                          {getPaymentMethodBadge(getPrimaryPaymentMethod(sale))}
                         </TableCell>
                         <TableCell>{getStatusBadge(sale.status)}</TableCell>
                         <TableCell className='text-sm text-[var(--color-verde-profundo)]'>

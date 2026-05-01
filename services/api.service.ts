@@ -1,8 +1,7 @@
 // services/api.service.ts
 
 import type { paths } from '@/lib/api-types';
-import { useAuthStore } from '@/stores/auth.store';
-import { API_CONFIG, getBaseUrl } from '@/lib/api-config';
+import { getBaseUrl } from '@/lib/api-config';
 
 // Base API response interface
 export interface ApiResponse<T> {
@@ -42,42 +41,16 @@ export class ApiService {
   private readonly MAX_CONCURRENT_REQUESTS = 15;
   private activeRequests = 0;
 
-  constructor(
-    baseURL: string = getBaseUrl()
-  ) {
+  constructor(baseURL: string = getBaseUrl()) {
     this.baseURL = baseURL;
   }
 
-  // Get authentication token
-  private getAuthToken(): string | null {
-    const authState = useAuthStore.getState();
-    const token = authState.token;
-    console.log('🔍 API: Auth state:', { 
-      hasToken: !!token, 
-      tokenLength: token?.length || 0,
-      isAuthenticated: authState.isAuthenticated,
-      hasUser: !!authState.user 
-    });
-    return token;
-  }
-
-  // Build headers with authentication
+  // Build headers; auth viaja en cookie httpOnly (no header).
   private buildHeaders(customHeaders?: Record<string, string>): HeadersInit {
-    const headers: Record<string, string> = {
+    return {
       'Content-Type': 'application/json',
       ...customHeaders,
     };
-
-    const token = this.getAuthToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-      console.log('✅ API: Token encontrado, agregando Authorization header');
-    } else {
-      console.log('❌ API: No hay token - request sin Authorization header');
-    }
-
-    console.log('🔍 API: Headers finales:', headers);
-    return headers;
   }
 
   // Handle API responses and errors
@@ -182,12 +155,17 @@ export class ApiService {
       const response = await fetch(url, {
         ...options,
         headers: this.buildHeaders(config.headers),
+        credentials: 'include',
         signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
       this.activeRequests--;
-      
+
+      if (response.status === 401) {
+        this.handleUnauthorized(endpoint);
+      }
+
       return this.handleResponse<T>(response);
     } catch (error) {
       clearTimeout(timeoutId);
@@ -214,6 +192,23 @@ export class ApiService {
         details: error,
       } as ApiError;
     }
+  }
+
+  // Si el backend devuelve 401 y había una sesión persistida, la cookie está
+  // vencida o fue invalidada → limpiamos el user y mandamos al login.
+  // Excepciones: el endpoint de login no debe rebotar (un 401 ahí significa
+  // "credenciales inválidas", no "sesión expirada"); ya estar en `/` tampoco.
+  private handleUnauthorized(endpoint: string): void {
+    if (typeof window === 'undefined') return;
+    if (endpoint.startsWith('/auth/login')) return;
+    if (window.location.pathname === '/') return;
+
+    const persisted = window.localStorage.getItem('mistica-auth-storage');
+    if (!persisted) return;
+
+    window.localStorage.removeItem('mistica-auth-storage');
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.assign(`/?next=${next}`);
   }
 
   // HTTP Methods

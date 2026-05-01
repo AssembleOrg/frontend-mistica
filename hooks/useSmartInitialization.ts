@@ -84,12 +84,7 @@ export function useSmartSalesData() {
 
   useEffect(() => {
     if (!bothInitialized) {
-      console.log('🛒 Sales page initializing required data...');
-      initializeModules(['products', 'employees']).then((results) => {
-        console.log('🛒 Sales data initialization results:', results);
-      });
-    } else {
-      console.log('🛒 Sales page: All data already available');
+      initializeModules(['products', 'employees']);
     }
   }, [bothInitialized, initializeModules]);
 
@@ -132,12 +127,15 @@ export function useSmartData(modules: Array<'products' | 'employees'>) {
   const anyLoading = modules.some(module => moduleStates[module].status.loading);
   const anyError = modules.some(module => moduleStates[module].status.error);
 
+  // Estabilizamos `modules` por su valor (string) para evitar que el caller
+  // pase un array inline y dispare el effect en cada render.
+  const modulesKey = modules.join(',');
   useEffect(() => {
     if (!allInitialized) {
-      console.log(`🔄 Initializing modules: ${modules.join(', ')}`);
-      initializeModules(modules);
+      initializeModules(modulesKey.split(',') as Array<'products' | 'employees'>);
     }
-  }, [allInitialized, initializeModules, modules]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allInitialized, initializeModules, modulesKey]);
 
   return {
     isLoading: anyLoading,

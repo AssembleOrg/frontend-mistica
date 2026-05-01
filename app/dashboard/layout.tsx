@@ -1,4 +1,5 @@
 import { AppSidebar } from '@/components/app-sidebar';
+import { AuthHydrator } from '@/components/auth-hydrator';
 import {
   SidebarInset,
   SidebarProvider,
@@ -13,6 +14,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
+      <AuthHydrator />
       <MysticCrystal color='#4e4247' />
       <AppSidebar />
       <SidebarInset>

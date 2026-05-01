@@ -8,7 +8,8 @@ type LoginRequest = paths['/auth/login']['post']['requestBody']['content']['appl
 type RegisterRequest = paths['/auth/register']['post']['requestBody']['content']['application/json'];
 type AdminRegisterRequest = paths['/auth/admin/register']['post']['requestBody']['content']['application/json'];
 
-// Response types (inferred from API responses)
+// Response del login: el `access_token` ya no se devuelve en el body — se
+// setea como cookie httpOnly desde el backend.
 export interface AuthResponse {
   user: {
     id: string;
@@ -17,9 +18,6 @@ export interface AuthResponse {
     role: 'admin' | 'user';
     avatar?: string;
   };
-  access_token: string;
-  refreshToken?: string;
-  expiresIn?: number;
 }
 
 export interface User {
@@ -55,9 +53,14 @@ export class AuthService {
     });
   }
 
-  // Get current user profile (if the backend has such endpoint)
+  // Returns the current authenticated user (using the cookie).
+  async me(): Promise<ApiResponse<User>> {
+    return apiService.get<User>('/auth/me');
+  }
+
+  // Alias kept for backwards compatibility — calls the same `/auth/me`.
   async getProfile(): Promise<ApiResponse<User>> {
-    return apiService.get<User>('/auth/profile');
+    return this.me();
   }
 
   // Logout (if the backend has logout endpoint for token invalidation)

@@ -5,9 +5,7 @@ import {
   Home,
   Package,
   ShoppingCart,
-  DollarSign,
   Users,
-  Settings,
   LogOut,
   Warehouse,
   UserCheck,
@@ -28,6 +26,16 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
+
+const SIDEBAR_STYLE = {
+  '--sidebar-background': '#efcbb9',
+  '--sidebar-foreground': '#455a54',
+  '--sidebar-primary': '#9d684e',
+  '--sidebar-primary-foreground': '#ffffff',
+  '--sidebar-accent': '#e0a38d',
+  '--sidebar-accent-foreground': '#455a54',
+  '--sidebar-border': '#d9dadb',
+} as React.CSSProperties;
 
 const navigationItems = [
   {
@@ -107,40 +115,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return user.role === 'admin' ? 'admin' : 'gerente';
   };
 
-  const filteredNavItems = navigationItems.filter((item) => {
-    if (!user) return true; // Show all if no user (shouldn't happen)
-
-    const uiRole = getUserRole();
-
-    // Note: 'cajero' role not implemented in backend yet
-    // if (uiRole === 'cajero') {
-    //   return ['Dashboard', 'Productos', 'Ventas'].includes(item.title);
-    // }
-
-    if (uiRole === 'gerente') {
-      // Gerente: Todo menos Personal
-      return item.title !== 'Personal';
-    }
-
-    // Admin: Ve todo
-    return true;
-  });
+  const userRole = user?.role ?? null;
+  const filteredNavItems = React.useMemo(() => {
+    return navigationItems.filter((item) => {
+      if (!userRole) return true;
+      const uiRole = userRole === 'admin' ? 'admin' : 'gerente';
+      if (uiRole === 'gerente') return item.title !== 'Personal';
+      return true;
+    });
+  }, [userRole]);
 
   return (
     <Sidebar
       collapsible='icon'
       {...props}
-      style={
-        {
-          '--sidebar-background': '#efcbb9',
-          '--sidebar-foreground': '#455a54',
-          '--sidebar-primary': '#9d684e',
-          '--sidebar-primary-foreground': '#ffffff',
-          '--sidebar-accent': '#e0a38d',
-          '--sidebar-accent-foreground': '#455a54',
-          '--sidebar-border': '#d9dadb',
-        } as React.CSSProperties
-      }
+      style={SIDEBAR_STYLE}
     >
       <SidebarHeader>
         <div className='flex items-center gap-2 px-4 py-4'>

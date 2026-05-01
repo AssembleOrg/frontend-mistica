@@ -227,12 +227,11 @@ export class ProductsService {
     const formData = new FormData();
     formData.append('image', imageFile);
     
-    // Note: This would require a different implementation in apiService for multipart/form-data
-    const response = await fetch(`${apiService['baseURL']}/products/${productId}/image`, {
+    // Multipart: dejamos que el browser fije el `Content-Type` con boundary.
+    // La cookie httpOnly viaja sola con `credentials: 'include'`.
+    const response = await fetch(`/api/products/${productId}/image`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiService['getAuthToken']()}`,
-      },
+      credentials: 'include',
       body: formData,
     });
 

@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useProductsStore } from '@/stores/products.store';
 import { useEmployeesStore } from '@/stores/employees.store';
 import { productsService } from '@/services/products.service';
@@ -19,9 +20,8 @@ type ModuleType = keyof InitializationState;
 
 /**
  * Smart App Initialization Hook
- * 
+ *
  * Manages lazy loading and prevents duplicate data fetching across the app.
- * Designed to work with the Sales page that needs both products and employees.
  */
 export function useAppInitialization() {
   const [initialized, setInitialized] = useState<InitializationState>({
@@ -34,246 +34,201 @@ export function useAppInitialization() {
     employees: { loading: false, error: null, lastInitialized: null },
   });
 
-  // Store access
-  const { products, setProducts, setLoading: setProductsLoading, setError: setProductsError } = useProductsStore();
-  const { employees, setEmployees, setLoading: setEmployeesLoading, setError: setEmployeesError } = useEmployeesStore();
+  // Refs para guardas concurrentes — evitamos meterlo en deps de callbacks.
+  const inFlightRef = useRef<Record<ModuleType, boolean>>({
+    products: false,
+    employees: false,
+  });
 
-  /**
-   * Check if a module is already initialized with data
-   */
-  const isModuleInitialized = useCallback((module: ModuleType): boolean => {
-    switch (module) {
-      case 'products':
-        return initialized.products || products.length > 0;
-      case 'employees':
-        return initialized.employees || employees.length > 0;
-      default:
-        return false;
-    }
-  }, [initialized, products.length, employees.length]);
+  // Selectors granulares — sólo nos importan los `length` (primitivos estables).
+  const productsCount = useProductsStore((s) => s.products.length);
+  const employeesCount = useEmployeesStore((s) => s.employees.length);
 
-  /**
-   * Get the status of a specific module
-   */
-  const getModuleStatus = useCallback((module: ModuleType) => {
-    return {
+  const { setProducts, setProductsLoading, setProductsError } = useProductsStore(
+    useShallow((s) => ({
+      setProducts: s.setProducts,
+      setProductsLoading: s.setLoading,
+      setProductsError: s.setError,
+    }))
+  );
+
+  const { setEmployees, setEmployeesLoading, setEmployeesError } = useEmployeesStore(
+    useShallow((s) => ({
+      setEmployees: s.setEmployees,
+      setEmployeesLoading: s.setLoading,
+      setEmployeesError: s.setError,
+    }))
+  );
+
+  const isModuleInitialized = useCallback(
+    (module: ModuleType): boolean => {
+      switch (module) {
+        case 'products':
+          return initialized.products || productsCount > 0;
+        case 'employees':
+          return initialized.employees || employeesCount > 0;
+        default:
+          return false;
+      }
+    },
+    [initialized, productsCount, employeesCount]
+  );
+
+  const getModuleStatus = useCallback(
+    (module: ModuleType) => ({
       initialized: isModuleInitialized(module),
       ...status[module],
-    };
-  }, [isModuleInitialized, status]);
+    }),
+    [isModuleInitialized, status]
+  );
 
-  /**
-   * Initialize products if not already loaded
-   */
   const initializeProducts = useCallback(async (): Promise<boolean> => {
-    if (isModuleInitialized('products')) {
-      console.log('🚀 Products already initialized, skipping fetch');
-      return true;
-    }
+    if (initialized.products || productsCount > 0) return true;
+    if (inFlightRef.current.products) return false;
 
-    if (status.products.loading) {
-      console.log('⏳ Products already loading, waiting...');
-      return false;
-    }
-
+    inFlightRef.current.products = true;
     try {
-      setStatus(prev => ({
+      setStatus((prev) => ({
         ...prev,
-        products: { ...prev.products, loading: true, error: null }
+        products: { ...prev.products, loading: true, error: null },
       }));
-      
       setProductsLoading(true);
       setProductsError(null);
 
-      console.log('📦 Fetching products...');
-      const fetchedProducts = await productsService.getAllProducts();
-      
-      setProducts(fetchedProducts.data);
-      setInitialized(prev => ({ ...prev, products: true }));
-      
-      setStatus(prev => ({
+      const fetched = await productsService.getAllProducts();
+      setProducts(fetched.data);
+      setInitialized((prev) => ({ ...prev, products: true }));
+      setStatus((prev) => ({
         ...prev,
-        products: { 
-          loading: false, 
-          error: null, 
-          lastInitialized: new Date() 
-        }
+        products: { loading: false, error: null, lastInitialized: new Date() },
       }));
-      
       setProductsLoading(false);
-      console.log(`✅ Products initialized: ${fetchedProducts.data.length} items`);
-      
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error loading products';
-      
-      setStatus(prev => ({
+      const message = error instanceof Error ? error.message : 'Error loading products';
+      setStatus((prev) => ({
         ...prev,
-        products: { 
-          loading: false, 
-          error: errorMessage, 
-          lastInitialized: null 
-        }
+        products: { loading: false, error: message, lastInitialized: null },
       }));
-      
-      setProductsError(errorMessage);
+      setProductsError(message);
       setProductsLoading(false);
-      
-      console.error('❌ Products initialization failed:', errorMessage);
       return false;
+    } finally {
+      inFlightRef.current.products = false;
     }
-  }, [isModuleInitialized, status.products.loading, setProducts, setProductsLoading, setProductsError]);
+  }, [initialized.products, productsCount, setProducts, setProductsLoading, setProductsError]);
 
-  /**
-   * Initialize employees if not already loaded
-   */
   const initializeEmployees = useCallback(async (): Promise<boolean> => {
-    if (isModuleInitialized('employees')) {
-      console.log('🚀 Employees already initialized, skipping fetch');
-      return true;
-    }
+    if (initialized.employees || employeesCount > 0) return true;
+    if (inFlightRef.current.employees) return false;
 
-    if (status.employees.loading) {
-      console.log('⏳ Employees already loading, waiting...');
-      return false;
-    }
-
+    inFlightRef.current.employees = true;
     try {
-      setStatus(prev => ({
+      setStatus((prev) => ({
         ...prev,
-        employees: { ...prev.employees, loading: true, error: null }
+        employees: { ...prev.employees, loading: true, error: null },
       }));
-      
       setEmployeesLoading(true);
       setEmployeesError(null);
 
-      console.log('👥 Fetching employees...');
-      const fetchedEmployees = await employeesService.getAllEmployees();
-      
-      setEmployees(fetchedEmployees.data);
-      setInitialized(prev => ({ ...prev, employees: true }));
-      
-      setStatus(prev => ({
+      const fetched = await employeesService.getAllEmployees();
+      setEmployees(fetched.data);
+      setInitialized((prev) => ({ ...prev, employees: true }));
+      setStatus((prev) => ({
         ...prev,
-        employees: { 
-          loading: false, 
-          error: null, 
-          lastInitialized: new Date() 
-        }
+        employees: { loading: false, error: null, lastInitialized: new Date() },
       }));
-      
       setEmployeesLoading(false);
-      console.log(`✅ Employees initialized: ${fetchedEmployees.data.length} items`);
-      
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error loading employees';
-      
-      setStatus(prev => ({
+      const message = error instanceof Error ? error.message : 'Error loading employees';
+      setStatus((prev) => ({
         ...prev,
-        employees: { 
-          loading: false, 
-          error: errorMessage, 
-          lastInitialized: null 
-        }
+        employees: { loading: false, error: message, lastInitialized: null },
       }));
-      
-      setEmployeesError(errorMessage);
+      setEmployeesError(message);
       setEmployeesLoading(false);
-      
-      console.error('❌ Employees initialization failed:', errorMessage);
       return false;
+    } finally {
+      inFlightRef.current.employees = false;
     }
-  }, [isModuleInitialized, status.employees.loading, setEmployees, setEmployeesLoading, setEmployeesError]);
+  }, [
+    initialized.employees,
+    employeesCount,
+    setEmployees,
+    setEmployeesLoading,
+    setEmployeesError,
+  ]);
 
-  /**
-   * Initialize multiple modules in parallel
-   * Perfect for Sales page that needs both products and employees
-   */
-  const initializeModules = useCallback(async (modules: ModuleType[]): Promise<Record<ModuleType, boolean>> => {
-    console.log(`🎯 Initializing modules: ${modules.join(', ')}`);
-    
-    const results = await Promise.allSettled(
-      modules.map(async (module) => {
-        switch (module) {
-          case 'products':
-            return { module, success: await initializeProducts() };
-          case 'employees':
-            return { module, success: await initializeEmployees() };
-          default:
-            return { module, success: false };
+  const initializeModules = useCallback(
+    async (modules: ModuleType[]): Promise<Record<ModuleType, boolean>> => {
+      const results = await Promise.allSettled(
+        modules.map(async (module) => {
+          switch (module) {
+            case 'products':
+              return { module, success: await initializeProducts() };
+            case 'employees':
+              return { module, success: await initializeEmployees() };
+            default:
+              return { module, success: false };
+          }
+        })
+      );
+
+      const resultMap: Record<string, boolean> = {};
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          resultMap[result.value.module] = result.value.success;
+        } else {
+          console.error('Module initialization failed:', result.reason);
         }
-      })
-    );
-
-    const resultMap: Record<string, boolean> = {};
-    results.forEach((result) => {
-      if (result.status === 'fulfilled') {
-        resultMap[result.value.module] = result.value.success;
-      } else {
-        console.error(`Module initialization failed:`, result.reason);
       }
-    });
+      return resultMap as Record<ModuleType, boolean>;
+    },
+    [initializeProducts, initializeEmployees]
+  );
 
-    return resultMap as Record<ModuleType, boolean>;
-  }, [initializeProducts, initializeEmployees]);
+  const forceInitialization = useCallback(
+    async (module: ModuleType): Promise<boolean> => {
+      setInitialized((prev) => ({ ...prev, [module]: false }));
+      switch (module) {
+        case 'products':
+          setProducts([]);
+          return initializeProducts();
+        case 'employees':
+          setEmployees([]);
+          return initializeEmployees();
+        default:
+          return false;
+      }
+    },
+    [initializeProducts, initializeEmployees, setProducts, setEmployees]
+  );
 
-  /**
-   * Force re-initialization of a module (useful for data refresh)
-   */
-  const forceInitialization = useCallback(async (module: ModuleType): Promise<boolean> => {
-    console.log(`🔄 Force re-initializing ${module}...`);
-    
-    // Reset initialization state
-    setInitialized(prev => ({ ...prev, [module]: false }));
-    
-    switch (module) {
-      case 'products':
-        setProducts([]);
-        return await initializeProducts();
-      case 'employees':
-        setEmployees([]);
-        return await initializeEmployees();
-      default:
-        return false;
-    }
-  }, [initializeProducts, initializeEmployees, setProducts, setEmployees]);
-
-  /**
-   * Get initialization summary for debugging
-   */
-  const getInitializationSummary = useCallback(() => {
-    return {
+  const getInitializationSummary = useCallback(
+    () => ({
       products: {
         initialized: isModuleInitialized('products'),
-        count: products.length,
+        count: productsCount,
         status: status.products,
       },
       employees: {
         initialized: isModuleInitialized('employees'),
-        count: employees.length,
+        count: employeesCount,
         status: status.employees,
       },
-    };
-  }, [isModuleInitialized, products.length, employees.length, status]);
+    }),
+    [isModuleInitialized, productsCount, employeesCount, status]
+  );
 
   return {
-    // Individual initialization
     initializeProducts,
     initializeEmployees,
-    
-    // Bulk initialization
     initializeModules,
-    
-    // Status checks
     isModuleInitialized,
     getModuleStatus,
     getInitializationSummary,
-    
-    // Force refresh
     forceInitialization,
-    
-    // Current state
     initialized,
     status,
   };

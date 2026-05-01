@@ -1,13 +1,17 @@
 // lib/api-config.ts
 // Configuration for API endpoints
+//
+// El backend se sirve vía rewrite de Next (`/api/*` → backend) en
+// `next.config.ts`, por lo que en el browser todas las llamadas son same-origin
+// y la cookie httpOnly se manda sola con `credentials: 'include'`.
 
 export const API_CONFIG = {
-  // Base URL for the API
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
-  
+  // Same-origin: vacío en cliente, el rewrite de Next se encarga.
+  BASE_URL: '',
+
   // API version prefix
   API_PREFIX: '/api',
-  
+
   // Full API URL
   get FULL_URL() {
     return `${this.BASE_URL}${this.API_PREFIX}`;
@@ -70,8 +74,11 @@ export function isDevelopment(): boolean {
   return process.env.NODE_ENV === 'development';
 }
 
-// Helper function to get the correct base URL based on environment
+// Devuelve el base URL del API:
+// - En cliente: '' (mismo origen, lo resuelve el rewrite de Next).
+// - En servidor (RSC / Route Handlers): apunta directo al backend para que
+//   `fetch` no intente resolver una URL relativa.
 export function getBaseUrl(): string {
-  // Always use the configured API URL, never the frontend origin
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+  if (typeof window !== 'undefined') return '';
+  return process.env.BACKEND_URL || 'http://localhost:3000';
 }

@@ -7,47 +7,44 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { DateRange } from 'react-day-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { showToast } from '@/lib/toast';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
-import { useSales } from '@/hooks/useSales';
-import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { useSessionManager } from '@/hooks/useSessionManager';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { Sale, UpdateSaleRequest } from '@/services/sales.service';
-import { PaymentInfo, ProductCategory } from '@/lib/types';
 import { Plus, BarChart3, ShoppingCart } from 'lucide-react';
 
-// Clean UI Components
-import { ProductSearchSection } from '@/components/dashboard/sales/ProductSearchSection';
-import { ShoppingCartSection } from '@/components/dashboard/sales/ShoppingCartSection';
-import { CheckoutSection } from '@/components/dashboard/sales/CheckoutSection';
-import { SalesStatsWidget } from '@/components/dashboard/sales/sales-stats-widget';
-import { SessionManager } from '@/components/dashboard/session-manager';
-import { CreateSaleModal } from '@/components/dashboard/sales/create-sale-modal';
-import { ViewSaleModal } from '@/components/dashboard/sales/view-sale-modal';
-import { EditSaleModal } from '@/components/dashboard/sales/edit-sale-modal';
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
 import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
 import { useIsMobile } from '@/hooks/use-mobile';
 
+// Modales pesados: cargar bajo demanda
+const CreateSaleModal = dynamic(
+  () => import('@/components/dashboard/sales/create-sale-modal').then(m => m.CreateSaleModal),
+  { ssr: false }
+);
+const ViewSaleModal = dynamic(
+  () => import('@/components/dashboard/sales/view-sale-modal').then(m => m.ViewSaleModal),
+  { ssr: false }
+);
+const EditSaleModal = dynamic(
+  () => import('@/components/dashboard/sales/edit-sale-modal').then(m => m.EditSaleModal),
+  { ssr: false }
+);
+
 export default function SalesPage() {
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    null
-  );
-  const [searchResults, setSearchResults] = useState<any[]>([]); // eslint-disable-line @typescript-eslint/no-explicit-any
-  const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<'sales' | 'stats'>('sales');
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
   const [showViewSaleModal, setShowViewSaleModal] = useState(false);
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -55,95 +52,31 @@ export default function SalesPage() {
   const [totalItems, setTotalItems] = useState(0);
 
   // Filter state
-  const [searchValue, setSearchValue] = useState("");
+  const [searchValue, setSearchValue] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Mobile responsive
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
 
-  // Initialize products data from backend
-  console.log('🏪 Sales Page: Inicializando datos de productos');
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
 
-  // Sales API hooks
-  const { 
-    isLoading: loadingSales, 
-    sales, 
-    dailySales, 
-    getSalesPaginated, 
-    getDailySales, 
-    deleteSale 
+  const {
+    isLoading: loadingSales,
+    sales,
+    getSalesPaginated,
+    getDailySales,
+    deleteSale,
   } = useSalesAPI();
 
-  // Session-aware POS operations
-  const sessionManager = useSessionManager({ autoCreateSession: true });
-  const {
-    addProductToCart: addToSessionCart,
-    removeFromCart: removeFromSessionCart,
-    updateCartQuantity: updateSessionCartQuantity,
-    clearCart: clearSessionCart,
-    quickCheckout,
-    hasActiveSession
-  } = sessionManager;
+  const loadSalesWithFilters = useCallback(async () => {
+    const filters: { search?: string; status?: string; from?: string; to?: string } = {};
+    if (searchValue.trim()) filters.search = searchValue.trim();
+    if (statusFilter && statusFilter !== 'all') filters.status = statusFilter;
+    if (dateRange?.from) filters.from = dateRange.from.toISOString().split('T')[0];
+    if (dateRange?.to) filters.to = dateRange.to.toISOString().split('T')[0];
 
-  // Fallback to old system for backward compatibility
-  const { searchProducts, products } = useProducts();
-  const oldSalesHook = useSales();
-
-
-  // Unified useEffect for all data loading (debounced for search, immediate for pagination/status)
-  useEffect(() => {
-    // Immediate loading for pagination and status changes (no debounce needed)
-    if (searchValue.trim() === '') {
-      console.log('🔍 Sales Page: Loading immediately - no search term');
-      loadSalesWithFilters();
-      return;
-    }
-
-    // Debounced loading for search text
-    const searchTimeout = setTimeout(() => {
-      console.log('🔍 Sales Page: Loading with debounced search');
-      loadSalesWithFilters();
-    }, 500);
-
-    return () => clearTimeout(searchTimeout);
-  }, [currentPage, pageSize, searchValue, statusFilter, dateRange]);
-
-  // Load daily sales data only once on mount
-  useEffect(() => {
-    getDailySales();
-  }, []);
-
-  // Function to load sales with current filters
-  const loadSalesWithFilters = async () => {
-    const filters: {
-      search?: string;
-      status?: string;
-      from?: string;
-      to?: string;
-    } = {};
-
-    // Solo agregar filtros si tienen valores válidos
-    if (searchValue.trim()) {
-      filters.search = searchValue.trim();
-    }
-    
-    if (statusFilter && statusFilter !== "all") {
-      filters.status = statusFilter;
-    }
-    
-    if (dateRange?.from) {
-      filters.from = dateRange.from.toISOString().split('T')[0]; // YYYY-MM-DD format
-    }
-    
-    if (dateRange?.to) {
-      filters.to = dateRange.to.toISOString().split('T')[0]; // YYYY-MM-DD format
-    }
-
-    console.log('🔍 Loading sales with filters:', { page: currentPage, pageSize, filters });
-    
     try {
       const result = await getSalesPaginated(currentPage, pageSize, filters);
       if (result) {
@@ -153,196 +86,100 @@ export default function SalesPage() {
     } catch (error) {
       console.error('Error loading sales:', error);
     }
-  };
+  }, [currentPage, pageSize, searchValue, statusFilter, dateRange, getSalesPaginated]);
 
-  // Filter handlers
-  const handleSearchChange = (value: string) => {
+  // Filtros: debounce sólo para búsqueda por texto
+  useEffect(() => {
+    if (searchValue.trim() === '') {
+      loadSalesWithFilters();
+      return;
+    }
+    const t = setTimeout(loadSalesWithFilters, 500);
+    return () => clearTimeout(t);
+  }, [loadSalesWithFilters, searchValue]);
+
+  // Daily sales sólo en mount
+  useEffect(() => {
+    getDailySales();
+  }, [getDailySales]);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadSalesWithFilters(), getDailySales()]);
+  }, [loadSalesWithFilters, getDailySales]);
+
+  const handleSearchChange = useCallback((value: string) => {
     setSearchValue(value);
-    setCurrentPage(1); // Reset to first page when searching
-  };
+    setCurrentPage(1);
+  }, []);
 
-  const handleDateRangeChange = (range: DateRange | undefined) => {
-    console.log('🔍 Sales Page: Date range changed:', range);
+  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
     setDateRange(range);
     setCurrentPage(1);
-    // La carga de datos será manejada por el useEffect debounced
-  };
+  }, []);
 
-  const handleStatusFilterChange = (status: string) => {
+  const handleStatusFilterChange = useCallback((status: string) => {
     setStatusFilter(status);
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handleRefresh = () => {
-    loadSalesWithFilters();
-    getDailySales();
-  };
-
-  // Pure event handlers - delegate to session manager
-  const handleProductSelect = async (productId: string, quantity = 1) => {
-    try {
-      const product = products.find(p => p.id === productId);
-      if (!product) {
-        throw new Error('Producto no encontrado');
-      }
-
-      if (hasActiveSession) {
-        // Use session-aware cart management
-        addToSessionCart(product, quantity);
-      } else {
-        // Fallback to old system
-        oldSalesHook.addProductToCart(productId, quantity);
-        showToast.success('Producto agregado al carrito');
-      }
-      
-      setSelectedProductId(null);
-    } catch (error) {
-      showToast.error(
-        error instanceof Error ? error.message : 'Error agregando producto'
-      );
-    }
-  };
-
-  const handleQuantityChange = (productId: string, quantity: number) => {
-    try {
-      if (hasActiveSession) {
-        updateSessionCartQuantity(productId, quantity);
-      } else {
-        oldSalesHook.updateCartQuantity(productId, quantity);
-      }
-    } catch (error) {
-      showToast.error(
-        error instanceof Error ? error.message : 'Error actualizando cantidad'
-      );
-    }
-  };
-
-  const handleRemoveItem = (productId: string) => {
-    try {
-      if (hasActiveSession) {
-        removeFromSessionCart(productId);
-      } else {
-        oldSalesHook.removeFromCart(productId);
-        showToast.info('Producto removido');
-      }
-    } catch (_error) {
-      showToast.error('Error removiendo producto');
-    }
-  };
-
-  const handleClearCart = () => {
-    try {
-      if (hasActiveSession) {
-        clearSessionCart();
-      } else {
-        oldSalesHook.clearCart();
-        showToast.info('Carrito limpiado');
-      }
-    } catch (_error) {
-      showToast.error('Error limpiando carrito');
-    }
-  };
-
-  const handleCheckout = async (paymentInfo: PaymentInfo) => {
-    try {
-      if (hasActiveSession) {
-        await quickCheckout(paymentInfo);
-      } else {
-        oldSalesHook.checkout(paymentInfo);
-        showToast.success('Venta completada exitosamente');
-      }
-    } catch (error) {
-      showToast.error(
-        error instanceof Error ? error.message : 'Error procesando venta'
-      );
-    }
-  };
-
-  const handleSearch = async (query: string, category?: string) => {
-    try {
-      setIsSearching(true);
-      console.log('🏪 Sales Page: Buscando productos con query:', query, 'categoria:', category);
-      const results = searchProducts(query, category as ProductCategory);
-      console.log('🏪 Sales Page: Resultados encontrados:', results.length);
-      setSearchResults(results);
-    } catch (error) {
-      console.error('🏪 Sales Page: Error en búsqueda:', error);
-      showToast.error(
-        error instanceof Error ? error.message : 'Error en búsqueda'
-      );
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Sales handlers
-  const handleSaleCreated = (sale: Sale) => {
+  const handleSaleCreated = useCallback(() => {
     showToast.success('Venta creada exitosamente');
-    // Refresh sales data
-    loadSalesWithFilters();
-    getDailySales();
-  };
+    refreshAll();
+  }, [refreshAll]);
 
-  const handleViewSale = (sale: Sale) => {
+  const handleViewSale = useCallback((sale: Sale) => {
     setSelectedSale(sale);
     setShowViewSaleModal(true);
-  };
+  }, []);
 
-  const handleViewReceipt = (sale: Sale) => {
-    // Verificar si es factura o comprobante
-    const isInvoice = hasAfipData(sale);
-    processReceiptGeneration(sale, isInvoice);
-  };
+  const handleViewReceipt = useCallback((sale: Sale) => {
+    processReceiptGeneration(sale, hasAfipData(sale));
+  }, []);
 
-  const handleEditSale = (sale: Sale) => {
+  const handleEditSale = useCallback((sale: Sale) => {
     setSelectedSale(sale);
     setShowEditSaleModal(true);
-  };
+  }, []);
 
-  const handleUpdateSale = async (saleId: string, updatedSale: UpdateSaleRequest) => {
-    try {
+  const handleUpdateSale = useCallback(
+    async (_saleId: string, _updatedSale: UpdateSaleRequest) => {
       // TODO: Implement update sale API call
-      console.log('Updating sale:', saleId, updatedSale);
       showToast.success('Venta actualizada exitosamente');
-      // Refresh sales data
-      loadSalesWithFilters();
-      getDailySales();
-    } catch (error) {
-      throw error;
-    }
-  };
+      await refreshAll();
+    },
+    [refreshAll]
+  );
 
-  const handleDeleteSale = async (saleId: string) => {
-    try {
-      await deleteSale(saleId);
-      // Refresh sales data
-      loadSalesWithFilters();
-      getDailySales();
-    } catch (error) {
-      console.error('Error deleting sale:', error);
-    }
-  };
+  const handleDeleteSale = useCallback(
+    async (saleId: string) => {
+      try {
+        await deleteSale(saleId);
+        await refreshAll();
+      } catch (error) {
+        console.error('Error deleting sale:', error);
+      }
+    },
+    [deleteSale, refreshAll]
+  );
 
-  const handleCancelSale = async (saleId: string) => {
-    try {
-      // Update sale status to CANCELLED
-      await handleUpdateSale(saleId, { status: 'CANCELLED' });
-      showToast.success('Venta cancelada exitosamente');
-    } catch (error) {
-      console.error('Error cancelling sale:', error);
-      showToast.error('Error al cancelar la venta');
-    }
-  };
+  const handleCancelSale = useCallback(
+    async (saleId: string) => {
+      try {
+        await handleUpdateSale(saleId, { status: 'CANCELLED' });
+        showToast.success('Venta cancelada exitosamente');
+      } catch (error) {
+        console.error('Error cancelling sale:', error);
+        showToast.error('Error al cancelar la venta');
+      }
+    },
+    [handleUpdateSale]
+  );
 
-  // Pagination handlers
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
-  const handlePageSizeChange = (newPageSize: number) => {
-    setPageSize(newPageSize);
-    setCurrentPage(1); // Reset to first page
-  };
+  const handlePageChange = useCallback((page: number) => setCurrentPage(page), []);
+  const handlePageSizeChange = useCallback((n: number) => {
+    setPageSize(n);
+    setCurrentPage(1);
+  }, []);
 
   // Handle loading and error states to prevent hydration issues
   if (productsError) {
@@ -458,11 +295,11 @@ export default function SalesPage() {
                   onDateRangeChange={handleDateRangeChange}
                   statusFilter={statusFilter}
                   onStatusFilterChange={handleStatusFilterChange}
-                  onRefresh={handleRefresh}
+                  onRefresh={refreshAll}
                   isLoading={loadingSales}
                 />
               </div>
-              
+
               <div className="hidden sm:block">
                 {viewMode === 'table' ? (
                   <div className="overflow-x-auto">
@@ -486,7 +323,7 @@ export default function SalesPage() {
                       onDateRangeChange={handleDateRangeChange}
                       statusFilter={statusFilter}
                       onStatusFilterChange={handleStatusFilterChange}
-                      onRefresh={handleRefresh}
+                      onRefresh={refreshAll}
                     />
                   </div>
                 ) : (
@@ -503,7 +340,7 @@ export default function SalesPage() {
                       onDateRangeChange={handleDateRangeChange}
                       statusFilter={statusFilter}
                       onStatusFilterChange={handleStatusFilterChange}
-                      onRefresh={handleRefresh}
+                      onRefresh={refreshAll}
                       isLoading={loadingSales}
                     />
                   </div>
@@ -535,8 +372,7 @@ export default function SalesPage() {
         }}
         sale={selectedSale}
         onSaleUpdated={() => {
-          loadSalesWithFilters();
-          getDailySales();
+          refreshAll();
           setShowViewSaleModal(false);
           setSelectedSale(null);
         }}

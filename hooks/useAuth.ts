@@ -1,216 +1,160 @@
 // hooks/useAuth.ts
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth.store';
-import { authService, LoginRequest, RegisterRequest } from '@/services/auth.service';
-import { ApiError } from '@/services/api.service';
+import {
+  authService,
+  type AdminRegisterRequest,
+  type LoginRequest,
+  type RegisterRequest,
+} from '@/services/auth.service';
+import type { ApiError } from '@/services/api.service';
 import { showToast } from '@/lib/toast';
 
-// Hook state interface
 interface UseAuthState {
   loading: boolean;
   error: string | null;
 }
 
 export function useAuth() {
-  const store = useAuthStore();
-  const [state, setState] = useState<UseAuthState>({
-    loading: false,
-    error: null,
-  });
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { setUser, logout: storeLogout } = useAuthStore(
+    useShallow((s) => ({ setUser: s.setUser, logout: s.logout }))
+  );
 
-  // Handle API errors
+  const [state, setState] = useState<UseAuthState>({ loading: false, error: null });
+
   const handleApiError = useCallback((error: unknown, action: string) => {
     const apiError = error as ApiError;
     const errorMessage = apiError?.message || `Error en ${action}`;
-    
-    setState(prev => ({ ...prev, error: errorMessage }));
+    setState((prev) => ({ ...prev, error: errorMessage }));
     showToast.error(errorMessage);
-    
-    console.error(`${action} failed:`, error);
   }, []);
 
-  // Login (async)
-  const login = useCallback(async (credentials: LoginRequest) => {
-    console.log('🔑 LOGIN: Iniciando login con:', credentials);
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await authService.login(credentials);
-      console.log('🔑 LOGIN: Respuesta del backend:', response);
-      
-      // Backend devuelve access_token, no token
-      const { user, access_token } = response.data;
-      console.log('🔑 LOGIN: User extraído:', user);
-      console.log('🔑 LOGIN: Access token extraído:', access_token);
-      
-      // Update store with response data
-      store.setUser(user);
-      store.setToken(access_token);
-      store.setAuthenticated(true);
-      
-      console.log('🔑 LOGIN: Estado actualizado en store');
-      console.log('🔑 LOGIN: Token guardado:', store.token);
-      console.log('🔑 LOGIN: Usuario guardado:', store.user);
-      console.log('🔑 LOGIN: Autenticado:', store.isAuthenticated);
-      
-      showToast.success(`¡Bienvenido, ${user.name}!`);
-      setState(prev => ({ ...prev, loading: false }));
-      
-      return response.data;
-    } catch (error) {
-      console.error('🔑 LOGIN: Error en login:', error);
-      handleApiError(error, 'iniciar sesión');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [store, handleApiError]);
+  const login = useCallback(
+    async (credentials: LoginRequest) => {
+      setState({ loading: true, error: null });
+      try {
+        const response = await authService.login(credentials);
+        // El backend setea la cookie httpOnly; sólo necesitamos el `user`.
+        const { user: loggedUser } = response.data;
+        setUser(loggedUser);
+        showToast.success(`¡Bienvenido, ${loggedUser.name}!`);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'iniciar sesión');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [setUser, handleApiError]
+  );
 
-  // Register (async)
-  const register = useCallback(async (userData: RegisterRequest) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await authService.register(userData);
-      const { user, access_token } = response.data;
-      
-      // Update store with response data
-      store.setUser(user);
-      store.setToken(access_token);
-      store.setAuthenticated(true);
-      
-      showToast.success(`¡Cuenta creada exitosamente! Bienvenido, ${user.name}!`);
-      setState(prev => ({ ...prev, loading: false }));
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'crear cuenta');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [store, handleApiError]);
+  const register = useCallback(
+    async (userData: RegisterRequest) => {
+      setState({ loading: true, error: null });
+      try {
+        const response = await authService.register(userData);
+        // Tras registrarse el flujo es ir a login (el backend no auto-loguea).
+        showToast.success('¡Cuenta creada! Iniciá sesión para continuar.');
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'crear cuenta');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [handleApiError]
+  );
 
-  // Register admin (async)
-  const registerAdmin = useCallback(async (userData: RegisterRequest) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await authService.registerAdmin(userData);
-      const { user, access_token } = response.data;
-      
-      // Update store with response data
-      store.setUser(user);
-      store.setToken(access_token);
-      store.setAuthenticated(true);
-      
-      showToast.success(`¡Administrador creado exitosamente! Bienvenido, ${user.name}!`);
-      setState(prev => ({ ...prev, loading: false }));
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'crear administrador');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [store, handleApiError]);
+  const registerAdmin = useCallback(
+    async (userData: AdminRegisterRequest) => {
+      setState({ loading: true, error: null });
+      try {
+        const response = await authService.registerAdmin(userData);
+        showToast.success('Administrador creado exitosamente');
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'crear administrador');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [handleApiError]
+  );
 
-  // Logout
   const logout = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
+    setState({ loading: true, error: null });
     try {
-      // Call backend logout if it exists
       await authService.logout().catch(() => {
-        // Ignore logout errors from backend - still logout locally
+        // Si el backend falla, igual limpiamos el estado local.
       });
-      
-      // Clear local auth state
-      store.logout();
-      
+      storeLogout();
       showToast.success('Sesión cerrada exitosamente');
-      setState(prev => ({ ...prev, loading: false }));
-    } catch (error) {
-      // Even if backend logout fails, logout locally
-      store.logout();
-      setState(prev => ({ ...prev, loading: false }));
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
     }
-  }, [store]);
+  }, [storeLogout]);
 
-  // Refresh token (if needed)
-  const refreshToken = useCallback(async (refreshToken: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
+  const refreshUser = useCallback(async () => {
     try {
-      const response = await authService.refreshToken(refreshToken);
-      
-      store.setToken(response.data.token);
-      
-      setState(prev => ({ ...prev, loading: false }));
+      const response = await authService.me();
+      setUser(response.data);
       return response.data;
     } catch (error) {
-      handleApiError(error, 'renovar token');
-      // If refresh fails, logout user
-      store.logout();
-      setState(prev => ({ ...prev, loading: false }));
+      // Sesión inválida o expirada: limpiamos el estado local.
+      storeLogout();
       throw error;
     }
-  }, [store, handleApiError]);
+  }, [setUser, storeLogout]);
 
-  // Get user profile (if needed)
-  const getProfile = useCallback(async () => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await authService.getProfile();
-      
-      // Update user data in store
-      store.setUser(response.data);
-      
-      setState(prev => ({ ...prev, loading: false }));
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'obtener perfil');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [store, handleApiError]);
+  const userRole = user?.role;
+  const hasRole = useCallback((role: string) => userRole === role, [userRole]);
+  const isAdmin = useCallback(() => userRole === 'admin', [userRole]);
 
-  // Clear error
-  const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
-
-  // Check if user has specific role
-  const hasRole = useCallback((role: string) => {
-    return store.user?.role === role;
-  }, [store.user?.role]);
-
-  // Check if user is admin
-  const isAdmin = useCallback(() => {
-    return store.user?.role === 'admin';
-  }, [store.user?.role]);
+  const clearError = useCallback(() => setState((prev) => ({ ...prev, error: null })), []);
 
   return {
-    // State from store
-    user: store.user,
-    token: store.token,
-    isAuthenticated: store.isAuthenticated,
-    
-    // Loading/error states from hook
+    user,
+    isAuthenticated,
     loading: state.loading,
     error: state.error,
-    
-    // Actions
+
     login,
     register,
     registerAdmin,
     logout,
-    refreshToken,
-    getProfile,
-    
-    // Utilities
+    refreshUser,
+    getProfile: refreshUser, // alias
+
     clearError,
     hasRole,
     isAdmin,
   };
+}
+
+/**
+ * Llama una sola vez a `/auth/me` al montar la app para validar la sesión
+ * persistida (el `user` en localStorage es sólo un hint; la verdad la tiene
+ * la cookie del backend).
+ */
+export function useHydrateAuth() {
+  const { refreshUser } = useAuth();
+  const persistedUser = useAuthStore((s) => s.user);
+  const ranRef = useRef(false);
+
+  useEffect(() => {
+    if (ranRef.current) return;
+    ranRef.current = true;
+    if (persistedUser) {
+      void refreshUser().catch(() => {
+        // refreshUser ya se encarga de limpiar el estado en caso de 401.
+      });
+    }
+  }, [persistedUser, refreshUser]);
 }

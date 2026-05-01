@@ -3,9 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { MysticCrystal } from '@/components/mystic-crystal';
 import { Toaster } from '@/components/ui/sonner';
-import { AuthProvider } from '@/components/auth-provider';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { DebugAuth } from '@/components/debug-auth';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -34,9 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <MysticCrystal color='#efcbb9' />
-        <ErrorBoundary>
-            <AuthProvider>{children}</AuthProvider>
-        </ErrorBoundary>
+        <ErrorBoundary>{children}</ErrorBoundary>
         <Toaster />
       </body>
     </html>

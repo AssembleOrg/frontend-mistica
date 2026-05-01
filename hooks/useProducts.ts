@@ -3,12 +3,12 @@
  * Now supports async operations, error handling, and loading states
  */
 
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useProductsStore } from '@/stores/products.store';
 import { productsService, CreateProductRequest, UpdateProductRequest } from '@/services/products.service';
 import { ApiError } from '@/services/api.service';
-import type { Product, ProductCategory } from '@/lib/types';
-import { generateBarcode } from '@/lib/barcode-utils';
+import type { ProductCategory } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 
 // Hook state interface
@@ -19,232 +19,250 @@ interface UseProductsState {
 }
 
 export function useProducts() {
-  const store = useProductsStore();
+  // Subscripciones granulares: cada componente sólo se re-renderea por las
+  // slices que realmente lee (no por todo el store).
+  const products = useProductsStore((s) => s.products);
+  const selectedProduct = useProductsStore((s) => s.selectedProduct);
+  const searchQuery = useProductsStore((s) => s.searchQuery);
+  const selectedCategory = useProductsStore((s) => s.selectedCategory);
+  const sortBy = useProductsStore((s) => s.sortBy);
+  const sortOrder = useProductsStore((s) => s.sortOrder);
+  const pagination = useProductsStore((s) => s.pagination);
+  const storeIsLoading = useProductsStore((s) => s.loading.isLoading);
+  const storeError = useProductsStore((s) => s.loading.error);
+
+  // Acciones — referencias estables (Zustand garantiza estabilidad).
+  const {
+    setProducts,
+    addProduct: addProductInStore,
+    updateProduct: updateProductInStore,
+    removeProduct: removeProductInStore,
+    setLoading,
+    setError,
+    setSearchQuery,
+    setSelectedCategory,
+    setSortBy,
+    setSortOrder,
+    setSelectedProduct,
+    clearError: clearStoreError,
+    getFilteredProducts,
+    getSortedProducts,
+    getLowStockProducts,
+    getProductStats,
+  } = useProductsStore(
+    useShallow((s) => ({
+      setProducts: s.setProducts,
+      addProduct: s.addProduct,
+      updateProduct: s.updateProduct,
+      removeProduct: s.removeProduct,
+      setLoading: s.setLoading,
+      setError: s.setError,
+      setSearchQuery: s.setSearchQuery,
+      setSelectedCategory: s.setSelectedCategory,
+      setSortBy: s.setSortBy,
+      setSortOrder: s.setSortOrder,
+      setSelectedProduct: s.setSelectedProduct,
+      clearError: s.clearError,
+      getFilteredProducts: s.getFilteredProducts,
+      getSortedProducts: s.getSortedProducts,
+      getLowStockProducts: s.getLowStockProducts,
+      getProductStats: s.getProductStats,
+    }))
+  );
+
   const [state, setState] = useState<UseProductsState>({
     loading: false,
     error: null,
     syncing: false,
   });
 
-  // Stable reference to store to avoid recreating callbacks
-  const storeRef = useRef(store);
-  storeRef.current = store;
-
-  // Handle API errors with stable reference
-  const handleApiError = useCallback((error: unknown, action: string) => {
-    const apiError = error as ApiError;
-    const errorMessage = apiError?.message || `Error en ${action}`;
-    
-    setState(prev => ({ ...prev, error: errorMessage }));
-    storeRef.current.setError(errorMessage);
-    showToast.error(errorMessage);
-    
-    console.error(`${action} failed:`, error);
-  }, []);
+  const handleApiError = useCallback(
+    (error: unknown, action: string) => {
+      const apiError = error as ApiError;
+      const errorMessage = apiError?.message || `Error en ${action}`;
+      setState((prev) => ({ ...prev, error: errorMessage }));
+      setError(errorMessage);
+      showToast.error(errorMessage);
+      console.error(`${action} failed:`, error);
+    },
+    [setError]
+  );
 
   // No automatic fetching - use useInitialProductsData hook instead
 
-  // Fetch all products from API with stable reference
   const fetchProducts = useCallback(async () => {
-    console.log('🔗 useProducts: Iniciando fetchProducts');
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    storeRef.current.setLoading(true);
-    
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setLoading(true);
     try {
       const response = await productsService.getAllProducts();
-      console.log('🔗 useProducts: Productos recibidos:', response.data?.length, 'items');
-      storeRef.current.setProducts(response.data);
-      setState(prev => ({ ...prev, loading: false }));
-      storeRef.current.setLoading(false);
-      console.log('🔗 useProducts: Productos guardados en store');
+      setProducts(response.data);
     } catch (error) {
-      console.error('🔗 useProducts: Error en fetchProducts:', error);
       handleApiError(error, 'cargar productos');
-      setState(prev => ({ ...prev, loading: false }));
-      storeRef.current.setLoading(false);
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+      setLoading(false);
     }
-  }, [handleApiError]);
+  }, [handleApiError, setLoading, setProducts]);
 
-  // Create product (async) with stable reference
-  const createProduct = useCallback(async (data: CreateProductRequest) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await productsService.createProduct(data);
-      storeRef.current.addProduct(response.data);
-      
-      showToast.success('Producto creado exitosamente');
-      setState(prev => ({ ...prev, loading: false }));
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'crear producto');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [handleApiError]);
+  const createProduct = useCallback(
+    async (data: CreateProductRequest) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const response = await productsService.createProduct(data);
+        addProductInStore(response.data);
+        showToast.success('Producto creado exitosamente');
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'crear producto');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [handleApiError, addProductInStore]
+  );
 
-  // Update product (async) with stable reference
-  const updateProduct = useCallback(async (id: string, updates: UpdateProductRequest) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      const response = await productsService.updateProduct(id, updates);
-      storeRef.current.updateProduct(id, response.data);
-      
-      showToast.success('Producto actualizado exitosamente');
-      setState(prev => ({ ...prev, loading: false }));
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'actualizar producto');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [handleApiError]);
+  const updateProduct = useCallback(
+    async (id: string, updates: UpdateProductRequest) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const response = await productsService.updateProduct(id, updates);
+        updateProductInStore(id, response.data);
+        showToast.success('Producto actualizado exitosamente');
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'actualizar producto');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [handleApiError, updateProductInStore]
+  );
 
-  // Delete product (async) with stable reference
-  const deleteProduct = useCallback(async (id: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-    
-    try {
-      await productsService.deleteProduct(id);
-      storeRef.current.removeProduct(id);
-      
-      showToast.success('Producto eliminado exitosamente');
-      setState(prev => ({ ...prev, loading: false }));
-    } catch (error) {
-      handleApiError(error, 'eliminar producto');
-      setState(prev => ({ ...prev, loading: false }));
-      throw error;
-    }
-  }, [handleApiError]);
+  const deleteProduct = useCallback(
+    async (id: string) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        await productsService.deleteProduct(id);
+        removeProductInStore(id);
+        showToast.success('Producto eliminado exitosamente');
+      } catch (error) {
+        handleApiError(error, 'eliminar producto');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [handleApiError, removeProductInStore]
+  );
 
-  // Add stock (async) with stable reference
-  const addStock = useCallback(async (id: string, quantity: number) => {
-    setState(prev => ({ ...prev, syncing: true }));
-    
-    try {
-      console.log('📦 useProducts.addStock: Agregando', quantity, 'a producto', id);
-      const response = await productsService.addStock(id, quantity);
-      console.log('📦 useProducts.addStock: Respuesta del backend:', response.data.stock);
-      
-      storeRef.current.updateProduct(id, { stock: response.data.stock });
-      console.log('📦 useProducts.addStock: Stock actualizado en store local');
-      
-      showToast.success(`Stock agregado: +${quantity} unidades`);
-      setState(prev => ({ ...prev, syncing: false }));
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'agregar stock');
-      setState(prev => ({ ...prev, syncing: false }));
-      throw error;
-    }
-  }, [handleApiError]);
+  const addStock = useCallback(
+    async (id: string, quantity: number) => {
+      setState((prev) => ({ ...prev, syncing: true }));
+      try {
+        const response = await productsService.addStock(id, quantity);
+        updateProductInStore(id, { stock: response.data.stock });
+        showToast.success(`Stock agregado: +${quantity} unidades`);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'agregar stock');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, syncing: false }));
+      }
+    },
+    [handleApiError, updateProductInStore]
+  );
 
-  // Subtract stock (async) with stable reference
-  const subtractStock = useCallback(async (id: string, quantity: number) => {
-    setState(prev => ({ ...prev, syncing: true }));
-    
-    try {
-      console.log('📦 useProducts.subtractStock: Restando', quantity, 'a producto', id);
-      const response = await productsService.subtractStock(id, quantity);
-      console.log('📦 useProducts.subtractStock: Respuesta del backend:', response.data.stock);
-      
-      storeRef.current.updateProduct(id, { stock: response.data.stock });
-      console.log('📦 useProducts.subtractStock: Stock actualizado en store local');
-      
-      showToast.success(`Stock reducido: -${quantity} unidades`);
-      setState(prev => ({ ...prev, syncing: false }));
-      
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'reducir stock');
-      setState(prev => ({ ...prev, syncing: false }));
-      throw error;
-    }
-  }, [handleApiError]);
+  const subtractStock = useCallback(
+    async (id: string, quantity: number) => {
+      setState((prev) => ({ ...prev, syncing: true }));
+      try {
+        const response = await productsService.subtractStock(id, quantity);
+        updateProductInStore(id, { stock: response.data.stock });
+        showToast.success(`Stock reducido: -${quantity} unidades`);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'reducir stock');
+        throw error;
+      } finally {
+        setState((prev) => ({ ...prev, syncing: false }));
+      }
+    },
+    [handleApiError, updateProductInStore]
+  );
 
-  // Search products (local - using store selectors) with stable reference
-  const searchProducts = useCallback((query: string, category?: ProductCategory) => {
-    storeRef.current.setSearchQuery(query);
-    if (category) {
-      storeRef.current.setSelectedCategory(category);
-    }
-    return storeRef.current.getFilteredProducts();
-  }, []);
+  const searchProducts = useCallback(
+    (query: string, category?: ProductCategory) => {
+      setSearchQuery(query);
+      if (category) setSelectedCategory(category);
+      return getFilteredProducts();
+    },
+    [setSearchQuery, setSelectedCategory, getFilteredProducts]
+  );
 
-  // Get product by ID (async from API if needed) with stable reference
-  const getProduct = useCallback(async (id: string) => {
-    const localProduct = storeRef.current.products.find(p => p.id === id);
-    if (localProduct) {
-      return localProduct;
-    }
-    
-    try {
-      const response = await productsService.getProduct(id);
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'obtener producto');
-      return null;
-    }
-  }, [handleApiError]);
+  const getProduct = useCallback(
+    async (id: string) => {
+      const localProduct = products.find((p) => p.id === id);
+      if (localProduct) return localProduct;
+      try {
+        const response = await productsService.getProduct(id);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'obtener producto');
+        return null;
+      }
+    },
+    [handleApiError, products]
+  );
 
-  // Get products by category (async)
-  const getProductsByCategory = useCallback(async (category: ProductCategory, page = 1, limit = 20) => {
-    setState(prev => ({ ...prev, loading: true }));
-    
-    try {
-      const response = await productsService.getProductsByCategory(category, page, limit);
-      setState(prev => ({ ...prev, loading: false }));
-      return response.data;
-    } catch (error) {
-      handleApiError(error, 'obtener productos por categoría');
-      setState(prev => ({ ...prev, loading: false }));
-      return null;
-    }
-  }, [handleApiError]);
+  const getProductsByCategory = useCallback(
+    async (category: ProductCategory, page = 1, limit = 20) => {
+      setState((prev) => ({ ...prev, loading: true }));
+      try {
+        const response = await productsService.getProductsByCategory(category, page, limit);
+        return response.data;
+      } catch (error) {
+        handleApiError(error, 'obtener productos por categoría');
+        return null;
+      } finally {
+        setState((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [handleApiError]
+  );
 
-  // Manual fetch method (no automatic fetching)
-  // Use useInitialProductsData hook in components for initial data loading
-
-  // Clear error with stable reference
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-    storeRef.current.clearError();
-  }, []);
+    setState((prev) => ({ ...prev, error: null }));
+    clearStoreError();
+  }, [clearStoreError]);
 
-  // Computed values from store - memoized for performance
-  const filteredProducts = useMemo(() => store.getFilteredProducts(), [
-    store.products, store.searchQuery, store.selectedCategory
-  ]);
-  
-  const sortedProducts = useMemo(() => store.getSortedProducts(filteredProducts), [
-    filteredProducts, store.sortBy, store.sortOrder
-  ]);
-  
-  const lowStockProducts = useMemo(() => store.getLowStockProducts(), [
-    store.products
-  ]);
-  
-  const stats = useMemo(() => store.getProductStats(), [
-    store.products
-  ]);
+  // Computeds: dependen sólo de las slices que afectan al resultado.
+  const filteredProducts = useMemo(
+    () => getFilteredProducts(),
+    [getFilteredProducts, products, searchQuery, selectedCategory]
+  );
+  const sortedProducts = useMemo(
+    () => getSortedProducts(filteredProducts),
+    [getSortedProducts, filteredProducts, sortBy, sortOrder]
+  );
+  const lowStockProducts = useMemo(
+    () => getLowStockProducts(),
+    [getLowStockProducts, products]
+  );
+  const stats = useMemo(() => getProductStats(), [getProductStats, products]);
 
   return {
-    // Data
-    products: store.products,
+    products,
     filteredProducts,
     sortedProducts,
-    selectedProduct: store.selectedProduct,
-    
-    // State
-    loading: state.loading || store.loading.isLoading,
-    error: state.error || store.loading.error,
+    selectedProduct,
+
+    loading: state.loading || storeIsLoading,
+    error: state.error || storeError,
     syncing: state.syncing,
-    
-    // Actions
+
     fetchProducts,
     createProduct,
     updateProduct,
@@ -253,27 +271,23 @@ export function useProducts() {
     subtractStock,
     getProduct,
     getProductsByCategory,
-    
-    // Search & Filter
+
     searchProducts,
-    setSearchQuery: store.setSearchQuery,
-    setSelectedCategory: store.setSelectedCategory,
-    setSortBy: store.setSortBy,
-    setSortOrder: store.setSortOrder,
-    
-    // Selectors
+    setSearchQuery,
+    setSelectedCategory,
+    setSortBy,
+    setSortOrder,
+
     lowStockProducts,
     stats,
-    
-    // UI
-    setSelectedProduct: store.setSelectedProduct,
+
+    setSelectedProduct,
     clearError,
-    
-    // Store state
-    searchQuery: store.searchQuery,
-    selectedCategory: store.selectedCategory,
-    sortBy: store.sortBy,
-    sortOrder: store.sortOrder,
-    pagination: store.pagination,
+
+    searchQuery,
+    selectedCategory,
+    sortBy,
+    sortOrder,
+    pagination,
   };
 }

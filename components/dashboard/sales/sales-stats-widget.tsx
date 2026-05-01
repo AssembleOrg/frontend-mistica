@@ -18,7 +18,7 @@ import { formatCurrency, formatNumber } from '@/lib/sales-calculations';
 
 export function SalesStatsWidget() {
   const router = useRouter();
-  const { salesHistory } = useAppStore();
+  const salesHistory = useAppStore((s) => s.salesHistory);
 
   // Calcular estadísticas del día actual usando el nuevo store
   const todayStats = useMemo(() => {

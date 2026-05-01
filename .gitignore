@@ -1,5 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
+.skill-lock.json
+.agents
 # dependencies
 /node_modules
 /.pnp
@@ -9,6 +10,10 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# Lockfiles ajenos a pnpm (este proyecto usa pnpm-lock.yaml)
+package-lock.json
+yarn.lock
 
 # testing
 /coverage

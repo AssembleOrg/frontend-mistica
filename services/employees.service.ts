@@ -256,12 +256,11 @@ export class EmployeesService {
     const formData = new FormData();
     formData.append('photo', photoFile);
     
-    // Note: This would require a different implementation in apiService for multipart/form-data
-    const response = await fetch(`${apiService['baseURL']}/employees/${employeeId}/photo`, {
+    // Multipart: dejamos que el browser fije el `Content-Type` con boundary.
+    // La cookie httpOnly viaja sola con `credentials: 'include'`.
+    const response = await fetch(`/api/employees/${employeeId}/photo`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiService['getAuthToken']()}`,
-      },
+      credentials: 'include',
       body: formData,
     });
 

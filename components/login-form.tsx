@@ -3,9 +3,17 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+
+// Sólo aceptamos rutas internas como destino post-login para evitar open
+// redirects (ej. `?next=//evil.com` o `?next=https://evil.com`).
+function safeNext(raw: string | null): string {
+  if (!raw) return '/dashboard';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
+  return raw;
+}
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +24,10 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'form'>) {
-  const [email, setEmail] = useState('admin@gmail.com');
-  const [password, setPassword] = useState('adminPistech2025');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const { login, loading, error } = useAuth();
 
@@ -26,7 +35,7 @@ export function LoginForm({
     e.preventDefault();
     try {
       await login({ email, password });
-      router.push('/dashboard');
+      router.push(safeNext(searchParams.get('next')));
     } catch (_err) {
       console.error('Fallo el intento de login');
     }

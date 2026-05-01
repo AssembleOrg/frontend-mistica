@@ -1,7 +1,7 @@
 // services/api.service.ts
 
 import type { paths } from '@/lib/api-types';
-import { getBaseUrl } from '@/lib/api-config';
+import { API_CONFIG, getBaseUrl } from '@/lib/api-config';
 
 // Base API response interface
 export interface ApiResponse<T> {
@@ -41,7 +41,9 @@ export class ApiService {
   private readonly MAX_CONCURRENT_REQUESTS = 15;
   private activeRequests = 0;
 
-  constructor(baseURL: string = getBaseUrl()) {
+  constructor(baseURL: string = `${getBaseUrl()}${API_CONFIG.API_PREFIX}`) {
+    // baseURL incluye el prefijo `/api` para que cada llamada se mapee al
+    // rewrite de Next (en cliente) o al backend directo (en SSR).
     this.baseURL = baseURL;
   }
 

@@ -10,10 +10,12 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
+import type { PaymentMethodCode } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 
 interface PrepaidItem {
   amount: number;
+  paymentMethod: PaymentMethodCode;
   notes: string;
 }
 
@@ -85,7 +87,7 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
       return;
     }
     
-    setPrepaids(prev => [...prev, { amount: 0, notes: '' }]);
+    setPrepaids(prev => [...prev, { amount: 0, paymentMethod: 'CASH', notes: '' }]);
   };
 
   const removePrepaid = (index: number) => {
@@ -293,8 +295,8 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
             ) : (
               <div className="space-y-3">
                 {prepaids.map((prepaid, index) => (
-                  <div key={index} className="flex gap-3 items-end">
-                    <div className="flex-1">
+                  <div key={index} className="flex gap-3 items-end flex-wrap">
+                    <div className="flex-1 min-w-[120px]">
                       <Label htmlFor={`prepaid_amount_${index}`} className="text-[#455a54] font-winter-solid">Monto (ARS)</Label>
                       <CurrencyInput
                         id={`prepaid_amount_${index}`}
@@ -307,7 +309,20 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
                         <p className="text-sm text-red-500 font-winter-solid">{errors[`prepaid_${index}_amount`]}</p>
                       )}
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-[140px]">
+                      <Label htmlFor={`prepaid_payment_${index}`} className="text-[#455a54] font-winter-solid">Método de Pago</Label>
+                      <select
+                        id={`prepaid_payment_${index}`}
+                        value={prepaid.paymentMethod}
+                        onChange={(e) => handlePrepaidChange(index, 'paymentMethod', e.target.value as PaymentMethodCode)}
+                        className="w-full h-10 rounded-md border border-[#9d684e]/20 bg-background px-3 py-2 text-sm focus:outline-none focus:border-[#9d684e] focus:ring-1 focus:ring-[#9d684e]/20"
+                      >
+                        <option value="CASH">Efectivo</option>
+                        <option value="CARD">Tarjeta</option>
+                        <option value="TRANSFER">Transferencia</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-[140px]">
                       <Label htmlFor={`prepaid_notes_${index}`} className="text-[#455a54] font-winter-solid">Notas</Label>
                       <Input
                         id={`prepaid_notes_${index}`}

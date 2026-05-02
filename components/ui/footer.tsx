@@ -31,6 +31,7 @@ export function Footer({ className = '', variant = 'minimal' }: FooterProps) {
               width={80}
               height={24}
               className='object-contain'
+              style={{ height: 'auto' }}
             />
           </button>
         </div>
@@ -63,6 +64,7 @@ export function Footer({ className = '', variant = 'minimal' }: FooterProps) {
                 width={100}
                 height={30}
                 className='object-contain group-hover:scale-105 transition-transform duration-200'
+                style={{ height: 'auto' }}
               />
             </button>
           </div>

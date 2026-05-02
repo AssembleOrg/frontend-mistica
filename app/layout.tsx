@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
-import { MysticCrystal } from '@/components/mystic-crystal';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorBoundary } from '@/components/error-boundary';
 
@@ -37,7 +36,6 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <MysticCrystal color='#efcbb9' />
         <ErrorBoundary>{children}</ErrorBoundary>
         <Toaster />
       </body>

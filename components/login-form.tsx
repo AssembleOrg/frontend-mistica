@@ -56,6 +56,7 @@ export function LoginForm({
           height={120}
           alt='MÍSTICA Logo'
           className='object-contain mb-2'
+          style={{ height: 'auto' }}
         />
         <h1 className='text-3xl font-tan-nimbus text-[var(--color-verde-profundo)] font-bold'>
           Bienvenido a MÍSTICA

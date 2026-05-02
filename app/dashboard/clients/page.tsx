@@ -5,7 +5,8 @@ import { DateRange } from 'react-day-picker';
 import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { ClientsTable } from '@/components/dashboard/clients/clients-table';
 import { ClientForm } from '@/components/dashboard/clients/client-form';
-import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
+import { Client, CreateClientRequest, UpdateClientRequest, clientsService } from '@/services/clients.service';
+import { formatCurrency } from '@/lib/sales-calculations';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { Plus, UserCheck } from 'lucide-react';
@@ -95,9 +96,13 @@ export default function ClientsPage() {
     setShowForm(true);
   };
 
-  const handleEditClient = (client: Client) => {
-    setEditingClient(client);
-    // setViewingClient(null);
+  const handleEditClient = async (client: Client) => {
+    try {
+      const fresh = await clientsService.getClient(client.id);
+      setEditingClient(fresh.data);
+    } catch {
+      setEditingClient(client);
+    }
     setShowForm(true);
   };
 
@@ -108,10 +113,19 @@ export default function ClientsPage() {
   };
 
   const handleDeleteClient = async (client: Client) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar al cliente "${client.fullName}"?`)) {
+    let prepaidBalance = client.prepaid;
+    try {
+      const fresh = await clientsService.getClient(client.id);
+      prepaidBalance = fresh.data.prepaid;
+    } catch { /* use value from list if re-fetch fails */ }
+
+    const message = prepaidBalance > 0
+      ? `"${client.fullName}" tiene una seña activa de ${formatCurrency(prepaidBalance)}. Al eliminar el cliente, la seña también se cancelará. ¿Confirmás?`
+      : `¿Eliminar al cliente "${client.fullName}"?`;
+
+    if (window.confirm(message)) {
       try {
         await deleteClient(client.id);
-        // Reload clients
         await loadClientsWithFilters(currentPage, pageSize, true);
       } catch (error) {
         console.error('Error deleting client:', error);
@@ -123,16 +137,15 @@ export default function ClientsPage() {
     try {
       if (editingClient) {
         await updateClient(editingClient.id, clientData as UpdateClientRequest);
+        await loadClientsWithFilters(currentPage, pageSize, true);
       } else {
+        // createClient already re-fetches the client and updates local state with real prepaid balance
+        // Do NOT reload the full list here — it would overwrite the correct balance with stale data
         await createClient(clientData as CreateClientRequest);
       }
-      
+
       setShowForm(false);
       setEditingClient(null);
-      // setViewingClient(null);
-      
-      // Reload clients
-      await loadClientsWithFilters(currentPage, pageSize, true);
     } catch (error) {
       console.error('Error saving client:', error);
     }

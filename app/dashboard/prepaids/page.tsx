@@ -111,27 +111,11 @@ export default function PrepaidsPage() {
 
 
   const handleDeletePrepaid = async (prepaid: Prepaid) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar esta seña de $${prepaid.amount}?`)) {
-      try {
-        await deletePrepaid(prepaid.id);
-        // Reload prepaids
-        await loadPrepaidsWithFilters(currentPage, pageSize, true);
-      } catch (error) {
-        console.error('Error deleting prepaid:', error);
-      }
-    }
+    showToast.info('Para cancelar una seña, eliminá el cliente desde Gestión de Clientes.');
   };
 
   const handleMarkAsConsumed = async (prepaid: Prepaid) => {
-    if (window.confirm(`¿Marcar como consumida la seña de $${prepaid.amount}?`)) {
-      try {
-        await markAsConsumed(prepaid.id);
-        // Reload prepaids
-        await loadPrepaidsWithFilters(currentPage, pageSize, true);
-      } catch (error) {
-        console.error('Error marking prepaid as consumed:', error);
-      }
-    }
+    showToast.info('Para consumir una seña, asociala a una venta desde el módulo de Ventas.');
   };
 
   const handleSavePrepaid = async (clientId: string, prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest) => {

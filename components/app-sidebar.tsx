@@ -140,6 +140,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             height={32}
             alt='MÍSTICA Logo'
             className='object-contain h-8 w-auto'
+            style={{ height: 'auto' }}
+            priority
           />
         </div>
       </SidebarHeader>

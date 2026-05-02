@@ -91,6 +91,7 @@ export default function Dashboard() {
                     width={48}
                     height={48}
                     className='object-contain'
+                    style={{ height: 'auto' }}
                   />
                 </div>
                 <div className='text-center sm:text-left'>

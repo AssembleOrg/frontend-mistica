@@ -1,6 +1,7 @@
 // services/clients.service.ts
 
 import { apiService, ApiResponse } from './api.service';
+import type { PaymentMethodCode } from './sales.service';
 
 // Client interfaces
 export interface Client {
@@ -24,6 +25,7 @@ export interface CreateClientRequest {
   cuit?: string;
   prepaids?: Array<{
     amount: number;
+    paymentMethod: PaymentMethodCode;
     notes?: string;
   }>;
 }
@@ -36,6 +38,7 @@ export interface UpdateClientRequest {
   cuit?: string;
   prepaids?: Array<{
     amount: number;
+    paymentMethod: PaymentMethodCode;
     notes?: string;
   }>;
 }
@@ -108,9 +111,9 @@ export class ClientsService {
   private cleanPayload(data: any): any {
     const cleaned = { ...data };
     
-    // Remove undefined fields (backend doesn't accept undefined values)
+    // Remove undefined and empty string fields (backend rejects empty optional strings)
     Object.keys(cleaned).forEach(key => {
-      if (cleaned[key] === undefined) {
+      if (cleaned[key] === undefined || cleaned[key] === '') {
         delete cleaned[key];
       }
     });

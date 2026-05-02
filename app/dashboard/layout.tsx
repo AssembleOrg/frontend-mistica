@@ -5,7 +5,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { MysticCrystal } from '@/components/mystic-crystal';
 import { CashboxStatusPill } from '@/components/dashboard/cashbox/cashbox-status-pill';
 
 export default function DashboardLayout({
@@ -16,7 +15,6 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AuthHydrator />
-      <MysticCrystal color='#4e4247' />
       <AppSidebar />
       <SidebarInset>
         <header className='flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 px-4 border-b border-[#9d684e]/10'>

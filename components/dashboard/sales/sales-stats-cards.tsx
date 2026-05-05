@@ -1,346 +1,237 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useSalesStats } from '@/hooks/useSalesStats';
-import { 
-  DollarSign, 
-  ShoppingCart, 
-  TrendingUp, 
+import {
+  DollarSign,
+  ShoppingCart,
+  TrendingUp,
   CreditCard,
   Banknote,
   Smartphone,
   CheckCircle,
   Clock,
   XCircle,
-  RefreshCw
+  RefreshCw,
+  Wallet,
 } from 'lucide-react';
-
-interface SalesStatsCardsProps {
-  // Props are now handled by the hook
-}
 
 export function SalesStatsCards() {
   const { statistics, isLoading, refreshData } = useSalesStats();
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-    }).format(amount);
-  };
 
-  const getPaymentMethodIcon = (method: string) => {
-    switch (method) {
-      case 'CASH':
-        return <Banknote className="h-4 w-4" />;
-      case 'CARD':
-        return <CreditCard className="h-4 w-4" />;
-      case 'TRANSFER':
-        return <Smartphone className="h-4 w-4" />;
-      default:
-        return <DollarSign className="h-4 w-4" />;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case 'PENDING':
-        return <Clock className="h-4 w-4 text-yellow-600" />;
-      case 'CANCELLED':
-        return <XCircle className="h-4 w-4 text-red-600" />;
-      default:
-        return <ShoppingCart className="h-4 w-4" />;
-    }
-  };
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        {/* Header with refresh button */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-[#455a54] font-tan-nimbus">
+          <h2 className="text-2xl font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
             Estadísticas de Ventas
           </h2>
-          <button
-            onClick={refreshData}
-            disabled={isLoading}
-            className="p-2 text-[#9d684e] hover:bg-[#9d684e]/10 rounded-lg transition-colors"
-          >
-            <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+          <button className="p-2 rounded-lg" style={{ color: 'var(--color-terracota)' }}>
+            <RefreshCw className="h-5 w-5 animate-spin" />
           </button>
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="border-[#9d684e]/20">
-              <CardContent className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="rounded-xl border p-6 animate-pulse" style={{ borderColor: 'var(--color-gris-claro)' }}>
+              <div className="h-3 rounded w-1/3 mb-4" style={{ background: 'var(--color-gris-claro)' }} />
+              <div className="h-10 rounded w-1/2 mb-3" style={{ background: 'var(--color-gris-claro)' }} />
+              <div className="h-3 rounded w-2/3" style={{ background: 'var(--color-gris-claro)' }} />
+            </div>
           ))}
         </div>
       </div>
     );
   }
 
+  const { dailySales, totalRevenue, completed, averagePerSale, paymentMethods, salesStatus, totalCashStatus } = statistics;
+
   return (
-    <div className="space-y-6">
-      {/* Header with refresh button */}
+    <div className="space-y-4">
+
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-[#455a54] font-tan-nimbus">
+        <h2 className="text-2xl font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
           Estadísticas de Ventas
         </h2>
         <button
           onClick={refreshData}
-          disabled={isLoading}
-          className="p-2 text-[#9d684e] hover:bg-[#9d684e]/10 rounded-lg transition-colors"
+          className="p-2 rounded-lg transition-colors"
+          style={{ color: 'var(--color-terracota)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--color-terracota) 10%, transparent)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
         >
-          <RefreshCw className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className="h-5 w-5" />
         </button>
       </div>
 
-      {/* Daily Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-[#9d684e]/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[#455a54]">
-              Ventas del Día
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-[#9d684e]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#455a54]">
-              {statistics.dailySales.count}
+      {/* ── Sección 1: Hero Cards ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Hero: Ingresos de hoy */}
+        <Card className="overflow-hidden" style={{ borderColor: 'var(--color-gris-claro)' }}>
+          <div className="h-1" style={{ background: 'var(--color-terracota)' }} />
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-1">
+              <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                Ingresos de hoy
+              </span>
+              <DollarSign className="h-5 w-5 opacity-40" style={{ color: 'var(--color-terracota)' }} />
             </div>
-            <p className="text-xs text-[#455a54]/70">
-              {formatCurrency(statistics.dailySales.amount)}
+            <div className="text-4xl font-bold mt-2 mb-3" style={{ color: 'var(--color-verde-profundo)' }}>
+              {formatCurrency(dailySales.amount)}
+            </div>
+            <p className="text-sm" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+              {dailySales.count} {dailySales.count === 1 ? 'venta' : 'ventas'} · promedio {formatCurrency(averagePerSale.amount)}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="border-[#9d684e]/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[#455a54]">
-              Ingresos Totales
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-[#9d684e]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#9d684e]">
-              {formatCurrency(statistics.totalRevenue.amount)}
+        {/* Hero: Balance de caja */}
+        <Card className="overflow-hidden" style={{ borderColor: 'var(--color-gris-claro)' }}>
+          <div className="h-1" style={{ background: 'var(--color-verde-profundo)' }} />
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between mb-1">
+              <span className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                Balance de caja
+              </span>
+              <Wallet className="h-5 w-5 opacity-40" style={{ color: 'var(--color-verde-profundo)' }} />
             </div>
-            <p className="text-xs text-[#455a54]/70">
-              {statistics.totalRevenue.period}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-[#9d684e]/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[#455a54]">
-              Completadas
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {statistics.completed.count}
+            <div
+              className="text-4xl font-bold mt-2 mb-3"
+              style={{ color: totalCashStatus.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
+            >
+              {formatCurrency(totalCashStatus.netBalance)}
             </div>
-            <p className="text-xs text-[#455a54]/70">
-              {Math.round(statistics.completed.percentage)}% del total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-[#9d684e]/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[#455a54]">
-              Promedio por Venta
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-[#9d684e]" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[#455a54]">
-              {formatCurrency(statistics.averagePerSale.amount)}
+            <div className="space-y-1">
+              <p className="text-sm flex justify-between" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                <span>Ventas totales</span>
+                <span className="font-medium">{formatCurrency(totalCashStatus.totalSales)}</span>
+              </p>
+              <p className="text-sm flex justify-between" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                <span>Dinero en señas</span>
+                <span className="font-medium">{formatCurrency(totalCashStatus.totalPrepaids)}</span>
+              </p>
+              <p className="text-sm flex justify-between" style={{ color: 'var(--color-terracota)' }}>
+                <span>Egresos</span>
+                <span className="font-medium">{formatCurrency(totalCashStatus.totalEgresses)}</span>
+              </p>
             </div>
-            <p className="text-xs text-[#455a54]/70">
-              {statistics.averagePerSale.description}
-            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Payment Methods Breakdown */}
-      <Card className="border-[#9d684e]/20">
-        <CardHeader>
-          <CardTitle className="text-lg font-tan-nimbus text-[#455a54]">
-            Métodos de Pago
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Banknote className="h-4 w-4" />
-                <span className="font-medium text-[#455a54]">Efectivo</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#9d684e]">
-                  {formatCurrency(statistics.paymentMethods.cash.amount)}
-                </div>
-                <div className="text-xs text-[#455a54]/70">
-                  {Math.round(statistics.paymentMethods.cash.percentage)}%
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                <span className="font-medium text-[#455a54]">Tarjeta</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#9d684e]">
-                  {formatCurrency(statistics.paymentMethods.card.amount)}
-                </div>
-                <div className="text-xs text-[#455a54]/70">
-                  {Math.round(statistics.paymentMethods.card.percentage)}%
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Smartphone className="h-4 w-4" />
-                <span className="font-medium text-[#455a54]">Transferencia</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#9d684e]">
-                  {formatCurrency(statistics.paymentMethods.transfer.amount)}
-                </div>
-                <div className="text-xs text-[#455a54]/70">
-                  {Math.round(statistics.paymentMethods.transfer.percentage)}%
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Sección 2: KPIs secundarios ── */}
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 rounded-xl border overflow-hidden"
+        style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
+      >
+        <div className="p-4 flex flex-col gap-1">
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>Completadas</span>
+          <span className="text-xl font-bold" style={{ color: 'var(--color-verde-profundo)' }}>{completed.count}</span>
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>{Math.round(completed.percentage)}% del total</span>
+        </div>
+        <div className="p-4 flex flex-col gap-1">
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>Pendientes</span>
+          <span className="text-xl font-bold" style={{ color: 'var(--color-verde-profundo)' }}>{salesStatus.pending.count}</span>
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>{Math.round(salesStatus.pending.percentage)}%</span>
+        </div>
+        <div className="p-4 flex flex-col gap-1">
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>Canceladas</span>
+          <span className="text-xl font-bold" style={{ color: 'var(--color-verde-profundo)' }}>{salesStatus.cancelled.count}</span>
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>{Math.round(salesStatus.cancelled.percentage)}%</span>
+        </div>
+        <div className="p-4 flex flex-col gap-1">
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>Promedio por venta</span>
+          <span className="text-xl font-bold" style={{ color: 'var(--color-verde-profundo)' }}>{formatCurrency(averagePerSale.amount)}</span>
+          <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)' }}>{totalRevenue.period}</span>
+        </div>
+      </div>
 
-      {/* Status Breakdown */}
-      <Card className="border-[#9d684e]/20">
-        <CardHeader>
-          <CardTitle className="text-lg font-tan-nimbus text-[#455a54]">
-            Estado de las Ventas
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-yellow-600" />
-                <span className="font-medium text-[#455a54]">Pendientes</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#455a54]">
-                  {statistics.salesStatus.pending.count}
-                </div>
-                <div className="text-xs text-[#455a54]/70">
-                  {Math.round(statistics.salesStatus.pending.percentage)}%
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <span className="font-medium text-[#455a54]">Completadas</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#455a54]">
-                  {statistics.salesStatus.completed.count}
-                </div>
-                <div className="text-xs text-[#455a54]/70">
-                  {Math.round(statistics.salesStatus.completed.percentage)}%
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <XCircle className="h-4 w-4 text-red-600" />
-                <span className="font-medium text-[#455a54]">Canceladas</span>
-              </div>
-              <div className="text-right">
-                <div className="font-bold text-[#455a54]">
-                  {statistics.salesStatus.cancelled.count}
-                </div>
-                <div className="text-xs text-[#455a54]/70">
-                  {Math.round(statistics.salesStatus.cancelled.percentage)}%
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Sección 3: Desglose en dos columnas ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-      {/* Total Cash Status (including prepaids and egresses) */}
-      <Card className="border-[#9d684e]/20">
-        <CardHeader>
-          <CardTitle className="text-lg font-tan-nimbus text-[#455a54]">
-            Estado Total de la Caja
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="text-center p-3 bg-green-50 rounded-lg">
-              <div className="text-sm font-medium text-green-700 mb-1">Ventas Totales</div>
-              <div className="text-lg font-bold text-green-600">
-                {formatCurrency(statistics.totalCashStatus.totalSales)}
-              </div>
+        {/* Métodos de Pago */}
+        <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
+          <CardContent className="p-5">
+            <p className="text-base font-tan-nimbus mb-4" style={{ color: 'var(--color-verde-profundo)' }}>
+              Métodos de Pago
+            </p>
+            <div className="space-y-4">
+              {[
+                { icon: <Banknote className="h-4 w-4" />, label: 'Efectivo', amount: paymentMethods.cash.amount, pct: paymentMethods.cash.percentage },
+                { icon: <CreditCard className="h-4 w-4" />, label: 'Tarjeta', amount: paymentMethods.card.amount, pct: paymentMethods.card.percentage },
+                { icon: <Smartphone className="h-4 w-4" />, label: 'Transferencia', amount: paymentMethods.transfer.amount, pct: paymentMethods.transfer.percentage },
+              ].map(({ icon, label, amount, pct }) => (
+                <div key={label}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                      {icon}
+                      <span className="text-sm font-medium">{label}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold" style={{ color: 'var(--color-verde-profundo)' }}>
+                        {formatCurrency(amount)}
+                      </span>
+                      <span className="text-xs w-8 text-right" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                        {Math.round(pct)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1 rounded-full" style={{ background: 'var(--color-gris-claro)' }}>
+                    <div
+                      className="h-1 rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: 'var(--color-terracota)' }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <div className="text-sm font-medium text-blue-700 mb-1">Dinero en Señas</div>
-              <div className="text-lg font-bold text-blue-600">
-                {formatCurrency(statistics.totalCashStatus.totalPrepaids)}
-              </div>
+          </CardContent>
+        </Card>
+
+        {/* Estado de Ventas */}
+        <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
+          <CardContent className="p-5">
+            <p className="text-base font-tan-nimbus mb-4" style={{ color: 'var(--color-verde-profundo)' }}>
+              Estado de Ventas
+            </p>
+            <div className="space-y-4">
+              {[
+                { icon: <CheckCircle className="h-4 w-4" />, label: 'Completadas', count: salesStatus.completed.count, pct: salesStatus.completed.percentage, barColor: 'var(--color-verde-profundo)' },
+                { icon: <Clock className="h-4 w-4" />, label: 'Pendientes', count: salesStatus.pending.count, pct: salesStatus.pending.percentage, barColor: 'var(--color-naranja-medio)' },
+                { icon: <XCircle className="h-4 w-4" />, label: 'Canceladas', count: salesStatus.cancelled.count, pct: salesStatus.cancelled.percentage, barColor: 'var(--color-terracota)' },
+              ].map(({ icon, label, count, pct, barColor }) => (
+                <div key={label}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                      <span style={{ color: barColor }}>{icon}</span>
+                      <span className="text-sm font-medium">{label}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold" style={{ color: 'var(--color-verde-profundo)' }}>
+                        {count}
+                      </span>
+                      <span className="text-xs w-8 text-right" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                        {Math.round(pct)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1 rounded-full" style={{ background: 'var(--color-gris-claro)' }}>
+                    <div
+                      className="h-1 rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: barColor }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div className="text-center p-3 bg-red-50 rounded-lg">
-              <div className="text-sm font-medium text-red-700 mb-1">Egresos</div>
-              <div className="text-lg font-bold text-red-600">
-                {formatCurrency(statistics.totalCashStatus.totalEgresses)}
-              </div>
-            </div>
-            
-            <div className={`text-center p-3 rounded-lg ${
-              statistics.totalCashStatus.netBalance >= 0 
-                ? 'bg-green-50' 
-                : 'bg-red-50'
-            }`}>
-              <div className={`text-sm font-medium mb-1 ${
-                statistics.totalCashStatus.netBalance >= 0 
-                  ? 'text-green-700' 
-                  : 'text-red-700'
-              }`}>
-                Balance Neto
-              </div>
-              <div className={`text-lg font-bold ${
-                statistics.totalCashStatus.netBalance >= 0 
-                  ? 'text-green-600' 
-                  : 'text-red-600'
-              }`}>
-                {formatCurrency(statistics.totalCashStatus.netBalance)}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
   );
 }

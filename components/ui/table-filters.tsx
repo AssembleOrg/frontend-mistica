@@ -102,7 +102,7 @@ export function TableFilters({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="pl-10 border-[#9d684e]/20 focus:border-[#9d684e] font-winter-solid"
+              className="pl-10 h-9 bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54] placeholder:text-[#455a54]/40 text-sm font-medium"
             />
           </div>
         </div>
@@ -110,127 +110,127 @@ export function TableFilters({
         {/* Actions */}
         <div className="flex gap-2 shrink-0">
           {onToggleAdvanced && (
-            <Button
-              variant="outline"
-              onClick={onToggleAdvanced}
-              className={cn(
-                "border-[#9d684e]/20 font-winter-solid",
-                showAdvancedFilters 
-                  ? "bg-[#efcbb9]/30 text-[#455a54]" 
-                  : "text-[#455a54] hover:bg-[#efcbb9]/30"
+            <div className="relative">
+              <Button
+                variant="outline"
+                onClick={onToggleAdvanced}
+                className={cn(
+                  "h-9 px-3 font-winter-solid text-xs text-white border-0",
+                  showAdvancedFilters
+                    ? "bg-[#455a54] hover:bg-[#455a54]/90"
+                    : "bg-[#9d684e] hover:bg-[#9d684e]/90"
+                )}
+              >
+                <Filter className="h-3.5 w-3.5 mr-1.5" />
+                Filtros
+              </Button>
+              {hasActiveFilters && !showAdvancedFilters && (
+                <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-[#455a54] border border-white" />
               )}
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Filtros
-            </Button>
+            </div>
           )}
-          
+
           {onRefresh && (
             <Button
               variant="outline"
               onClick={onRefresh}
               disabled={isLoading}
-              className="border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 font-winter-solid"
+              className="h-9 w-9 p-0 bg-[#9d684e] hover:bg-[#9d684e]/90 border-0 text-white font-winter-solid"
             >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-            </Button>
-          )}
-
-          {hasActiveFilters && onClearFilters && (
-            <Button
-              variant="outline"
-              onClick={onClearFilters}
-              className="border-red-200 text-red-600 hover:bg-red-50 font-winter-solid"
-            >
-              <X className="h-4 w-4 mr-2" />
-              Limpiar
+              <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
             </Button>
           )}
         </div>
       </div>
 
-      {/* Advanced filters - collapsible */}
+      {/* Advanced filters - collapsible, compact inline */}
       {showAdvancedFilters && (
-        <Card className="border-[#9d684e]/20">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {/* Date range filter */}
-              {showDateFilter && onDateRangeChange && (
-                <div className="space-y-2">
-                  <Label className="text-[#455a54] font-winter-solid text-sm">
-                    Rango de fechas
-                  </Label>
-                  <DateRangePicker
-                    date={dateRange}
-                    onDateChange={onDateRangeChange}
-                    placeholder="Seleccionar fechas"
-                  />
-                </div>
-              )}
-
-              {/* Status filter */}
-              {showStatusFilter && statusOptions.length > 0 && onStatusChange && (
-                <div className="space-y-2">
-                  <Label className="text-[#455a54] font-winter-solid text-sm">
-                    Estado
-                  </Label>
-                  <Select value={statusValue || undefined} onValueChange={onStatusChange}>
-                    <SelectTrigger className="border-[#9d684e]/20 focus:border-[#9d684e] font-winter-solid">
-                      <SelectValue placeholder="Todos los estados" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los estados</SelectItem>
-                      {statusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Custom filters */}
-              {customFilters.map((filter) => (
-                <div key={filter.key} className="space-y-2">
-                  <Label className="text-[#455a54] font-winter-solid text-sm">
-                    {filter.label}
-                  </Label>
-                  <Select value={filter.value || undefined} onValueChange={filter.onChange}>
-                    <SelectTrigger className="border-[#9d684e]/20 focus:border-[#9d684e] font-winter-solid">
-                      <SelectValue placeholder={`Todos los ${filter.label.toLowerCase()}`} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los {filter.label.toLowerCase()}</SelectItem>
-                      {filter.options.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 rounded-lg border-2 border-[#455a54] bg-[#455a54]">
+          {/* Date range filter */}
+          {showDateFilter && onDateRangeChange && (
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/70 font-winter-solid shrink-0">
+                Fechas
+              </span>
+              <DateRangePicker
+                date={dateRange}
+                onDateChange={onDateRangeChange}
+                placeholder="Seleccionar"
+              />
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          {/* Status filter */}
+          {showStatusFilter && statusOptions.length > 0 && onStatusChange && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/70 font-winter-solid shrink-0">
+                Estado
+              </span>
+              <Select value={statusValue || undefined} onValueChange={onStatusChange}>
+                <SelectTrigger className="h-7 text-xs border-white/30 bg-white/10 focus:border-white font-winter-solid w-[140px] text-white">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Custom filters */}
+          {customFilters.map((filter) => (
+            <div key={filter.key} className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-white/70 font-winter-solid shrink-0">
+                {filter.label}
+              </span>
+              <Select value={filter.value || undefined} onValueChange={filter.onChange}>
+                <SelectTrigger className="h-7 text-xs border-white/30 bg-white/10 focus:border-white font-winter-solid w-[140px] text-white">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {filter.options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+
+          {/* Limpiar — solo visible si hay filtros activos */}
+          {hasActiveFilters && onClearFilters && (
+            <div className="ml-auto">
+              <Button
+                variant="ghost"
+                onClick={onClearFilters}
+                className="h-7 px-2.5 text-xs text-white/80 hover:text-white hover:bg-white/15 font-winter-solid border border-white/20"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Limpiar
+              </Button>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Active filters indicator */}
-      {hasActiveFilters && !showAdvancedFilters && (
-        <div className="flex items-center gap-2 text-sm text-[#455a54]/70 font-winter-solid">
-          <Filter className="h-4 w-4" />
-          <span>Filtros activos</span>
-          {onClearFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearFilters}
-              className="h-6 px-2 text-xs text-red-600 hover:bg-red-50"
-            >
-              Limpiar todo
-            </Button>
-          )}
+      {/* Indicador compacto cuando el panel está cerrado y hay filtros activos */}
+      {hasActiveFilters && !showAdvancedFilters && onClearFilters && (
+        <div className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#455a54]" />
+          <span className="text-xs text-[#455a54]/70 font-winter-solid">Filtros activos</span>
+          <button
+            onClick={onClearFilters}
+            className="text-xs text-[#455a54]/50 hover:text-[#455a54] font-winter-solid underline underline-offset-2 ml-1"
+          >
+            Limpiar
+          </button>
         </div>
       )}
     </div>

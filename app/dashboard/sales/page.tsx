@@ -1,17 +1,10 @@
-/**
- * CAPA 4: PRESENTATION LAYER - SALES PAGE (CLEAN VERSION)
- *
- * Componente UI PURO que solo renderiza y delega al controller
- * Sin lógica de negocio, sin acceso directo a stores
- */
-
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { DateRange } from 'react-day-picker';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { showToast } from '@/lib/toast';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
@@ -22,15 +15,10 @@ import { Plus, BarChart3, ShoppingCart } from 'lucide-react';
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
 import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { SaleDetailPanel } from '@/components/dashboard/sales/sale-detail-panel';
 
-// Modales pesados: cargar bajo demanda
 const CreateSaleModal = dynamic(
   () => import('@/components/dashboard/sales/create-sale-modal').then(m => m.CreateSaleModal),
-  { ssr: false }
-);
-const ViewSaleModal = dynamic(
-  () => import('@/components/dashboard/sales/view-sale-modal').then(m => m.ViewSaleModal),
   { ssr: false }
 );
 const EditSaleModal = dynamic(
@@ -39,38 +27,26 @@ const EditSaleModal = dynamic(
 );
 
 export default function SalesPage() {
-  const [activeTab, setActiveTab] = useState<'sales' | 'stats'>('sales');
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
-  const [showViewSaleModal, setShowViewSaleModal] = useState(false);
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
-  // Pagination state
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Filter state
+  // Filters
   const [searchValue, setSearchValue] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Mobile responsive
-  const isMobile = useIsMobile();
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
-
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
+  const { isLoading: loadingSales, sales, getSalesPaginated, getSaleById, getDailySales, deleteSale } = useSalesAPI();
 
-  const {
-    isLoading: loadingSales,
-    sales,
-    getSalesPaginated,
-    getDailySales,
-    deleteSale,
-  } = useSalesAPI();
-
-  const loadSalesWithFilters = useCallback(async () => {
+  const loadSales = useCallback(async () => {
     const filters: { search?: string; status?: string; from?: string; to?: string } = {};
     if (searchValue.trim()) filters.search = searchValue.trim();
     if (statusFilter && statusFilter !== 'all') filters.status = statusFilter;
@@ -80,57 +56,53 @@ export default function SalesPage() {
     try {
       const result = await getSalesPaginated(currentPage, pageSize, filters);
       if (result) {
-        setTotalPages(result.meta?.totalPages || 1);
-        setTotalItems(result.meta?.total || 0);
+        setTotalPages(result.meta?.totalPages ?? 1);
+        setTotalItems(result.meta?.total ?? 0);
       }
     } catch (error) {
       console.error('Error loading sales:', error);
     }
   }, [currentPage, pageSize, searchValue, statusFilter, dateRange, getSalesPaginated]);
 
-  // Filtros: debounce sólo para búsqueda por texto
   useEffect(() => {
-    if (searchValue.trim() === '') {
-      loadSalesWithFilters();
-      return;
-    }
-    const t = setTimeout(loadSalesWithFilters, 500);
+    if (!searchValue.trim()) { loadSales(); return; }
+    const t = setTimeout(loadSales, 500);
     return () => clearTimeout(t);
-  }, [loadSalesWithFilters, searchValue]);
+  }, [loadSales, searchValue]);
 
-  // Daily sales sólo en mount
-  useEffect(() => {
-    getDailySales();
-  }, [getDailySales]);
+  useEffect(() => { getDailySales(); }, [getDailySales]);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([loadSalesWithFilters(), getDailySales()]);
-  }, [loadSalesWithFilters, getDailySales]);
+    await Promise.all([loadSales(), getDailySales()]);
+  }, [loadSales, getDailySales]);
 
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchValue(value);
-    setCurrentPage(1);
-  }, []);
+  // Filter handlers — reset to page 1 on any filter change
+  const handleSearchChange = useCallback((v: string) => { setSearchValue(v); setCurrentPage(1); }, []);
+  const handleDateRangeChange = useCallback((r: DateRange | undefined) => { setDateRange(r); setCurrentPage(1); }, []);
+  const handleStatusFilterChange = useCallback((s: string) => { setStatusFilter(s); setCurrentPage(1); }, []);
 
-  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
-    setDateRange(range);
-    setCurrentPage(1);
-  }, []);
-
-  const handleStatusFilterChange = useCallback((status: string) => {
-    setStatusFilter(status);
-    setCurrentPage(1);
-  }, []);
-
-  const handleSaleCreated = useCallback(() => {
-    showToast.success('Venta creada exitosamente');
-    refreshAll();
-  }, [refreshAll]);
-
-  const handleViewSale = useCallback((sale: Sale) => {
+  // Sale selection — on mobile also opens Sheet
+  const handleSelectSale = useCallback((sale: Sale) => {
     setSelectedSale(sale);
-    setShowViewSaleModal(true);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileDetailOpen(true);
+    }
   }, []);
+
+  const handleSaleCreated = useCallback(async () => {
+    showToast.success('Venta creada exitosamente');
+    // Refrescar y auto-seleccionar la venta recién creada (primera de la lista, orden desc)
+    try {
+      const result = await getSalesPaginated(1, pageSize, {});
+      // result es PaginatedResponse: { data: Sale[], meta: {...} }
+      if (result?.data?.length) {
+        setSelectedSale(result.data[0]);
+      }
+      getDailySales();
+    } catch {
+      refreshAll();
+    }
+  }, [getSalesPaginated, getDailySales, refreshAll, pageSize]);
 
   const handleViewReceipt = useCallback((sale: Sale) => {
     processReceiptGeneration(sale, hasAfipData(sale));
@@ -141,53 +113,47 @@ export default function SalesPage() {
     setShowEditSaleModal(true);
   }, []);
 
-  const handleUpdateSale = useCallback(
-    async (_saleId: string, _updatedSale: UpdateSaleRequest) => {
-      // TODO: Implement update sale API call
-      showToast.success('Venta actualizada exitosamente');
+  const handleUpdateSale = useCallback(async (_id: string, _data: UpdateSaleRequest) => {
+    showToast.success('Venta actualizada');
+    await refreshAll();
+  }, [refreshAll]);
+
+  const handleDeleteSale = useCallback(async (saleId: string) => {
+    try {
+      await deleteSale(saleId);
+      if (selectedSale?.id === saleId) setSelectedSale(null);
       await refreshAll();
-    },
-    [refreshAll]
-  );
+    } catch (error) {
+      console.error('Error deleting sale:', error);
+    }
+  }, [deleteSale, refreshAll, selectedSale]);
 
-  const handleDeleteSale = useCallback(
-    async (saleId: string) => {
-      try {
-        await deleteSale(saleId);
-        await refreshAll();
-      } catch (error) {
-        console.error('Error deleting sale:', error);
-      }
-    },
-    [deleteSale, refreshAll]
-  );
+  const handleCancelSale = useCallback(async (saleId: string) => {
+    try {
+      await handleUpdateSale(saleId, { status: 'CANCELLED' });
+      showToast.success('Venta cancelada');
+    } catch {
+      showToast.error('Error al cancelar la venta');
+    }
+  }, [handleUpdateSale]);
 
-  const handleCancelSale = useCallback(
-    async (saleId: string) => {
-      try {
-        await handleUpdateSale(saleId, { status: 'CANCELLED' });
-        showToast.success('Venta cancelada exitosamente');
-      } catch (error) {
-        console.error('Error cancelling sale:', error);
-        showToast.error('Error al cancelar la venta');
-      }
-    },
-    [handleUpdateSale]
-  );
+  const handleSaleUpdated = useCallback(async () => {
+    await refreshAll();
+    // Re-fetch el selectedSale fresco desde la API para reflejar el nuevo estado
+    setSelectedSale(prev => {
+      if (!prev) return null;
+      getSaleById(prev.id).then(fresh => setSelectedSale(fresh)).catch(() => {});
+      return prev; // mantiene el anterior mientras carga el fresco
+    });
+  }, [refreshAll, getSaleById]);
 
-  const handlePageChange = useCallback((page: number) => setCurrentPage(page), []);
-  const handlePageSizeChange = useCallback((n: number) => {
-    setPageSize(n);
-    setCurrentPage(1);
-  }, []);
-
-  // Handle loading and error states to prevent hydration issues
+  // ── Loading / error states ────────────────────────────────────────────────
   if (productsError) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-center'>
-          <h1 className='text-2xl font-bold text-red-600 mb-2'>Error cargando productos</h1>
-          <p className='text-gray-600'>{productsError}</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-red-600 mb-1 font-tan-nimbus">Error cargando productos</h1>
+          <p className="text-sm text-[#455a54]/60 font-winter-solid">{productsError}</p>
         </div>
       </div>
     );
@@ -195,98 +161,69 @@ export default function SalesPage() {
 
   if (loadingProducts) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <div className='text-center'>
-          <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-[#9d684e] mx-auto mb-2'></div>
-          <p className='text-[#455a54]'>Cargando productos...</p>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-[#9d684e] mx-auto mb-2" />
+          <p className="text-sm text-[#455a54]/60 font-winter-solid">Cargando…</p>
         </div>
       </div>
     );
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className='space-y-4 md:space-y-6 p-4 md:p-6'>
-      {/* Header with Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className='text-2xl md:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
-            Gestión de Ventas
-          </h1>
-          <p className='text-[#455a54]/70 font-winter-solid text-sm md:text-base'>
-            Administra ventas y estadísticas
-          </p>
-        </div>
-        <div className="flex gap-2">
+    // Escape container-mobile padding para tomar el ancho completo disponible
+    <div className="-mx-2 sm:-mx-4 -mt-2 sm:-mt-4 flex flex-col bg-[#d9dadb]" style={{ height: 'calc(100vh - 4rem)' }}>
+
+      {/* ── Topbar ─────────────────────────────────────── */}
+      <div className="px-4 sm:px-6 py-3 border-b border-[#9d684e]/10 bg-[#efcbb9] shrink-0">
+        <h1 className="text-xl font-bold text-[#455a54] font-tan-nimbus leading-none">
+          Ventas
+        </h1>
+        <p className="text-[11px] text-black/60 font-winter-solid mt-0.5 hidden sm:block">
+          Gestión de ventas, facturas y comprobantes
+        </p>
+      </div>
+
+      {/* ── Tabs ───────────────────────────────────────── */}
+      <Tabs defaultValue="sales" className="flex flex-col flex-1 min-h-0 border-[3px] border-[#455a54] rounded-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-2 pb-0 shrink-0 relative">
+          <TabsList className="bg-[#455a54]/10 h-8">
+            <TabsTrigger
+              value="sales"
+              className="data-[state=active]:bg-[#9d684e] data-[state=active]:text-white text-[#455a54] text-xs h-6 px-3 font-winter-solid"
+            >
+              <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+              Ventas
+            </TabsTrigger>
+            <TabsTrigger
+              value="stats"
+              className="data-[state=active]:bg-[#9d684e] data-[state=active]:text-white text-[#455a54] text-xs h-6 px-3 font-winter-solid"
+            >
+              <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+              Estadísticas
+            </TabsTrigger>
+          </TabsList>
           <Button
             onClick={() => setShowCreateSaleModal(true)}
-            className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto"
+            className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white h-8 text-sm font-winter-solid px-4"
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Venta
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            Nueva venta
           </Button>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-full sm:w-fit">
-        <Button
-          variant={activeTab === 'sales' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('sales')}
-          className={`flex-1 sm:flex-none ${activeTab === 'sales' ? 'bg-[#9d684e] text-white' : ''}`}
-        >
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Ventas</span>
-          <span className="sm:hidden">Ventas</span>
-        </Button>
-        <Button
-          variant={activeTab === 'stats' ? 'default' : 'ghost'}
-          onClick={() => setActiveTab('stats')}
-          className={`flex-1 sm:flex-none ${activeTab === 'stats' ? 'bg-[#9d684e] text-white' : ''}`}
-        >
-          <BarChart3 className="h-4 w-4 mr-2" />
-          <span className="hidden sm:inline">Estadísticas</span>
-          <span className="sm:hidden">Stats</span>
-        </Button>
-      </div>
+        {/* ── Tab: Ventas ── Master-Detail ───────────── */}
+        <TabsContent value="sales" className="flex-1 min-h-0 mt-0">
+          <div className="flex h-full">
 
-      {/* Tab Content */}
-      {activeTab === 'sales' && (
-        <div className="space-y-4 sm:space-y-6">
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader className="pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <CardTitle className='text-[#455a54] font-tan-nimbus text-base sm:text-lg'>
-                  Lista de Ventas
-                </CardTitle>
-                {/* View Toggle for Desktop */}
-                <div className='hidden sm:flex items-center gap-2 border border-[#9d684e]/20 rounded-lg p-1'>
-                  <Button
-                    variant={viewMode === 'table' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('table')}
-                    className={viewMode === 'table' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-1" />
-                    Tabla
-                  </Button>
-                  <Button
-                    variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('cards')}
-                    className={viewMode === 'cards' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
-                  >
-                    <BarChart3 className="h-4 w-4 mr-1" />
-                    Cards
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {/* Mobile: Always show cards, Desktop: Based on viewMode */}
-              <div className="sm:hidden p-4">
+            {/* Panel izquierdo: lista */}
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+              {/* Mobile view */}
+              <div className="lg:hidden flex-1 overflow-y-auto p-3">
                 <SalesMobileView
                   sales={sales}
-                  onView={handleViewSale}
+                  onView={handleSelectSale}
                   onEdit={handleEditSale}
                   onDelete={handleDeleteSale}
                   searchValue={searchValue}
@@ -300,90 +237,63 @@ export default function SalesPage() {
                 />
               </div>
 
-              <div className="hidden sm:block">
-                {viewMode === 'table' ? (
-                  <div className="overflow-x-auto">
-                    <SalesTable
-                      data={sales}
-                      isLoading={loadingSales}
-                      onViewSale={handleViewSale}
-                      onEditSale={handleEditSale}
-                      onDeleteSale={handleDeleteSale}
-                      onCancelSale={handleCancelSale}
-                      onViewReceipt={handleViewReceipt}
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      pageSize={pageSize}
-                      totalItems={totalItems}
-                      onPageChange={handlePageChange}
-                      onPageSizeChange={handlePageSizeChange}
-                      searchValue={searchValue}
-                      onSearchChange={handleSearchChange}
-                      dateRange={dateRange}
-                      onDateRangeChange={handleDateRangeChange}
-                      statusFilter={statusFilter}
-                      onStatusFilterChange={handleStatusFilterChange}
-                      onRefresh={refreshAll}
-                    />
-                  </div>
-                ) : (
-                  <div className="p-4">
-                    <SalesMobileView
-                      sales={sales}
-                      onView={handleViewSale}
-                      onEdit={handleEditSale}
-                      onDelete={handleDeleteSale}
-                      onCancel={handleCancelSale}
-                      searchValue={searchValue}
-                      onSearchChange={handleSearchChange}
-                      dateRange={dateRange}
-                      onDateRangeChange={handleDateRangeChange}
-                      statusFilter={statusFilter}
-                      onStatusFilterChange={handleStatusFilterChange}
-                      onRefresh={refreshAll}
-                      isLoading={loadingSales}
-                    />
-                  </div>
-                )}
+              {/* Desktop table — ocupa el alto disponible */}
+              <div className="hidden lg:flex flex-col flex-1 min-h-0 overflow-y-auto">
+                <SalesTable
+                  data={sales}
+                  isLoading={loadingSales}
+                  selectedSaleId={selectedSale?.id}
+                  isPanelOpen={!!selectedSale}
+                  onViewSale={handleSelectSale}
+                  onEditSale={handleEditSale}
+                  onDeleteSale={handleDeleteSale}
+                  onCancelSale={handleCancelSale}
+                  onViewReceipt={handleViewReceipt}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(n) => { setPageSize(n); setCurrentPage(1); }}
+                  searchValue={searchValue}
+                  onSearchChange={handleSearchChange}
+                  dateRange={dateRange}
+                  onDateRangeChange={handleDateRangeChange}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={handleStatusFilterChange}
+                  onRefresh={refreshAll}
+                />
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
 
-      {activeTab === 'stats' && (
-        <div className="space-y-6">
-          <SalesStatsCards />
-        </div>
-      )}
+            {/* Panel derecho: detalle + Sheet mobile */}
+            <SaleDetailPanel
+              sale={selectedSale}
+              onSaleUpdated={handleSaleUpdated}
+              onRequestEdit={handleEditSale}
+              mobileOpen={mobileDetailOpen}
+              onMobileClose={() => setMobileDetailOpen(false)}
+            />
+          </div>
+        </TabsContent>
 
-      {/* Modals */}
+        {/* ── Tab: Estadísticas ─────────────────────── */}
+        <TabsContent value="stats" className="flex-1 min-h-0 overflow-y-auto mt-0">
+          <div className="p-4 sm:p-6">
+            <SalesStatsCards />
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* ── Modales ─────────────────────────────────── */}
       <CreateSaleModal
         isOpen={showCreateSaleModal}
         onClose={() => setShowCreateSaleModal(false)}
         onSaleCreated={handleSaleCreated}
       />
-      
-      <ViewSaleModal
-        isOpen={showViewSaleModal}
-        onClose={() => {
-          setShowViewSaleModal(false);
-          setSelectedSale(null);
-        }}
-        sale={selectedSale}
-        onSaleUpdated={() => {
-          refreshAll();
-          setShowViewSaleModal(false);
-          setSelectedSale(null);
-        }}
-      />
-      
       <EditSaleModal
         isOpen={showEditSaleModal}
-        onClose={() => {
-          setShowEditSaleModal(false);
-          setSelectedSale(null);
-        }}
+        onClose={() => { setShowEditSaleModal(false); setSelectedSale(null); }}
         sale={selectedSale}
         onSave={handleUpdateSale}
       />

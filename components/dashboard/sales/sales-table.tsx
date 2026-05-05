@@ -30,6 +30,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -64,6 +65,8 @@ import { PaginationControls } from '@/components/ui/pagination-controls';
 interface SalesTableProps {
   data: Sale[];
   isLoading?: boolean;
+  selectedSaleId?: string;
+  isPanelOpen?: boolean;
   onViewSale?: (sale: Sale) => void;
   onEditSale?: (sale: Sale) => void;
   onDeleteSale?: (saleId: string) => void;
@@ -86,11 +89,13 @@ interface SalesTableProps {
   onRefresh?: () => void;
 }
 
-export function SalesTable({ 
-  data, 
-  isLoading, 
-  onViewSale, 
-  onEditSale, 
+export function SalesTable({
+  data,
+  isLoading,
+  selectedSaleId,
+  isPanelOpen = false,
+  onViewSale,
+  onEditSale,
   onDeleteSale,
   onCancelSale,
   onViewReceipt,
@@ -113,6 +118,18 @@ export function SalesTable({
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
+
+  // Colapsa columnas secundarias en lg cuando el panel lateral está abierto
+  React.useEffect(() => {
+    const isLg = typeof window !== 'undefined' && window.innerWidth < 1280;
+    if (isLg) {
+      setColumnVisibility(prev => ({
+        ...prev,
+        paymentMethod: !isPanelOpen,
+        createdAt: !isPanelOpen,
+      }));
+    }
+  }, [isPanelOpen]);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [saleToCancel, setSaleToCancel] = useState<string | null>(null);
@@ -141,12 +158,21 @@ export function SalesTable({
   };
 
   const getPaymentMethodLabel = (method: string) => {
-    const labels = {
-      CASH: 'Efectivo',
-      CARD: 'Tarjeta',
-      TRANSFER: 'Transferencia',
+    const labels: Record<string, string> = {
+      CASH: 'EFE',
+      CARD: 'TAR',
+      TRANSFER: 'MP',
     };
-    return labels[method as keyof typeof labels] || method;
+    return labels[method] ?? method;
+  };
+
+  const getSalePaymentLabel = (sale: Sale) => {
+    const payments = sale.payments ?? [];
+    if (payments.length > 1) {
+      return payments.map(p => getPaymentMethodLabel(p.method)).join('+');
+    }
+    if (payments.length === 1) return getPaymentMethodLabel(payments[0].method);
+    return '—';
   };
 
   const getStatusBadge = (status: string) => {
@@ -159,13 +185,13 @@ export function SalesTable({
     const getStatusStyles = (status: string) => {
       switch (status) {
         case 'COMPLETED':
-          return 'bg-green-50 text-green-800 border-green-200';
+          return 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/30';
         case 'PENDING':
-          return 'bg-yellow-50 text-yellow-800 border-yellow-200';
+          return 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/30';
         case 'CANCELLED':
-          return 'bg-red-50 text-red-800 border-red-200';
+          return 'bg-[#4e4247]/10 text-[#4e4247] border-[#4e4247]/30';
         default:
-          return 'bg-gray-50 text-gray-800 border-gray-200';
+          return 'bg-[#455a54]/5 text-[#455a54]/60 border-[#455a54]/20';
       }
     };
 
@@ -263,6 +289,7 @@ export function SalesTable({
           }
           onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
           aria-label='Seleccionar todos'
+          className='border-white data-[state=checked]:bg-white data-[state=checked]:text-[#9d684e] data-[state=checked]:border-white'
         />
       ),
       cell: ({ row }) => (
@@ -270,6 +297,7 @@ export function SalesTable({
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label='Seleccionar fila'
+          className='border-[#455a54]/50 data-[state=checked]:bg-[#455a54] data-[state=checked]:border-[#455a54] data-[state=checked]:text-white'
         />
       ),
       enableSorting: false,
@@ -282,15 +310,17 @@ export function SalesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='text-white font-winter-solid hover:text-white/80 hover:bg-transparent px-1'
           >
-            Número de Venta
-            <ArrowUpDown className='ml-2 h-4 w-4' />
+            N° Venta
+            <ArrowUpDown className='ml-1.5 h-3.5 w-3.5' />
           </Button>
         );
       },
       cell: ({ row }) => (
-        <div className='font-medium text-[#455a54]'>{row.getValue('saleNumber')}</div>
+        <div className='font-semibold text-[#455a54] text-xs max-w-[110px] truncate'>
+          {row.getValue('saleNumber')}
+        </div>
       ),
     },
     {
@@ -300,7 +330,7 @@ export function SalesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='text-white font-winter-solid hover:text-white/80 hover:bg-transparent'
           >
             Cliente
             <ArrowUpDown className='ml-2 h-4 w-4' />
@@ -310,8 +340,8 @@ export function SalesTable({
       cell: ({ row }) => {
         const sale = row.original;
         return (
-          <div>
-            <div className='font-medium text-[#455a54]'>{sale.customerName}</div>
+          <div className='max-w-[130px]'>
+            <div className='font-semibold text-[#455a54] tracking-tight truncate'>{sale.customerName}</div>
             {/* {sale.customerEmail && (
               <div className='text-sm text-gray-500'>{sale.customerEmail}</div>
             )}
@@ -329,10 +359,10 @@ export function SalesTable({
         const items = row.getValue('items') as Sale['items'];
         return (
           <div className='max-w-xs'>
-            <div className='text-sm font-medium text-[#455a54]'>
+            <div className='text-sm font-semibold text-[#455a54]'>
               {items.length} producto{items.length !== 1 ? 's' : ''}
             </div>
-            <div className='text-xs text-gray-500 truncate'>
+            <div className='text-[11px] font-medium text-[#455a54]/70 truncate'>
               {items.slice(0, 2).map(item => item.productName).join(', ')}
               {items.length > 2 && ` +${items.length - 2} más`}
             </div>
@@ -350,17 +380,17 @@ export function SalesTable({
         
         return (
           <div className='text-xs space-y-1 min-w-[120px]'>
-            <div className='text-[#455a54]'>
+            <div className='font-semibold text-[#455a54]'>
               Subtotal: {formatCurrency(sale.subtotal)}
             </div>
             {(hasDiscount || hasPrepaid) ? (
-              <div className='text-gray-500'>
+              <div className='font-medium text-[#455a54]/70'>
                 {hasDiscount && 'Con descuento'}
                 {hasDiscount && hasPrepaid && ' • '}
                 {hasPrepaid && 'Con seña'}
               </div>
             ) : (
-              <div className='text-gray-500'>
+              <div className='font-medium text-[#455a54]/60'>
                 Sin descuentos
               </div>
             )}
@@ -375,7 +405,7 @@ export function SalesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='text-white font-winter-solid hover:text-white/80 hover:bg-transparent'
           >
             Total
             <ArrowUpDown className='ml-2 h-4 w-4' />
@@ -384,17 +414,16 @@ export function SalesTable({
       },
       cell: ({ row }) => {
         const amount = parseFloat(row.getValue('total'));
-        return <div className='font-medium text-[#9d684e]'>{formatCurrency(amount)}</div>;
+        return <div className='font-semibold text-[#9d684e] max-w-[90px] truncate'>{formatCurrency(amount)}</div>;
       },
     },
     {
       accessorKey: 'paymentMethod',
-      header: 'Método de Pago',
+      header: 'Pago',
       cell: ({ row }) => {
-        const method = row.getValue('paymentMethod') as string;
         return (
-          <div className='font-medium text-[#455a54]'>
-            {getPaymentMethodLabel(method)}
+          <div className='font-semibold text-[#455a54] text-xs tracking-wide'>
+            {getSalePaymentLabel(row.original)}
           </div>
         );
       },
@@ -414,7 +443,7 @@ export function SalesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='text-white font-winter-solid hover:text-white/80 hover:bg-transparent'
           >
             Fecha
             <ArrowUpDown className='ml-2 h-4 w-4' />
@@ -423,7 +452,7 @@ export function SalesTable({
       },
       cell: ({ row }) => {
         const date = row.getValue('createdAt') as string;
-        return <div className='text-sm text-[#455a54]'>{formatDate(date)}</div>;
+        return <div className='text-sm font-semibold text-[#455a54]'>{formatDate(date)}</div>;
       },
     },
     {
@@ -464,7 +493,7 @@ export function SalesTable({
               
               {isCompleted && (
                 <DropdownMenuItem
-                  className='hover:bg-green-50 text-green-600'
+                  className='hover:bg-[#efcbb9]/30 text-[#455a54]'
                   onClick={() => handleAction(sale.id, 'receipt')}
                   disabled={isActionLoading}
                 >
@@ -481,11 +510,11 @@ export function SalesTable({
               >
                 <Edit className='mr-2 h-4 w-4' />
                 Editar venta
-                {isCompleted && <span className='ml-2 text-xs text-gray-500'>(Bloqueado)</span>}
+                {isCompleted && <span className='ml-2 text-xs text-[#455a54]/40'>(Bloqueado)</span>}
               </DropdownMenuItem>
               {isPending && (
                 <DropdownMenuItem
-                  className='hover:bg-orange-50 text-orange-600'
+                  className='hover:bg-[#cc844a]/10 text-[#cc844a]'
                   onClick={() => handleAction(sale.id, 'cancel')}
                   disabled={isActionLoading}
                 >
@@ -494,7 +523,7 @@ export function SalesTable({
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
-                className='hover:bg-red-50 text-red-600'
+                className='hover:bg-[#4e4247]/10 text-[#4e4247]'
                 onClick={() => handleAction(sale.id, 'delete')}
                 disabled={isActionLoading}
               >
@@ -530,19 +559,19 @@ export function SalesTable({
 
   if (isLoading) {
     return (
-      <div className='flex items-center justify-center p-8'>
-        <div className='text-center'>
-          <LoadingSpinner size='lg' />
-          <p className='mt-2 text-[#455a54]/70 font-winter-solid'>
-            Cargando ventas...
-          </p>
-        </div>
+      <div className='w-full p-4 space-y-2'>
+        {/* Header skeleton */}
+        <Skeleton className='h-9 w-full rounded-md bg-[#efcbb9]/40' />
+        {/* Row skeletons */}
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className='h-12 w-full rounded-md bg-[#efcbb9]/30' />
+        ))}
       </div>
     );
   }
 
   return (
-    <div className='w-full'>
+    <div className='w-full px-4 pb-4 pt-3'>
       {/* Table Filters */}
       <TableFilters
         searchValue={searchValue}
@@ -560,18 +589,19 @@ export function SalesTable({
         isLoading={isLoading}
       />
 
-      {/* Column visibility controls */}
-      <div className='flex justify-end py-4'>
+      {/* Column visibility controls — compact, alineado a la derecha */}
+      <div className='flex justify-end py-2'>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant='outline'
-              className='border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30'
+              variant='ghost'
+              size='sm'
+              className='h-8 px-3 text-xs text-white bg-[#9d684e] hover:bg-[#9d684e]/90 font-winter-solid border-0'
             >
-              Columnas <ChevronDown className='ml-2 h-4 w-4' />
+              Columnas <ChevronDown className='ml-1.5 h-3 w-3' />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align='end'>
+          <DropdownMenuContent align='end' className='text-xs'>
             {table
               .getAllColumns()
               .filter((column) => column.getCanHide())
@@ -579,7 +609,7 @@ export function SalesTable({
                 return (
                   <DropdownMenuCheckboxItem
                     key={column.id}
-                    className='hover:bg-[#efcbb9]/30 capitalize'
+                    className='hover:bg-[#efcbb9]/30 capitalize text-[#455a54] text-xs font-winter-solid'
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) =>
                       column.toggleVisibility(!!value)
@@ -592,17 +622,17 @@ export function SalesTable({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className='rounded-md border border-[#9d684e]/20'>
+      <div className='rounded-md border-2 border-[#455a54]/40 bg-white overflow-hidden'>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className='hover:bg-[#efcbb9]/20'
+                className='bg-[#9d684e] hover:bg-[#9d684e] border-b border-[#9d684e]'
               >
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className="text-white font-medium tracking-wide text-xs uppercase font-winter-solid">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -617,11 +647,18 @@ export function SalesTable({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row) => {
+                const isSelected = row.original.id === selectedSaleId;
+                return (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className='hover:bg-[#efcbb9]/10'
+                  onClick={() => onViewSale?.(row.original)}
+                  className={`cursor-pointer transition-colors border-b border-[#455a54]/8 ${
+                    isSelected
+                      ? 'bg-[#455a54]/10'
+                      : 'bg-white hover:bg-[#455a54]/5'
+                  }`}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -632,7 +669,8 @@ export function SalesTable({
                     </TableCell>
                   ))}
                 </TableRow>
-              ))
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
@@ -685,7 +723,7 @@ export function SalesTable({
             <Button
               onClick={handleConfirmCancel}
               disabled={actionLoading[saleToCancel || ''] || false}
-              className="bg-orange-600 hover:bg-orange-700 text-white font-winter-solid"
+              className="bg-[#cc844a] hover:bg-[#cc844a]/90 text-white font-winter-solid"
             >
               {actionLoading[saleToCancel || ''] ? 'Cancelando...' : 'Sí, cancelar venta'}
             </Button>

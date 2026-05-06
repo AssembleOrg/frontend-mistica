@@ -22,17 +22,6 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
   const [isLoading, setIsLoading] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
-  // Auto-print para tickets térmicos
-  useEffect(() => {
-    if (type === 'thermal') {
-      // Delay corto para asegurar que el componente esté renderizado
-      const timer = setTimeout(() => {
-        window.print();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [type]);
-
   // Generar QR aleatorio para formato A4
   useEffect(() => {
     if (type === 'a4') {
@@ -88,7 +77,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
     
     // Construir URL limpia con solo los parámetros necesarios
     const newUrl = `${window.location.origin}/receipt?saleId=${saleId}&type=${newType}`;
-    window.open(newUrl, '_blank');
+    window.location.href = newUrl;
   };
 
   const getPaymentMethodLabel = (method: string) => {
@@ -105,36 +94,35 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
     address: 'Dirección de la empresa',
     phone: 'Teléfono de contacto',
     email: 'contacto@mistica.com',
-    website: 'www.mistica.com'
   };
 
   const ThermalReceipt = () => (
-    <div className="receipt-thermal w-full max-w-[300px] mx-auto bg-white text-black font-mono text-xs leading-tight p-4 border border-gray-300" style={{ fontSize: '11px', lineHeight: '1.2' }}>
-      {/* Header - Solo texto */}
-      <div className="text-center border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="font-bold text-sm uppercase">{companyInfo.name}</div>
-        <div className="text-xs">{companyInfo.address}</div>
-        <div className="text-xs">{companyInfo.phone}</div>
+    <div className="receipt-thermal bg-white text-black font-mono leading-tight p-2" style={{ fontSize: '11px', lineHeight: '1.3', width: '58mm', maxWidth: '58mm' }}>
+      {/* Header */}
+      <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
+        <div className="font-black uppercase" style={{ fontSize: '13px' }}>{companyInfo.name}</div>
+        <div>{companyInfo.address}</div>
+        <div>{companyInfo.phone}</div>
       </div>
 
       {/* Comprobante/Factura Info */}
-      <div className="text-center border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="font-bold text-xs uppercase">
+      <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
+        <div className="font-black uppercase" style={{ fontSize: '12px' }}>
           {isInvoice ? 'FACTURA' : 'TICKET DE VENTA'}
         </div>
-        <div className="text-xs">No: {sale.saleNumber}</div>
+        <div>No: {sale.saleNumber}</div>
         {isInvoice && sale.afipNumero && (
-          <div className="text-xs">Factura AFIP: {sale.afipNumero}</div>
+          <div>Factura AFIP: {sale.afipNumero}</div>
         )}
-        <div className="text-xs">{formatDate(new Date(sale.createdAt))}</div>
+        <div>{formatDate(new Date(sale.createdAt))}</div>
       </div>
 
       {/* Customer - Solo si hay datos */}
       {(sale.customerName && sale.customerName !== 'Cliente Anónimo') && (
         <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
-          <div className="text-xs">Cliente: {sale.customerName}</div>
+          <div className="font-bold">Cliente: {sale.customerName}</div>
           {sale.customerPhone && (
-            <div className="text-xs">Tel: {sale.customerPhone}</div>
+            <div>Tel: {sale.customerPhone}</div>
           )}
         </div>
       )}
@@ -143,34 +131,32 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
         {sale.items.map((item, index) => (
           <div key={index} className="mb-1">
-            <div className="text-xs font-medium">{item.productName}</div>
-            <div className="flex justify-between text-xs">
-              <span>{item.quantity} x {formatCurrency(item.unitPrice)}</span>
-              <span className="font-bold">{formatCurrency(item.subtotal)}</span>
-            </div>
+            <div className="font-bold">{item.productName}</div>
+            <div>{item.quantity} x {formatCurrency(item.unitPrice)}</div>
+            <div className="text-right font-bold">{formatCurrency(item.subtotal)}</div>
           </div>
         ))}
       </div>
 
       {/* Totals */}
       <div className="space-y-1 border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="flex justify-between text-xs">
+        <div className="flex justify-between">
           <span>Subtotal:</span>
           <span>{formatCurrency(sale.subtotal)}</span>
         </div>
         {sale.discount > 0 && (
-          <div className="flex justify-between text-xs">
+          <div className="flex justify-between">
             <span>Descuento ({sale.discount}%):</span>
             <span>-{formatCurrency(sale.subtotal * (sale.discount / 100))}</span>
           </div>
         )}
         {sale.tax > 0 && (
-          <div className="flex justify-between text-xs">
+          <div className="flex justify-between">
             <span>IVA (21%):</span>
             <span>{formatCurrency(sale.tax)}</span>
           </div>
         )}
-        <div className="flex justify-between text-sm font-bold border-t border-gray-800 pt-1">
+        <div className="flex justify-between font-black border-t border-gray-800 pt-1" style={{ fontSize: '13px' }}>
           <span>TOTAL:</span>
           <span>{formatCurrency(sale.total)}</span>
         </div>
@@ -179,7 +165,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       {/* Payment breakdown */}
       <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
         {(sale.payments ?? []).map((p, i) => (
-          <div key={`${p.method}-${i}`} className="text-xs flex justify-between">
+          <div key={`${p.method}-${i}`} className="flex justify-between">
             <span>{getPaymentMethodLabel(p.method)}</span>
             <span>{formatCurrency(p.amount)}</span>
           </div>
@@ -189,11 +175,11 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           if (cash && (cash.changeGiven ?? 0) > 0) {
             return (
               <>
-                <div className="text-xs flex justify-between">
+                <div className="flex justify-between">
                   <span>Recibido</span>
                   <span>{formatCurrency(cash.receivedAmount ?? 0)}</span>
                 </div>
-                <div className="text-xs flex justify-between">
+                <div className="flex justify-between">
                   <span>Vuelto</span>
                   <span>{formatCurrency(cash.changeGiven ?? 0)}</span>
                 </div>
@@ -205,21 +191,21 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       </div>
 
       {/* Footer */}
-      <div className="text-center text-xs">
+      <div>
         <div className="mb-1">¡Gracias por su compra!</div>
-        <div>{companyInfo.website}</div>
         {isInvoice && sale.afipCae && sale.afipFechaVto && (
-          <div className="mt-2 text-xs border-t border-dashed border-gray-800 pt-2">
+          <div className="mt-2 border-t border-dashed border-gray-800 pt-2">
             <div><strong>CAE:</strong> {sale.afipCae}</div>
             <div><strong>Vto. CAE:</strong> {formatAfipDate(sale.afipFechaVto)}</div>
           </div>
         )}
         {!isInvoice && (
-          <div className="mt-2 text-xs border-t border-dashed border-gray-800 pt-2">
-            <strong>COMPROBANTE NO VÁLIDO COMO FACTURA</strong>
+          <div className="mt-2 border-t border-dashed border-gray-800 pt-2">
+            <div className="font-black">COMPROBANTE NO VALIDO</div>
+            <div className="font-black">COMO FACTURA</div>
           </div>
         )}
-        <div className="mt-2 text-xs">
+        <div className="mt-2">
           {formatDate(new Date())}
         </div>
       </div>
@@ -243,7 +229,6 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             <div className="text-sm text-gray-600 space-y-1">
               <div>{companyInfo.address}</div>
               <div>{companyInfo.phone} • {companyInfo.email}</div>
-              <div>{companyInfo.website}</div>
             </div>
           </div>
         </div>
@@ -425,7 +410,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
               {type === 'thermal' ? 'Ver A4' : 'Ver Térmico'}
             </Button>
           </div>
-          <Button onClick={onClose} variant="outline" size="sm">
+          <Button onClick={type === 'thermal' ? () => window.close() : onClose} variant="outline" size="sm">
             <X className="w-4 h-4" />
           </Button>
         </div>

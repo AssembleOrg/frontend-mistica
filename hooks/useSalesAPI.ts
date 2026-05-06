@@ -13,7 +13,6 @@ export function useSalesAPI() {
     setIsLoading(true);
     try {
       const response = await salesService.createSale(saleData);
-      showToast.success('Venta creada exitosamente');
       return response.data;
     } catch (error) {
       const errorMessage = (error as Error).message || 'Error al crear la venta';
@@ -65,8 +64,6 @@ export function useSalesAPI() {
       const response = await salesService.getSale(id);
       return response.data;
     } catch (error) {
-      const errorMessage = (error as Error).message || 'Error al obtener la venta';
-      showToast.error('Error', errorMessage);
       throw error;
     } finally {
       setIsLoading(false);
@@ -77,7 +74,6 @@ export function useSalesAPI() {
     setIsLoading(true);
     try {
       const response = await salesService.updateSale(id, saleData);
-      showToast.success('Venta actualizada exitosamente');
       return response.data;
     } catch (error) {
       const errorMessage = (error as Error).message || 'Error al actualizar la venta';
@@ -92,8 +88,6 @@ export function useSalesAPI() {
     setIsLoading(true);
     try {
       await salesService.deleteSale(id);
-      showToast.success('Venta eliminada exitosamente');
-      // Remove from local state
       setSales(prev => prev.filter(sale => sale.id !== id));
     } catch (error) {
       const errorMessage = (error as Error).message || 'Error al eliminar la venta';

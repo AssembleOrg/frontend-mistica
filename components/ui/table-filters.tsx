@@ -60,6 +60,7 @@ export interface TableFiltersProps {
   
   // Loading state
   isLoading?: boolean
+  searchInputRef?: React.RefObject<HTMLInputElement | null>
 }
 
 export function TableFilters({
@@ -80,6 +81,7 @@ export function TableFilters({
   showAdvancedFilters = false,
   onToggleAdvanced,
   isLoading = false,
+  searchInputRef,
 }: TableFiltersProps) {
   const hasActiveFilters = React.useMemo(() => {
     return (
@@ -99,11 +101,13 @@ export function TableFilters({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#455a54]/50" />
             <Input
+              ref={searchInputRef}
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="pl-10 h-9 bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54] placeholder:text-[#455a54]/40 text-sm font-medium"
+              className="pl-10 pr-12 h-9 bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54] placeholder:text-[#455a54]/40 text-sm font-medium"
             />
+            <kbd className="hidden lg:inline-flex absolute right-2.5 top-1/2 -translate-y-1/2 px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none text-[#455a54]/50 pointer-events-none">F10</kbd>
           </div>
         </div>
 

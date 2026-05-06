@@ -53,6 +53,14 @@ import { showToast } from '@/lib/toast';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { useRouter } from 'next/navigation';
 import { StockAdjustmentModal } from '@/components/dashboard/stock/stock-adjustment-modal';
+import { useProducts } from '@/hooks/useProducts';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ProductsTableProps {
   data: Product[];
@@ -93,6 +101,7 @@ export function ProductsTable({
   onRefresh,
 }: ProductsTableProps) {
   const router = useRouter();
+  const { deleteProduct } = useProducts();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -105,15 +114,13 @@ export function ProductsTable({
   );
   const [isExporting, setIsExporting] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
 
   // Category options for filter
   const categoryOptions: FilterOption[] = [
-    { value: 'TRATAMIENTOS_CORPORALES', label: 'Tratamientos Corporales' },
-    { value: 'TRATAMIENTOS_FACIALES', label: 'Tratamientos Faciales' },
-    { value: 'PRODUCTOS_COSMETICOS', label: 'Productos Cosméticos' },
-    { value: 'APARATOLOGIA', label: 'Aparatología' },
-    { value: 'SUPLEMENTOS', label: 'Suplementos' },
-    { value: 'ACCESORIOS', label: 'Accesorios' },
+    { value: 'organicos', label: 'Orgánicos' },
+    { value: 'aromaticos', label: 'Aromáticos' },
+    { value: 'wellness', label: 'Wellness' },
   ];
 
   const handleClearFilters = () => {
@@ -130,24 +137,35 @@ export function ProductsTable({
     product: null,
   });
 
-  const handleAction = async (productId: string, action: 'edit' | 'delete') => {
-    setActionLoading((prev) => ({ ...prev, [productId]: true }));
-
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    const product = deleteConfirm;
+    setDeleteConfirm(null);
+    setActionLoading((prev) => ({ ...prev, [product.id]: true }));
     try {
-      if (action === 'edit') {
-        router.push(`/dashboard/products/${productId}/edit`);
-        return;
-      }
+      await deleteProduct(product.id);
+      showToast.success('Producto eliminado', `"${product.name}" fue eliminado.`);
+      onRefresh?.();
+    } catch {
+      showToast.error('Error', 'No se pudo eliminar el producto.');
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [product.id]: false }));
+    }
+  };
 
-      if (action === 'delete') {
-        // Simulate delete API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        showToast.success(
-          'Producto eliminado',
-          'El producto ha sido eliminado correctamente.'
-        );
-        // Here you would refresh the products list
-      }
+  const handleAction = async (productId: string, action: 'edit' | 'delete') => {
+    if (action === 'edit') {
+      router.push(`/dashboard/products/${productId}/edit`);
+      return;
+    }
+    if (action === 'delete') {
+      const product = data.find(p => p.id === productId);
+      if (product) setDeleteConfirm(product);
+      return;
+    }
+    setActionLoading((prev) => ({ ...prev, [productId]: true }));
+    try {
+      // placeholder for future actions
     } catch (error) {
       console.error(`Error performing ${action}:`, error);
       showToast.error(
@@ -378,12 +396,12 @@ export function ProductsTable({
 
         return (
           <div
-            className={`font-medium ${
+            className={`font-medium tabular-nums ${
               margin < 20
-                ? 'text-red-500'
+                ? 'text-[#4e4247]'
                 : margin < 50
-                ? 'text-orange-500'
-                : 'text-green-600'
+                ? 'text-[#cc844a]'
+                : 'text-[#455a54]'
             }`}
           >
             {margin.toFixed(1)}%
@@ -418,20 +436,19 @@ export function ProductsTable({
         return (
           <div className="flex items-center justify-between gap-2">
             <div
-              className={`font-medium ${
+              className={`font-medium tabular-nums ${
                 stock === 0
-                  ? 'text-red-500'
+                  ? 'text-[#4e4247]'
                   : stock <= 10
-                  ? 'text-orange-500'
+                  ? 'text-[#cc844a]'
                   : 'text-[#455a54]'
               }`}
             >
               {stock} {unitLabel}
             </div>
             <Button
-              variant="outline"
               size="sm"
-              className="h-6 px-2 text-xs hover:bg-[#9d684e] hover:text-white"
+              className="h-6 px-2 text-xs bg-[#9d684e]/10 text-[#9d684e] hover:bg-[#9d684e]/20 border-0 shadow-none"
               onClick={() => handleOpenStockAdjustment(row.original)}
             >
               Ajustar
@@ -518,7 +535,7 @@ export function ProductsTable({
                 Editar producto
               </DropdownMenuItem>
               <DropdownMenuItem
-                className='hover:bg-red-50 text-red-600'
+                className='text-[#4e4247] hover:bg-[#4e4247]/8'
                 onClick={() => handleAction(product.id, 'delete')}
                 disabled={isActionLoading}
               >
@@ -705,6 +722,42 @@ export function ProductsTable({
         onClose={handleCloseStockAdjustment}
         product={stockAdjustmentModal.product}
       />
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open: boolean) => { if (!open) setDeleteConfirm(null); }}>
+        <DialogContent className='w-[88vw] max-w-xs rounded-xl border-[#d9dadb] p-0 overflow-hidden'>
+          <div className='h-1 w-full bg-[#4e4247]' />
+          <div className='px-5 py-4'>
+            <DialogHeader className='mb-4 text-left'>
+              <div className='flex items-center gap-2 mb-1'>
+                <Trash2 className='h-4 w-4 text-[#4e4247] shrink-0' />
+                <DialogTitle className='text-sm font-bold text-[#455a54] font-tan-nimbus leading-none'>
+                  Eliminar producto
+                </DialogTitle>
+              </div>
+              <DialogDescription className='text-xs text-[#455a54]/60 font-winter-solid leading-relaxed'>
+                <span className='font-semibold text-[#455a54]'>"{deleteConfirm?.name}"</span> será eliminado permanentemente y no podrá recuperarse.
+              </DialogDescription>
+            </DialogHeader>
+            <div className='flex justify-end gap-2'>
+              <Button
+                variant='outline' size='sm'
+                className='h-8 text-xs font-winter-solid border-[#d9dadb] text-[#455a54]'
+                onClick={() => setDeleteConfirm(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                size='sm'
+                className='h-8 text-xs font-winter-solid bg-[#4e4247] hover:bg-[#4e4247]/90 text-white'
+                onClick={handleConfirmDelete}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

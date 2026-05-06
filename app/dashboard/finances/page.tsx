@@ -9,14 +9,16 @@ import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  ArrowUpRight,
   ArrowDownRight,
   AlertTriangle,
+  CheckCircle,
+  Clock,
+  XCircle,
+  RefreshCw,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -30,6 +32,7 @@ import { financeService, type FinanceSummary } from '@/services/finance.service'
 import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
 import { QuickEgressDialog } from '@/components/dashboard/finances/quick-egress-dialog';
+import { SessionDetailDialog } from '@/components/dashboard/finances/session-detail-dialog';
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -50,11 +53,11 @@ export default function FinancesPage() {
   const [paymentMethod, setPaymentMethod] = useState<'all' | 'CASH' | 'CARD' | 'TRANSFER'>('all');
   const [saleStatus, setSaleStatus] = useState<'all' | 'PENDING' | 'COMPLETED' | 'CANCELLED'>('all');
   const [clientFilter, setClientFilter] = useState<'all' | 'named' | 'anonymous'>('all');
-  const [productId, setProductId] = useState('');
 
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [showNewEgress, setShowNewEgress] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<FinanceSummary['cashSessions'][number] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,8 +67,10 @@ export default function FinancesPage() {
         to: dateRange?.to ? isoDate(dateRange.to) : undefined,
         paymentMethod: paymentMethod === 'all' ? undefined : paymentMethod,
         saleStatus: saleStatus === 'all' ? undefined : saleStatus,
-        clientId: clientFilter === 'anonymous' ? 'anonymous' : undefined,
-        productId: productId || undefined,
+        clientId:
+          clientFilter === 'anonymous' ? 'anonymous'
+          : clientFilter === 'named'   ? 'named'
+          : undefined,
       });
       setSummary(res.data);
     } catch (err) {
@@ -74,7 +79,7 @@ export default function FinancesPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, paymentMethod, saleStatus, clientFilter, productId]);
+  }, [dateRange, paymentMethod, saleStatus, clientFilter]);
 
   useEffect(() => {
     load();
@@ -82,7 +87,6 @@ export default function FinancesPage() {
 
   const expectedCash = useMemo(() => {
     if (!summary) return 0;
-    // Lo esperado en caja del rango (suma de aperturas + ventas cash + prepaids cash − egresos cash − vueltos)
     const sessions = summary.cashSessions;
     const opening = sessions.reduce((s, x) => s + x.openingCash, 0);
     return (
@@ -94,191 +98,175 @@ export default function FinancesPage() {
     );
   }, [summary]);
 
+  // Porcentajes de métodos de pago
+  const paymentTotal = summary
+    ? summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER
+    : 0;
+  const pct = (n: number) => (paymentTotal > 0 ? (n / paymentTotal) * 100 : 0);
+
+  // Porcentajes de estado de ventas
+  const salesTotal = summary
+    ? summary.byStatus.COMPLETED + summary.byStatus.PENDING + summary.byStatus.CANCELLED
+    : 0;
+  const spct = (n: number) => (salesTotal > 0 ? (n / salesTotal) * 100 : 0);
+
   return (
-    <div className='space-y-6 mt-6'>
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
+    <div className="space-y-5 mt-6">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
+          <h1 className="text-2xl sm:text-3xl font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
             Caja y Finanzas
           </h1>
-          <p className='text-[#455a54]/70 font-winter-solid text-sm sm:text-base'>
+          <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
             Resumen contable, caja y movimientos del período
           </p>
         </div>
-        <Button
-          onClick={() => setShowNewEgress(true)}
-          className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto'
-        >
-          <ArrowDownRight className='h-4 w-4 mr-2' />
-          Registrar egreso
-        </Button>
+        <div className="flex items-center gap-2">
+          {loading && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: 'var(--color-terracota)' }} />}
+          <Button
+            onClick={() => setShowNewEgress(true)}
+            className="w-full sm:w-auto text-white"
+            style={{ background: 'var(--color-terracota)' }}
+          >
+            <ArrowDownRight className="h-4 w-4 mr-2" />
+            Registrar egreso
+          </Button>
+        </div>
       </div>
 
-      <QuickEgressDialog
-        open={showNewEgress}
-        onOpenChange={setShowNewEgress}
-        onCreated={load}
+      <QuickEgressDialog open={showNewEgress} onOpenChange={setShowNewEgress} onCreated={load} />
+      <SessionDetailDialog
+        session={selectedSession}
+        onOpenChange={(open) => { if (!open) setSelectedSession(null); }}
       />
 
-      {/* Filtros */}
-      <Card className='border-[#9d684e]/20'>
-        <CardHeader className='pb-3'>
-          <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3'>
-          <div className='space-y-1 lg:col-span-2'>
-            <Label className='text-xs'>Rango de fechas</Label>
-            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-          </div>
-          <div className='space-y-1'>
-            <Label className='text-xs'>Método de pago</Label>
-            <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as any)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='all'>Todos</SelectItem>
-                <SelectItem value='CASH'>Efectivo</SelectItem>
-                <SelectItem value='CARD'>Tarjeta</SelectItem>
-                <SelectItem value='TRANSFER'>Transferencia</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className='space-y-1'>
-            <Label className='text-xs'>Cliente</Label>
-            <Select value={clientFilter} onValueChange={(v) => setClientFilter(v as any)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='all'>Todos</SelectItem>
-                <SelectItem value='named'>Con nombre</SelectItem>
-                <SelectItem value='anonymous'>Anónimos</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className='space-y-1'>
-            <Label className='text-xs'>Estado de venta</Label>
-            <Select value={saleStatus} onValueChange={(v) => setSaleStatus(v as any)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='all'>Todos</SelectItem>
-                <SelectItem value='COMPLETED'>Completadas</SelectItem>
-                <SelectItem value='PENDING'>Pendientes</SelectItem>
-                <SelectItem value='CANCELLED'>Canceladas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className='space-y-1 sm:col-span-2'>
-            <Label className='text-xs'>Producto (ID, opcional)</Label>
-            <Input
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              placeholder='ID interno del producto'
-            />
-          </div>
-          <div className='space-y-1 sm:col-span-2 lg:col-span-3 flex items-end'>
-            <Button onClick={load} disabled={loading} className='w-full sm:w-auto bg-[#9d684e] hover:bg-[#9d684e]/90 text-white'>
-              {loading ? 'Cargando…' : 'Aplicar filtros'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Filtros — toolbar compacto */}
+      <div
+        className="rounded-xl border p-3 flex flex-col gap-3"
+        style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
+      >
+        {/* Fila 1: fecha (full width) */}
+        <DateRangePicker date={dateRange} onDateChange={setDateRange} />
 
-      {/* Métricas top */}
+        {/* Fila 2: selectores en grid 2×2 → 1×3 en sm → todos en fila en lg */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as typeof paymentMethod)}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Método" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los métodos</SelectItem>
+              <SelectItem value="CASH">Efectivo</SelectItem>
+              <SelectItem value="CARD">Tarjeta</SelectItem>
+              <SelectItem value="TRANSFER">Transferencia</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={saleStatus} onValueChange={(v) => setSaleStatus(v as typeof saleStatus)}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="COMPLETED">Completadas</SelectItem>
+              <SelectItem value="PENDING">Pendientes</SelectItem>
+              <SelectItem value="CANCELLED">Canceladas</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={clientFilter} onValueChange={(v) => setClientFilter(v as typeof clientFilter)}>
+            <SelectTrigger className="h-8 text-xs col-span-2 sm:col-span-1">
+              <SelectValue placeholder="Cliente" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los clientes</SelectItem>
+              <SelectItem value="named">Con nombre</SelectItem>
+              <SelectItem value="anonymous">Anónimos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Indicador de filtros activos */}
+        {(paymentMethod !== 'all' || saleStatus !== 'all' || clientFilter !== 'all') && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <SlidersHorizontal className="h-3 w-3 shrink-0" style={{ color: 'var(--color-terracota)' }} />
+            {paymentMethod !== 'all' && (
+              <Badge
+                className="text-xs cursor-pointer h-5"
+                style={{ background: 'color-mix(in srgb, var(--color-terracota) 12%, transparent)', color: 'var(--color-terracota)', border: 'none' }}
+                onClick={() => setPaymentMethod('all')}
+              >
+                {paymentMethod === 'CASH' ? 'Efectivo' : paymentMethod === 'CARD' ? 'Tarjeta' : 'Transferencia'} ×
+              </Badge>
+            )}
+            {saleStatus !== 'all' && (
+              <Badge
+                className="text-xs cursor-pointer h-5"
+                style={{ background: 'color-mix(in srgb, var(--color-terracota) 12%, transparent)', color: 'var(--color-terracota)', border: 'none' }}
+                onClick={() => setSaleStatus('all')}
+              >
+                {saleStatus === 'COMPLETED' ? 'Completadas' : saleStatus === 'PENDING' ? 'Pendientes' : 'Canceladas'} ×
+              </Badge>
+            )}
+            {clientFilter !== 'all' && (
+              <Badge
+                className="text-xs cursor-pointer h-5"
+                style={{ background: 'color-mix(in srgb, var(--color-terracota) 12%, transparent)', color: 'var(--color-terracota)', border: 'none' }}
+                onClick={() => setClientFilter('all')}
+              >
+                {clientFilter === 'named' ? 'Con nombre' : 'Anónimos'} ×
+              </Badge>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Skeletons mientras carga por primera vez */}
+      {loading && !summary && (
+        <div className="space-y-4 animate-pulse">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {[0, 1].map((i) => (
+              <div key={i} className="rounded-xl border p-6 h-32" style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}>
+                <div className="h-3 rounded w-1/3 mb-4" style={{ background: 'var(--color-gris-claro)' }} />
+                <div className="h-8 rounded w-1/2 mb-3" style={{ background: 'var(--color-gris-claro)' }} />
+                <div className="h-3 rounded w-2/3" style={{ background: 'var(--color-gris-claro)' }} />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 rounded-xl border overflow-hidden" style={{ borderColor: 'var(--color-gris-claro)' }}>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="p-4 h-20" style={{ background: 'var(--color-blanco)' }}>
+                <div className="h-3 rounded w-1/2 mb-3" style={{ background: 'var(--color-gris-claro)' }} />
+                <div className="h-6 rounded w-1/3" style={{ background: 'var(--color-gris-claro)' }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {summary && (
         <>
-          <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
-            <MetricCard
-              label='Ingresos'
-              value={formatCurrency(summary.totalRevenue)}
-              icon={<TrendingUp className='h-4 w-4 text-green-700' />}
-              tone='green'
-            />
-            <MetricCard
-              label='Ventas'
-              value={String(summary.salesCount)}
-              icon={<ArrowUpRight className='h-4 w-4 text-blue-700' />}
-              tone='blue'
-            />
-            <MetricCard
-              label='Ticket promedio'
-              value={formatCurrency(summary.averageTicket)}
-              tone='gray'
-            />
-            <MetricCard
-              label='Balance neto'
-              value={formatCurrency(summary.netBalance)}
-              icon={
-                summary.netBalance >= 0 ? (
-                  <TrendingUp className='h-4 w-4 text-emerald-700' />
-                ) : (
-                  <TrendingDown className='h-4 w-4 text-red-700' />
-                )
-              }
-              tone={summary.netBalance >= 0 ? 'emerald' : 'red'}
-            />
-          </div>
-
-          {/* Por medio de pago */}
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>
-                Cobrado por medio de pago
-              </CardTitle>
-            </CardHeader>
-            <CardContent className='grid grid-cols-1 sm:grid-cols-3 gap-3'>
-              <PaymentMethodCard
-                icon={<Banknote className='h-4 w-4 text-green-700' />}
-                label='Efectivo'
-                value={formatCurrency(summary.byPaymentMethod.CASH)}
-                tone='green'
-              />
-              <PaymentMethodCard
-                icon={<CreditCard className='h-4 w-4 text-blue-700' />}
-                label='Tarjeta'
-                value={formatCurrency(summary.byPaymentMethod.CARD)}
-                tone='blue'
-              />
-              <PaymentMethodCard
-                icon={<Send className='h-4 w-4 text-purple-700' />}
-                label='Transferencia'
-                value={formatCurrency(summary.byPaymentMethod.TRANSFER)}
-                tone='purple'
-              />
-            </CardContent>
-            {summary.totalCashChange > 0 && (
-              <CardContent className='pt-0 text-xs text-[#455a54]/70 font-winter-solid'>
-                Vueltos entregados en efectivo en el rango:{' '}
-                <span className='font-semibold text-[#9d684e]'>
-                  {formatCurrency(summary.totalCashChange)}
-                </span>{' '}
-                (sale físicamente de la caja)
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Caja: estado por sesión */}
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <div className='flex items-center justify-between gap-2'>
+          {/* Bloque D — Estado de caja (arriba del fold, auditoría inmediata) */}
+          <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>
+                  <CardTitle className="text-base font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
                     Estado de caja
                   </CardTitle>
-                  <p className='text-xs text-[#455a54]/70 font-winter-solid'>
-                    Sesiones abiertas en el rango y diferencias de cierre
+                  <p className="text-xs font-winter-solid mt-0.5" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+                    Sesiones del rango y diferencias de cierre
                   </p>
                 </div>
                 <Badge
-                  className={
+                  style={
                     summary.totalDiscrepancy === 0
-                      ? 'bg-green-100 text-green-800'
+                      ? { background: 'color-mix(in srgb, var(--color-verde-profundo) 12%, transparent)', color: 'var(--color-verde-profundo)' }
                       : summary.totalDiscrepancy > 0
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-red-100 text-red-800'
+                        ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
+                        : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
                   }
                 >
                   Diferencia neta: {formatCurrency(summary.totalDiscrepancy)}
@@ -287,46 +275,41 @@ export default function FinancesPage() {
             </CardHeader>
             <CardContent>
               {summary.cashSessions.length === 0 ? (
-                <p className='text-sm text-[#455a54]/60'>
+                <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
                   No hubo aperturas de caja en este rango.
                 </p>
               ) : (
-                <div className='space-y-2'>
+                <div className="space-y-2">
                   {summary.cashSessions.map((s) => (
                     <div
                       key={s.id}
-                      className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-md border border-[#9d684e]/15 bg-white p-3 text-sm'
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border p-3 text-sm cursor-pointer transition-colors"
+                      style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
+                      onClick={() => setSelectedSession(s)}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--color-verde-profundo) 5%, transparent)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-blanco)')}
                     >
                       <div>
-                        <div className='font-winter-solid text-[#455a54]'>
+                        <div className="font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
                           {new Date(s.openedAt).toLocaleString('es-AR')} →{' '}
                           {s.closedAt ? new Date(s.closedAt).toLocaleString('es-AR') : 'Abierta'}
                         </div>
-                        <div className='text-xs text-[#455a54]/60'>
+                        <div className="text-xs mt-0.5 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
                           Apertura {formatCurrency(s.openingCash)}
-                          {s.expectedClosingCash !== null && (
-                            <>
-                              {' · '}Esperado {formatCurrency(s.expectedClosingCash)}
-                            </>
-                          )}
-                          {s.countedClosingCash !== null && (
-                            <>
-                              {' · '}Contado {formatCurrency(s.countedClosingCash)}
-                            </>
-                          )}
+                          {s.expectedClosingCash !== null && <> · Esperado {formatCurrency(s.expectedClosingCash)}</>}
+                          {s.countedClosingCash !== null && <> · Contado {formatCurrency(s.countedClosingCash)}</>}
                         </div>
                       </div>
                       {s.discrepancy !== null && s.discrepancy !== 0 && (
                         <Badge
-                          className={
+                          style={
                             s.discrepancy > 0
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-red-100 text-red-800'
+                              ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
+                              : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
                           }
                         >
-                          <AlertTriangle className='h-3 w-3 mr-1' />
-                          {s.discrepancy > 0 ? 'Sobrante' : 'Faltante'}{' '}
-                          {formatCurrency(Math.abs(s.discrepancy))}
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {s.discrepancy > 0 ? 'Sobrante' : 'Faltante'} {formatCurrency(Math.abs(s.discrepancy))}
                         </Badge>
                       )}
                     </div>
@@ -336,98 +319,200 @@ export default function FinancesPage() {
             </CardContent>
           </Card>
 
-          {/* Egresos / Prepaids */}
-          <div className='grid grid-cols-1 lg:grid-cols-2 gap-3'>
-            <Card className='border-[#9d684e]/20'>
-              <CardHeader>
-                <CardTitle className='text-base font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-                  <ArrowDownRight className='h-4 w-4 text-red-600' />
-                  Egresos
-                </CardTitle>
-              </CardHeader>
-              <CardContent className='space-y-1 text-sm font-winter-solid'>
-                <div className='flex justify-between'>
-                  <span>Total ({summary.expenses.count})</span>
-                  <span className='font-semibold'>{formatCurrency(summary.expenses.total)}</span>
+          {/* Bloque A — Hero cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* Balance neto */}
+            <Card className="overflow-hidden" style={{ borderColor: 'var(--color-gris-claro)' }}>
+              <div className="h-1" style={{ background: summary.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }} />
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between mb-1">
+                  <span className="text-xs font-medium uppercase tracking-wide font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+                    Balance neto
+                  </span>
+                  {summary.netBalance >= 0
+                    ? <TrendingUp className="h-5 w-5 opacity-40" style={{ color: 'var(--color-verde-profundo)' }} />
+                    : <TrendingDown className="h-5 w-5 opacity-40" style={{ color: 'var(--color-terracota)' }} />
+                  }
                 </div>
-                <div className='text-xs text-[#455a54]/70 space-y-0.5 pt-1'>
-                  <div>Efectivo: {formatCurrency(summary.expenses.byPaymentMethod.CASH)}</div>
-                  <div>Tarjeta: {formatCurrency(summary.expenses.byPaymentMethod.CARD)}</div>
-                  <div>Transferencia: {formatCurrency(summary.expenses.byPaymentMethod.TRANSFER)}</div>
+                <div
+                  className="text-4xl font-bold mt-2 mb-3 font-tan-nimbus"
+                  style={{ color: summary.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
+                >
+                  {formatCurrency(summary.netBalance)}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm flex justify-between font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                    <span>Ingresos</span>
+                    <span className="font-semibold">{formatCurrency(summary.totalRevenue)}</span>
+                  </p>
+                  <p className="text-sm flex justify-between font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                    <span>Señas</span>
+                    <span className="font-semibold">{formatCurrency(summary.prepaids.total)}</span>
+                  </p>
+                  <p className="text-sm flex justify-between font-winter-solid" style={{ color: 'var(--color-terracota)' }}>
+                    <span>Egresos</span>
+                    <span className="font-semibold">− {formatCurrency(summary.expenses.total)}</span>
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className='border-[#9d684e]/20'>
-              <CardHeader>
-                <CardTitle className='text-base font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-                  <Wallet className='h-4 w-4 text-[#9d684e]' />
-                  Señas cobradas
-                </CardTitle>
-              </CardHeader>
-              <CardContent className='space-y-1 text-sm font-winter-solid'>
-                <div className='flex justify-between'>
-                  <span>Total ({summary.prepaids.count})</span>
-                  <span className='font-semibold'>{formatCurrency(summary.prepaids.total)}</span>
+            {/* Ingresos del período */}
+            <Card className="overflow-hidden" style={{ borderColor: 'var(--color-gris-claro)' }}>
+              <div className="h-1" style={{ background: 'var(--color-terracota)' }} />
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between mb-1">
+                  <span className="text-xs font-medium uppercase tracking-wide font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+                    Ingresos del período
+                  </span>
+                  <TrendingUp className="h-5 w-5 opacity-40" style={{ color: 'var(--color-terracota)' }} />
                 </div>
-                <div className='text-xs text-[#455a54]/70 space-y-0.5 pt-1'>
-                  <div>Efectivo: {formatCurrency(summary.prepaids.byPaymentMethod.CASH)}</div>
-                  <div>Tarjeta: {formatCurrency(summary.prepaids.byPaymentMethod.CARD)}</div>
-                  <div>Transferencia: {formatCurrency(summary.prepaids.byPaymentMethod.TRANSFER)}</div>
+                <div className="text-4xl font-bold mt-2 mb-3 font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+                  {formatCurrency(summary.totalRevenue)}
+                </div>
+                <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                  {summary.salesCount} {summary.salesCount === 1 ? 'venta' : 'ventas'} · ticket promedio {formatCurrency(summary.averageTicket)}
+                </p>
+                {summary.totalCashChange > 0 && (
+                  <p className="text-xs mt-2 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+                    Vueltos entregados: {formatCurrency(summary.totalCashChange)}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Bloque B — KPI strip */}
+          <div
+            className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 rounded-xl border overflow-hidden"
+            style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
+          >
+            <div className="p-4 flex flex-col gap-1">
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Ventas</span>
+              <span className="text-xl font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>{summary.salesCount}</span>
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>transacciones</span>
+            </div>
+            <div className="p-4 flex flex-col gap-1">
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Egresos</span>
+              <span className="text-xl font-bold font-tan-nimbus" style={{ color: 'var(--color-terracota)' }}>{summary.expenses.count}</span>
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>{formatCurrency(summary.expenses.total)}</span>
+            </div>
+            <div className="p-4 flex flex-col gap-1">
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Señas</span>
+              <span className="text-xl font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>{summary.prepaids.count}</span>
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>{formatCurrency(summary.prepaids.total)}</span>
+            </div>
+            <div className="p-4 flex flex-col gap-1">
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Ticket promedio</span>
+              <span className="text-xl font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>{formatCurrency(summary.averageTicket)}</span>
+              <span className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>por venta</span>
+            </div>
+          </div>
+
+          {/* Bloque C — Desglose 2 col */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* Métodos de pago */}
+            <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
+              <CardContent className="p-5">
+                <p className="text-base font-tan-nimbus mb-4" style={{ color: 'var(--color-verde-profundo)' }}>
+                  Métodos de pago
+                </p>
+                <div className="space-y-4">
+                  {([
+                    { icon: <Banknote className="h-4 w-4" />, label: 'Efectivo',        amount: summary.byPaymentMethod.CASH,     p: pct(summary.byPaymentMethod.CASH) },
+                    { icon: <CreditCard className="h-4 w-4" />, label: 'Tarjeta',       amount: summary.byPaymentMethod.CARD,     p: pct(summary.byPaymentMethod.CARD) },
+                    { icon: <Send className="h-4 w-4" />,        label: 'Transferencia', amount: summary.byPaymentMethod.TRANSFER, p: pct(summary.byPaymentMethod.TRANSFER) },
+                  ] as const).map(({ icon, label, amount, p }) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                          {icon}
+                          <span className="text-sm font-medium">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+                            {formatCurrency(amount)}
+                          </span>
+                          <span className="text-xs w-8 text-right font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+                            {Math.round(p)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1 rounded-full" style={{ background: 'var(--color-gris-claro)' }}>
+                        <div className="h-1 rounded-full transition-all" style={{ width: `${p}%`, background: 'var(--color-terracota)' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Estado de ventas */}
+            <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
+              <CardContent className="p-5">
+                <p className="text-base font-tan-nimbus mb-4" style={{ color: 'var(--color-verde-profundo)' }}>
+                  Estado de ventas
+                </p>
+                <div className="space-y-4">
+                  {([
+                    { icon: <CheckCircle className="h-4 w-4" />, label: 'Completadas', count: summary.byStatus.COMPLETED, p: spct(summary.byStatus.COMPLETED), color: 'var(--color-verde-profundo)' },
+                    { icon: <Clock className="h-4 w-4" />,        label: 'Pendientes',  count: summary.byStatus.PENDING,   p: spct(summary.byStatus.PENDING),   color: 'var(--color-naranja-medio)' },
+                    { icon: <XCircle className="h-4 w-4" />,      label: 'Canceladas',  count: summary.byStatus.CANCELLED, p: spct(summary.byStatus.CANCELLED), color: 'var(--color-terracota)' },
+                  ] as const).map(({ icon, label, count, p, color }) => (
+                    <div key={label}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                          <span style={{ color }}>{icon}</span>
+                          <span className="text-sm font-medium">{label}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+                            {count}
+                          </span>
+                          <span className="text-xs w-8 text-right font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+                            {Math.round(p)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-1 rounded-full" style={{ background: 'var(--color-gris-claro)' }}>
+                        <div className="h-1 rounded-full transition-all" style={{ width: `${p}%`, background: color }} />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Clientes */}
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>Clientes</CardTitle>
-            </CardHeader>
-            <CardContent className='grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm font-winter-solid'>
-              <div className='rounded-md border border-[#9d684e]/15 p-3'>
-                <div className='text-xs text-[#455a54]/70'>Con nombre</div>
-                <div className='text-lg font-semibold text-[#455a54]'>
-                  {formatCurrency(summary.byClient.named.total)}
-                </div>
-                <div className='text-xs text-[#455a54]/60'>{summary.byClient.named.count} ventas</div>
-              </div>
-              <div className='rounded-md border border-[#9d684e]/15 p-3'>
-                <div className='text-xs text-[#455a54]/70'>Anónimos</div>
-                <div className='text-lg font-semibold text-[#455a54]'>
-                  {formatCurrency(summary.byClient.anonymous.total)}
-                </div>
-                <div className='text-xs text-[#455a54]/60'>
-                  {summary.byClient.anonymous.count} ventas
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top productos */}
-          <Card className='border-[#9d684e]/20'>
-            <CardHeader>
-              <CardTitle className='text-base font-tan-nimbus text-[#455a54]'>
+          {/* Bloque E — Top productos */}
+          <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
                 Top productos del rango
               </CardTitle>
             </CardHeader>
             <CardContent>
               {summary.topProducts.length === 0 ? (
-                <p className='text-sm text-[#455a54]/60'>Sin ventas en el rango.</p>
+                <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+                  Sin ventas en el rango.
+                </p>
               ) : (
-                <div className='space-y-1 text-sm font-winter-solid'>
+                <div className="space-y-0 font-winter-solid">
                   {summary.topProducts.map((p, i) => (
                     <div
                       key={p.productId}
-                      className='flex items-center justify-between py-1.5 border-b border-[#9d684e]/10 last:border-0'
+                      className="flex items-center justify-between py-2 border-b last:border-0 text-sm"
+                      style={{ borderColor: 'var(--color-gris-claro)' }}
                     >
-                      <span className='text-[#455a54]'>
-                        <span className='text-xs text-[#455a54]/50 mr-2'>#{i + 1}</span>
+                      <span style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                        <span className="text-xs mr-2" style={{ opacity: 0.4 }}>#{i + 1}</span>
                         {p.productName}
                       </span>
-                      <span>
-                        <span className='text-xs text-[#455a54]/60 mr-2'>{p.quantity} u.</span>
-                        <span className='font-semibold text-[#455a54]'>
+                      <span className="flex items-center gap-3">
+                        <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{p.quantity} u.</span>
+                        <span className="font-semibold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
                           {formatCurrency(p.revenue)}
                         </span>
                       </span>
@@ -439,59 +524,6 @@ export default function FinancesPage() {
           </Card>
         </>
       )}
-    </div>
-  );
-}
-
-interface MetricCardProps {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
-  tone?: 'green' | 'blue' | 'red' | 'gray' | 'emerald';
-}
-
-function MetricCard({ label, value, icon, tone = 'gray' }: MetricCardProps) {
-  const toneClasses: Record<NonNullable<MetricCardProps['tone']>, string> = {
-    green: 'bg-green-50 border-green-200 text-green-800',
-    blue: 'bg-blue-50 border-blue-200 text-blue-800',
-    red: 'bg-red-50 border-red-200 text-red-800',
-    gray: 'bg-white border-[#9d684e]/20 text-[#455a54]',
-    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-  };
-  return (
-    <div className={`rounded-md border p-3 ${toneClasses[tone]}`}>
-      <div className='flex items-center gap-1 text-xs font-winter-solid uppercase tracking-wide'>
-        {icon}
-        {label}
-      </div>
-      <div className='text-xl sm:text-2xl font-bold mt-1 font-tan-nimbus'>{value}</div>
-    </div>
-  );
-}
-
-function PaymentMethodCard({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  tone: 'green' | 'blue' | 'purple';
-}) {
-  const toneClasses: Record<typeof tone, string> = {
-    green: 'bg-green-50 border-green-200',
-    blue: 'bg-blue-50 border-blue-200',
-    purple: 'bg-purple-50 border-purple-200',
-  };
-  return (
-    <div className={`rounded-md border p-3 ${toneClasses[tone]}`}>
-      <div className='flex items-center gap-1 text-xs font-winter-solid uppercase tracking-wide text-[#455a54]'>
-        {icon}
-        {label}
-      </div>
-      <div className='text-lg font-bold mt-1 font-tan-nimbus text-[#455a54]'>{value}</div>
     </div>
   );
 }

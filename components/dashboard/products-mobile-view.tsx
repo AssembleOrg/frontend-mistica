@@ -47,10 +47,9 @@ export function ProductsMobileView({
   // Category options for filters
   const categoryOptions: FilterOption[] = [
     { value: 'all', label: 'Todas las categorías' },
-    { value: 'treatments', label: 'Tratamientos' },
-    { value: 'products', label: 'Productos' },
-    { value: 'accessories', label: 'Accesorios' },
-    { value: 'equipment', label: 'Equipamiento' },
+    { value: 'organicos', label: 'Orgánicos' },
+    { value: 'aromaticos', label: 'Aromáticos' },
+    { value: 'wellness', label: 'Wellness' },
   ];
 
   const handleClearFilters = () => {
@@ -160,9 +159,9 @@ export function ProductsMobileView({
                     <Edit className="mr-2 h-4 w-4" />
                     Editar
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => onDelete?.(product.id)}
-                    className="text-red-600"
+                    className="text-[#4e4247]"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Eliminar
@@ -187,8 +186,8 @@ export function ProductsMobileView({
               <div className="mobile-card-row">
                 <span className="mobile-card-label">Stock</span>
                 <span className={`mobile-card-value font-medium ${
-                  product.stock <= 5 ? 'text-red-600' : 
-                  product.stock <= 10 ? 'text-yellow-600' : 'text-green-600'
+                  product.stock <= 5 ? 'text-[#4e4247]' :
+                  product.stock <= 10 ? 'text-[#cc844a]' : 'text-[#455a54]'
                 }`}>
                   {product.stock} unidades
                 </span>
@@ -202,8 +201,8 @@ export function ProductsMobileView({
               <div className="mobile-card-row">
                 <span className="mobile-card-label">Margen</span>
                 <span className={`mobile-card-value font-medium ${
-                  profitMargin >= 50 ? 'text-green-600' : 
-                  profitMargin >= 30 ? 'text-yellow-600' : 'text-red-600'
+                  profitMargin >= 50 ? 'text-[#455a54]' :
+                  profitMargin >= 30 ? 'text-[#cc844a]' : 'text-[#4e4247]'
                 }`}>
                   {profitMargin.toFixed(1)}%
                 </span>

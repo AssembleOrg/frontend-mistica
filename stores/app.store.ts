@@ -59,7 +59,7 @@ interface AppState {
   editSale: (saleId: string, updates: { notes?: string; customerInfo?: any }) => boolean;
   
   // Stock Actions
-  adjustStock: (productId: string, quantity: number, reason: string, previousStock: number, newStock: number, productName: string) => void;
+  adjustStock: (productId: string, quantity: number, reason: string, previousStock: number, newStock: number, productName: string, reference?: string) => void;
   
   // Computed
   getCartTotal: () => number;
@@ -357,13 +357,14 @@ export const useAppStore = create<AppState>()(
       },
 
       // Stock Actions
-      adjustStock: (productId, quantity, reason, previousStock, newStock, productName) => {
+      adjustStock: (productId, quantity, reason, previousStock, newStock, productName, reference) => {
         const movement: StockMovement = {
           id: crypto.randomUUID(),
           productId,
           type: quantity > 0 ? 'entrada' : 'salida',
           quantity: Math.abs(quantity),
           reason,
+          reference,
           userId: 'user',
           createdAt: new Date(),
           previousStock,

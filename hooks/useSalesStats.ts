@@ -3,15 +3,11 @@
 
 import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import { salesService, type Sale } from '@/services/sales.service';
-import { prepaidsService, type Prepaid } from '@/services/prepaids.service';
-import { egressesService, type Egress } from '@/services/egresses.service';
 import { showToast } from '@/lib/toast';
 
 export interface SalesStatistics {
   dailySales: { count: number; amount: number };
-  totalRevenue: { amount: number; period: string };
-  completed: { count: number; percentage: number };
-  averagePerSale: { amount: number; description: string };
+  averagePerSale: { amount: number };
   paymentMethods: {
     cash: { amount: number; percentage: number };
     card: { amount: number; percentage: number };
@@ -22,51 +18,28 @@ export interface SalesStatistics {
     completed: { count: number; percentage: number };
     cancelled: { count: number; percentage: number };
   };
-  totalCashStatus: {
-    totalSales: number;
-    totalPrepaids: number;
-    totalEgresses: number;
-    netBalance: number;
-  };
+  topProductsToday: Array<{ productId: string; productName: string; quantity: number; revenue: number }>;
 }
 
 type State = {
   sales: Sale[];
-  prepaids: Prepaid[];
-  egresses: Egress[];
   isLoading: boolean;
   error: string | null;
 };
 
 type Action =
   | { type: 'load:start' }
-  | { type: 'load:success'; sales: Sale[]; prepaids: Prepaid[]; egresses: Egress[] }
+  | { type: 'load:success'; sales: Sale[] }
   | { type: 'load:error'; error: string };
 
-const initialState: State = {
-  sales: [],
-  prepaids: [],
-  egresses: [],
-  isLoading: true,
-  error: null,
-};
+const initialState: State = { sales: [], isLoading: true, error: null };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'load:start':
-      return { ...state, isLoading: true, error: null };
-    case 'load:success':
-      return {
-        sales: action.sales,
-        prepaids: action.prepaids,
-        egresses: action.egresses,
-        isLoading: false,
-        error: null,
-      };
-    case 'load:error':
-      return { ...state, isLoading: false, error: action.error };
-    default:
-      return state;
+    case 'load:start':  return { ...state, isLoading: true, error: null };
+    case 'load:success': return { sales: action.sales, isLoading: false, error: null };
+    case 'load:error':  return { ...state, isLoading: false, error: action.error };
+    default: return state;
   }
 }
 
@@ -76,17 +49,8 @@ export function useSalesStats() {
   const loadAll = useCallback(async () => {
     dispatch({ type: 'load:start' });
     try {
-      const [salesRes, prepaidsRes, egressesRes] = await Promise.all([
-        salesService.getAllSales(),
-        prepaidsService.getAllPrepaids(),
-        egressesService.getAllEgresses(),
-      ]);
-      dispatch({
-        type: 'load:success',
-        sales: salesRes.data,
-        prepaids: prepaidsRes.data,
-        egresses: egressesRes.data,
-      });
+      const res = await salesService.getAllSales();
+      dispatch({ type: 'load:success', sales: res.data });
     } catch (err) {
       console.error('Error loading sales stats:', err);
       dispatch({ type: 'load:error', error: 'Error al cargar los datos' });
@@ -99,89 +63,78 @@ export function useSalesStats() {
   }, [loadAll]);
 
   const statistics = useMemo((): SalesStatistics => {
-    const { sales, prepaids, egresses } = state;
-    const today = new Date();
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      23,
-      59,
-      59,
-      999
-    );
+    const { sales } = state;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-    const todaySales = sales.filter((sale) => {
-      const saleDate = new Date(sale.createdAt);
-      return saleDate >= todayStart && saleDate <= todayEnd;
+    const todaySales = sales.filter((s) => {
+      const d = new Date(s.createdAt);
+      return d >= todayStart && d <= todayEnd;
     });
 
-    const dailySalesCount = todaySales.length;
-    const dailySalesAmount = todaySales.reduce((sum, sale) => sum + sale.total, 0);
-    const totalRevenueAmount = sales.reduce((sum, sale) => sum + sale.total, 0);
+    const dailyAmount = todaySales.reduce((sum, s) => sum + s.total, 0);
+    const avgPerSale  = todaySales.length > 0 ? dailyAmount / todaySales.length : 0;
 
-    const completedSales = sales.filter((sale) => sale.status === 'COMPLETED');
-    const completedCount = completedSales.length;
-    const completedPercentage = sales.length > 0 ? (completedCount / sales.length) * 100 : 0;
-    const averagePerSaleAmount = sales.length > 0 ? totalRevenueAmount / sales.length : 0;
+    let cashAmount = 0, cardAmount = 0, transferAmount = 0;
+    let pendingCount = 0, completedCount = 0, cancelledCount = 0;
 
-    let cashAmount = 0;
-    let cardAmount = 0;
-    let transferAmount = 0;
-    let pendingCount = 0;
-    let completedCountStatus = 0;
-    let cancelledCount = 0;
-    for (const sale of sales) {
-      // Cada venta puede tener varios pagos; sumamos por método.
-      for (const p of sale.payments ?? []) {
+    for (const s of todaySales) {
+      for (const p of s.payments ?? []) {
         if (p.method === 'CASH') cashAmount += p.amount;
         else if (p.method === 'CARD') cardAmount += p.amount;
         else if (p.method === 'TRANSFER') transferAmount += p.amount;
       }
-
-      if (sale.status === 'PENDING') pendingCount++;
-      else if (sale.status === 'COMPLETED') completedCountStatus++;
-      else if (sale.status === 'CANCELLED') cancelledCount++;
+      if (s.status === 'PENDING') pendingCount++;
+      else if (s.status === 'COMPLETED') completedCount++;
+      else if (s.status === 'CANCELLED') cancelledCount++;
     }
-    const totalPaymentAmount = cashAmount + cardAmount + transferAmount;
 
+    const payTotal = cashAmount + cardAmount + transferAmount;
     const pct = (n: number, d: number) => (d > 0 ? (n / d) * 100 : 0);
 
-    const totalPrepaids = prepaids.reduce((sum, p) => sum + p.amount, 0);
-    const totalEgresses = egresses.reduce((sum, e) => sum + e.amount, 0);
-    const netBalance = totalRevenueAmount + totalPrepaids - totalEgresses;
+    // Top productos de hoy
+    const productMap = new Map<string, { productId: string; productName: string; quantity: number; revenue: number }>();
+    for (const s of todaySales) {
+      if (s.status === 'CANCELLED') continue;
+      for (const item of s.items ?? []) {
+        const existing = productMap.get(item.productId);
+        if (existing) {
+          existing.quantity += item.quantity;
+          existing.revenue  += item.subtotal;
+        } else {
+          productMap.set(item.productId, {
+            productId:   item.productId,
+            productName: item.productName,
+            quantity:    item.quantity,
+            revenue:     item.subtotal,
+          });
+        }
+      }
+    }
+    const topProductsToday = [...productMap.values()]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
     return {
-      dailySales: { count: dailySalesCount, amount: dailySalesAmount },
-      totalRevenue: { amount: totalRevenueAmount, period: 'Hoy' },
-      completed: { count: completedCount, percentage: completedPercentage },
-      averagePerSale: { amount: averagePerSaleAmount, description: 'Por transacción' },
+      dailySales:   { count: todaySales.length, amount: dailyAmount },
+      averagePerSale: { amount: avgPerSale },
       paymentMethods: {
-        cash: { amount: cashAmount, percentage: pct(cashAmount, totalPaymentAmount) },
-        card: { amount: cardAmount, percentage: pct(cardAmount, totalPaymentAmount) },
-        transfer: { amount: transferAmount, percentage: pct(transferAmount, totalPaymentAmount) },
+        cash:     { amount: cashAmount,     percentage: pct(cashAmount,     payTotal) },
+        card:     { amount: cardAmount,     percentage: pct(cardAmount,     payTotal) },
+        transfer: { amount: transferAmount, percentage: pct(transferAmount, payTotal) },
       },
       salesStatus: {
-        pending: { count: pendingCount, percentage: pct(pendingCount, sales.length) },
-        completed: {
-          count: completedCountStatus,
-          percentage: pct(completedCountStatus, sales.length),
-        },
-        cancelled: { count: cancelledCount, percentage: pct(cancelledCount, sales.length) },
+        pending:   { count: pendingCount,   percentage: pct(pendingCount,   todaySales.length) },
+        completed: { count: completedCount, percentage: pct(completedCount, todaySales.length) },
+        cancelled: { count: cancelledCount, percentage: pct(cancelledCount, todaySales.length) },
       },
-      totalCashStatus: {
-        totalSales: totalRevenueAmount,
-        totalPrepaids,
-        totalEgresses,
-        netBalance,
-      },
+      topProductsToday,
     };
   }, [state]);
 
   return {
     statistics,
-    sales: state.sales,
     isLoading: state.isLoading,
     error: state.error,
     refreshData: loadAll,

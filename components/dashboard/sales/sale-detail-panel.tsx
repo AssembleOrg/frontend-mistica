@@ -65,26 +65,27 @@ export function SaleDetailPanel({
         )}
       </aside>
 
-      {/* Mobile Sheet — slide desde la derecha */}
+      {/* Mobile Sheet — slide desde abajo */}
       <Sheet open={mobileOpen} onOpenChange={onMobileClose}>
         <SheetContent
           side="bottom"
-          className="h-[88vh] rounded-t-2xl bg-[#efcbb9] border-t border-[#9d684e]/15 px-0 pt-0"
+          className="h-[92vh] rounded-t-2xl bg-white border-t-2 border-[#455a54]/20 px-0 pt-0 flex flex-col"
         >
-          {/* Drag handle visual */}
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-[#9d684e]/20" />
-          </div>
-
-          <SheetHeader className="px-4 pb-0">
-            <SheetTitle className="sr-only">Detalle de venta</SheetTitle>
+          <SheetHeader className="sr-only">
+            <SheetTitle>Detalle de venta</SheetTitle>
           </SheetHeader>
 
+          {/* Drag handle — lo único arriba del contenido */}
+          <div className="flex justify-center pt-2 pb-0 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-[#d9dadb]" />
+          </div>
+
           {sale ? (
-            <ScrollArea className="flex-1 h-[calc(88vh-3rem)]">
-              <div className="px-4 pb-8">
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="px-4 pt-3 pb-4">
                 <SaleDetailContent
                   sale={sale}
+                  stickyActions
                   onSaleUpdated={() => {
                     onSaleUpdated?.();
                     onMobileClose();

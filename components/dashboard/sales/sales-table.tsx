@@ -87,6 +87,7 @@ interface SalesTableProps {
   statusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
   onRefresh?: () => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export function SalesTable({
@@ -113,6 +114,7 @@ export function SalesTable({
   statusFilter = "",
   onStatusFilterChange,
   onRefresh,
+  searchInputRef,
 }: SalesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -587,6 +589,7 @@ export function SalesTable({
         showAdvancedFilters={showAdvancedFilters}
         onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
         isLoading={isLoading}
+        searchInputRef={searchInputRef}
       />
 
       {/* Column visibility controls — compact, alineado a la derecha */}

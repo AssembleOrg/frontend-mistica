@@ -370,16 +370,15 @@ function StockAdjustmentsContent() {
                       Diferencia
                     </Label>
                     <div
-                      className={`p-2 rounded-md border text-center font-medium ${
+                      className={`p-2 rounded-md border text-center font-bold font-tan-nimbus ${
                         difference > 0
-                          ? 'bg-green-50 border-green-200 text-green-700'
+                          ? 'bg-[#455a54]/8 border-[#455a54]/25 text-[#455a54]'
                           : difference < 0
-                          ? 'bg-red-50 border-red-200 text-red-700'
-                          : 'bg-gray-50 border-gray-200 text-gray-700'
+                          ? 'bg-[#4e4247]/8 border-[#4e4247]/25 text-[#4e4247]'
+                          : 'bg-[#9d684e]/8 border-[#9d684e]/20 text-[#9d684e]/60'
                       }`}
                     >
-                      {difference > 0 ? '+' : ''}
-                      {difference}
+                      {difference > 0 ? '+' : ''}{difference === 0 ? '—' : difference}
                     </div>
                   </div>
                 </div>

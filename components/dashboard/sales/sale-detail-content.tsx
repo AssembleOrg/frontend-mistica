@@ -9,10 +9,13 @@ import { Separator } from '@/components/ui/separator';
 import { Sale } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
+import { useStock } from '@/hooks/useStock';
+import { useProducts } from '@/hooks/useProducts';
 import { showToast } from '@/lib/toast';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { GeneratingPdfDialog } from '@/components/ui/generating-pdf-dialog';
 import { IssueCreditNoteDialog } from './issue-credit-note-dialog';
+import { ConfirmCancelDialog } from './confirm-cancel-dialog';
 import {
   CheckCircle2,
   XCircle,
@@ -32,6 +35,7 @@ interface SaleDetailContentProps {
   sale: Sale;
   onSaleUpdated?: () => void;
   onRequestEdit?: (sale: Sale) => void;
+  stickyActions?: boolean;
 }
 
 function PaymentIcon({ method }: { method: string }) {
@@ -68,7 +72,7 @@ function StatusBadge({ status }: { status: string }) {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-1.5 gap-4">
-      <span className="text-xs text-[#455a54]/60 font-winter-solid shrink-0">{label}</span>
+      <span className="text-xs text-[#455a54]/70 font-winter-solid shrink-0">{label}</span>
       <span className="text-xs text-[#455a54] font-semibold font-winter-solid text-right">{children}</span>
     </div>
   );
@@ -83,23 +87,26 @@ function Section({ title, icon: Icon, children }: {
     <div>
       <div className="flex items-center gap-1.5 mb-1.5">
         <Icon className="h-3.5 w-3.5 text-[#9d684e]" />
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#455a54]/55 font-winter-solid">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-[#455a54]/70 font-winter-solid">
           {title}
         </span>
       </div>
-      <div className="bg-[#efcbb9]/30 rounded-lg border border-[#9d684e]/15 px-3 divide-y divide-[#9d684e]/10">
+      <div className="bg-[#efcbb9]/50 rounded-lg border border-[#9d684e]/25 px-3 divide-y divide-[#9d684e]/15">
         {children}
       </div>
     </div>
   );
 }
 
-export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDetailContentProps) {
+export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyActions }: SaleDetailContentProps) {
   const [generateInvoice, setGenerateInvoice] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showCreditNote, setShowCreditNote] = useState(false);
-  const { updateSale, getSaleById } = useSalesAPI();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const { updateSale, getSaleById, deleteSale } = useSalesAPI();
+  const { recordSaleMovements } = useStock();
+  const { products } = useProducts();
 
   const isPending   = sale.status === 'PENDING';
   const isCompleted = sale.status === 'COMPLETED';
@@ -112,6 +119,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
     try {
       const updateData: Record<string, unknown> = { status: 'COMPLETED', shouldInvoice: generateInvoice };
       const updatedSale = await updateSale(sale.id, updateData);
+      recordSaleMovements(sale, 'salida', products);
       showToast.success('Venta completada');
 
       if (generateInvoice) {
@@ -140,15 +148,20 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
   };
 
   const handleCancelSale = async () => {
-    if (!isPending) return;
-    if (!confirm('¿Cancelar esta venta?')) return;
     setIsUpdating(true);
     try {
-      await updateSale(sale.id, { status: 'CANCELLED' });
-      showToast.success('Venta cancelada');
+      if (isPending) {
+        await deleteSale(sale.id);
+        showToast.success('Comanda eliminada');
+      } else {
+        await updateSale(sale.id, { status: 'CANCELLED' });
+        recordSaleMovements(sale, 'entrada', products);
+        showToast.success('Venta cancelada');
+      }
+      setShowCancelConfirm(false);
       onSaleUpdated?.();
     } catch {
-      showToast.error('Error al cancelar la venta');
+      showToast.error('Error al procesar la operación');
     } finally {
       setIsUpdating(false);
     }
@@ -199,14 +212,14 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
         {/* Productos */}
         <Section title={`Productos · ${sale.items.length}`} icon={Package}>
           {sale.items.map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-1.5 gap-2">
+            <div key={i} className="flex items-center justify-between py-2 gap-2">
               <div className="min-w-0">
-                <p className="text-xs text-[#455a54] font-winter-solid truncate">{item.productName}</p>
-                <p className="text-[10px] text-[#455a54]/40 font-winter-solid">
+                <p className="text-sm text-[#455a54] font-winter-solid truncate font-medium">{item.productName}</p>
+                <p className="text-xs text-[#455a54]/60 font-winter-solid mt-0.5">
                   {item.quantity} × {formatCurrency(item.unitPrice)}
                 </p>
               </div>
-              <span className="text-xs font-semibold text-[#455a54] font-winter-solid shrink-0">
+              <span className="text-sm font-semibold text-[#455a54] font-winter-solid shrink-0">
                 {formatCurrency(item.subtotal)}
               </span>
             </div>
@@ -283,8 +296,8 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
       </div>
 
       {/* ── Acciones ───────────────────────────────────── */}
-      <div className="mt-5 space-y-2">
-        <Separator className="bg-[#9d684e]/10 mb-3" />
+      <div className={`mt-5 space-y-2 ${stickyActions ? 'sticky bottom-0 bg-white pt-2 pb-2 -mx-4 px-4 border-t border-[#d9dadb]' : ''}`}>
+        <Separator className={`bg-[#9d684e]/10 mb-3 ${stickyActions ? 'hidden' : ''}`} />
 
         {isPending && (
           <>
@@ -324,10 +337,11 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
                   className="flex-1 border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
                 >
                   Editar
+                  <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/10 border border-[#455a54]/25 rounded leading-none">F3</kbd>
                 </Button>
               )}
               <Button
-                onClick={handleCancelSale}
+                onClick={() => setShowCancelConfirm(true)}
                 disabled={isUpdating}
                 variant="outline"
                 className="flex-1 border-[#4e4247]/30 text-[#4e4247] hover:bg-[#4e4247]/10 text-xs h-8 font-winter-solid"
@@ -347,6 +361,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
             >
               <Receipt className="h-3.5 w-3.5 mr-1.5" />
               Ver comprobante
+              <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
             </Button>
             <Button
               onClick={() => setShowCreditNote(true)}
@@ -371,6 +386,14 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit }: SaleDe
         )}
       </div>
 
+      <ConfirmCancelDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        onConfirm={handleCancelSale}
+        isLoading={isUpdating}
+        saleNumber={sale.saleNumber}
+        isPending={isPending}
+      />
       <GeneratingPdfDialog isOpen={isGeneratingPdf} />
       <IssueCreditNoteDialog
         open={showCreditNote}

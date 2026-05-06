@@ -22,10 +22,13 @@ import { ProductsMobileView } from '@/components/dashboard/products-mobile-view'
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { BulkUpdateProductsDialog } from '@/components/dashboard/products/bulk-update-dialog';
 import { useProducts } from '@/hooks/useProducts';
+import { useStock } from '@/hooks/useStock';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { Plus, Package, Grid, List, Download, Upload } from 'lucide-react';
+import { Plus, Package, Grid, List, Download, Upload, AlertTriangle, Layers, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { exportProductsToExcel } from '@/lib/excel-utils';
+import Link from 'next/link';
+import type { Product } from '@/lib/types';
 
 export default function ProductsPage() {
   // Handle initial data loading
@@ -33,11 +36,14 @@ export default function ProductsPage() {
 
   // Simple hooks API for actions and computed values
   const { products, stats, fetchProducts } = useProducts();
+  const { getLowStockProducts, getOutOfStockProducts } = useStock();
 
   // Mobile detection and view state
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
+  const [showLowStock, setShowLowStock] = useState(false);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -183,75 +189,122 @@ export default function ProductsPage() {
         }}
       />
 
-      {/* Inventory Stats - Following Panel de Control Pattern */}
-      <Card className='border-[#9d684e]/20'>
-        <CardHeader>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <Package className='h-5 w-5' />
-            Estado del Inventario
-          </CardTitle>
-          <CardDescription className='text-[#455a54]/70'>
-            Resumen del catálogo y disponibilidad de productos
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className='grid grid-cols-2 md:grid-cols-4 gap-4'>
-            <div className='bg-gradient-to-br from-[#9d684e]/10 to-[#9d684e]/5 p-4 rounded-lg border border-[#9d684e]/20'>
-              <div className='flex items-center justify-between'>
+      {/* Stat Cards */}
+      {(() => {
+        const lowStockProducts = getLowStockProducts();
+        const outOfStockProducts = getOutOfStockProducts();
+
+        const StatCard = ({
+          value, label, icon: Icon, variant, onClick, expanded,
+        }: {
+          value: number; label: string; icon: React.ElementType;
+          variant: 'alert' | 'critical' | 'neutral' | 'primary';
+          onClick?: () => void; expanded?: boolean;
+        }) => {
+          const styles = {
+            alert:    { wrap: 'bg-[#cc844a]/8 border-[#cc844a]/25',  num: 'text-[#cc844a]',  icon: 'text-[#cc844a]/50'  },
+            critical: { wrap: 'bg-[#4e4247]/8 border-[#4e4247]/25',  num: 'text-[#4e4247]',  icon: 'text-[#4e4247]/40'  },
+            neutral:  { wrap: 'bg-[#9d684e]/8 border-[#9d684e]/20',  num: 'text-[#9d684e]',  icon: 'text-[#9d684e]/40'  },
+            primary:  { wrap: 'bg-[#455a54]/8 border-[#455a54]/20',  num: 'text-[#455a54]',  icon: 'text-[#455a54]/30'  },
+          };
+          const s = styles[variant];
+          return (
+            <div
+              className={`${s.wrap} border rounded-xl p-4 transition-all ${onClick ? 'cursor-pointer hover:brightness-95 select-none' : ''}`}
+              onClick={onClick}
+            >
+              <div className='flex items-start justify-between gap-2'>
                 <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-[#9d684e]'>
-                    {stats.total}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Total</div>
+                  <div className={`text-2xl font-bold font-tan-nimbus ${s.num} leading-none mb-1.5`}>{value}</div>
+                  <div className='text-xs uppercase tracking-wide font-winter-solid text-[#455a54]/60'>{label}</div>
                 </div>
-                <Package className='h-6 w-6 text-[#9d684e]/40' />
-              </div>
-            </div>
-            
-            <div className='bg-gradient-to-br from-green-500/10 to-green-500/5 p-4 rounded-lg border border-green-500/20'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-green-600'>
-                    {stats.total - stats.outOfStock}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Disponibles</div>
-                </div>
-                <div className='w-6 h-6 rounded-full bg-green-100 flex items-center justify-center'>
-                  <div className='w-3 h-3 rounded-full bg-green-500'></div>
-                </div>
-              </div>
-            </div>
-            
-            <div className='bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 rounded-lg border border-orange-500/20'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-orange-500'>
-                    {stats.lowStock}
-                  </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Stock Bajo</div>
-                </div>
-                <div className='w-6 h-6 rounded-full bg-orange-100 flex items-center justify-center'>
-                  <div className='w-3 h-3 rounded-full bg-orange-500'></div>
+                <div className='flex flex-col items-center gap-1 pt-0.5'>
+                  <Icon className={`h-4 w-4 ${s.icon}`} />
+                  {onClick && (expanded
+                    ? <ChevronUp className={`h-3 w-3 ${s.icon}`} />
+                    : <ChevronDown className={`h-3 w-3 ${s.icon}`} />
+                  )}
                 </div>
               </div>
             </div>
-            
-            <div className='bg-gradient-to-br from-red-500/10 to-red-500/5 p-4 rounded-lg border border-red-500/20'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <div className='text-2xl font-bold font-tan-nimbus text-red-500'>
-                    {stats.outOfStock}
+          );
+        };
+
+        const AlertList = ({ products: list, empty }: { products: Product[]; empty: string }) => {
+          if (list.length === 0) return <p className='text-sm text-[#455a54]/50 font-winter-solid py-2'>{empty}</p>;
+          return (
+            <div className='divide-y divide-[#9d684e]/10'>
+              {list.map(p => (
+                <div key={p.id} className='flex items-center justify-between py-3 gap-3'>
+                  <div className='min-w-0 flex-1'>
+                    <p className='text-sm font-semibold text-[#455a54] font-winter-solid truncate'>{p.name}</p>
+                    <p className='text-xs text-[#455a54]/50 font-mono tabular-nums'>{p.stock} unidades actuales</p>
                   </div>
-                  <div className='text-xs text-[#455a54]/70 uppercase tracking-wide'>Agotados</div>
+                  <Link href={`/dashboard/stock/adjustments?product=${p.id}`}>
+                    <Button size='sm' className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid text-xs h-7 px-3 flex-shrink-0'>
+                      Ajustar
+                    </Button>
+                  </Link>
                 </div>
-                <div className='w-6 h-6 rounded-full bg-red-100 flex items-center justify-center'>
-                  <div className='w-3 h-3 rounded-full bg-red-500'></div>
-                </div>
+              ))}
+              <div className='pt-3'>
+                <Link href='/dashboard/stock/adjustments'>
+                  <Button variant='outline' size='sm' className='w-full text-xs text-[#455a54] border-[#9d684e]/30 hover:bg-[#9d684e]/8 gap-1.5 font-winter-solid'>
+                    Ver todos en ajustes <ArrowRight className='h-3 w-3' />
+                  </Button>
+                </Link>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          );
+        };
+
+        return (
+          <>
+            <div className='grid grid-cols-2 lg:grid-cols-4 gap-3'>
+              <StatCard value={stats.total} label='Total' icon={Package} variant='neutral' />
+              <StatCard value={stats.total - stats.outOfStock} label='Disponibles' icon={Layers} variant='primary' />
+              <StatCard
+                value={stats.lowStock} label='Stock Bajo' icon={AlertTriangle} variant='alert'
+                expanded={showLowStock}
+                onClick={() => { setShowLowStock(v => !v); setShowOutOfStock(false); }}
+              />
+              <StatCard
+                value={stats.outOfStock} label='Agotados' icon={Package} variant='critical'
+                expanded={showOutOfStock}
+                onClick={() => { setShowOutOfStock(v => !v); setShowLowStock(false); }}
+              />
+            </div>
+
+            {showLowStock && (
+              <Card className='border-[#cc844a]/25 bg-[#cc844a]/5'>
+                <CardHeader className='pb-2 pt-4'>
+                  <CardTitle className='text-sm font-tan-nimbus text-[#cc844a] flex items-center gap-2'>
+                    <AlertTriangle className='h-3.5 w-3.5' />
+                    Stock bajo — {lowStockProducts.length} producto{lowStockProducts.length !== 1 ? 's' : ''}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AlertList products={lowStockProducts} empty='Todos los productos tienen stock suficiente.' />
+                </CardContent>
+              </Card>
+            )}
+
+            {showOutOfStock && (
+              <Card className='border-[#4e4247]/20 bg-[#4e4247]/5'>
+                <CardHeader className='pb-2 pt-4'>
+                  <CardTitle className='text-sm font-tan-nimbus text-[#4e4247] flex items-center gap-2'>
+                    <Package className='h-3.5 w-3.5' />
+                    Agotados — {outOfStockProducts.length} producto{outOfStockProducts.length !== 1 ? 's' : ''}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AlertList products={outOfStockProducts} empty='No hay productos agotados.' />
+                </CardContent>
+              </Card>
+            )}
+          </>
+        );
+      })()}
 
       {/* Products Table with loading state */}
       <Card className='border-[#9d684e]/20'>

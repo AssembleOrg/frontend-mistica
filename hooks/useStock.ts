@@ -6,6 +6,8 @@ import { useCallback } from 'react';
 import { useAppStore } from '@/stores/app.store';
 import { useProducts } from '@/hooks/useProducts';
 import { productsService } from '@/services/products.service';
+import type { Sale } from '@/services/sales.service';
+import type { Product } from '@/lib/types';
 
 export function useStock() {
   const { 
@@ -84,12 +86,43 @@ export function useStock() {
     recentMovements: getStockMovements().slice(0, 10)
   };
 
+  const recordSaleMovements = useCallback((
+    sale: Sale,
+    type: 'salida' | 'entrada',
+    currentProducts: Product[]
+  ) => {
+    const label = type === 'salida'
+      ? `Venta #${sale.saleNumber}`
+      : `Cancelación venta #${sale.saleNumber}`;
+
+    sale.items.forEach(item => {
+      const product = currentProducts.find(p => p.id === item.productId);
+      // product.stock is already the POST-backend value.
+      // Reconstruct the PRE value: for salida backend subtracted, for entrada backend added.
+      const postStock = product?.stock ?? 0;
+      const preStock = type === 'salida'
+        ? postStock + item.quantity
+        : postStock - item.quantity;
+      const qty = type === 'salida' ? -item.quantity : item.quantity;
+      adjustStock(
+        item.productId,
+        qty,
+        label,
+        preStock,
+        postStock,
+        item.productName,
+        sale.id
+      );
+    });
+  }, [adjustStock]);
+
   return {
     stockMovements,
     getLowStockProducts,
     getOutOfStockProducts,
     getStockMovements,
     adjustStockQuantity,
+    recordSaleMovements,
     stockSummary,
     settings
   };

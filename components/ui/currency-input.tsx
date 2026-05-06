@@ -43,8 +43,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true);
-      // Show raw number when focused
-      setDisplayValue(value.toString());
+      setDisplayValue(value === 0 ? '' : value.toString());
       props.onFocus?.(e);
     };
 

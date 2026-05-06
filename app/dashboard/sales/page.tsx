@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
 import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
 import { SaleDetailPanel } from '@/components/dashboard/sales/sale-detail-panel';
+import { KbdShortcuts } from '@/components/dashboard/sales/kbd-shortcuts';
 
 const CreateSaleModal = dynamic(
   () => import('@/components/dashboard/sales/create-sale-modal').then(m => m.CreateSaleModal),
@@ -27,6 +28,10 @@ const EditSaleModal = dynamic(
 );
 
 export default function SalesPage() {
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const submitCreateButtonRef = useRef<HTMLButtonElement | null>(null);
+  const submitEditButtonRef = useRef<HTMLButtonElement | null>(null);
+
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
@@ -131,21 +136,20 @@ export default function SalesPage() {
   const handleCancelSale = useCallback(async (saleId: string) => {
     try {
       await handleUpdateSale(saleId, { status: 'CANCELLED' });
-      showToast.success('Venta cancelada');
     } catch {
       showToast.error('Error al cancelar la venta');
     }
   }, [handleUpdateSale]);
 
   const handleSaleUpdated = useCallback(async () => {
+    const prevId = selectedSale?.id;
     await refreshAll();
-    // Re-fetch el selectedSale fresco desde la API para reflejar el nuevo estado
-    setSelectedSale(prev => {
-      if (!prev) return null;
-      getSaleById(prev.id).then(fresh => setSelectedSale(fresh)).catch(() => {});
-      return prev; // mantiene el anterior mientras carga el fresco
+    if (!prevId) return;
+    getSaleById(prevId).then(fresh => setSelectedSale(fresh)).catch(() => {
+      // La venta ya no existe (fue eliminada) — limpiar selección
+      setSelectedSale(null);
     });
-  }, [refreshAll, getSaleById]);
+  }, [refreshAll, getSaleById, selectedSale]);
 
   // ── Loading / error states ────────────────────────────────────────────────
   if (productsError) {
@@ -210,6 +214,7 @@ export default function SalesPage() {
           >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             Nueva venta
+            <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F2</kbd>
           </Button>
         </div>
 
@@ -262,6 +267,7 @@ export default function SalesPage() {
                   statusFilter={statusFilter}
                   onStatusFilterChange={handleStatusFilterChange}
                   onRefresh={refreshAll}
+                  searchInputRef={searchInputRef}
                 />
               </div>
             </div>
@@ -290,12 +296,31 @@ export default function SalesPage() {
         isOpen={showCreateSaleModal}
         onClose={() => setShowCreateSaleModal(false)}
         onSaleCreated={handleSaleCreated}
+        submitButtonRef={submitCreateButtonRef}
       />
       <EditSaleModal
         isOpen={showEditSaleModal}
         onClose={() => { setShowEditSaleModal(false); setSelectedSale(null); }}
         sale={selectedSale}
         onSave={handleUpdateSale}
+        submitButtonRef={submitEditButtonRef}
+      />
+      <KbdShortcuts
+        sales={sales}
+        selectedSale={selectedSale}
+        onSelectSale={handleSelectSale}
+        showCreateSaleModal={showCreateSaleModal}
+        showEditSaleModal={showEditSaleModal}
+        onOpenCreateModal={() => setShowCreateSaleModal(true)}
+        onCloseCreateModal={() => setShowCreateSaleModal(false)}
+        onCloseEditModal={() => { setShowEditSaleModal(false); setSelectedSale(null); }}
+        searchInputRef={searchInputRef}
+        submitCreateButtonRef={submitCreateButtonRef}
+        submitEditButtonRef={submitEditButtonRef}
+        searchValue={searchValue}
+        onSearchChange={handleSearchChange}
+        onRequestEdit={handleEditSale}
+        onViewReceipt={handleViewReceipt}
       />
     </div>
   );

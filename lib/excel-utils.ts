@@ -145,9 +145,20 @@ function asString(v: unknown): string | undefined {
 function asNumber(v: unknown): number | undefined {
   if (v === null || v === undefined || v === '') return undefined;
   if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
-  // Excel a veces manda strings con coma decimal o $; intentamos limpiar.
-  const cleaned = String(v).replace(/[^\d.,-]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
-  const n = Number(cleaned);
+  const s = String(v).trim();
+  // Detectar formato regional:
+  // es-AR: 1.234,56 → miles=punto, decimal=coma
+  // en-US: 1,234.56 → miles=coma, decimal=punto
+  let cleaned: string;
+  if (/\d\.\d{3}([,\s]|$)/.test(s)) {
+    // Formato español: quitar puntos de miles, convertir coma a punto
+    cleaned = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    // Formato inglés o sin separadores de miles: quitar comas
+    cleaned = s.replace(/,/g, '');
+  }
+  cleaned = cleaned.replace(/[^\d.-]/g, '');
+  const n = parseFloat(cleaned);
   return Number.isFinite(n) ? n : undefined;
 }
 

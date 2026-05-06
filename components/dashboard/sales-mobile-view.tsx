@@ -1,6 +1,6 @@
 'use client';
 
-import { Sale, SaleItem } from '@/services/sales.service';
+import { Sale } from '@/services/sales.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, MoreHorizontal, Eye, Receipt, X } from 'lucide-react';
@@ -22,7 +22,6 @@ interface SalesMobileViewProps {
   onDelete?: (saleId: string) => void;
   onView?: (sale: Sale) => void;
   onCancel?: (saleId: string) => void;
-  // Filters props
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   dateRange?: DateRange;
@@ -40,12 +39,12 @@ const paymentMethodLabels = {
   MIXED: 'Mixto',
 } as const;
 
-const paymentMethodColors = {
-  CASH: 'bg-green-100 text-green-800 border-green-200',
-  CARD: 'bg-blue-100 text-blue-800 border-blue-200',
-  TRANSFER: 'bg-purple-100 text-purple-800 border-purple-200',
-  MIXED: 'bg-amber-100 text-amber-800 border-amber-200',
-} as const;
+const paymentMethodColors: Record<string, string> = {
+  CASH: 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/20',
+  CARD: 'bg-[#4e4247]/10 text-[#4e4247] border-[#4e4247]/20',
+  TRANSFER: 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/20',
+  MIXED: 'bg-[#efcbb9] text-[#9d684e] border-[#9d684e]/20',
+};
 
 const statusLabels = {
   COMPLETED: 'Completada',
@@ -53,17 +52,24 @@ const statusLabels = {
   CANCELLED: 'Cancelada',
 } as const;
 
-const statusColors = {
-  COMPLETED: 'bg-green-50 text-green-800 border-green-200',
-  PENDING: 'bg-yellow-50 text-yellow-800 border-yellow-200',
-  CANCELLED: 'bg-red-50 text-red-800 border-red-200',
-} as const;
+const statusColors: Record<string, string> = {
+  COMPLETED: 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/20',
+  PENDING: 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/20',
+  CANCELLED: 'bg-[#9d684e]/10 text-[#9d684e] border-[#9d684e]/20',
+};
 
-export function SalesMobileView({ 
-  sales, 
-  onEdit, 
-  onDelete, 
-  onView, 
+// Left accent bar color per status
+const statusAccent: Record<string, string> = {
+  COMPLETED: 'bg-[#455a54]',
+  PENDING: 'bg-[#cc844a]',
+  CANCELLED: 'bg-[#9d684e]',
+};
+
+export function SalesMobileView({
+  sales,
+  onEdit,
+  onDelete,
+  onView,
   onCancel,
   searchValue,
   onSearchChange,
@@ -72,10 +78,8 @@ export function SalesMobileView({
   statusFilter,
   onStatusFilterChange,
   onRefresh,
-  isLoading
+  isLoading,
 }: SalesMobileViewProps) {
-  
-  // Status options for filters
   const statusOptions: FilterOption[] = [
     { value: '', label: 'Todos los estados' },
     { value: 'COMPLETED', label: 'Completada' },
@@ -89,187 +93,150 @@ export function SalesMobileView({
     onStatusFilterChange?.('');
   };
 
+  const filters = (
+    <TableFilters
+      searchValue={searchValue || ''}
+      onSearchChange={onSearchChange || (() => {})}
+      searchPlaceholder="Buscar ventas..."
+      dateRange={dateRange}
+      onDateRangeChange={onDateRangeChange || (() => {})}
+      statusValue={statusFilter || ''}
+      onStatusChange={onStatusFilterChange || (() => {})}
+      statusOptions={statusOptions}
+      onClearFilters={handleClearFilters}
+      onRefresh={onRefresh || (() => {})}
+      isLoading={isLoading || false}
+    />
+  );
+
   if (sales.length === 0) {
     return (
       <div className="space-y-4">
-        {/* Mobile Filters */}
-        <TableFilters
-          searchValue={searchValue || ''}
-          onSearchChange={onSearchChange || (() => {})}
-          searchPlaceholder="Buscar ventas..."
-          dateRange={dateRange}
-          onDateRangeChange={onDateRangeChange || (() => {})}
-          statusValue={statusFilter || ''}
-          onStatusChange={onStatusFilterChange || (() => {})}
-          statusOptions={statusOptions}
-        onClearFilters={handleClearFilters}
-        onRefresh={onRefresh || (() => {})}
-        isLoading={isLoading || false}
-      />
-      
-      <div className="text-center py-8 text-gray-500">
-        <Receipt className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-        <p className="text-base">No se encontraron ventas.</p>
-        <p className="text-sm text-gray-400 mt-1">Las ventas aparecerán aquí cuando se registren.</p>
+        {filters}
+        <div className="flex flex-col items-center justify-center py-10 gap-2">
+          <Receipt className="h-8 w-8 text-[#d9dadb]" />
+          <p className="text-sm text-[#455a54]/50 font-winter-solid">No se encontraron ventas</p>
+        </div>
       </div>
-    </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Mobile Filters */}
-      <TableFilters
-        searchValue={searchValue || ''}
-        onSearchChange={onSearchChange || (() => {})}
-        searchPlaceholder="Buscar ventas..."
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange || (() => {})}
-        statusValue={statusFilter || ''}
-        onStatusChange={onStatusFilterChange || (() => {})}
-        statusOptions={statusOptions}
-        onClearFilters={handleClearFilters}
-        onRefresh={onRefresh || (() => {})}
-        isLoading={isLoading || false}
-      />
-      
-      {/* Sales Cards */}
-      <div className="space-y-3">
-      {sales.map((sale) => {
-        const totalItems = sale.items.reduce((sum, item) => sum + item.quantity, 0);
-        const saleDate = new Date(sale.createdAt);
+    <div className="space-y-3">
+      {filters}
 
-        return (
-          <div key={sale.id} className="mobile-card">
-            <div className="mobile-card-header">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="mobile-card-title">
-                    Venta #{sale.id.slice(-6).toUpperCase()}
-                  </h3>
-                  {(() => {
-                    const primary = getPrimaryPaymentMethod(sale);
-                    return (
-                      <Badge className={`text-xs ${paymentMethodColors[primary]}`}>
-                        {paymentMethodLabels[primary]}
-                      </Badge>
-                    );
-                  })()}
-                  <Badge 
-                    variant="outline"
-                    className={`text-xs ${statusColors[sale.status as keyof typeof statusColors]}`}
-                  >
+      <div className="space-y-2">
+        {sales.map((sale) => {
+          const lineCount = sale.items.length;
+          const saleDate = new Date(sale.createdAt);
+          const primary = getPrimaryPaymentMethod(sale);
+          const accent = statusAccent[sale.status] ?? 'bg-[#d9dadb]';
+          const hasDiscount = (sale.discount ?? 0) > 0;
+
+          return (
+            <div
+              key={sale.id}
+              className="flex bg-white rounded-lg border border-[#d9dadb] overflow-hidden shadow-sm active:opacity-80 cursor-pointer"
+              onClick={() => onView?.(sale)}
+            >
+              {/* Accent bar */}
+              <div className={`w-1 shrink-0 ${accent}`} />
+
+              {/* Content */}
+              <div className="flex-1 min-w-0 px-3 py-2.5">
+                {/* Row 1: ID + badges */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-semibold text-[#455a54] font-winter-solid tracking-wide">
+                    {sale.saleNumber ?? `#${sale.id.slice(-6).toUpperCase()}`}
+                  </span>
+                  <Badge className={`text-[10px] px-1.5 py-0 h-4 border ${statusColors[sale.status]}`}>
                     {statusLabels[sale.status as keyof typeof statusLabels]}
                   </Badge>
+                  <Badge className={`text-[10px] px-1.5 py-0 h-4 border ${paymentMethodColors[primary]}`}>
+                    {paymentMethodLabels[primary]}
+                  </Badge>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {format(saleDate, "dd MMM yyyy, HH:mm", { locale: es })}
-                </p>
+
+                {/* Row 2: client + date */}
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="text-sm text-[#455a54] font-medium truncate flex-1 mr-2">
+                    {sale.customerName || 'Cliente General'}
+                  </span>
+                  <span className="text-[10px] text-[#455a54]/50 shrink-0 font-winter-solid">
+                    {format(saleDate, 'HH:mm · dd MMM', { locale: es })}
+                  </span>
+                </div>
+
+                {/* Row 3: products count + pricing */}
+                <div className="flex items-end justify-between mt-1.5 pt-1.5 border-t border-[#d9dadb]/60">
+                  <div className="text-xs text-[#455a54]/60 leading-relaxed">
+                    <span>{lineCount} {lineCount === 1 ? 'producto' : 'productos'}</span>
+                    {hasDiscount && (
+                      <span className="ml-1.5 text-[#cc844a]">· {sale.discount}% off</span>
+                    )}
+                    {sale.notes && (
+                      <span className="block italic truncate max-w-[160px]">{sale.notes}</span>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0 ml-2">
+                    {hasDiscount && (
+                      <p className="text-[10px] text-[#455a54]/40 line-through leading-none mb-0.5">
+                        {formatCurrency(sale.subtotal)}
+                      </p>
+                    )}
+                  <span className="text-base font-bold font-tan-nimbus text-[#9d684e] leading-none">
+                    {formatCurrency(sale.total)}
+                  </span>
+                  </div>
+                </div>
               </div>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0 touch-target">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onView?.(sale)}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver detalles
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => onEdit?.(sale)}
-                    disabled={sale.status === 'COMPLETED'}
-                    className={sale.status === 'COMPLETED' ? 'opacity-50 cursor-not-allowed' : ''}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Editar
-                    {sale.status === 'COMPLETED' && <span className="ml-2 text-xs text-gray-500">(Bloqueado)</span>}
-                  </DropdownMenuItem>
-                  {sale.status === 'PENDING' && (
-                    <DropdownMenuItem 
-                      onClick={() => onCancel?.(sale.id)}
-                      className="text-orange-600"
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      Cancelar comanda
+
+              {/* Dropdown — stop propagation so tap on dots doesn't open detail */}
+              <div
+                className="flex items-center pr-2 pl-1 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#455a54]/40 hover:text-[#455a54]">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onView?.(sale)}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Ver detalles
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem 
-                    onClick={() => onDelete?.(sale.id)}
-                    className="text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem
+                      onClick={() => onEdit?.(sale)}
+                      disabled={sale.status === 'COMPLETED'}
+                      className={sale.status === 'COMPLETED' ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    {sale.status === 'PENDING' && (
+                      <DropdownMenuItem
+                        onClick={() => onCancel?.(sale.id)}
+                        className="text-[#cc844a]"
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Cancelar comanda
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      onClick={() => onDelete?.(sale.id)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-
-            <div className="mobile-card-content">
-              <div className="mobile-card-row">
-                <span className="mobile-card-label">Cliente</span>
-                <span className="mobile-card-value font-medium">
-                  {sale.customerName || 'Cliente General'}
-                </span>
-              </div>
-              
-              <div className="mobile-card-row">
-                <span className="mobile-card-label">Artículos</span>
-                <span className="mobile-card-value">
-                  {totalItems} {totalItems === 1 ? 'artículo' : 'artículos'}
-                </span>
-              </div>
-
-              <div className="mobile-card-row">
-                <span className="mobile-card-label">Subtotal</span>
-                <span className="mobile-card-value">
-                  {formatCurrency(sale.subtotal)}
-                </span>
-              </div>
-
-              <div className="mobile-card-row">
-                <span className="mobile-card-label">Total</span>
-                <span className="mobile-card-value font-semibold text-[#9d684e] text-base">
-                  {formatCurrency(sale.total)}
-                </span>
-              </div>
-
-              {/* Items preview */}
-              <div className="mt-3 pt-2 border-t border-gray-100">
-                <div className="mobile-card-label mb-1">Productos:</div>
-                <div className="space-y-1">
-                  {sale.items.slice(0, 2).map((item, index) => (
-                    <div key={index} className="flex justify-between text-xs text-gray-600">
-                      <span className="truncate flex-1 mr-2">
-                        {item.quantity}x {item.productName}
-                      </span>
-                      <span className="shrink-0">
-                        {formatCurrency(item.subtotal)}
-                      </span>
-                    </div>
-                  ))}
-                  {sale.items.length > 2 && (
-                    <div className="text-xs text-gray-400">
-                      +{sale.items.length - 2} {sale.items.length - 2 === 1 ? 'producto más' : 'productos más'}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {sale.notes && (
-                <div className="mt-2 pt-2 border-t border-gray-100">
-                  <div className="mobile-card-label mb-1">Notas:</div>
-                  <p className="text-xs text-gray-600 line-clamp-2">
-                    {sale.notes}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
       </div>
     </div>
   );

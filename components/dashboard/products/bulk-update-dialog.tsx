@@ -312,11 +312,11 @@ function SummaryCard({
   icon?: React.ReactNode;
 }) {
   const toneClasses: Record<typeof tone, string> = {
-    success: 'border-green-500/30 bg-green-50 text-green-700',
-    warning: 'border-amber-500/30 bg-amber-50 text-amber-700',
-    danger: 'border-red-500/30 bg-red-50 text-red-700',
-    info: 'border-[#9d684e]/30 bg-[#efcbb9]/30 text-[#9d684e]',
-    muted: 'border-gray-200 bg-gray-50 text-gray-600',
+    success: 'border-[#455a54]/30 bg-[#455a54]/8 text-[#455a54]',
+    warning: 'border-[#cc844a]/30 bg-[#cc844a]/8 text-[#cc844a]',
+    danger:  'border-[#4e4247]/30 bg-[#4e4247]/8 text-[#4e4247]',
+    info:    'border-[#9d684e]/30 bg-[#efcbb9]/30 text-[#9d684e]',
+    muted:   'border-[#9d684e]/15 bg-[#9d684e]/5 text-[#455a54]/50',
   };
 
   return (

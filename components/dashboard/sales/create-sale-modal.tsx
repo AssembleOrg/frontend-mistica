@@ -45,9 +45,10 @@ interface CreateSaleModalProps {
   // Edit mode props
   editingSale?: Sale | null;
   onSaleUpdated?: (saleId: string, updatedSale: UpdateSaleRequest) => Promise<void>;
+  submitButtonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
-export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated }: CreateSaleModalProps) {
+export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated, submitButtonRef }: CreateSaleModalProps) {
   const [clientId, setClientId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
@@ -57,6 +58,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [cartItems, setCartItems] = useState<SaleItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientPrepaid, setClientPrepaid] = useState<{id: string, amount: number} | null>(null);
   const [usePrepaid, setUsePrepaid] = useState(false);
@@ -143,6 +145,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     } else {
       setSearchResults([]);
     }
+    setHighlightedIndex(-1);
   }, [searchQuery, searchProducts]);
 
   const addProductToCart = (product: Product) => {
@@ -367,7 +370,6 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
         const createdSale = await createSale(saleData);
         onSaleCreated?.(createdSale);
-        showToast.success('Venta creada exitosamente');
       }
       
       // Reset form
@@ -435,8 +437,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           <DialogTitle className="text-[#455a54] font-tan-nimbus text-lg sm:text-xl">
             {editingSale ? 'Editar Venta' : 'Crear Nueva Venta'}
           </DialogTitle>
-          <DialogDescription className="font-winter-solid text-sm">
-                      </DialogDescription>
+          <DialogDescription className="font-winter-solid text-sm text-[#455a54]/50">
+            <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none">F2</kbd> guardar &nbsp;·&nbsp; <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none">Esc</kbd> cerrar
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col h-full px-4 sm:px-6 pb-4 sm:pb-6 space-y-6">
@@ -605,17 +608,33 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar por nombre o código..."
                   className="border-2 border-gray-700 focus:border-gray-900 focus:ring-2 focus:ring-gray-300"
+                  onKeyDown={(e) => {
+                    if (!searchResults.length) return;
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setHighlightedIndex(i => Math.min(i + 1, searchResults.length - 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setHighlightedIndex(i => Math.max(i - 1, 0));
+                    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+                      e.preventDefault();
+                      addProductToCart(searchResults[highlightedIndex]);
+                      setHighlightedIndex(-1);
+                    }
+                  }}
                 />
                 
                 {/* Search Results */}
                 {searchResults.length > 0 && (
                   <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
-                    {searchResults.map((product) => (
+                    {searchResults.map((product, index) => (
                       <button
                         key={product.id}
                         type="button"
                         onClick={() => addProductToCart(product)}
-                        className="w-full text-left p-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                        className={`w-full text-left p-2 border-b border-gray-100 last:border-b-0 ${
+                          index === highlightedIndex ? 'bg-[#455a54]/10' : 'hover:bg-gray-50'
+                        }`}
                       >
                         <div className="flex justify-between items-center">
                           <div>
@@ -806,6 +825,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               Cancelar
             </Button>
             <Button
+              ref={submitButtonRef}
               type="submit"
               disabled={!customerName.trim() || cartItems.length === 0 || isSubmitting}
               className="flex-1 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid touch-target"
@@ -819,6 +839,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 <>
                   <Save className="h-4 w-4 mr-2" />
                   {editingSale ? 'Actualizar Venta' : 'Crear Venta'}
+                  <kbd className="ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F2</kbd>
                 </>
               )}
             </Button>

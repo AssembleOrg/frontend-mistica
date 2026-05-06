@@ -27,6 +27,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
+import { CashboxCta } from '@/components/dashboard/cashbox/cashbox-cta';
 
 const SIDEBAR_STYLE = {
   '--sidebar-background': '#efcbb9',
@@ -143,6 +144,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             style={{ height: 'auto' }}
             priority
           />
+        </div>
+        <div className='px-3 pb-3 group-data-[collapsible=icon]:hidden'>
+          <div className='rounded-xl border border-[#9d684e]/30 bg-[#9d684e]/10 p-2'>
+            <CashboxCta />
+          </div>
         </div>
       </SidebarHeader>
 

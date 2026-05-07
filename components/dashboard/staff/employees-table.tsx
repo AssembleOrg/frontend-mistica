@@ -21,10 +21,12 @@ import {
   MoreHorizontal,
   Edit,
   Trash2,
+  Users,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { EmptyState } from '@/components/ui/empty-state';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import {
@@ -68,11 +70,38 @@ interface EmployeesTableProps {
   onRefresh?: () => void;
 }
 
-const roleConfig = {
-  gerente: { label: 'Gerente', color: '#9d684e', bgColor: '#9d684e/10' },
-  cajero: { label: 'Cajero', color: '#e0a38d', bgColor: '#e0a38d/10' },
-  mozo: { label: 'Mozo', color: '#455a54', bgColor: '#455a54/10' }
+const roleConfig: Record<
+  string,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  gerente: {
+    label: 'Gerente',
+    color: '#9d684e',
+    bg: 'rgba(157, 104, 78, 0.1)',
+    border: 'rgba(157, 104, 78, 0.3)',
+  },
+  cajero: {
+    label: 'Cajero',
+    color: '#cc844a',
+    bg: 'rgba(204, 132, 74, 0.1)',
+    border: 'rgba(204, 132, 74, 0.3)',
+  },
+  mozo: {
+    label: 'Mozo',
+    color: '#455a54',
+    bg: 'rgba(69, 90, 84, 0.1)',
+    border: 'rgba(69, 90, 84, 0.3)',
+  },
 };
+
+const getInitials = (name: string) =>
+  name
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
 export function EmployeesTable({ 
   data,
@@ -169,16 +198,26 @@ export function EmployeesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='h-9 px-2 text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid hover:text-[#9d684e] hover:bg-transparent'
           >
             Empleado
             <ArrowUpDown className='ml-2 h-4 w-4' />
           </Button>
         );
       },
-      cell: ({ row }) => (
-        <div className='font-medium text-[#455a54]'>{row.getValue('name')}</div>
-      ),
+      cell: ({ row }) => {
+        const name = row.getValue('name') as string;
+        return (
+          <div className='flex items-center gap-2.5'>
+            <div className='w-7 h-7 rounded-full bg-[#9d684e]/15 flex items-center justify-center text-[#9d684e] font-tan-nimbus text-[11px] flex-shrink-0'>
+              {getInitials(name)}
+            </div>
+            <div className='text-sm text-[#455a54] font-winter-solid'>
+              {name}
+            </div>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'email',
@@ -187,7 +226,7 @@ export function EmployeesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='h-9 px-2 text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid hover:text-[#9d684e] hover:bg-transparent'
           >
             Email
             <ArrowUpDown className='ml-2 h-4 w-4' />
@@ -195,7 +234,7 @@ export function EmployeesTable({
         );
       },
       cell: ({ row }) => (
-        <div className='text-[#455a54] text-sm'>{row.getValue('email')}</div>
+        <div className='text-[13px] text-[#455a54]/80'>{row.getValue('email')}</div>
       ),
     },
     {
@@ -205,7 +244,7 @@ export function EmployeesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='h-9 px-2 text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid hover:text-[#9d684e] hover:bg-transparent'
           >
             Rol
             <ArrowUpDown className='ml-2 h-4 w-4' />
@@ -214,29 +253,33 @@ export function EmployeesTable({
       },
       cell: ({ row }) => {
         const role = row.getValue('role') as Employee['role'];
-        const config = roleConfig[role];
+        const config = roleConfig[role] || roleConfig.mozo;
         return (
-          <div
-            className='inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
+          <span
+            className='inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-winter-solid'
             style={{
               color: config.color,
-              backgroundColor: config.bgColor,
+              backgroundColor: config.bg,
             }}
           >
             {config.label}
-          </div>
+          </span>
         );
       },
     },
     {
       accessorKey: 'phone',
-      header: 'Teléfono',
+      header: () => (
+        <span className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid'>
+          Teléfono
+        </span>
+      ),
       cell: ({ row }) => {
         const phone = row.getValue('phone') as string;
         return phone ? (
-          <div className='text-[#455a54] text-sm'>{phone}</div>
+          <div className='text-[13px] text-[#455a54]/80 tabular-nums'>{phone}</div>
         ) : (
-          <div className='text-[#455a54]/50 text-sm'>-</div>
+          <div className='text-[#455a54]/35 text-[13px]'>—</div>
         );
       },
     },
@@ -247,7 +290,7 @@ export function EmployeesTable({
           <Button
             variant='ghost'
             onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
+            className='h-9 px-2 text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid hover:text-[#9d684e] hover:bg-transparent'
           >
             Fecha Ingreso
             <ArrowUpDown className='ml-2 h-4 w-4' />
@@ -257,7 +300,7 @@ export function EmployeesTable({
       cell: ({ row }) => {
         const date = row.getValue('startDate') as Date;
         return (
-          <div className='text-[#455a54] text-sm'>
+          <div className='text-[13px] text-[#455a54]/80 tabular-nums'>
             {new Date(date).toLocaleDateString('es-AR')}
           </div>
         );
@@ -332,27 +375,6 @@ export function EmployeesTable({
 
   return (
     <div className="space-y-4">
-      <TableFilters
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        searchPlaceholder="Buscar empleados por nombre o email..."
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange}
-        customFilters={[
-          {
-            key: 'role',
-            label: 'Rol',
-            value: roleFilter || 'all',
-            options: [{ value: 'all', label: 'Todos los roles' }, ...roleOptions],
-            onChange: onRoleFilterChange || (() => {}),
-          },
-        ]}
-        onClearFilters={handleClearFilters}
-        onRefresh={onRefresh || (() => window.location.reload())}
-        showAdvancedFilters={showAdvancedFilters}
-        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
-      />
-
     <div className='w-full'>
       <div className='flex items-center py-4'>
         <div className='ml-auto'>
@@ -387,13 +409,13 @@ export function EmployeesTable({
           </DropdownMenu>
         </div>
       </div>
-      <div className='rounded-md border border-[#9d684e]/20'>
+      <div className='rounded-lg border border-[#9d684e]/15 overflow-hidden'>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                className='hover:bg-[#efcbb9]/20'
+                className='border-[#9d684e]/12 hover:bg-transparent'
               >
                 {headerGroup.headers.map((header) => {
                   return (
@@ -416,10 +438,10 @@ export function EmployeesTable({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className='hover:bg-[#efcbb9]/10'
+                  className='border-[#9d684e]/12 hover:bg-[#efcbb9]/15'
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className='py-2.5'>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -432,9 +454,14 @@ export function EmployeesTable({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className='h-24 text-center text-[#455a54]/70'
+                  className='py-8'
                 >
-                  No se encontraron empleados.
+                  <EmptyState
+                    variant='compact'
+                    icon={Users}
+                    title='Sin empleados'
+                    description='No hay empleados que coincidan con los filtros actuales.'
+                  />
                 </TableCell>
               </TableRow>
             )}

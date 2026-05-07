@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import {
@@ -85,6 +85,22 @@ export default function ProductsPage() {
     // Reload the page to refresh data
     window.location.reload();
   };
+
+  // Listado filtrado client-side por categoría + búsqueda (nombre/barcode).
+  const displayedProducts = useMemo(() => {
+    let result = products;
+    if (categoryFilter !== 'all') {
+      result = result.filter((p) => p.category === categoryFilter);
+    }
+    const q = searchValue.trim().toLowerCase();
+    if (q) {
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.barcode.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [products, categoryFilter, searchValue]);
 
   // Show error state if initial load failed
   if (error) {
@@ -330,8 +346,8 @@ export default function ProductsPage() {
             <>
               {/* Desktop: Show table, Mobile: Show cards */}
               <div className="hidden sm:block">
-                <ProductsTable 
-                  data={products}
+                <ProductsTable
+                  data={displayedProducts}
                   isLoading={isLoading}
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -349,8 +365,8 @@ export default function ProductsPage() {
                 />
               </div>
               <div className="sm:hidden">
-                <ProductsMobileView 
-                  products={products} 
+                <ProductsMobileView
+                  products={displayedProducts}
                   searchValue={searchValue}
                   onSearchChange={handleSearchChange}
                   dateRange={dateRange}
@@ -366,8 +382,8 @@ export default function ProductsPage() {
               <div className="hidden sm:block">
                 {viewMode === 'cards' && (
                   <div className="mt-4">
-                    <ProductsMobileView 
-                      products={products} 
+                    <ProductsMobileView
+                      products={displayedProducts}
                       searchValue={searchValue}
                       onSearchChange={handleSearchChange}
                       dateRange={dateRange}

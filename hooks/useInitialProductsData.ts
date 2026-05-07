@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
 import { useProductsStore } from '@/stores/products.store';
 import { productsService } from '@/services/products.service';
 import { toast } from 'sonner';
+import { log } from '@/lib/logger';
 
 interface UseInitialProductsDataOptions {
   /**
@@ -51,7 +52,7 @@ export function useInitialProductsData(options: UseInitialProductsDataOptions = 
   // Manually hydrate store on client side (required with skipHydration: true)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      console.log('🔄 useInitialProductsData: Hidrando store manualmente');
+      log.debug('🔄 useInitialProductsData: Hidrando store manualmente');
       // Force rehydration from localStorage
       const hasHydrated = useProductsStore.persist?.hasHydrated();
       if (!hasHydrated) {
@@ -76,13 +77,13 @@ export function useInitialProductsData(options: UseInitialProductsDataOptions = 
       store.setLoading(true);
       
       try {
-        console.log('📦 PRODUCTOS: Llamando a productsService.getAllProducts()');
+        log.debug('📦 PRODUCTOS: Llamando a productsService.getAllProducts()');
         const response = await productsService.getAllProducts();
-        console.log('📦 PRODUCTOS: Respuesta recibida:', response);
-        
+        log.debug('📦 PRODUCTOS: Respuesta recibida:', response);
+
         store.setProducts(response.data);
         store.setLoading(false);
-        console.log('📦 PRODUCTOS: Productos guardados en store:', response.data.length);
+        log.debug('📦 PRODUCTOS: Productos guardados en store:', response.data.length);
         onSuccess?.();
       } catch (error) {
         console.error('📦 PRODUCTOS: Error en fetch:', error);

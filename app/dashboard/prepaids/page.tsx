@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DateRange } from 'react-day-picker';
 import { usePrepaidsAPI } from '@/hooks/usePrepaidsAPI';
 import { PrepaidsTable } from '@/components/dashboard/prepaids/prepaids-table';
@@ -8,11 +8,21 @@ import { PrepaidForm } from '@/components/dashboard/prepaids/prepaid-form';
 import { EditPrepaidModal } from '@/components/dashboard/prepaids/edit-prepaid-modal';
 import { Prepaid, CreatePrepaidRequest, UpdatePrepaidRequest } from '@/services/prepaids.service';
 import { showToast } from '@/lib/toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { KpiStrip } from '@/components/ui/kpi-strip';
 import { PrepaidsMobileView } from '@/components/dashboard/prepaids/prepaids-mobile-view';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Plus, CreditCard } from 'lucide-react';
+import { Plus } from 'lucide-react';
+
+const formatCurrency = (amount: number) =>
+  new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 0,
+  }).format(amount);
 
 export default function PrepaidsPage() {
   const {
@@ -38,10 +48,9 @@ export default function PrepaidsPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'CONSUMED'>('ALL');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  
+
   const isMobile = useIsMobile();
 
-  // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(searchQuery);
@@ -50,18 +59,16 @@ export default function PrepaidsPage() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Unified function to load prepaids with all filters
   const loadPrepaidsWithFilters = async (page = 1, size = pageSize, immediate = false) => {
     try {
-      const searchToUse = immediate ? searchQuery : debouncedSearchTerm;
       let response;
-      
+
       if (statusFilter === 'ALL') {
         response = await getPrepaids(page, size);
       } else {
         response = await getPrepaidsByStatus(statusFilter, page, size);
       }
-      
+
       setCurrentPage(response.meta.page);
       setTotalPages(response.meta.totalPages);
       setTotalItems(response.meta.total);
@@ -70,21 +77,18 @@ export default function PrepaidsPage() {
     }
   };
 
-  // Consolidated useEffect for all filter changes
   useEffect(() => {
     if (debouncedSearchTerm !== undefined) {
       loadPrepaidsWithFilters(1);
     }
   }, [debouncedSearchTerm, statusFilter, dateRange]);
 
-  // Load prepaids on component mount
   useEffect(() => {
     loadPrepaidsWithFilters();
   }, []);
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    // Search will be handled by the debounced useEffect
   };
 
   const handlePageChange = (page: number) => {
@@ -95,12 +99,9 @@ export default function PrepaidsPage() {
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
+    // Fetch manual: el useEffect de filtros solo depende de [debouncedSearchTerm, statusFilter, dateRange],
+    // por lo que un cambio de pageSize no dispara refetch automático. No es duplicado.
     loadPrepaidsWithFilters(1, newPageSize, true);
-  };
-
-  const handleStatusFilter = (status: 'ALL' | 'PENDING' | 'CONSUMED') => {
-    setStatusFilter(status);
-    setCurrentPage(1);
   };
 
   const handleCreatePrepaid = () => {
@@ -108,7 +109,6 @@ export default function PrepaidsPage() {
     setViewingPrepaid(null);
     setShowForm(true);
   };
-
 
   const handleDeletePrepaid = async (prepaid: Prepaid) => {
     showToast.info('Para cancelar una seña, eliminá el cliente desde Gestión de Clientes.');
@@ -118,19 +118,21 @@ export default function PrepaidsPage() {
     showToast.info('Para consumir una seña, asociala a una venta desde el módulo de Ventas.');
   };
 
-  const handleSavePrepaid = async (clientId: string, prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest) => {
+  const handleSavePrepaid = async (
+    clientId: string,
+    prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest
+  ) => {
     try {
       if (editingPrepaid) {
         await updatePrepaid(editingPrepaid.id, prepaidData as UpdatePrepaidRequest);
       } else {
         await createPrepaid(clientId, prepaidData as CreatePrepaidRequest);
       }
-      
+
       setShowForm(false);
       setEditingPrepaid(null);
       setViewingPrepaid(null);
-      
-      // Reload prepaids
+
       await loadPrepaidsWithFilters(currentPage, pageSize, true);
     } catch (error) {
       console.error('Error saving prepaid:', error);
@@ -150,7 +152,6 @@ export default function PrepaidsPage() {
 
   const handleViewPrepaid = (prepaid: Prepaid) => {
     setViewingPrepaid(prepaid);
-    // TODO: Implement view modal
     showToast.info('Ver detalles de seña', `Seña #${prepaid.id.slice(-6)}`);
   };
 
@@ -160,7 +161,6 @@ export default function PrepaidsPage() {
     await loadPrepaidsWithFilters(currentPage, pageSize, true);
   };
 
-  // Mobile filter handlers
   const handleClearFilters = () => {
     setSearchQuery('');
     setDateRange(undefined);
@@ -171,6 +171,25 @@ export default function PrepaidsPage() {
   const handleStatusFilterChange = (status: string) => {
     setStatusFilter(status as 'ALL' | 'PENDING' | 'CONSUMED');
   };
+
+  // KPIs calculados desde la página actual (información de la vista)
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const pending = prepaids.filter((p) => p.status === 'PENDING');
+    const consumedThisMonth = prepaids.filter(
+      (p) => p.status === 'CONSUMED' && p.consumedAt && new Date(p.consumedAt) >= startOfMonth
+    ).length;
+    const pendingTotal = pending.reduce((sum, p) => sum + p.amount, 0);
+    const uniqueClientsWithPending = new Set(pending.map((p) => p.clientId)).size;
+
+    return {
+      pendingCount: statusFilter === 'CONSUMED' ? 0 : pending.length,
+      consumedThisMonth,
+      pendingTotal,
+      uniqueClientsWithPending,
+    };
+  }, [prepaids, statusFilter]);
 
   if (showForm) {
     return (
@@ -188,94 +207,60 @@ export default function PrepaidsPage() {
 
   return (
     <div className='space-y-6'>
-      {/* Header */}
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
-            Gestión de Señas
-          </h1>
-          <p className='text-[#455a54]/70 font-winter-solid'>
-            Administra las señas y adelantos de tus clientes
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title='Gestión de Señas'
+        subtitle='Las señas que recibiste y las que ya se consumieron en ventas'
+        actions={
+          <Button
+            onClick={handleCreatePrepaid}
+            className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid w-full sm:w-auto'
+          >
+            <Plus className='h-4 w-4 mr-2' />
+            Nueva seña
+          </Button>
+        }
+      />
 
-      {/* Quick Actions */}
-      <QuickActionsWidget
-        title="Gestión de Señas"
-        description="Acciones rápidas para las señas"
-        layout="horizontal"
-        actions={[
-          {
-            id: 'new-prepaid',
-            title: 'Nueva Seña',
-            description: 'Registrar adelanto',
-            onClick: handleCreatePrepaid,
-            icon: Plus,
-            color: 'primary'
-          }
+      <KpiStrip
+        items={[
+          { label: 'Pendientes', value: kpis.pendingCount, accent: 'var(--color-terracota)', hint: 'señas activas' },
+          { label: 'Monto pendiente', value: formatCurrency(kpis.pendingTotal), accent: 'var(--color-naranja-medio)' },
+          { label: 'Clientes con seña', value: kpis.uniqueClientsWithPending },
+          { label: 'Consumidas este mes', value: kpis.consumedThisMonth, accent: 'var(--color-ciruela-oscuro)' },
         ]}
       />
 
-      {/* Status Filter */}
+      {/* Filtros + Tabla */}
       <Card className='border-[#9d684e]/20'>
-        <CardHeader>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <CreditCard className='h-5 w-5' />
-            Filtros de Estado
-          </CardTitle>
-          <CardDescription className='text-[#455a54]/70'>
-            Filtra las señas por su estado actual
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <button
-              onClick={() => handleStatusFilter('ALL')}
-              className={`px-4 py-2 rounded-md text-sm font-medium font-winter-solid transition-colors ${
-                statusFilter === 'ALL'
-                  ? 'bg-[#9d684e] text-white'
-                  : 'bg-[#9d684e]/10 text-[#455a54] hover:bg-[#9d684e]/20'
-              }`}
-            >
-              Todas
-            </button>
-            <button
-              onClick={() => handleStatusFilter('PENDING')}
-              className={`px-4 py-2 rounded-md text-sm font-medium font-winter-solid transition-colors ${
-                statusFilter === 'PENDING'
-                  ? 'bg-yellow-500 text-white'
-                  : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
-              }`}
-            >
-              Pendientes
-            </button>
-            <button
-              onClick={() => handleStatusFilter('CONSUMED')}
-              className={`px-4 py-2 rounded-md text-sm font-medium font-winter-solid transition-colors ${
-                statusFilter === 'CONSUMED'
-                  ? 'bg-gray-500 text-white'
-                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              Consumidas
-            </button>
+        <CardContent className='pt-6 space-y-4'>
+          <div className='flex items-center justify-between gap-3 flex-wrap'>
+            <Tabs value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <TabsList className='bg-[#455a54]/10'>
+                <TabsTrigger
+                  value='ALL'
+                  className='data-[state=active]:bg-[#9d684e] data-[state=active]:text-white font-winter-solid'
+                >
+                  Todas
+                </TabsTrigger>
+                <TabsTrigger
+                  value='PENDING'
+                  className='data-[state=active]:bg-[#9d684e] data-[state=active]:text-white font-winter-solid'
+                >
+                  Pendientes
+                </TabsTrigger>
+                <TabsTrigger
+                  value='CONSUMED'
+                  className='data-[state=active]:bg-[#9d684e] data-[state=active]:text-white font-winter-solid'
+                >
+                  Consumidas
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <span className='text-sm text-[#455a54]/70 font-winter-solid tabular-nums'>
+              {totalItems} {totalItems === 1 ? 'seña' : 'señas'}
+            </span>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Prepaids Table */}
-      <Card className='border-[#9d684e]/20'>
-        <CardHeader>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <CreditCard className='h-5 w-5' />
-            Lista de Señas
-          </CardTitle>
-          <CardDescription className='text-[#455a54]/70'>
-            Gestiona todas las señas y adelantos registrados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
           {isMobile ? (
             <PrepaidsMobileView
               prepaids={prepaids}
@@ -311,7 +296,6 @@ export default function PrepaidsPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Prepaid Modal */}
       <EditPrepaidModal
         isOpen={showEditModal}
         onClose={() => {
@@ -324,3 +308,4 @@ export default function PrepaidsPage() {
     </div>
   );
 }
+

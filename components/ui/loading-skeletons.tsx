@@ -239,3 +239,120 @@ export function PageLoadingOverlay({ message = 'Cargando...' }: { message?: stri
     </div>
   );
 }
+
+// Page Header Skeleton
+export function PageHeaderSkeleton() {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-[260px] bg-[#9d684e]/20" />
+        <Skeleton className="h-4 w-[320px] bg-[#efcbb9]/40" />
+      </div>
+      <Skeleton className="h-10 w-[140px] bg-[#9d684e]/20" />
+    </div>
+  );
+}
+
+// KPI Grid Skeleton — matches the KpiStrip pattern (single bordered card with internal grid)
+export function KpiGridSkeleton({ count = 4 }: { count?: number }) {
+  const colsClass =
+    count <= 2
+      ? 'grid-cols-2'
+      : count === 3
+        ? 'grid-cols-2 sm:grid-cols-3'
+        : 'grid-cols-2 lg:grid-cols-4';
+  return (
+    <div
+      className={`grid ${colsClass} divide-x divide-y sm:divide-y-0 rounded-xl border overflow-hidden`}
+      style={{
+        borderColor: 'var(--color-gris-claro)',
+        background: 'var(--color-blanco)',
+      }}
+    >
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className='p-4 flex flex-col gap-1.5'>
+          <Skeleton className='h-3 w-[60%] bg-[#efcbb9]/40' />
+          <Skeleton className='h-6 w-[40%] bg-[#9d684e]/25' />
+          <Skeleton className='h-2.5 w-[50%] bg-[#efcbb9]/40' />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// List Item Skeleton (for mobile cards / lists)
+export function ListItemSkeleton() {
+  return (
+    <Card className="border-[#9d684e]/20">
+      <CardContent className="p-4 flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-full bg-[#efcbb9]/40 flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-[60%] bg-[#9d684e]/20" />
+          <Skeleton className="h-3 w-[40%] bg-[#efcbb9]/40" />
+        </div>
+        <Skeleton className="h-6 w-[60px] rounded-full bg-[#efcbb9]/40" />
+      </CardContent>
+    </Card>
+  );
+}
+
+// Settings Section Skeleton
+export function SettingsSectionSkeleton() {
+  return (
+    <Card className="border-[#9d684e]/20 border-l-4 border-l-[#9d684e]/40">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded bg-[#efcbb9]/40" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-[120px] bg-[#9d684e]/20" />
+              <Skeleton className="h-3 w-[200px] bg-[#efcbb9]/40" />
+            </div>
+          </div>
+          <Skeleton className="h-6 w-12 rounded-full bg-[#efcbb9]/40" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <FormFieldSkeleton />
+          <Skeleton className="h-10 w-full bg-[#efcbb9]/30 self-end" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Activity Feed Skeleton
+export function ActivityFeedSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-4 w-[80px] bg-[#9d684e]/20" />
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={index}
+          className="flex items-start gap-3 p-3 rounded-lg border border-[#9d684e]/10"
+        >
+          <Skeleton className="h-8 w-8 rounded-full bg-[#efcbb9]/40 flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-[180px] bg-[#9d684e]/20" />
+              <Skeleton className="h-3 w-[60px] bg-[#efcbb9]/40" />
+            </div>
+            <Skeleton className="h-3 w-[80%] bg-[#efcbb9]/40" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Generic Page Skeleton (header + KPIs + table)
+export function DashboardPageSkeleton({ kpiCount = 4 }: { kpiCount?: number }) {
+  return (
+    <div className="space-y-6">
+      <PageHeaderSkeleton />
+      <KpiGridSkeleton count={kpiCount} />
+      <ProductsTableSkeleton />
+    </div>
+  );
+}

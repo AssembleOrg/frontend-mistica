@@ -10,17 +10,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { TableFilters, FilterOption } from '@/components/ui/table-filters';
+import { TableFilters } from '@/components/ui/table-filters';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ProductsTableSkeleton } from '@/components/ui/loading-skeletons';
 import {
-  Search,
   Plus,
   Edit,
   Trash2,
   Phone,
-  Mail
+  Mail,
+  Users,
+  CreditCard,
+  CheckCircle2,
 } from 'lucide-react';
 import { Client } from '@/services/clients.service';
 import { PaginationControls } from '@/components/ui/pagination-controls';
@@ -50,8 +52,8 @@ interface ClientsTableProps {
   onCreateClient?: () => void;
 }
 
-export function ClientsTable({ 
-  data, 
+export function ClientsTable({
+  data,
   isLoading,
   currentPage = 1,
   totalPages = 1,
@@ -59,53 +61,20 @@ export function ClientsTable({
   totalItems = 0,
   onPageChange,
   onPageSizeChange,
-  // Filter props
-  searchValue = "",
+  searchValue = '',
   onSearchChange,
   dateRange,
   onDateRangeChange,
-  statusFilter = "all",
-  onStatusFilterChange,
   onRefresh,
-  // Action props
-  onViewClient, 
-  onEditClient, 
-  onDeleteClient, 
-  onCreateClient
+  onEditClient,
+  onDeleteClient,
+  onCreateClient,
 }: ClientsTableProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Status options for filter
-  const statusOptions: FilterOption[] = [
-    { value: 'activo', label: 'Activo' },
-    { value: 'inactivo', label: 'Inactivo' },
-    { value: 'suspendido', label: 'Suspendido' },
-  ];
-
   const handleClearFilters = () => {
-    onSearchChange?.("");
+    onSearchChange?.('');
     onDateRangeChange?.(undefined);
-    onStatusFilterChange?.("all");
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // This function is no longer needed as we use TableFilters
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const getPrepaidStatus = (prepaid: number) => {
-    if (prepaid === 0) return { status: 'Sin seña', color: 'text-gray-500' };
-    if (prepaid < 100) return { status: 'Bajo', color: 'text-red-500' };
-    if (prepaid < 500) return { status: 'Medio', color: 'text-yellow-500' };
-    return { status: 'Alto', color: 'text-green-500' };
   };
 
   const formatDate = (dateString: string) => {
@@ -116,158 +85,176 @@ export function ClientsTable({
     });
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
+
+  const hasFilters = !!searchValue || !!dateRange;
+
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Clientes</h2>
-          <Button onClick={onCreateClient} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Nuevo Cliente
-          </Button>
-        </div>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Cargando clientes...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ProductsTableSkeleton />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className='space-y-4'>
       <TableFilters
         searchValue={searchValue}
         onSearchChange={onSearchChange}
-        searchPlaceholder="Buscar clientes por nombre, teléfono o email..."
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange}
-        customFilters={[
-          {
-            key: 'status',
-            label: 'Estado',
-            value: statusFilter || 'all',
-            options: [{ value: 'all', label: 'Todos los estados' }, ...statusOptions],
-            onChange: onStatusFilterChange || (() => {}),
-          },
-        ]}
+        searchPlaceholder='Buscar clientes por nombre, teléfono o email...'
+        showDateFilter={false}
         onClearFilters={handleClearFilters}
         onRefresh={onRefresh || (() => window.location.reload())}
-        showAdvancedFilters={showAdvancedFilters}
-        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
       />
 
-      {/* Table */}
-      <div className="border border-[#9d684e]/20 rounded-lg overflow-x-auto">
-        <Table>
-          <TableHeader className="bg-[#9d684e]/5">
-            <TableRow className="border-[#9d684e]/10">
-              <TableHead className="text-[#455a54] font-winter-solid font-medium">Cliente</TableHead>
-              <TableHead className="text-[#455a54] font-winter-solid font-medium">Contacto</TableHead>
-              <TableHead className="text-[#455a54] font-winter-solid font-medium">Señas</TableHead>
-              <TableHead className="text-[#455a54] font-winter-solid font-medium">Estado</TableHead>
-              <TableHead className="text-[#455a54] font-winter-solid font-medium">Fecha Registro</TableHead>
-              <TableHead className="text-right text-[#455a54] font-winter-solid font-medium">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-[#455a54]/50 font-winter-solid">
-                  No se encontraron clientes
-                </TableCell>
+      {data.length === 0 ? (
+        hasFilters ? (
+          <EmptyState
+            variant='compact'
+            icon={Users}
+            title='Sin resultados'
+            description='Probá ajustar los filtros o la búsqueda.'
+          />
+        ) : (
+          <EmptyState
+            icon={Users}
+            title='Todavía no hay clientes'
+            description='Cuando registres tu primer cliente va a aparecer acá.'
+            action={
+              <Button
+                onClick={onCreateClient}
+                className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid'
+              >
+                <Plus className='h-4 w-4 mr-2' />
+                Nuevo cliente
+              </Button>
+            }
+          />
+        )
+      ) : (
+        <div className='border border-[#9d684e]/15 rounded-lg overflow-x-auto'>
+          <Table>
+            <TableHeader>
+              <TableRow className='border-[#9d684e]/12 hover:bg-transparent'>
+                <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
+                  Cliente
+                </TableHead>
+                <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
+                  Contacto
+                </TableHead>
+                <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
+                  Seña
+                </TableHead>
+                <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
+                  Registrado
+                </TableHead>
+                <TableHead className='text-right text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
+                  Acciones
+                </TableHead>
               </TableRow>
-            ) : (
-              data.map((client) => {
-                const prepaidStatus = getPrepaidStatus(client.prepaid);
-                return (
-                  <TableRow key={client.id} className="border-[#9d684e]/10 hover:bg-[#9d684e]/5">
-                    <TableCell>
-                      <div>
-                        <div className="font-medium text-[#455a54] font-winter-solid">{client.fullName}</div>
+            </TableHeader>
+            <TableBody>
+              {data.map((client) => (
+                <TableRow
+                  key={client.id}
+                  className='border-[#9d684e]/12 hover:bg-[#efcbb9]/15'
+                >
+                  <TableCell className='py-2.5'>
+                    <div className='flex items-center gap-2.5'>
+                      <div className='w-7 h-7 rounded-full bg-[#9d684e]/15 flex items-center justify-center text-[#9d684e] font-tan-nimbus text-[11px] flex-shrink-0'>
+                        {getInitials(client.fullName)}
+                      </div>
+                      <div className='min-w-0'>
+                        <div className='text-sm text-[#455a54] font-winter-solid truncate'>
+                          {client.fullName}
+                        </div>
                         {client.cuit && (
-                          <div className="text-sm text-[#455a54]/60">CUIT: {client.cuit}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {client.phone && (
-                          <div className="flex items-center gap-2 text-sm text-[#455a54]">
-                            <Phone className="h-3 w-3 text-[#9d684e]" />
-                            {client.phone}
-                          </div>
-                        )}
-                        {client.email && (
-                          <div className="flex items-center gap-2 text-sm text-[#455a54]">
-                            <Mail className="h-3 w-3 text-[#9d684e]" />
-                            {client.email}
+                          <div className='text-[11px] text-[#455a54]/55 tabular-nums'>
+                            CUIT {client.cuit}
                           </div>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-[#455a54] font-winter-solid">
-                          {formatCurrency(client.prepaid)}
+                    </div>
+                  </TableCell>
+                  <TableCell className='py-2.5'>
+                    <div className='space-y-0.5 text-[13px]'>
+                      {client.phone && (
+                        <div className='flex items-center gap-1.5 text-[#455a54]'>
+                          <Phone className='h-3 w-3 text-[#9d684e]/70' />
+                          <span className='tabular-nums'>{client.phone}</span>
                         </div>
-                        <div className={`text-sm font-winter-solid ${prepaidStatus.color}`}>
-                          {prepaidStatus.status}
+                      )}
+                      {client.email && (
+                        <div className='flex items-center gap-1.5 text-[#455a54]/80'>
+                          <Mail className='h-3 w-3 text-[#9d684e]/70' />
+                          <span className='truncate max-w-[200px]'>{client.email}</span>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">
-                        Activo
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[#455a54] font-winter-solid">
-                        {formatDate(client.createdAt)}
+                      )}
+                      {!client.phone && !client.email && (
+                        <span className='text-[#455a54]/35'>—</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className='py-2.5'>
+                    {client.prepaid > 0 ? (
+                      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-winter-solid bg-[#9d684e]/10 text-[#9d684e]'>
+                        <CreditCard className='h-2.5 w-2.5' />
+                        Con seña
                       </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEditClient?.(client)}
-                          className="text-[#455a54] hover:text-[#9d684e] hover:bg-[#9d684e]/10"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDeleteClient?.(client)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+                    ) : (
+                      <span className='text-[11px] text-[#455a54]/35 font-winter-solid'>—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className='py-2.5'>
+                    <span className='text-[13px] text-[#455a54]/80 font-winter-solid tabular-nums'>
+                      {formatDate(client.createdAt)}
+                    </span>
+                  </TableCell>
+                  <TableCell className='py-2.5 text-right'>
+                    <div className='flex justify-end gap-0.5'>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => onEditClient?.(client)}
+                        className='h-7 w-7 p-0 text-[#455a54]/60 hover:text-[#9d684e] hover:bg-[#9d684e]/10'
+                      >
+                        <Edit className='h-3.5 w-3.5' />
+                      </Button>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => onDeleteClient?.(client)}
+                        className='h-7 w-7 p-0 text-[#455a54]/60 hover:text-red-600 hover:bg-red-50'
+                      >
+                        <Trash2 className='h-3.5 w-3.5' />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-      {/* Pagination */}
-      <PaginationControls
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={onPageChange || (() => {})}
-        isLoading={isLoading}
-        className="pt-4"
-        pageSize={pageSize}
-        onPageSizeChange={onPageSizeChange}
-        showPageSizeSelector={true}
-        totalItems={totalItems}
-      />
+      {data.length > 0 && (
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange || (() => {})}
+          isLoading={isLoading}
+          className='pt-4'
+          pageSize={pageSize}
+          onPageSizeChange={onPageSizeChange}
+          showPageSizeSelector={true}
+          totalItems={totalItems}
+        />
+      )}
     </div>
   );
 }

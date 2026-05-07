@@ -118,6 +118,7 @@ export function ProductsTable({
 
   // Category options for filter
   const categoryOptions: FilterOption[] = [
+    { value: 'all', label: 'Todas las categorías' },
     { value: 'organicos', label: 'Orgánicos' },
     { value: 'aromaticos', label: 'Aromáticos' },
     { value: 'wellness', label: 'Wellness' },
@@ -573,14 +574,14 @@ export function ProductsTable({
       <TableFilters
         searchValue={searchValue}
         onSearchChange={onSearchChange}
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange}
+        searchPlaceholder="Buscar por nombre o código de barras..."
+        showDateFilter={false}
         customFilters={[
           {
             key: 'category',
             label: 'Categoría',
             value: categoryFilter || 'all',
-            options: [{ value: 'all', label: 'Todas las categorías' }, ...categoryOptions],
+            options: categoryOptions,
             onChange: onCategoryFilterChange || (() => {}),
           },
         ]}

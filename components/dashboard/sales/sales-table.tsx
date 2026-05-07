@@ -590,6 +590,7 @@ export function SalesTable({
         onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
         isLoading={isLoading}
         searchInputRef={searchInputRef}
+        showKbdHint
       />
 
       {/* Column visibility controls — compact, alineado a la derecha */}

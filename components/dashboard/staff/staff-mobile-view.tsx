@@ -1,13 +1,26 @@
 'use client';
 
 import { Employee } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { TableFilters } from '@/components/ui/table-filters';
+import { EmptyState } from '@/components/ui/empty-state';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DateRange } from 'react-day-picker';
-import { MoreVertical, Users, Calendar, Mail, Phone, MapPin, Edit, Trash2, UserCheck } from 'lucide-react';
+import {
+  MoreVertical,
+  Users,
+  Calendar,
+  Mail,
+  Phone,
+  MapPin,
+  Edit,
+  Trash2,
+} from 'lucide-react';
 
 interface StaffMobileViewProps {
   employees: Employee[];
@@ -22,135 +35,106 @@ interface StaffMobileViewProps {
   onClearFilters?: () => void;
 }
 
-const getRoleIcon = (role: string) => {
-  switch (role) {
-    case 'gerente':
-      return <UserCheck className="w-4 h-4" />;
-    case 'cajero':
-      return <Users className="w-4 h-4" />;
-    case 'mozo':
-      return <Users className="w-4 h-4" />;
-    default:
-      return <Users className="w-4 h-4" />;
-  }
+const roleStyles: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  gerente: {
+    bg: 'bg-[#9d684e]/10',
+    text: 'text-[#9d684e]',
+    border: 'border-[#9d684e]/30',
+    label: 'Gerente',
+  },
+  cajero: {
+    bg: 'bg-[#cc844a]/10',
+    text: 'text-[#cc844a]',
+    border: 'border-[#cc844a]/30',
+    label: 'Cajero',
+  },
+  mozo: {
+    bg: 'bg-[#455a54]/10',
+    text: 'text-[#455a54]',
+    border: 'border-[#455a54]/30',
+    label: 'Mozo',
+  },
 };
 
-const getRoleColor = (role: string) => {
-  switch (role) {
-    case 'gerente':
-      return 'bg-purple-100 text-purple-800 border-purple-200';
-    case 'cajero':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-    case 'mozo':
-      return 'bg-green-100 text-green-800 border-green-200';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-200';
-  }
-};
+const getRoleBadge = (role: string) => roleStyles[role] || roleStyles.mozo;
 
-const getRoleLabel = (role: string) => {
-  switch (role) {
-    case 'gerente':
-      return 'Gerente';
-    case 'cajero':
-      return 'Cajero';
-    case 'mozo':
-      return 'Mozo';
-    default:
-      return 'Sin rol';
-  }
-};
+const getInitials = (name: string) =>
+  name
+    .split(' ')
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
 export function StaffMobileView({
   employees,
   onEdit,
   onDelete,
-  searchTerm,
-  onSearchChange,
-  dateRange,
-  onDateRangeChange,
-  roleFilter,
-  onRoleFilterChange,
-  onClearFilters,
 }: StaffMobileViewProps) {
-  const roleOptions = [
-    { value: 'all', label: 'Todos los roles' },
-    { value: 'gerente', label: 'Gerente' },
-    { value: 'cajero', label: 'Cajero' },
-    { value: 'mozo', label: 'Mozo' },
-  ];
-
-  const handleClearFilters = () => {
-    onSearchChange('');
-    onDateRangeChange?.(undefined);
-    onRoleFilterChange('all');
-    onClearFilters?.();
-  };
+  if (employees.length === 0) {
+    return (
+      <EmptyState
+        variant='compact'
+        icon={Users}
+        title='Sin empleados'
+        description='No se encontraron empleados con los filtros actuales.'
+      />
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <TableFilters
-        searchValue={searchTerm}
-        onSearchChange={onSearchChange}
-        searchPlaceholder="Buscar empleados por nombre o email..."
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange}
-        showDateFilter={true}
-        customFilters={[
-          {
-            key: 'role',
-            label: 'Rol',
-            value: roleFilter,
-            onChange: onRoleFilterChange,
-            options: roleOptions,
-          },
-        ]}
-        onClearFilters={handleClearFilters}
-      />
-      
-      <div className="grid gap-4">
-        {employees.map((employee) => (
-          <Card key={employee.id} className="w-full">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1 flex-1 min-w-0">
-                  <CardTitle className="text-base font-medium flex items-center gap-2">
-                    <Users className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                    <span className="truncate">{employee.name}</span>
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-1">
-                    <Mail className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{employee.email}</span>
-                  </CardDescription>
+    <div className='space-y-3'>
+      {employees.map((employee) => {
+        const role = getRoleBadge(employee.role);
+        return (
+          <Card key={employee.id} className='border-[#9d684e]/20'>
+            <CardContent className='p-4'>
+              <div className='flex items-start justify-between gap-3'>
+                <div className='flex items-start gap-3 min-w-0 flex-1'>
+                  <div className='w-10 h-10 rounded-full bg-[#9d684e]/15 flex items-center justify-center text-[#9d684e] font-tan-nimbus text-sm flex-shrink-0'>
+                    {getInitials(employee.name)}
+                  </div>
+                  <div className='min-w-0 flex-1 space-y-1'>
+                    <div className='font-medium text-[#455a54] font-winter-solid truncate'>
+                      {employee.name}
+                    </div>
+                    <div className='flex items-center gap-1 text-xs text-[#455a54]/70'>
+                      <Mail className='h-3 w-3 text-[#9d684e] flex-shrink-0' />
+                      <span className='truncate'>{employee.email}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-start gap-2 flex-shrink-0">
-                  <Badge
-                    variant="outline"
-                    className={`${getRoleColor(employee.role)} flex items-center gap-1 whitespace-nowrap text-xs`}
+                <div className='flex items-start gap-2 flex-shrink-0'>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium font-winter-solid border ${role.bg} ${role.text} ${role.border}`}
                   >
-                    {getRoleIcon(employee.role)}
-                    {getRoleLabel(employee.role)}
-                  </Badge>
+                    {role.label}
+                  </span>
                   {(onEdit || onDelete) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-                          <MoreVertical className="h-4 w-4" />
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          className='h-8 w-8 p-0 hover:bg-[#9d684e]/10'
+                        >
+                          <MoreVertical className='h-4 w-4 text-[#455a54]' />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align='end'>
                         {onEdit && (
                           <DropdownMenuItem onClick={() => onEdit(employee)}>
-                            <Edit className="mr-2 h-4 w-4" />
+                            <Edit className='mr-2 h-4 w-4' />
                             Editar
                           </DropdownMenuItem>
                         )}
                         {onDelete && (
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => onDelete(employee)}
-                            className="text-red-600"
+                            className='text-red-600'
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className='mr-2 h-4 w-4' />
                             Eliminar
                           </DropdownMenuItem>
                         )}
@@ -159,69 +143,44 @@ export function StaffMobileView({
                   )}
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-4 text-sm">
+
+              <div className='mt-3 pt-3 border-t border-[#9d684e]/10 grid grid-cols-2 gap-3 text-xs'>
                 {employee.phone && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Phone className="w-3 h-3" />
+                  <div>
+                    <div className='flex items-center gap-1 text-[#455a54]/60 mb-0.5'>
+                      <Phone className='w-3 h-3' />
                       Teléfono
                     </div>
-                    <div className="font-medium">
+                    <div className='font-medium text-[#455a54] tabular-nums'>
                       {employee.phone}
                     </div>
                   </div>
                 )}
-                
+                <div>
+                  <div className='flex items-center gap-1 text-[#455a54]/60 mb-0.5'>
+                    <Calendar className='w-3 h-3' />
+                    Ingreso
+                  </div>
+                  <div className='font-medium text-[#455a54] tabular-nums'>
+                    {new Date(employee.startDate).toLocaleDateString('es-AR')}
+                  </div>
+                </div>
                 {employee.address && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <MapPin className="w-3 h-3" />
+                  <div className='col-span-2'>
+                    <div className='flex items-center gap-1 text-[#455a54]/60 mb-0.5'>
+                      <MapPin className='w-3 h-3' />
                       Dirección
                     </div>
-                    <div className="font-medium">
+                    <div className='font-medium text-[#455a54] truncate'>
                       {employee.address}
                     </div>
                   </div>
                 )}
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      Fecha de ingreso
-                    </div>
-                    <div className="font-medium">
-                      {new Date(employee.startDate).toLocaleDateString('es-AR')}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <Calendar className="w-3 h-3" />
-                      Registrado
-                    </div>
-                    <div className="font-medium">
-                      {new Date(employee.createdAt).toLocaleDateString('es-AR')}
-                    </div>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
-      
-      {employees.length === 0 && (
-        <Card>
-          <CardContent className="py-8">
-            <div className="text-center text-muted-foreground">
-              <Users className="mx-auto h-12 w-12 mb-4 opacity-50" />
-              <p>No se encontraron empleados</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        );
+      })}
     </div>
   );
 }

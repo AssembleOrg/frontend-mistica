@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { DateRange } from 'react-day-picker';
 import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { ClientsTable } from '@/components/dashboard/clients/clients-table';
 import { ClientForm } from '@/components/dashboard/clients/client-form';
 import { Client, CreateClientRequest, UpdateClientRequest, clientsService } from '@/services/clients.service';
 import { formatCurrency } from '@/lib/sales-calculations';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
-import { Plus, UserCheck } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { PageHeader } from '@/components/ui/page-header';
+import { KpiStrip } from '@/components/ui/kpi-strip';
+import { Plus } from 'lucide-react';
 
 export default function ClientsPage() {
   const {
@@ -31,7 +33,6 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  // const [viewingClient, setViewingClient] = useState<Client | null>(null);
 
   // Debounce search term
   useEffect(() => {
@@ -47,13 +48,13 @@ export default function ClientsPage() {
     try {
       const searchToUse = immediate ? searchQuery : debouncedSearchTerm;
       let response;
-      
+
       if (searchToUse.trim()) {
         response = await searchClients(searchToUse, page, size);
       } else {
         response = await getClients(page, size);
       }
-      
+
       setCurrentPage(response.meta.page);
       setTotalPages(response.meta.totalPages);
       setTotalItems(response.meta.total);
@@ -76,7 +77,6 @@ export default function ClientsPage() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    // Search will be handled by the debounced useEffect
   };
 
   const handlePageChange = (page: number) => {
@@ -87,12 +87,13 @@ export default function ClientsPage() {
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
+    // Fetch manual: el useEffect de filtros solo depende de [debouncedSearchTerm, dateRange],
+    // por lo que un cambio de pageSize no dispara refetch automático. No es duplicado.
     loadClientsWithFilters(1, newPageSize, true);
   };
 
   const handleCreateClient = () => {
     setEditingClient(null);
-    // setViewingClient(null);
     setShowForm(true);
   };
 
@@ -107,7 +108,6 @@ export default function ClientsPage() {
   };
 
   const handleViewClient = (client: Client) => {
-    // setViewingClient(client);
     setEditingClient(null);
     setShowForm(true);
   };
@@ -139,8 +139,6 @@ export default function ClientsPage() {
         await updateClient(editingClient.id, clientData as UpdateClientRequest);
         await loadClientsWithFilters(currentPage, pageSize, true);
       } else {
-        // createClient already re-fetches the client and updates local state with real prepaid balance
-        // Do NOT reload the full list here — it would overwrite the correct balance with stale data
         await createClient(clientData as CreateClientRequest);
       }
 
@@ -154,8 +152,24 @@ export default function ClientsPage() {
   const handleCancelForm = () => {
     setShowForm(false);
     setEditingClient(null);
-    // setViewingClient(null);
   };
+
+  // KPIs calculados desde la lista (sin tocar lógica del backend)
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const newThisMonth = clients.filter(
+      (c) => new Date(c.createdAt) >= startOfMonth
+    ).length;
+    const withCuit = clients.filter((c) => c.cuit && c.cuit.trim().length > 0).length;
+    const withActivePrepaid = clients.filter((c) => c.prepaid > 0).length;
+    return {
+      total: totalItems || clients.length,
+      newThisMonth,
+      withCuit,
+      withActivePrepaid,
+    };
+  }, [clients, totalItems]);
 
   if (showForm) {
     return (
@@ -172,47 +186,32 @@ export default function ClientsPage() {
 
   return (
     <div className='space-y-6'>
-      {/* Header */}
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus mt-6'>
-            Gestión de Clientes
-          </h1>
-          <p className='text-[#455a54]/70 font-winter-solid'>
-            Administra tu base de datos de clientes y sus señas
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title='Gestión de Clientes'
+        subtitle='Administrá tu base de clientes y mantenela al día'
+        actions={
+          <Button
+            onClick={handleCreateClient}
+            className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid w-full sm:w-auto'
+          >
+            <Plus className='h-4 w-4 mr-2' />
+            Nuevo cliente
+          </Button>
+        }
+      />
 
-      {/* Quick Actions */}
-      <QuickActionsWidget
-        title="Gestión de Clientes"
-        description="Acciones rápidas para la base de clientes"
-        layout="horizontal"
-        actions={[
-          {
-            id: 'new-client',
-            title: 'Nuevo Cliente',
-            description: 'Agregar a la base de datos',
-            onClick: handleCreateClient,
-            icon: Plus,
-            color: 'primary'
-          }
+      <KpiStrip
+        items={[
+          { label: 'Total', value: kpis.total, hint: 'clientes' },
+          { label: 'Nuevos este mes', value: kpis.newThisMonth, accent: 'var(--color-terracota)' },
+          { label: 'Con CUIT', value: kpis.withCuit, hint: `${kpis.total > 0 ? Math.round((kpis.withCuit / kpis.total) * 100) : 0}% del total` },
+          { label: 'Con seña activa', value: kpis.withActivePrepaid, accent: 'var(--color-naranja-medio)' },
         ]}
       />
 
-      {/* Clients Table */}
+      {/* Lista de Clientes */}
       <Card className='border-[#9d684e]/20'>
-        <CardHeader>
-          <CardTitle className='text-lg font-tan-nimbus text-[#455a54] flex items-center gap-2'>
-            <UserCheck className='h-5 w-5' />
-            Lista de Clientes
-          </CardTitle>
-          <CardDescription className='text-[#455a54]/70'>
-            Gestiona la información de tus clientes y sus señas
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className='pt-6'>
           <ClientsTable
             data={clients}
             isLoading={isLoading}
@@ -234,3 +233,4 @@ export default function ClientsPage() {
     </div>
   );
 }
+

@@ -9,6 +9,7 @@ import { employeesService, CreateEmployeeRequest, UpdateEmployeeRequest } from '
 import { ApiError } from '@/services/api.service';
 import type { Employee } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { log } from '@/lib/logger';
 
 // Hook state interface
 interface UseEmployeesState {
@@ -49,14 +50,14 @@ export function useEmployees() {
     storeRef.current.setLoading(true);
     
     try {
-      console.log('👥 EMPLEADOS: Llamando a employeesService.getAllEmployees()');
+      log.debug('👥 EMPLEADOS: Llamando a employeesService.getAllEmployees()');
       const response = await employeesService.getAllEmployees();
-      console.log('👥 EMPLEADOS: Respuesta recibida:', response);
-      
+      log.debug('👥 EMPLEADOS: Respuesta recibida:', response);
+
       storeRef.current.setEmployees(response.data);
       setState(prev => ({ ...prev, loading: false }));
       storeRef.current.setLoading(false);
-      console.log('👥 EMPLEADOS: Empleados guardados en store:', response.data.length);
+      log.debug('👥 EMPLEADOS: Empleados guardados en store:', response.data.length);
     } catch (error) {
       handleApiError(error, 'cargar empleados');
       setState(prev => ({ ...prev, loading: false }));
@@ -69,9 +70,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      console.log('👥 EMPLEADOS: Creando empleado:', data);
+      log.debug('👥 EMPLEADOS: Creando empleado:', data);
       const response = await employeesService.createEmployee(data);
-      console.log('👥 EMPLEADOS: Empleado creado:', response.data);
+      log.debug('👥 EMPLEADOS: Empleado creado:', response.data);
       
       storeRef.current.addEmployee(response.data);
       
@@ -91,9 +92,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      console.log('👥 EMPLEADOS: Actualizando empleado:', id, updates);
+      log.debug('👥 EMPLEADOS: Actualizando empleado:', id, updates);
       const response = await employeesService.updateEmployee(id, updates);
-      console.log('👥 EMPLEADOS: Empleado actualizado:', response.data);
+      log.debug('👥 EMPLEADOS: Empleado actualizado:', response.data);
       
       storeRef.current.updateEmployee(id, response.data);
       
@@ -113,9 +114,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      console.log('👥 EMPLEADOS: Eliminando empleado:', id);
+      log.debug('👥 EMPLEADOS: Eliminando empleado:', id);
       await employeesService.deleteEmployee(id);
-      console.log('👥 EMPLEADOS: Empleado eliminado exitosamente');
+      log.debug('👥 EMPLEADOS: Empleado eliminado exitosamente');
       
       storeRef.current.removeEmployee(id);
       
@@ -141,7 +142,7 @@ export function useEmployees() {
   const getEmployee = useCallback(async (id: string) => {
     const localEmployee = storeRef.current.employees.find(e => e.id === id);
     if (localEmployee) {
-      console.log('👥 EMPLEADOS: Empleado encontrado en store local:', localEmployee);
+      log.debug('👥 EMPLEADOS: Empleado encontrado en store local:', localEmployee);
       return localEmployee;
     }
     
@@ -169,9 +170,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, loading: true }));
     
     try {
-      console.log('👥 EMPLEADOS: Obteniendo empleados por rol:', role);
+      log.debug('👥 EMPLEADOS: Obteniendo empleados por rol:', role);
       const response = await employeesService.getEmployeesByRole(role, page, limit);
-      console.log('👥 EMPLEADOS: Empleados por rol obtenidos:', response.data);
+      log.debug('👥 EMPLEADOS: Empleados por rol obtenidos:', response.data);
       setState(prev => ({ ...prev, loading: false }));
       return response.data;
     } catch (error) {
@@ -186,9 +187,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, syncing: true }));
     
     try {
-      console.log('👥 EMPLEADOS: Obteniendo estadísticas de empleados');
+      log.debug('👥 EMPLEADOS: Obteniendo estadísticas de empleados');
       const response = await employeesService.getEmployeeStats();
-      console.log('👥 EMPLEADOS: Estadísticas obtenidas:', response.data);
+      log.debug('👥 EMPLEADOS: Estadísticas obtenidas:', response.data);
       setState(prev => ({ ...prev, syncing: false }));
       return response.data;
     } catch (error) {
@@ -201,9 +202,9 @@ export function useEmployees() {
   // Validate email uniqueness
   const validateEmail = useCallback(async (email: string, excludeEmployeeId?: string) => {
     try {
-      console.log('👥 EMPLEADOS: Validando email único:', email);
+      log.debug('👥 EMPLEADOS: Validando email único:', email);
       const response = await employeesService.validateEmail(email, excludeEmployeeId);
-      console.log('👥 EMPLEADOS: Validación de email:', response.data);
+      log.debug('👥 EMPLEADOS: Validación de email:', response.data);
       return response.data.isUnique;
     } catch (error) {
       handleApiError(error, 'validar email');
@@ -216,9 +217,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, syncing: true }));
     
     try {
-      console.log('👥 EMPLEADOS: Subiendo foto para empleado:', employeeId);
+      log.debug('👥 EMPLEADOS: Subiendo foto para empleado:', employeeId);
       const response = await employeesService.uploadEmployeePhoto(employeeId, photoFile);
-      console.log('👥 EMPLEADOS: Foto subida exitosamente:', response.data);
+      log.debug('👥 EMPLEADOS: Foto subida exitosamente:', response.data);
       
       // Update employee with photo URL
       storeRef.current.updateEmployee(employeeId, { 
@@ -242,9 +243,9 @@ export function useEmployees() {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      console.log('👥 EMPLEADOS: Eliminación masiva de empleados:', employeeIds);
+      log.debug('👥 EMPLEADOS: Eliminación masiva de empleados:', employeeIds);
       await employeesService.bulkDeleteEmployees(employeeIds);
-      console.log('👥 EMPLEADOS: Eliminación masiva completada');
+      log.debug('👥 EMPLEADOS: Eliminación masiva completada');
       
       // Remove employees from store
       employeeIds.forEach(id => storeRef.current.removeEmployee(id));

@@ -61,6 +61,9 @@ export interface TableFiltersProps {
   // Loading state
   isLoading?: boolean
   searchInputRef?: React.RefObject<HTMLInputElement | null>
+
+  // Show F10 keyboard hint inside the search input (only enable where the shortcut is actually wired)
+  showKbdHint?: boolean
 }
 
 export function TableFilters({
@@ -82,6 +85,7 @@ export function TableFilters({
   onToggleAdvanced,
   isLoading = false,
   searchInputRef,
+  showKbdHint = false,
 }: TableFiltersProps) {
   const hasActiveFilters = React.useMemo(() => {
     return (
@@ -95,9 +99,9 @@ export function TableFilters({
   return (
     <div className={cn("space-y-4", className)}>
       {/* Primary filters - always visible */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         {/* Search */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 xl:max-w-md">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-[#455a54]/50" />
             <Input
@@ -105,16 +109,71 @@ export function TableFilters({
               placeholder={searchPlaceholder}
               value={searchValue}
               onChange={(e) => onSearchChange?.(e.target.value)}
-              className="pl-10 pr-12 h-9 bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54] placeholder:text-[#455a54]/40 text-sm font-medium"
+              className={cn(
+                "pl-10 h-9 bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54] placeholder:text-[#455a54]/40 text-sm font-medium",
+                showKbdHint ? "pr-12" : "pr-3"
+              )}
             />
-            <kbd className="hidden lg:inline-flex absolute right-2.5 top-1/2 -translate-y-1/2 px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none text-[#455a54]/50 pointer-events-none">F10</kbd>
+            {showKbdHint && (
+              <kbd className="hidden lg:inline-flex absolute right-2.5 top-1/2 -translate-y-1/2 px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none text-[#455a54]/50 pointer-events-none">F10</kbd>
+            )}
           </div>
         </div>
+
+        {/* Inline filters (xl+): show selects directly next to search, no toggle */}
+        {(showStatusFilter && statusOptions.length > 0 && onStatusChange) || customFilters.length > 0 ? (
+          <div className="hidden xl:flex items-center gap-2 flex-wrap">
+            {showStatusFilter && statusOptions.length > 0 && onStatusChange && (
+              <Select value={statusValue || undefined} onValueChange={onStatusChange}>
+                <SelectTrigger className="h-9 text-xs border-[#455a54]/30 bg-white focus:border-[#455a54] font-winter-solid w-[160px] text-[#455a54]">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!statusOptions.some((o) => o.value === 'all' || o.value === '') && (
+                    <SelectItem value="all">Todos</SelectItem>
+                  )}
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value || 'all'}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {customFilters.map((filter) => (
+              <Select key={filter.key} value={filter.value || undefined} onValueChange={filter.onChange}>
+                <SelectTrigger className="h-9 text-xs border-[#455a54]/30 bg-white focus:border-[#455a54] font-winter-solid w-[180px] text-[#455a54]">
+                  <SelectValue placeholder={filter.label} />
+                </SelectTrigger>
+                <SelectContent>
+                  {!filter.options.some((o) => o.value === 'all' || o.value === '') && (
+                    <SelectItem value="all">Todos</SelectItem>
+                  )}
+                  {filter.options.map((option) => (
+                    <SelectItem key={option.value} value={option.value || 'all'}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ))}
+            {hasActiveFilters && onClearFilters && (
+              <Button
+                variant="ghost"
+                onClick={onClearFilters}
+                className="h-9 px-2.5 text-xs text-[#455a54]/70 hover:text-[#455a54] hover:bg-[#efcbb9]/30 font-winter-solid"
+              >
+                <X className="h-3 w-3 mr-1" />
+                Limpiar
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         {/* Actions */}
         <div className="flex gap-2 shrink-0">
           {onToggleAdvanced && (
-            <div className="relative">
+            <div className="relative xl:hidden">
               <Button
                 variant="outline"
                 onClick={onToggleAdvanced}
@@ -147,9 +206,9 @@ export function TableFilters({
         </div>
       </div>
 
-      {/* Advanced filters - collapsible, compact inline */}
+      {/* Advanced filters - collapsible, compact inline (hidden on xl where filters are inline) */}
       {showAdvancedFilters && (
-        <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 rounded-lg border-2 border-[#455a54] bg-[#455a54]">
+        <div className="xl:hidden flex flex-wrap items-center gap-3 px-3 py-2.5 rounded-lg border-2 border-[#455a54] bg-[#455a54]">
           {/* Date range filter */}
           {showDateFilter && onDateRangeChange && (
             <div className="flex items-center gap-2 min-w-0">
@@ -175,9 +234,11 @@ export function TableFilters({
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
+                  {!statusOptions.some((o) => o.value === 'all' || o.value === '') && (
+                    <SelectItem value="all">Todos</SelectItem>
+                  )}
                   {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value || 'all'}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -197,9 +258,11 @@ export function TableFilters({
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
+                  {!filter.options.some((o) => o.value === 'all' || o.value === '') && (
+                    <SelectItem value="all">Todos</SelectItem>
+                  )}
                   {filter.options.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
+                    <SelectItem key={option.value} value={option.value || 'all'}>
                       {option.label}
                     </SelectItem>
                   ))}

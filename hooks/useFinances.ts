@@ -11,6 +11,7 @@ import { showToast } from '@/lib/toast';
 import { useEgressesAPI } from './useEgressesAPI';
 import { egressMapping } from '@/lib/egress-types';
 import type { Egress } from '@/services/egresses.service';
+import { log } from '@/lib/logger';
 
 export function useFinances() {
   const { 
@@ -32,23 +33,25 @@ export function useFinances() {
   }, []);
 
   // Load egresses from backend
+  // Dep estable: getAllEgresses está memoizada con useCallback en useEgressesAPI.
+  // No usar `egressesAPI` (objeto literal recreado por render) — causaría loop.
   const loadEgresses = useCallback(async () => {
     try {
-      console.log('🔄 Loading egresses from backend...');
+      log.debug('🔄 Loading egresses from backend...');
       const egressesData = await egressesAPI.getAllEgresses();
-      console.log('📊 Egresses loaded from backend:', egressesData);
+      log.debug('📊 Egresses loaded from backend:', egressesData);
       setEgresses(egressesData);
     } catch (error) {
       console.error('Error loading egresses:', error);
       showToast.error('Error', 'No se pudieron cargar los egresos del servidor.');
     }
-  }, [egressesAPI]);
+  }, [egressesAPI.getAllEgresses]);
 
   // Convert egresses to local expense format for compatibility
   const expenses = useMemo(() => {
-    console.log('🔄 Mapping egresses to expenses:', egresses);
+    log.debug('🔄 Mapping egresses to expenses:', egresses);
     const mappedExpenses = egresses.map(egress => egressMapping.mapApiEgressToExpense(egress));
-    console.log('📊 Mapped expenses:', mappedExpenses);
+    log.debug('📊 Mapped expenses:', mappedExpenses);
     return mappedExpenses;
   }, [egresses]);
 

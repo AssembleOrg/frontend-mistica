@@ -65,9 +65,8 @@ export function ProductsMobileView({
         <TableFilters
           searchValue={searchValue || ''}
           onSearchChange={onSearchChange || (() => {})}
-          searchPlaceholder="Buscar productos..."
-          dateRange={dateRange}
-          onDateRangeChange={onDateRangeChange || (() => {})}
+          searchPlaceholder="Buscar por nombre o código de barras..."
+          showDateFilter={false}
           customFilters={[
             {
               key: 'category',
@@ -95,9 +94,8 @@ export function ProductsMobileView({
       <TableFilters
         searchValue={searchValue || ''}
         onSearchChange={onSearchChange || (() => {})}
-        searchPlaceholder="Buscar productos..."
-        dateRange={dateRange}
-        onDateRangeChange={onDateRangeChange || (() => {})}
+        searchPlaceholder="Buscar por nombre o código de barras..."
+        showDateFilter={false}
         customFilters={[
           {
             key: 'category',

@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { showToast } from '@/lib/toast';
 import { clientsService, type Client, type CreateClientRequest, type UpdateClientRequest } from '@/services/clients.service';
+import { log } from '@/lib/logger';
 
 export function useClientsAPI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -15,7 +16,7 @@ export function useClientsAPI() {
       showToast.success('Cliente creado exitosamente');
       return response.data;
     } catch (error) {
-      console.log(error, error instanceof Error);
+      log.error(error, error instanceof Error);
       const errorMessage =  (error as Error).message || 'Error al crear el cliente';
       showToast.error('Error', errorMessage);
       throw error;

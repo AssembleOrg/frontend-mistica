@@ -6,7 +6,6 @@ import {
   Banknote,
   CreditCard,
   Send,
-  Wallet,
   TrendingUp,
   TrendingDown,
   ArrowDownRight,
@@ -15,17 +14,9 @@ import {
   Clock,
   XCircle,
   RefreshCw,
-  SlidersHorizontal,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { financeService, type FinanceSummary } from '@/services/finance.service';
@@ -50,9 +41,6 @@ export default function FinancesPage() {
     from: startOfMonth(),
     to: new Date(),
   });
-  const [paymentMethod, setPaymentMethod] = useState<'all' | 'CASH' | 'CARD' | 'TRANSFER'>('all');
-  const [saleStatus, setSaleStatus] = useState<'all' | 'PENDING' | 'COMPLETED' | 'CANCELLED'>('all');
-  const [clientFilter, setClientFilter] = useState<'all' | 'named' | 'anonymous'>('all');
 
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,12 +53,6 @@ export default function FinancesPage() {
       const res = await financeService.summary({
         from: dateRange?.from ? isoDate(dateRange.from) : undefined,
         to: dateRange?.to ? isoDate(dateRange.to) : undefined,
-        paymentMethod: paymentMethod === 'all' ? undefined : paymentMethod,
-        saleStatus: saleStatus === 'all' ? undefined : saleStatus,
-        clientId:
-          clientFilter === 'anonymous' ? 'anonymous'
-          : clientFilter === 'named'   ? 'named'
-          : undefined,
       });
       setSummary(res.data);
     } catch (err) {
@@ -79,7 +61,7 @@ export default function FinancesPage() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange, paymentMethod, saleStatus, clientFilter]);
+  }, [dateRange]);
 
   useEffect(() => {
     load();
@@ -142,85 +124,12 @@ export default function FinancesPage() {
         onOpenChange={(open) => { if (!open) setSelectedSession(null); }}
       />
 
-      {/* Filtros — toolbar compacto */}
+      {/* Filtro de período */}
       <div
-        className="rounded-xl border p-3 flex flex-col gap-3"
+        className="rounded-xl border p-3"
         style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
       >
-        {/* Fila 1: fecha (full width) */}
         <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-
-        {/* Fila 2: selectores en grid 2×2 → 1×3 en sm → todos en fila en lg */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as typeof paymentMethod)}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Método" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los métodos</SelectItem>
-              <SelectItem value="CASH">Efectivo</SelectItem>
-              <SelectItem value="CARD">Tarjeta</SelectItem>
-              <SelectItem value="TRANSFER">Transferencia</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={saleStatus} onValueChange={(v) => setSaleStatus(v as typeof saleStatus)}>
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="COMPLETED">Completadas</SelectItem>
-              <SelectItem value="PENDING">Pendientes</SelectItem>
-              <SelectItem value="CANCELLED">Canceladas</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={clientFilter} onValueChange={(v) => setClientFilter(v as typeof clientFilter)}>
-            <SelectTrigger className="h-8 text-xs col-span-2 sm:col-span-1">
-              <SelectValue placeholder="Cliente" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los clientes</SelectItem>
-              <SelectItem value="named">Con nombre</SelectItem>
-              <SelectItem value="anonymous">Anónimos</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Indicador de filtros activos */}
-        {(paymentMethod !== 'all' || saleStatus !== 'all' || clientFilter !== 'all') && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <SlidersHorizontal className="h-3 w-3 shrink-0" style={{ color: 'var(--color-terracota)' }} />
-            {paymentMethod !== 'all' && (
-              <Badge
-                className="text-xs cursor-pointer h-5"
-                style={{ background: 'color-mix(in srgb, var(--color-terracota) 12%, transparent)', color: 'var(--color-terracota)', border: 'none' }}
-                onClick={() => setPaymentMethod('all')}
-              >
-                {paymentMethod === 'CASH' ? 'Efectivo' : paymentMethod === 'CARD' ? 'Tarjeta' : 'Transferencia'} ×
-              </Badge>
-            )}
-            {saleStatus !== 'all' && (
-              <Badge
-                className="text-xs cursor-pointer h-5"
-                style={{ background: 'color-mix(in srgb, var(--color-terracota) 12%, transparent)', color: 'var(--color-terracota)', border: 'none' }}
-                onClick={() => setSaleStatus('all')}
-              >
-                {saleStatus === 'COMPLETED' ? 'Completadas' : saleStatus === 'PENDING' ? 'Pendientes' : 'Canceladas'} ×
-              </Badge>
-            )}
-            {clientFilter !== 'all' && (
-              <Badge
-                className="text-xs cursor-pointer h-5"
-                style={{ background: 'color-mix(in srgb, var(--color-terracota) 12%, transparent)', color: 'var(--color-terracota)', border: 'none' }}
-                onClick={() => setClientFilter('all')}
-              >
-                {clientFilter === 'named' ? 'Con nombre' : 'Anónimos'} ×
-              </Badge>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Skeletons mientras carga por primera vez */}

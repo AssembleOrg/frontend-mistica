@@ -15,6 +15,7 @@ import { showToast } from '@/lib/toast';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { GeneratingPdfDialog } from '@/components/ui/generating-pdf-dialog';
 import { IssueCreditNoteDialog } from './issue-credit-note-dialog';
+import { IssueInvoiceDialog } from './issue-invoice-dialog';
 import { ConfirmCancelDialog } from './confirm-cancel-dialog';
 import {
   CheckCircle2,
@@ -103,6 +104,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showCreditNote, setShowCreditNote] = useState(false);
+  const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const { updateSale, getSaleById, deleteSale } = useSalesAPI();
   const { recordSaleMovements } = useStock();
@@ -111,6 +113,9 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const isPending   = sale.status === 'PENDING';
   const isCompleted = sale.status === 'COMPLETED';
   const isCancelled = sale.status === 'CANCELLED';
+  // Una venta está "facturada" cuando AFIP devolvió CAE. Hasta entonces no
+  // tiene sentido emitir nota de crédito (no hay factura que invalidar).
+  const isInvoiced  = !!sale.afipCae;
 
   const handleCompleteSale = async () => {
     if (!isPending) return;
@@ -168,6 +173,55 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   };
 
   const handleViewReceipt = () => processReceiptGeneration(sale, hasAfipData(sale));
+
+  // Facturar una venta que ya está COMPLETED pero no tiene CAE. Recibe los
+  // datos elegidos por el usuario en el IssueInvoiceDialog (tipo, CUIT, etc).
+  // Igual que en handleCompleteSale, hacemos polling de los datos de AFIP
+  // porque el endpoint puede tardar unos segundos.
+  const handleConfirmInvoice = async (data: {
+    invoiceType: 'A' | 'B' | 'C';
+    cuit?: string;
+    taxCondition?: 'RESPONSABLE_INSCRIPTO' | 'MONOTRIBUTISTA' | 'EXENTO' | 'CONSUMIDOR_FINAL';
+    businessName?: string;
+    fiscalAddress?: string;
+  }) => {
+    if (!isCompleted || isInvoiced) return;
+    setIsUpdating(true);
+    setIsGeneratingPdf(true);
+    try {
+      await updateSale(sale.id, {
+        shouldInvoice: true,
+        invoiceType: data.invoiceType,
+        invoiceCuit: data.cuit,
+        invoiceTaxCondition: data.taxCondition,
+        invoiceBusinessName: data.businessName,
+        invoiceFiscalAddress: data.fiscalAddress,
+      });
+      showToast.success('Generando factura AFIP…');
+
+      let attempts = 0;
+      let saleWithAfip: Sale = sale;
+      while (attempts < 10 && !hasAfipData(saleWithAfip)) {
+        await new Promise(r => setTimeout(r, 1000));
+        saleWithAfip = await getSaleById(sale.id);
+        attempts++;
+      }
+
+      if (hasAfipData(saleWithAfip)) {
+        showToast.success('Factura emitida');
+        processReceiptGeneration(saleWithAfip, true);
+      } else {
+        showToast.error('La factura está siendo procesada. Intentá ver el comprobante más tarde.');
+      }
+      onSaleUpdated?.();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al emitir la factura AFIP';
+      showToast.error(msg);
+    } finally {
+      setIsUpdating(false);
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const formattedDate = new Date(sale.createdAt).toLocaleDateString('es-AR', {
     day: '2-digit',
@@ -354,27 +408,47 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         )}
 
         {isCompleted && (
-          <div className="flex gap-2">
-            <Button
-              onClick={handleViewReceipt}
-              className="flex-1 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white text-xs h-8 font-winter-solid"
-            >
-              <Receipt className="h-3.5 w-3.5 mr-1.5" />
-              Ver comprobante
-              <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
-            </Button>
-            <Button
-              onClick={() => setShowCreditNote(true)}
-              variant="outline"
-              className="border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
-            >
-              <RotateCcw className="h-3.5 w-3.5 mr-1" />
-              NC
-            </Button>
-          </div>
+          <>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleViewReceipt}
+                className="flex-1 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white text-xs h-8 font-winter-solid"
+              >
+                <Receipt className="h-3.5 w-3.5 mr-1.5" />
+                Ver comprobante
+                <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
+              </Button>
+              {/* NC sólo tiene sentido si la venta fue facturada (hay algo que invalidar). */}
+              {isInvoiced && (
+                <Button
+                  onClick={() => setShowCreditNote(true)}
+                  variant="outline"
+                  className="border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  NC
+                </Button>
+              )}
+            </div>
+
+            {/* Si se completó sin facturar, ofrecemos emitir factura AFIP ahora.
+                El click abre un modal donde se elige tipo (A/B/C) y, si aplica,
+                se carga el CUIT y se valida contra el padrón AFIP. */}
+            {!isInvoiced && (
+              <Button
+                onClick={() => setShowInvoiceDialog(true)}
+                disabled={isUpdating}
+                variant="outline"
+                className="w-full border-[#455a54]/30 text-[#455a54] hover:bg-[#455a54]/8 text-xs h-8 font-winter-solid"
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+                {isUpdating ? 'Facturando…' : 'Facturar AFIP'}
+              </Button>
+            )}
+          </>
         )}
 
-        {isCancelled && (
+        {isCancelled && isInvoiced && (
           <Button
             onClick={() => setShowCreditNote(true)}
             variant="outline"
@@ -400,6 +474,12 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         onOpenChange={setShowCreditNote}
         sale={sale}
         onIssued={() => onSaleUpdated?.()}
+      />
+      <IssueInvoiceDialog
+        open={showInvoiceDialog}
+        onOpenChange={setShowInvoiceDialog}
+        total={sale.total}
+        onConfirm={handleConfirmInvoice}
       />
     </>
   );

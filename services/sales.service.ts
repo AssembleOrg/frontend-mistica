@@ -35,6 +35,9 @@ export interface CreateSaleRequest {
   discount?: number;
 }
 
+export type InvoiceType = 'A' | 'B' | 'C';
+export type TaxCondition = 'RESPONSABLE_INSCRIPTO' | 'MONOTRIBUTISTA' | 'EXENTO' | 'CONSUMIDOR_FINAL';
+
 export interface UpdateSaleRequest {
   clientId?: string;
   customerName?: string;
@@ -52,6 +55,21 @@ export interface UpdateSaleRequest {
   consumedPrepaid?: boolean;
   discount?: number;
   shouldInvoice?: boolean;
+  // Datos AFIP cuando shouldInvoice=true. Si no se proveen, default Factura C.
+  invoiceType?: InvoiceType;
+  invoiceCuit?: string;
+  invoiceTaxCondition?: TaxCondition;
+  invoiceBusinessName?: string;
+  invoiceFiscalAddress?: string;
+}
+
+export interface AfipContributor {
+  cuit: string;
+  businessName: string;
+  taxCondition: TaxCondition | null;
+  afipTaxConditionLabel: string | null;
+  fiscalAddress: string;
+  estado: string | null;
 }
 
 // Sale interfaces
@@ -181,46 +199,57 @@ export class SalesService {
   }
 
   // Helper to clean payload and add required fields
-  private cleanPayload(data: any): any {
+  // `isCreate=true` indica que la validación de items es obligatoria. Para
+  // updates parciales (ej: solo `shouldInvoice` o solo `status`), no requerimos
+  // items: el backend valida lo que llegue y deja intacto lo que no.
+  private cleanPayload(data: any, isCreate: boolean = false): any {
     const cleaned = { ...data };
-    console.table(cleaned);
-    // Remove undefined fields (backend doesn't accept undefined values)
     Object.keys(cleaned).forEach(key => {
       if (cleaned[key] === undefined) {
         delete cleaned[key];
       }
     });
-    
-    // Ensure required fields have defaults
+
     if (!cleaned.customerName || (typeof cleaned.customerName === 'string' && cleaned.customerName.trim() === '')) {
       if (cleaned.status !== "COMPLETED") {
         cleaned.customerName = 'Cliente Anónimo';
       }
     }
-    
-    // Ensure items array is not empty
-    if (!cleaned.items || !Array.isArray(cleaned.items) || cleaned.items.length === 0) {
-      if (cleaned.status !== "COMPLETED") {
+
+    if (isCreate) {
+      // En CREATE los items son obligatorios.
+      if (!Array.isArray(cleaned.items) || cleaned.items.length === 0) {
+        throw new Error('La venta debe tener al menos un producto');
+      }
+    } else if ('items' in cleaned) {
+      // En UPDATE, si vienen items, no pueden venir vacíos.
+      if (!Array.isArray(cleaned.items) || cleaned.items.length === 0) {
         throw new Error('La venta debe tener al menos un producto');
       }
     }
-    
+
     return cleaned;
   }
 
   // Create new sale
   async createSale(saleData: CreateSaleRequest): Promise<ApiResponse<Sale>> {
     console.log('💰 SALES SERVICE: Creando venta para cliente:', saleData.customerName);
-    const cleanedData = this.cleanPayload(saleData);
+    const cleanedData = this.cleanPayload(saleData, true);
     const response = await apiService.post<Sale>('/sales', cleanedData);
     console.log('💰 SALES SERVICE: Venta creada:', response.data?.saleNumber);
     return response;
   }
 
+  // Consulta del padrón AFIP por CUIT (para autocompletar al emitir factura A/B).
+  async lookupAfipContributor(cuit: string): Promise<ApiResponse<AfipContributor>> {
+    const params = new URLSearchParams({ cuit: cuit.replace(/\D/g, '') });
+    return apiService.get<AfipContributor>(`/sales/afip/contributor?${params.toString()}`);
+  }
+
   // Update existing sale
   async updateSale(id: string, updates: UpdateSaleRequest): Promise<ApiResponse<Sale>> {
     console.log('💰 SALES SERVICE: Actualizando venta:', id);
-    const cleanedUpdates = this.cleanPayload(updates);
+    const cleanedUpdates = this.cleanPayload(updates, false);
     const response = await apiService.patch<Sale>(`/sales/${id}`, cleanedUpdates);
     console.log('💰 SALES SERVICE: Venta actualizada:', response.data?.saleNumber);
     return response;

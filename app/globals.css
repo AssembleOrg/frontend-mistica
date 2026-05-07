@@ -36,9 +36,8 @@
   --color-negro-hover: #1a1a1a;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'Aileron', var(--font-geist-sans), sans-serif;
+  --font-sans: var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-aileron: 'Aileron', 'Geist', sans-serif;
   --font-tan-nimbus: 'TAN Nimbus', 'Geist', sans-serif;
   --font-winter-solid: 'Winter Solid', 'Geist', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -154,7 +153,7 @@
     /* Prevent horizontal scroll on mobile */
     overflow-x: hidden;
   }
-  
+
   body {
     @apply bg-background text-foreground;
     /* Prevent horizontal scroll on mobile */
@@ -162,6 +161,44 @@
     /* Better mobile text rendering */
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
+    /* Quita el flash gris al tocar en iOS/Android */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Elimina delay de 300ms y double-tap zoom accidental sobre controles */
+  button, [role="button"], a, label, summary {
+    touch-action: manipulation;
+  }
+
+  /* iOS Safari: si el input tiene <16px hace zoom automático al enfocar.
+     Forzamos 16px solo en iOS (detectado por -webkit-touch-callout). */
+  @supports (-webkit-touch-callout: none) {
+    input, textarea, select {
+      font-size: 16px;
+    }
+  }
+
+  /* Títulos: balance evita líneas viudas; los párrafos largos no se rompen feo */
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+
+  /* Evita overflow horizontal cuando hay strings largos sin espacios
+     (emails, URLs, nombres concatenados) en celdas de tabla */
+  td, .truncate-safe {
+    overflow-wrap: anywhere;
+  }
+
+  /* Altura de viewport estable en iOS Safari (la barra que aparece/desaparece
+     no rompe el layout). Usar en lugar de h-screen / min-h-screen. */
+  .h-screen-safe {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .min-h-screen-safe {
+    min-height: 100vh;
+    min-height: 100dvh;
   }
   
   /* Mobile-first responsive utilities */
@@ -203,10 +240,6 @@
 }
 
 @layer components {
-  .font-aileron {
-    font-family: var(--font-aileron);
-  }
-  
   .font-tan-nimbus {
     font-family: var(--font-tan-nimbus);
   }

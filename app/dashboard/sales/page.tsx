@@ -177,7 +177,7 @@ export default function SalesPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     // Escape container-mobile padding para tomar el ancho completo disponible
-    <div className="-mx-2 sm:-mx-4 -mt-2 sm:-mt-4 flex flex-col bg-[#d9dadb]" style={{ height: 'calc(100vh - 4rem)' }}>
+    <div className="-mx-2 sm:-mx-4 -mt-2 sm:-mt-4 flex flex-col bg-[#d9dadb]" style={{ height: 'calc(100dvh - 4rem)' }}>
 
       {/* ── Topbar ─────────────────────────────────────── */}
       <div className="px-4 sm:px-6 py-3 border-b border-[#9d684e]/10 bg-[#efcbb9] shrink-0">
@@ -210,17 +210,19 @@ export default function SalesPage() {
           </TabsList>
           <Button
             onClick={() => setShowCreateSaleModal(true)}
-            className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white h-8 text-sm font-winter-solid px-4"
+            aria-label="Nueva venta"
+            title="Nueva venta"
+            className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white h-8 text-sm font-winter-solid px-2 sm:px-4 shrink-0"
           >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Nueva venta
+            <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+            <span className="hidden sm:inline">Nueva venta</span>
             <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F2</kbd>
           </Button>
         </div>
 
         {/* ── Tab: Ventas ── Master-Detail ───────────── */}
         <TabsContent value="sales" className="flex-1 min-h-0 mt-0">
-          <div className="flex h-full">
+          <div className="flex h-full overflow-hidden">
 
             {/* Panel izquierdo: lista */}
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -243,7 +245,7 @@ export default function SalesPage() {
               </div>
 
               {/* Desktop table — ocupa el alto disponible */}
-              <div className="hidden lg:flex flex-col flex-1 min-h-0 overflow-y-auto">
+              <div className="hidden lg:flex flex-col flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
                 <SalesTable
                   data={sales}
                   isLoading={loadingSales}

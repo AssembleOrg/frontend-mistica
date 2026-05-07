@@ -46,7 +46,7 @@ export default function LoginPage() {
               src='/foto-mistica-login-1.webp'
               fill
               priority
-              sizes='100vw'
+              sizes='(min-width: 1024px) 50vw, 0px'
               alt='Fondo MÍSTICA'
               className='object-cover'
               style={{
@@ -85,7 +85,7 @@ export default function LoginPage() {
                 height={200}
                 alt='MÍSTICA Logo'
                 className='object-contain drop-shadow-lg'
-                style={{ height: 'auto' }}
+                style={{ width: 'auto', height: 'auto' }}
               />
             </div>
           </div>

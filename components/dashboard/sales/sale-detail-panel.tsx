@@ -49,10 +49,10 @@ export function SaleDetailPanel({
   return (
     <>
       {/* Desktop panel */}
-      <aside className="hidden lg:flex flex-col lg:w-[300px] xl:w-[390px] shrink-0 border-l-2 border-[#455a54]/20 bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.08)]">
+      <aside className="hidden lg:flex flex-col lg:w-[300px] xl:w-[390px] shrink-0 overflow-hidden border-l-2 border-[#455a54]/20 bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.08)]">
         {sale ? (
           <ScrollArea className="flex-1">
-            <div className="p-4">
+            <div className="p-4 max-xl:p-3 min-w-0">
               <SaleDetailContent
                 sale={sale}
                 onSaleUpdated={onSaleUpdated}

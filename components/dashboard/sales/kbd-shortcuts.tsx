@@ -96,11 +96,16 @@ export function KbdShortcuts({
     (e) => {
       e.preventDefault();
       if (showCreateSaleModal || showEditSaleModal) return;
+      if (sales.length === 0) return;
+      if (selectedIndex === -1) {
+        onSelectSale(sales[0]);
+        return;
+      }
       if (selectedIndex <= 0) return;
-      onSelectSale(sales[Math.max(selectedIndex - 1, 0)]);
+      onSelectSale(sales[selectedIndex - 1]);
     },
     { enableOnFormTags: false },
-    [selectedIndex, showCreateSaleModal, showEditSaleModal],
+    [selectedIndex, sales, showCreateSaleModal, showEditSaleModal],
   );
 
   // Esc: cerrar modal activo, luego limpiar buscador. Recupera foco al cerrar modal.

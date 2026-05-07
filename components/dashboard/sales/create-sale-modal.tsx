@@ -136,6 +136,37 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
   }, [editingSale, isOpen]);
 
+  // Precarga el "Cliente Mostrador" como default al abrir el modal en modo nuevo.
+  // Walk-in flow: 90% de las ventas son sin cliente nominal. El cajero puede
+  // reemplazarlo desde el AsyncSelect en cualquier momento.
+  useEffect(() => {
+    if (!isOpen || editingSale) return;
+    if (selectedClient) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await clientsService.searchClients('Cliente Mostrador', 1, 10);
+        // Backend hace regex case-insensitive — filtramos exacto para evitar
+        // agarrar variantes como "Cliente Mostrador VIP" si existieran.
+        const found = res.data?.data?.find(c => c.fullName.trim() === 'Cliente Mostrador');
+        if (cancelled || !found) {
+          if (!cancelled && !found) {
+            showToast.error('Creá el cliente "Cliente Mostrador" en /clients para venta rápida');
+          }
+          return;
+        }
+        setSelectedClient(found);
+        setCustomerName(found.fullName);
+        setCustomerEmail(found.email || '');
+        setCustomerPhone(found.phone || '');
+        setCustomerCuit(found.cuit || '');
+      } catch (err) {
+        console.warn('No se pudo cargar Cliente Mostrador', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, editingSale, selectedClient]);
+
   // Fetcher para el AsyncSelect de clientes: usa el endpoint paginado con
   // search server-side. Devuelve los Client + meta de paginación.
   const fetchClients = useCallback(async (search: string, page: number, pageSize: number) => {
@@ -354,24 +385,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setIsSubmitting(true);
 
     try {
-      // Auto-create del cliente cuando se cargó manualmente (no se eligió uno
-      // del dropdown). Si falla la creación dejamos seguir la venta sin
-      // clientId — los datos quedan en customerName/Email/Phone igual.
-      let effectiveClientId = clientId;
-      if (!editingSale && !effectiveClientId && customerName.trim()) {
-        try {
-          const created = await clientsService.createClient({
-            fullName: customerName.trim(),
-            email: customerEmail.trim() || undefined,
-            phone: customerPhone.trim() || undefined,
-            cuit: customerCuit.trim() || undefined,
-          });
-          effectiveClientId = created.data.id;
-          showToast.success(`Cliente "${created.data.fullName}" creado`);
-        } catch (err) {
-          console.warn('No se pudo crear el cliente, se sigue como venta sin clientId', err);
-        }
-      }
+      // Si no hay cliente seleccionado, la venta va con sólo customerName
+      // (backend lo acepta). Para crear clientes nominales, usar /dashboard/clients
+      // o seleccionarlo desde el AsyncSelect.
+      const effectiveClientId = clientId;
 
       const basePayload = {
         clientId: effectiveClientId || undefined,
@@ -418,7 +435,15 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[800px] max-h-[95vh] overflow-y-auto border-[#9d684e]/20 p-0">
+      <DialogContent
+        className="max-w-[95vw] sm:max-w-[800px] max-h-[95vh] overflow-y-auto border-[#9d684e]/20 p-0"
+        onOpenAutoFocus={(e) => {
+          // Prevenir el auto-focus de Radix sobre el primer input (cliente)
+          // y dejar que el BarcodeScanner reciba el foco al montarse.
+          e.preventDefault();
+          barcodeScannerRef.current?.focusInput();
+        }}
+      >
         <DialogHeader className="px-4 sm:px-6 py-4 border-b border-gray-100">
           <DialogTitle className="text-[#455a54] font-tan-nimbus text-lg sm:text-xl">
             {editingSale ? 'Editar Venta' : 'Crear Nueva Venta'}

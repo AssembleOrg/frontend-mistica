@@ -34,7 +34,7 @@ export function LoginForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login({ email, password });
+      await login({ email: email.trim().toLowerCase(), password });
       router.push(safeNext(searchParams.get('next')));
     } catch (_err) {
       console.error('Fallo el intento de login');
@@ -56,7 +56,7 @@ export function LoginForm({
           height={120}
           alt='MÍSTICA Logo'
           className='object-contain mb-2'
-          style={{ height: 'auto' }}
+          style={{ width: 'auto', height: 'auto' }}
         />
         <h1 className='text-3xl font-tan-nimbus text-[var(--color-verde-profundo)] font-bold'>
           Bienvenido a MÍSTICA
@@ -77,6 +77,8 @@ export function LoginForm({
           <Input
             id='email'
             type='email'
+            inputMode='email'
+            autoComplete='email'
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -93,6 +95,7 @@ export function LoginForm({
           <Input
             id='password'
             type='password'
+            autoComplete='current-password'
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

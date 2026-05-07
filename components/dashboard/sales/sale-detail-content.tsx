@@ -72,9 +72,9 @@ function StatusBadge({ status }: { status: string }) {
 // Thin row: label left, value right — macOS inspector style
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-1.5 gap-4">
+    <div className="flex items-center justify-between py-1.5 gap-4 max-xl:gap-2">
       <span className="text-xs text-[#455a54]/70 font-winter-solid shrink-0">{label}</span>
-      <span className="text-xs text-[#455a54] font-semibold font-winter-solid text-right">{children}</span>
+      <span className="text-xs text-[#455a54] font-semibold font-winter-solid text-right min-w-0 truncate">{children}</span>
     </div>
   );
 }
@@ -92,7 +92,7 @@ function Section({ title, icon: Icon, children }: {
           {title}
         </span>
       </div>
-      <div className="bg-[#efcbb9]/50 rounded-lg border border-[#9d684e]/25 px-3 divide-y divide-[#9d684e]/15">
+      <div className="bg-[#efcbb9]/50 rounded-lg border border-[#9d684e]/25 px-3 max-xl:px-2.5 divide-y divide-[#9d684e]/15 min-w-0">
         {children}
       </div>
     </div>
@@ -240,12 +240,12 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   return (
     <>
       {/* ── Header ─────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-2 mb-4">
-        <div>
+      <div className="flex items-start justify-between gap-2 mb-4 max-xl:mb-3 min-w-0">
+        <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-[#455a54]/40 font-winter-solid mb-0.5">
             Venta
           </p>
-          <h2 className="text-lg font-bold text-[#455a54] font-tan-nimbus leading-none">
+          <h2 className="text-lg max-xl:text-base font-bold text-[#455a54] font-tan-nimbus leading-none truncate">
             #{sale.saleNumber}
           </h2>
           <p className="text-xs text-[#455a54]/50 font-winter-solid mt-1">{formattedDate}</p>
@@ -254,7 +254,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
       </div>
 
       {/* ── Body sections ──────────────────────────────── */}
-      <div className="space-y-4">
+      <div className="space-y-4 max-xl:space-y-3">
 
         {/* Cliente */}
         <Section title="Cliente" icon={User}>
@@ -284,13 +284,13 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         <Section title={isMultiPay ? 'Pagos mixtos' : 'Pago'} icon={Banknote}>
           {(sale.payments ?? []).map((p, i) => (
             <div key={i} className="flex items-center justify-between py-1.5 gap-2">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
                 <PaymentIcon method={p.method} />
-                <span className="text-xs text-[#455a54] font-winter-solid">
+                <span className="text-xs text-[#455a54] font-winter-solid truncate">
                   {PAYMENT_LABELS[p.method] ?? p.method}
                 </span>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <span className="text-xs font-semibold text-[#455a54] font-winter-solid">
                   {formatCurrency(p.amount)}
                 </span>
@@ -318,9 +318,9 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
             </Row>
           )}
           {hasTax && <Row label="Impuestos">{formatCurrency(sale.tax)}</Row>}
-          <div className="flex items-center justify-between py-2 gap-4">
-            <span className="text-xs font-bold text-[#455a54] font-tan-nimbus">Total</span>
-            <span className="text-base font-bold text-[#9d684e] font-tan-nimbus">
+          <div className="flex items-center justify-between py-2 gap-4 max-xl:gap-2">
+            <span className="text-xs font-bold text-[#455a54] font-tan-nimbus shrink-0">Total</span>
+            <span className="text-base font-bold text-[#9d684e] font-tan-nimbus truncate">
               {formatCurrency(sale.total)}
             </span>
           </div>
@@ -391,7 +391,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                   className="flex-1 border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
                 >
                   Editar
-                  <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/10 border border-[#455a54]/25 rounded leading-none">F3</kbd>
+                  <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/10 border border-[#455a54]/25 rounded leading-none">F3</kbd>
                 </Button>
               )}
               <Button
@@ -416,7 +416,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
               >
                 <Receipt className="h-3.5 w-3.5 mr-1.5" />
                 Ver comprobante
-                <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
+                <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
               </Button>
               {/* NC sólo tiene sentido si la venta fue facturada (hay algo que invalidar). */}
               {isInvoiced && (

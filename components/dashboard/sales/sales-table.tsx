@@ -121,17 +121,6 @@ export function SalesTable({
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  // Colapsa columnas secundarias en lg cuando el panel lateral está abierto
-  React.useEffect(() => {
-    const isLg = typeof window !== 'undefined' && window.innerWidth < 1280;
-    if (isLg) {
-      setColumnVisibility(prev => ({
-        ...prev,
-        paymentMethod: !isPanelOpen,
-        createdAt: !isPanelOpen,
-      }));
-    }
-  }, [isPanelOpen]);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [saleToCancel, setSaleToCancel] = useState<string | null>(null);
@@ -357,6 +346,7 @@ export function SalesTable({
     {
       accessorKey: 'items',
       header: 'Productos',
+      meta: { compactHide: true },
       cell: ({ row }) => {
         const items = row.getValue('items') as Sale['items'];
         return (
@@ -375,6 +365,7 @@ export function SalesTable({
     {
       id: 'details',
       header: 'Detalles',
+      meta: { compactHide: true },
       cell: ({ row }) => {
         const sale = row.original;
         const hasDiscount = typeof sale.discount === 'number' && sale.discount > 0;
@@ -422,6 +413,7 @@ export function SalesTable({
     {
       accessorKey: 'paymentMethod',
       header: 'Pago',
+      meta: { compactHide: true },
       cell: ({ row }) => {
         return (
           <div className='font-semibold text-[#455a54] text-xs tracking-wide'>
@@ -433,6 +425,7 @@ export function SalesTable({
     {
       accessorKey: 'status',
       header: 'Estado',
+      meta: { compactHide: true },
       cell: ({ row }) => {
         const status = row.getValue('status') as string;
         return getStatusBadge(status);
@@ -440,6 +433,7 @@ export function SalesTable({
     },
     {
       accessorKey: 'createdAt',
+      meta: { compactHide: true },
       header: ({ column }) => {
         return (
           <Button
@@ -594,7 +588,12 @@ export function SalesTable({
       />
 
       {/* Column visibility controls — compact, alineado a la derecha */}
-      <div className='flex justify-end py-2'>
+      <div className='flex items-center justify-end gap-3 py-2'>
+        <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-black/55 font-winter-solid">
+          <kbd className="px-1 py-0.5 bg-[#455a54]/10 border border-[#455a54]/25 rounded text-[10px] leading-none text-[#455a54]">↑</kbd>
+          <kbd className="px-1 py-0.5 bg-[#455a54]/10 border border-[#455a54]/25 rounded text-[10px] leading-none text-[#455a54]">↓</kbd>
+          <span>navegar filas</span>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -635,8 +634,13 @@ export function SalesTable({
                 className='bg-[#9d684e] hover:bg-[#9d684e] border-b border-[#9d684e]'
               >
                 {headerGroup.headers.map((header) => {
+                  const compactHide = (header.column.columnDef.meta as { compactHide?: boolean } | undefined)?.compactHide;
+                  const hideClass = compactHide && isPanelOpen ? 'max-xl:hidden' : '';
                   return (
-                    <TableHead key={header.id} className="text-white font-medium tracking-wide text-xs uppercase font-winter-solid">
+                    <TableHead
+                      key={header.id}
+                      className={`text-white font-medium tracking-wide text-xs uppercase font-winter-solid ${hideClass}`}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -664,14 +668,18 @@ export function SalesTable({
                       : 'bg-white hover:bg-[#455a54]/5'
                   }`}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const compactHide = (cell.column.columnDef.meta as { compactHide?: boolean } | undefined)?.compactHide;
+                    const hideClass = compactHide && isPanelOpen ? 'max-xl:hidden' : '';
+                    return (
+                      <TableCell key={cell.id} className={hideClass}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
                 );
               })

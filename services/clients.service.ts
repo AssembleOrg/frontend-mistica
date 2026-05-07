@@ -2,6 +2,7 @@
 
 import { apiService, ApiResponse } from './api.service';
 import type { PaymentMethodCode } from './sales.service';
+import type { Prepaid } from './prepaids.service';
 
 // Client interfaces
 export interface Client {
@@ -12,6 +13,9 @@ export interface Client {
   notes?: string;
   cuit?: string;
   prepaid: number; // Total de prepaids pendientes
+  // Sólo viene poblado cuando se obtiene el cliente individualmente
+  // (GET /clients/:id). En la lista paginada llega `undefined`.
+  prepaids?: Prepaid[];
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;

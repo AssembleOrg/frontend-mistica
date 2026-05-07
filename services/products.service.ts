@@ -8,14 +8,17 @@ import type { Product, ProductCategory } from '@/lib/types';
 type CreateProductRequest = paths['/products']['post']['requestBody']['content']['application/json'];
 type UpdateProductRequest = paths['/products/{id}']['patch']['requestBody']['content']['application/json'];
 
-// Paginated response interface
+// Paginated response interface — alineado con la forma real que devuelve
+// el backend NestJS (`meta`, con flags hasNextPage/hasPreviousPage).
 interface PaginatedResponse<T> {
   data: T[];
-  pagination: {
+  meta: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
   };
 }
 

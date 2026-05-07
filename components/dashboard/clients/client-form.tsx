@@ -11,7 +11,6 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
 import type { PaymentMethodCode } from '@/services/sales.service';
-import { formatCurrency } from '@/lib/sales-calculations';
 
 interface PrepaidItem {
   amount: number;
@@ -47,6 +46,17 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
         cuit: client.cuit || '',
         notes: client.notes || '',
       });
+      // Precargamos sólo las PENDING para que el usuario pueda editarlas
+      // o sumar nuevas. Las CONSUMED quedan en el histórico de la DB y el
+      // backend no las toca al actualizar.
+      const pending = (client.prepaids ?? [])
+        .filter((p) => p.status === 'PENDING')
+        .map<PrepaidItem>((p) => ({
+          amount: p.amount,
+          paymentMethod: p.paymentMethod,
+          notes: p.notes ?? '',
+        }));
+      setPrepaids(pending);
     } else {
       setFormData({
         fullName: '',
@@ -55,8 +65,8 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
         cuit: '',
         notes: '',
       });
+      setPrepaids([]);
     }
-    setPrepaids([]);
     setErrors({});
   }, [client]);
 
@@ -81,12 +91,6 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
   };
 
   const addPrepaid = () => {
-    // Check if client already has an active prepaid
-    if (client && client.prepaid && client.prepaid > 0) {
-      showToast.error('Error', 'El cliente ya tiene una seña activa. No se puede agregar otra.');
-      return;
-    }
-    
     setPrepaids(prev => [...prev, { amount: 0, paymentMethod: 'CASH', notes: '' }]);
   };
 
@@ -151,9 +155,11 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
     }
 
     try {
+      // Mandamos siempre el array (incluso vacío) para que el backend pueda
+      // sincronizar el estado: array vacío = borrar todas las PENDING.
       const clientData: CreateClientRequest | UpdateClientRequest = {
         ...formData,
-        prepaids: prepaids.length > 0 ? prepaids : undefined,
+        prepaids,
       };
 
       await onSave(clientData);
@@ -272,21 +278,12 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
                 variant="outline"
                 size="sm"
                 onClick={addPrepaid}
-                className="flex items-center gap-2 border-[#9d684e] text-[#9d684e] hover:bg-[#9d684e] hover:text-white disabled:opacity-50"
-                disabled={!!(client && client.prepaid && client.prepaid > 0) || prepaids.length > 0}
+                className="flex items-center gap-2 border-[#9d684e] text-[#9d684e] hover:bg-[#9d684e] hover:text-white"
               >
                 <Plus className="h-4 w-4" />
                 Agregar Seña
               </Button>
             </div>
-
-            {!!(client && client.prepaid && client.prepaid > 0) && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                <p className="text-sm text-yellow-700 font-winter-solid">
-                  ⚠️ Este cliente ya tiene una seña activa de {formatCurrency(client.prepaid)}. No se puede agregar otra seña.
-                </p>
-              </div>
-            )}
 
             {prepaids.length === 0 ? (
               <p className="text-sm text-[#455a54]/50 text-center py-4 font-winter-solid">

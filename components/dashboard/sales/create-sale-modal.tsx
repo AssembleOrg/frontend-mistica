@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,14 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { AsyncSelect } from '@/components/ui/async-select';
 import { Plus, Minus, Trash2, Save, X, Percent } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
@@ -29,14 +23,16 @@ import {
   SaleItem,
   Sale,
 } from '@/services/sales.service';
-import { useProducts } from '@/hooks/useProducts';
-import { useClientsAPI } from '@/hooks/useClientsAPI';
+import { Client, clientsService } from '@/services/clients.service';
+import { productsService } from '@/services/products.service';
 import { usePrepaidsAPI } from '@/hooks/usePrepaidsAPI';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { BarcodeScanner, BarcodeScannerRef } from './barcode-scanner';
 import { PaymentsEditor, paymentsAreValid } from './payments-editor';
 import { formatCurrency } from '@/lib/sales-calculations';
 import type { Product } from '@/lib/types';
+
+type AdjustmentType = 'discount' | 'surcharge';
 
 interface CreateSaleModalProps {
   isOpen: boolean;
@@ -49,30 +45,35 @@ interface CreateSaleModalProps {
 }
 
 export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated, submitButtonRef }: CreateSaleModalProps) {
-  const [clientId, setClientId] = useState('');
+  // Cliente: si `selectedClient` no es null, derivamos clientId de ahí.
+  // El `customerName` (free text) se usa cuando no hay cliente seleccionado:
+  // al confirmar la venta, si no hay clientId pero sí hay nombre, creamos el
+  // cliente con los datos cargados manualmente.
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerCuit, setCustomerCuit] = useState('');
   const [payments, setPayments] = useState<SalePayment[]>([]);
   const [notes, setNotes] = useState('');
   const [cartItems, setCartItems] = useState<SaleItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientPrepaid, setClientPrepaid] = useState<{id: string, amount: number} | null>(null);
   const [usePrepaid, setUsePrepaid] = useState(false);
   const [lastProcessedBarcode, setLastProcessedBarcode] = useState<string>('');
   const [barcodeProcessingTimeout, setBarcodeProcessingTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [discountPercentage, setDiscountPercentage] = useState(0);
-  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  // Ajuste sobre el subtotal: positivo = descuento, negativo = recargo.
+  // En el form se controla por separado: tipo + magnitud absoluta.
+  const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('discount');
+  const [adjustmentPercentage, setAdjustmentPercentage] = useState(0);
+  const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
 
   const { createSale, updateSale } = useSalesAPI();
-  const { products, searchProducts } = useProducts();
-  const { clients, getAllClients } = useClientsAPI();
   const { getPrepaidsByClient, getPrepaidById } = usePrepaidsAPI();
+
+  const clientId = selectedClient?.id ?? '';
 
   // Load prepaid details by ID
   const loadPrepaidDetails = async (prepaidId: string) => {
@@ -86,19 +87,17 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
   };
 
-  // Load clients and products when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      getAllClients();
-      // Force refresh products from the store
-      console.log('🔄 Modal abierto, productos disponibles:', products.length);
-    }
-  }, [isOpen, getAllClients, products.length]);
-
   // Load sale data when in edit mode
   useEffect(() => {
     if (editingSale && isOpen) {
-      setClientId(editingSale.clientId || '');
+      // En edit cargamos el cliente fresco si la venta tenía clientId, así
+      // se hidrata el AsyncSelect y los campos de CUIT/email/phone.
+      if (editingSale.clientId) {
+        clientsService
+          .getClient(editingSale.clientId)
+          .then((res) => setSelectedClient(res.data))
+          .catch(() => undefined);
+      }
       setCustomerName(editingSale.customerName || '');
       setCustomerEmail(editingSale.customerEmail || '');
       setCustomerPhone(editingSale.customerPhone || '');
@@ -111,7 +110,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         }))
       );
       setNotes(editingSale.notes || '');
-      
+
       // Convert sale items to cart items
       const cartItems = editingSale.items.map(item => ({
         productId: item.productId,
@@ -121,40 +120,49 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         subtotal: item.quantity * item.unitPrice,
       }));
       setCartItems(cartItems);
-      
-      // Load prepaid if exists
+
       if (editingSale.prepaidId) {
-        // Load prepaid details
         loadPrepaidDetails(editingSale.prepaidId);
         setUsePrepaid(editingSale.consumedPrepaid || false);
       }
-      
-      // Load discount if exists
-      if (editingSale.discount && editingSale.discount > 0) {
-        setDiscountPercentage(editingSale.discount);
-        setShowDiscountInput(true);
+
+      // Reconstruir el ajuste a partir del campo `discount` (signed):
+      // positivo = descuento, negativo = recargo.
+      if (editingSale.discount && editingSale.discount !== 0) {
+        setAdjustmentType(editingSale.discount > 0 ? 'discount' : 'surcharge');
+        setAdjustmentPercentage(Math.abs(editingSale.discount));
+        setShowAdjustmentInput(true);
       }
     }
   }, [editingSale, isOpen]);
 
-  // Search products when query changes
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const results = searchProducts(searchQuery);
-      setSearchResults(results.slice(0, 5)); // Limit to 5 results
-    } else {
-      setSearchResults([]);
-    }
-    setHighlightedIndex(-1);
-  }, [searchQuery, searchProducts]);
+  // Fetcher para el AsyncSelect de clientes: usa el endpoint paginado con
+  // search server-side. Devuelve los Client + meta de paginación.
+  const fetchClients = useCallback(async (search: string, page: number, pageSize: number) => {
+    const res = await clientsService.getClients(page, pageSize, search.trim() ? { search } : undefined);
+    return {
+      items: res.data.data,
+      hasMore: res.data.meta.hasNextPage,
+    };
+  }, []);
+
+  // Fetcher para productos: usa /products paginado (que también matchea por
+  // barcode si la búsqueda es un código). El AsyncSelect carga 20 por página.
+  const fetchProducts = useCallback(async (search: string, page: number, pageSize: number) => {
+    const res = await productsService.getProducts(page, pageSize, search.trim() ? { search } : undefined);
+    return {
+      items: res.data.data,
+      hasMore: res.data.meta.hasNextPage,
+    };
+  }, []);
 
   const addProductToCart = (product: Product) => {
     setCartItems(prev => {
       const existingItem = prev.find(item => item.productId === product.id);
-      
+
       if (existingItem) {
-        return prev.map(item => 
-          item.productId === product.id 
+        return prev.map(item =>
+          item.productId === product.id
             ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.unitPrice }
             : item
         );
@@ -169,86 +177,81 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         return [...prev, newItem];
       }
     });
-    
-    setSearchQuery('');
-    setSearchResults([]);
+
     showToast.success(`${product.name} agregado al carrito`);
   };
 
-  const handleBarcodeScanned = (barcode: string) => {
-    // Clear any pending timeout
+  const handleBarcodeScanned = async (barcode: string) => {
     if (barcodeProcessingTimeout) {
       clearTimeout(barcodeProcessingTimeout);
       setBarcodeProcessingTimeout(null);
     }
 
-    // Prevent processing the same barcode if it was just processed
-    // if (barcode === lastProcessedBarcode) {
-    //   console.log('� Barcode ya procesado recientemente:', barcode);
-    //   // Clear the scanner input to prepare for next scan
-    //   barcodeScannerRef.current?.clearInput();
-    //   return;
-    // }
+    // Buscamos el producto en el backend por el código escaneado. El endpoint
+    // /products paginado matchea barcode dentro del filtro `search`. Tomamos
+    // el primer resultado cuyo barcode sea exactamente el escaneado, así
+    // evitamos colisiones con nombres que casualmente contengan el código.
+    try {
+      const res = await productsService.getProducts(1, 5, { search: barcode });
+      const product = res.data.data.find((p) => p.barcode === barcode) ?? res.data.data[0];
 
-    console.log('🔍 Procesando nuevo código:', barcode);
-    
-    // Find product by barcode
-    const product = products.find(p => p.barcode === barcode);
-    
-    if (product) {
-      // Mark as processed immediately
+      if (!product) {
+        showToast.error('Producto no encontrado con ese código de barras');
+        barcodeScannerRef.current?.clearInput();
+        return;
+      }
+
       setLastProcessedBarcode(barcode);
-      
-      // Add to cart
       addProductToCart(product);
-      
-      // Clear the scanner input
       barcodeScannerRef.current?.clearInput();
-      
-      // Clear the "last processed" after a short delay to allow for new scans
+
       const timeout = setTimeout(() => {
         setLastProcessedBarcode('');
         setBarcodeProcessingTimeout(null);
-      }, 1500); // 1.5 seconds delay
-      
+      }, 1500);
       setBarcodeProcessingTimeout(timeout);
-    } else {
-      showToast.error('Producto no encontrado con ese código de barras');
-      // Clear the scanner input even if product not found
+    } catch (e) {
+      console.error('Error buscando producto por barcode:', e);
+      showToast.error('Error buscando el producto');
       barcodeScannerRef.current?.clearInput();
     }
   };
 
-  const handleClientSelect = async (selectedClientId: string) => {
-    setClientId(selectedClientId);
-    const selectedClient = clients.find(client => client.id === selectedClientId);
-    if (selectedClient) {
-      setCustomerName(selectedClient.fullName);
-      setCustomerEmail(selectedClient.email || '');
-      setCustomerPhone(selectedClient.phone || '');
-      
-      // Cargar señas del cliente automáticamente
-      try {
-        const response = await getPrepaidsByClient(selectedClientId);
-        const pendingPrepaids = response.data?.filter(prepaid => 
-          prepaid.status === 'PENDING' && prepaid.amount > 0
-        ) || [];
-        
-        if (pendingPrepaids.length > 0) {
-          // Usar la primera seña disponible
-          const firstPrepaid = pendingPrepaids[0];
-          setClientPrepaid({ id: firstPrepaid.id, amount: firstPrepaid.amount });
-          setUsePrepaid(true);
-          showToast.success(`Seña disponible: ${formatCurrency(firstPrepaid.amount)}`);
-        } else {
-          setClientPrepaid(null);
-          setUsePrepaid(false);
-        }
-      } catch (error) {
-        console.error('Error cargando señas del cliente:', error);
+  // Cuando se elige un cliente desde el AsyncSelect: hidratamos los campos
+  // del cliente y buscamos seña pendiente. Si se limpia, blanqueamos todo
+  // (no tocamos el customerName porque puede estar tipeando uno nuevo).
+  const handleClientChange = async (client: Client | null) => {
+    setSelectedClient(client);
+    if (!client) {
+      setClientPrepaid(null);
+      setUsePrepaid(false);
+      return;
+    }
+
+    setCustomerName(client.fullName);
+    setCustomerEmail(client.email || '');
+    setCustomerPhone(client.phone || '');
+    setCustomerCuit(client.cuit || '');
+
+    try {
+      const response = await getPrepaidsByClient(client.id);
+      const pendingPrepaids = (response.data || []).filter(
+        (prepaid) => prepaid.status === 'PENDING' && prepaid.amount > 0,
+      );
+
+      if (pendingPrepaids.length > 0) {
+        const first = pendingPrepaids[0];
+        setClientPrepaid({ id: first.id, amount: first.amount });
+        setUsePrepaid(true);
+        showToast.success(`Seña disponible: ${formatCurrency(first.amount)}`);
+      } else {
         setClientPrepaid(null);
         setUsePrepaid(false);
       }
+    } catch (error) {
+      console.error('Error cargando señas del cliente:', error);
+      setClientPrepaid(null);
+      setUsePrepaid(false);
     }
   };
 
@@ -273,18 +276,22 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setCartItems([]);
   };
 
+  // El backend recibe `discount` con signo: positivo = descuento, negativo = recargo.
+  const signedDiscount = adjustmentType === 'discount' ? adjustmentPercentage : -adjustmentPercentage;
+
   const calculateTotals = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const tax = 0; // No tax for now
-    const discountAmount = (subtotal * discountPercentage) / 100;
-    const subtotalAfterDiscount = subtotal - discountAmount;
-    const prepaidAmount = usePrepaid && clientPrepaid ? Math.min(clientPrepaid.amount, subtotalAfterDiscount) : 0;
-    const total = subtotalAfterDiscount + tax - prepaidAmount;
+    const tax = 0;
+    // adjustmentAmount > 0 reduce el subtotal (descuento), < 0 lo aumenta (recargo).
+    const adjustmentAmount = (subtotal * signedDiscount) / 100;
+    const subtotalAfterAdjustment = subtotal - adjustmentAmount;
+    const prepaidAmount = usePrepaid && clientPrepaid ? Math.min(clientPrepaid.amount, subtotalAfterAdjustment) : 0;
+    const total = subtotalAfterAdjustment + tax - prepaidAmount;
 
-    return { subtotal, tax, discountAmount, prepaidAmount, total };
+    return { subtotal, tax, adjustmentAmount, prepaidAmount, total };
   };
 
-  const { subtotal, tax, discountAmount, prepaidAmount, total } = calculateTotals();
+  const { subtotal, tax, adjustmentAmount, prepaidAmount, total } = calculateTotals();
 
   // Auto-actualizar la línea CASH cuando hay un solo método y cambia el total
   // (caso típico del POS rápido). Si el operador armó un split, no tocamos.
@@ -302,6 +309,29 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [total]);
+
+  const resetForm = () => {
+    setSelectedClient(null);
+    setCustomerName('');
+    setCustomerEmail('');
+    setCustomerPhone('');
+    setCustomerCuit('');
+    setPayments([]);
+    setNotes('');
+    setCartItems([]);
+    setClientPrepaid(null);
+    setUsePrepaid(false);
+    setLastProcessedBarcode('');
+    setAdjustmentType('discount');
+    setAdjustmentPercentage(0);
+    setShowAdjustmentInput(false);
+
+    if (barcodeProcessingTimeout) {
+      clearTimeout(barcodeProcessingTimeout);
+      setBarcodeProcessingTimeout(null);
+    }
+    barcodeScannerRef.current?.clearInput();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,78 +354,55 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setIsSubmitting(true);
 
     try {
-      if (editingSale) {
-        // Edit mode - usar directamente el hook
-        const updateData: UpdateSaleRequest = {
-          clientId: clientId || undefined,
-          customerName: customerName.trim(),
-          customerEmail: customerEmail.trim() || undefined,
-          customerPhone: customerPhone.trim() || undefined,
-          items: cartItems.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-          discount: discountPercentage,
-          payments,
-          notes: notes.trim() || undefined,
-          prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
-          consumedPrepaid: usePrepaid,
-        };
+      // Auto-create del cliente cuando se cargó manualmente (no se eligió uno
+      // del dropdown). Si falla la creación dejamos seguir la venta sin
+      // clientId — los datos quedan en customerName/Email/Phone igual.
+      let effectiveClientId = clientId;
+      if (!editingSale && !effectiveClientId && customerName.trim()) {
+        try {
+          const created = await clientsService.createClient({
+            fullName: customerName.trim(),
+            email: customerEmail.trim() || undefined,
+            phone: customerPhone.trim() || undefined,
+            cuit: customerCuit.trim() || undefined,
+          });
+          effectiveClientId = created.data.id;
+          showToast.success(`Cliente "${created.data.fullName}" creado`);
+        } catch (err) {
+          console.warn('No se pudo crear el cliente, se sigue como venta sin clientId', err);
+        }
+      }
 
+      const basePayload = {
+        clientId: effectiveClientId || undefined,
+        customerName: customerName.trim(),
+        customerEmail: customerEmail.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        items: cartItems.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+        discount: signedDiscount,
+        payments,
+        notes: notes.trim() || undefined,
+        prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
+        consumedPrepaid: usePrepaid,
+      } as const;
+
+      if (editingSale) {
+        const updateData: UpdateSaleRequest = { ...basePayload };
         await updateSale(editingSale.id, updateData);
-        
-        // Llamar callback si existe
         if (onSaleUpdated) {
           await onSaleUpdated(editingSale.id, updateData);
         }
       } else {
-        // Create mode
-        const saleData: CreateSaleRequest = {
-          clientId: clientId || undefined,
-          customerName: customerName.trim(),
-          customerEmail: customerEmail.trim() || undefined,
-          customerPhone: customerPhone.trim() || undefined,
-          items: cartItems.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
-          discount: discountPercentage,
-          payments,
-          notes: notes.trim() || undefined,
-          prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
-          consumedPrepaid: usePrepaid,
-        };
-
+        const saleData: CreateSaleRequest = { ...basePayload };
         const createdSale = await createSale(saleData);
         onSaleCreated?.(createdSale);
       }
-      
-      // Reset form
-      setClientId('');
-      setCustomerName('');
-      setCustomerEmail('');
-      setCustomerPhone('');
-      setPayments([]);
-      setNotes('');
-      setCartItems([]);
-      setSearchQuery('');
-      setSearchResults([]);
-      setClientPrepaid(null);
-      setUsePrepaid(false);
-      setLastProcessedBarcode('');
-      setDiscountPercentage(0);
-      setShowDiscountInput(false);
-      
-      // Clear any pending barcode timeout
-      if (barcodeProcessingTimeout) {
-        clearTimeout(barcodeProcessingTimeout);
-        setBarcodeProcessingTimeout(null);
-      }
-      
-      // Clear scanner input
-      barcodeScannerRef.current?.clearInput();
+
+      resetForm();
       onClose();
     } catch (error) {
       console.error('Error creating sale:', error);
@@ -405,28 +412,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   };
 
   const handleCancel = () => {
-    // Reset form
-    setCustomerName('');
-    setCustomerEmail('');
-    setCustomerPhone('');
-    setPayments([]);
-    setNotes('');
-    setCartItems([]);
-    setSearchQuery('');
-    setSearchResults([]);
-    setLastProcessedBarcode('');
-    setDiscountPercentage(0);
-    setShowDiscountInput(false);
-    
-    // Clear any pending barcode timeout
-    if (barcodeProcessingTimeout) {
-      clearTimeout(barcodeProcessingTimeout);
-      setBarcodeProcessingTimeout(null);
-    }
-    
-    // Clear scanner input
-    barcodeScannerRef.current?.clearInput();
-    
+    resetForm();
     onClose();
   };
 
@@ -450,40 +436,64 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 Información del Cliente
               </h3>
               
-              <div className="space-y-2">
-                <Label htmlFor="clientId" className="text-[#455a54] font-winter-solid">
-                  Cliente (Opcional)
+              {/* Selector de cliente: doble función como input de nombre.
+                  Si se elige uno existente, hidrata email/teléfono/cuit.
+                  Si se tipea libre y no se elige, al confirmar venta se crea. */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-[#455a54] font-winter-solid">
+                  Cliente <span className="text-[#455a54]/50">(buscar o tipear nuevo)</span>
                 </Label>
-                <Select value={clientId} onValueChange={handleClientSelect}>
-                  <SelectTrigger className="bg-white border-2 border-gray-700 hover:border-gray-800 focus:border-gray-900 focus:ring-2 focus:ring-gray-300">
-                    <SelectValue placeholder="Seleccionar cliente existente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.fullName}{client.phone ? ` (${client.phone})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="customerName" className="text-[#455a54] font-winter-solid">
-                  Nombre del Cliente *
-                </Label>
-                <Input
-                  id="customerName"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Nombre completo"
-                  className="border-2 border-gray-700 focus:border-gray-900 focus:ring-2 focus:ring-gray-300"
-                  required
+                <AsyncSelect<Client>
+                  value={selectedClient}
+                  onChange={handleClientChange}
+                  fetcher={fetchClients}
+                  getKey={(c) => c.id}
+                  getLabel={(c) => c.fullName}
+                  renderOption={(c) => (
+                    <div className="flex justify-between items-center w-full gap-2">
+                      <span className="font-medium text-[#455a54] truncate">{c.fullName}</span>
+                      <span className="text-xs text-[#455a54]/60 truncate">
+                        {[c.cuit, c.phone].filter(Boolean).join(' · ')}
+                      </span>
+                    </div>
+                  )}
+                  placeholder="Nombre completo *"
+                  allowFreeText
+                  freeTextValue={customerName}
+                  onFreeTextChange={setCustomerName}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="customerEmail" className="text-[#455a54] font-winter-solid">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="customerCuit" className="text-xs text-[#455a54] font-winter-solid">
+                    CUIT
+                  </Label>
+                  <Input
+                    id="customerCuit"
+                    value={customerCuit}
+                    onChange={(e) => setCustomerCuit(e.target.value)}
+                    placeholder="20-12345678-9"
+                    className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="customerPhone" className="text-xs text-[#455a54] font-winter-solid">
+                    Teléfono
+                  </Label>
+                  <Input
+                    id="customerPhone"
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="+54 11 1234-5678"
+                    className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="customerEmail" className="text-xs text-[#455a54] font-winter-solid">
                   Email
                 </Label>
                 <Input
@@ -492,21 +502,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   placeholder="cliente@email.com"
-                  className="border-2 border-gray-700 focus:border-gray-900 focus:ring-2 focus:ring-gray-300"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="customerPhone" className="text-[#455a54] font-winter-solid">
-                  Teléfono
-                </Label>
-                <Input
-                  id="customerPhone"
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="+54 11 1234-5678"
-                  className="border-2 border-gray-700 focus:border-gray-900 focus:ring-2 focus:ring-gray-300"
+                  className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
                 />
               </div>
 
@@ -597,61 +593,33 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 className="mb-4"
               />
 
-              {/* Product Search */}
-              <div className="space-y-2">
-                <Label htmlFor="searchQuery" className="text-[#455a54] font-winter-solid">
+              {/* Product Search: paginado + virtual scroll. Cada selección agrega
+                  al carrito y limpia la query para seguir buscando rápido. */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-[#455a54] font-winter-solid">
                   Buscar Productos
                 </Label>
-                <Input
-                  id="searchQuery"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                <AsyncSelect<Product>
+                  value={null}
+                  onChange={(p) => p && addProductToCart(p)}
+                  fetcher={fetchProducts}
+                  getKey={(p) => p.id}
+                  getLabel={(p) => p.name}
+                  renderOption={(p) => (
+                    <div className="flex justify-between items-center w-full gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-[#455a54] truncate">{p.name}</p>
+                        <p className="text-xs text-[#455a54]/60 truncate">{p.barcode || '—'}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-medium text-[#9d684e] text-sm">${p.price.toFixed(2)}</p>
+                        <p className="text-[10px] text-[#455a54]/60">Stock: {p.stock}</p>
+                      </div>
+                    </div>
+                  )}
                   placeholder="Buscar por nombre o código..."
-                  className="border-2 border-gray-700 focus:border-gray-900 focus:ring-2 focus:ring-gray-300"
-                  onKeyDown={(e) => {
-                    if (!searchResults.length) return;
-                    if (e.key === 'ArrowDown') {
-                      e.preventDefault();
-                      setHighlightedIndex(i => Math.min(i + 1, searchResults.length - 1));
-                    } else if (e.key === 'ArrowUp') {
-                      e.preventDefault();
-                      setHighlightedIndex(i => Math.max(i - 1, 0));
-                    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
-                      e.preventDefault();
-                      addProductToCart(searchResults[highlightedIndex]);
-                      setHighlightedIndex(-1);
-                    }
-                  }}
+                  rowHeight={56}
                 />
-                
-                {/* Search Results */}
-                {searchResults.length > 0 && (
-                  <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md">
-                    {searchResults.map((product, index) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        onClick={() => addProductToCart(product)}
-                        className={`w-full text-left p-2 border-b border-gray-100 last:border-b-0 ${
-                          index === highlightedIndex ? 'bg-[#455a54]/10' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <p className="font-medium text-[#455a54]">{product.name}</p>
-                            <p className="text-sm text-gray-500">{product.barcode}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-[#9d684e]">
-                              ${product.price.toFixed(2)}
-                            </p>
-                            <p className="text-xs text-gray-500">Stock: {product.stock}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
 
               {/* Cart Items */}
@@ -732,50 +700,74 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               {/* Totals */}
               {cartItems.length > 0 && (
                 <div className="border-t border-gray-200 pt-3 space-y-3">
-                  {/* Discount Section */}
+                  {/* Adjustment Section: descuento o recargo (excluyentes). */}
                   <div className="space-y-2">
-                    {!showDiscountInput ? (
+                    {!showAdjustmentInput ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setShowDiscountInput(true)}
+                        onClick={() => setShowAdjustmentInput(true)}
                         className="w-full border-[#9d684e]/30 text-[#9d684e] hover:bg-[#9d684e]/10 touch-target"
                       >
                         <Percent className="h-4 w-4 mr-2" />
-                        Aplicar Descuento
+                        Aplicar Descuento o Recargo
                       </Button>
                     ) : (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                      <div className="p-3 bg-[#efcbb9]/20 border border-[#9d684e]/20 rounded-lg space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="discountAmount" className="text-blue-800 font-winter-solid text-sm">
-                            Descuento (%)
-                          </Label>
+                          <div className="flex gap-1 rounded-md bg-white border border-[#9d684e]/20 p-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setAdjustmentType('discount')}
+                              className={
+                                'px-2 py-1 text-xs rounded font-winter-solid transition ' +
+                                (adjustmentType === 'discount'
+                                  ? 'bg-[#9d684e] text-white'
+                                  : 'text-[#455a54] hover:bg-[#9d684e]/10')
+                              }
+                            >
+                              Descuento
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAdjustmentType('surcharge')}
+                              className={
+                                'px-2 py-1 text-xs rounded font-winter-solid transition ' +
+                                (adjustmentType === 'surcharge'
+                                  ? 'bg-[#9d684e] text-white'
+                                  : 'text-[#455a54] hover:bg-[#9d684e]/10')
+                              }
+                            >
+                              Recargo
+                            </button>
+                          </div>
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              setShowDiscountInput(false);
-                              setDiscountPercentage(0);
+                              setShowAdjustmentInput(false);
+                              setAdjustmentPercentage(0);
                             }}
-                            className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800"
+                            className="h-6 w-6 p-0 text-[#9d684e] hover:text-[#9d684e]/80"
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
                         <Input
-                          id="discountAmount"
                           type="number"
                           min="0"
                           max="100"
-                          value={discountPercentage || ''}
-                          onChange={(e) => setDiscountPercentage(parseFloat(e.target.value) || 0)}
+                          step="0.01"
+                          value={adjustmentPercentage || ''}
+                          onChange={(e) => setAdjustmentPercentage(parseFloat(e.target.value) || 0)}
                           placeholder="0.00%"
-                          className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
+                          className="border-[#9d684e]/20 focus:border-[#9d684e]"
                         />
-                        <p className="text-xs text-blue-600">
-                          Descuento: {formatCurrency(calculateTotals().discountAmount)}
+                        <p className="text-xs text-[#455a54]/70">
+                          {adjustmentType === 'discount' ? 'Descuento' : 'Recargo'}:{' '}
+                          {formatCurrency(Math.abs(adjustmentAmount))}
                         </p>
                       </div>
                     )}
@@ -787,10 +779,18 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                       <span>Subtotal:</span>
                       <span>{formatCurrency(subtotal)}</span>
                     </div>
-                    {discountPercentage > 0 && (
-                      <div className="flex justify-between text-xs sm:text-sm text-blue-600">
-                        <span>Descuento:</span>
-                        <span>-{formatCurrency(discountAmount)}</span>
+                    {adjustmentPercentage > 0 && (
+                      <div
+                        className={
+                          'flex justify-between text-xs sm:text-sm ' +
+                          (adjustmentType === 'discount' ? 'text-blue-600' : 'text-orange-600')
+                        }
+                      >
+                        <span>{adjustmentType === 'discount' ? 'Descuento' : 'Recargo'}:</span>
+                        <span>
+                          {adjustmentType === 'discount' ? '-' : '+'}
+                          {formatCurrency(Math.abs(adjustmentAmount))}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between text-xs sm:text-sm">

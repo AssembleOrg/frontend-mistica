@@ -140,6 +140,7 @@ export default function ClientsPage() {
         await loadClientsWithFilters(currentPage, pageSize, true);
       } else {
         await createClient(clientData as CreateClientRequest);
+        await loadClientsWithFilters(1, pageSize, true);
       }
 
       setShowForm(false);

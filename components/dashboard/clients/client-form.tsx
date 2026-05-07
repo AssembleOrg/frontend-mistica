@@ -280,7 +280,7 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
               </Button>
             </div>
 
-            {client && client.prepaid && client.prepaid > 0 && (
+            {!!(client && client.prepaid && client.prepaid > 0) && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                 <p className="text-sm text-yellow-700 font-winter-solid">
                   ⚠️ Este cliente ya tiene una seña activa de {formatCurrency(client.prepaid)}. No se puede agregar otra seña.

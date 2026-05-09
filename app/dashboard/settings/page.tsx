@@ -29,7 +29,7 @@ const sections: Section[] = [
     key: 'business',
     label: 'Empresa',
     icon: Building2,
-    description: 'Datos del negocio y AFIP',
+    description: 'Datos del negocio',
     available: false,
   },
   {

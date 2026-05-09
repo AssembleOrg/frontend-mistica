@@ -475,7 +475,7 @@ export function ActiveServicesList() {
                 </div>
               )}
 
-              {/* Opciones de facturación */}
+              {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -505,7 +505,7 @@ export function ActiveServicesList() {
                           </SelectContent>
                         </Select>
                       </div>
-                      
+
                       <div>
                         <Label htmlFor="customerCuit">CUIT del cliente</Label>
                         <Input
@@ -536,6 +536,7 @@ export function ActiveServicesList() {
                   </div>
                 )}
               </div>
+              */}
 
               <div className="flex gap-2 pt-4">
                 <Button

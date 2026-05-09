@@ -326,7 +326,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
           </div>
         </Section>
 
-        {/* AFIP — solo si tiene datos */}
+        {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
         {hasAfipData(sale) && (
           <Section title="Factura AFIP" icon={ShieldCheck}>
             <Row label="CAE">{sale.afipCae}</Row>
@@ -338,6 +338,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
             )}
           </Section>
         )}
+        */}
 
         {/* Notas */}
         {sale.notes && (
@@ -357,6 +358,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
           <>
             {/* Completar venta */}
             <div className="bg-white/60 rounded-lg border border-[#9d684e]/10 p-3 space-y-2.5">
+              {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="generateInvoice"
@@ -372,6 +374,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                   Emitir factura AFIP
                 </Label>
               </div>
+              */}
               <Button
                 onClick={handleCompleteSale}
                 disabled={isUpdating}
@@ -418,7 +421,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 Ver comprobante
                 <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
               </Button>
-              {/* NC sólo tiene sentido si la venta fue facturada (hay algo que invalidar). */}
+              {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
               {isInvoiced && (
                 <Button
                   onClick={() => setShowCreditNote(true)}
@@ -429,11 +432,10 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                   NC
                 </Button>
               )}
+              */}
             </div>
 
-            {/* Si se completó sin facturar, ofrecemos emitir factura AFIP ahora.
-                El click abre un modal donde se elige tipo (A/B/C) y, si aplica,
-                se carga el CUIT y se valida contra el padrón AFIP. */}
+            {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
             {!isInvoiced && (
               <Button
                 onClick={() => setShowInvoiceDialog(true)}
@@ -445,6 +447,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 {isUpdating ? 'Facturando…' : 'Facturar AFIP'}
               </Button>
             )}
+            */}
           </>
         )}
 

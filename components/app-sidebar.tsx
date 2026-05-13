@@ -11,6 +11,7 @@ import {
   UserCheck,
   CreditCard,
   DollarSign,
+  Tag,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -77,6 +78,12 @@ const navigationItems = [
     enabled: true,
   },
   {
+    title: 'Categorías',
+    url: '/dashboard/categories',
+    icon: Tag,
+    enabled: true,
+  },
+  {
     title: 'Stock',
     url: '/dashboard/stock',
     icon: Warehouse,
@@ -86,7 +93,7 @@ const navigationItems = [
     title: 'Personal',
     url: '/dashboard/staff',
     icon: Users,
-    enabled: true,
+    enabled: false,
   },
   // {
   //   title: 'Configuración',
@@ -120,6 +127,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const userRole = user?.role ?? null;
   const filteredNavItems = React.useMemo(() => {
     return navigationItems.filter((item) => {
+      // Items marcados como enabled:false se ocultan a todos los roles.
+      if (item.enabled === false) return false;
       if (!userRole) return true;
       const uiRole = userRole === 'admin' ? 'admin' : 'gerente';
       if (uiRole === 'gerente') return item.title !== 'Personal';

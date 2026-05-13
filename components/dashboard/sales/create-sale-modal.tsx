@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AsyncSelect } from '@/components/ui/async-select';
@@ -29,6 +30,7 @@ import { usePrepaidsAPI } from '@/hooks/usePrepaidsAPI';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { BarcodeScanner, BarcodeScannerRef } from './barcode-scanner';
 import { PaymentsEditor, paymentsAreValid } from './payments-editor';
+import { PrepaidAmountDialog } from './prepaid-amount-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
 import type { Product } from '@/lib/types';
 
@@ -65,7 +67,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // Ajuste sobre el subtotal: positivo = descuento, negativo = recargo.
   // En el form se controla por separado: tipo + magnitud absoluta.
   const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('discount');
-  const [adjustmentPercentage, setAdjustmentPercentage] = useState(0);
+  const [adjustmentAmount, setAdjustmentAmount] = useState(0);
+  // Producto seña pendiente de capturar monto. Cuando es no-null, mostramos
+  // el PrepaidAmountDialog para que el operador ingrese el monto antes de
+  // agregarlo al carrito.
+  const [pendingPrepaidProduct, setPendingPrepaidProduct] = useState<Product | null>(null);
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
@@ -130,7 +136,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       // positivo = descuento, negativo = recargo.
       if (editingSale.discount && editingSale.discount !== 0) {
         setAdjustmentType(editingSale.discount > 0 ? 'discount' : 'surcharge');
-        setAdjustmentPercentage(Math.abs(editingSale.discount));
+        setAdjustmentAmount(Math.abs(editingSale.discount));
         setShowAdjustmentInput(true);
       }
     }
@@ -188,6 +194,17 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   }, []);
 
   const addProductToCart = (product: Product) => {
+    // Producto seña: requiere cliente seleccionado y monto a definir por línea.
+    // No dedupe — cada seña es una línea independiente.
+    if (product.kind === 'PREPAID') {
+      if (!selectedClient) {
+        showToast.error('Para registrar una seña primero seleccioná un cliente');
+        return;
+      }
+      setPendingPrepaidProduct(product);
+      return;
+    }
+
     setCartItems(prev => {
       const existingItem = prev.find(item => item.productId === product.id);
 
@@ -210,6 +227,23 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     });
 
     showToast.success(`${product.name} agregado al carrito`);
+  };
+
+  const handleConfirmPrepaidAmount = (amount: number) => {
+    if (!pendingPrepaidProduct) return;
+    const product = pendingPrepaidProduct;
+    setCartItems(prev => [
+      ...prev,
+      {
+        productId: product.id,
+        productName: product.name,
+        quantity: 1,
+        unitPrice: amount,
+        subtotal: amount,
+      },
+    ]);
+    showToast.success(`Seña de ${formatCurrency(amount)} agregada`);
+    setPendingPrepaidProduct(null);
   };
 
   const handleBarcodeScanned = async (barcode: string) => {
@@ -307,22 +341,23 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setCartItems([]);
   };
 
-  // El backend recibe `discount` con signo: positivo = descuento, negativo = recargo.
-  const signedDiscount = adjustmentType === 'discount' ? adjustmentPercentage : -adjustmentPercentage;
+  // El backend recibe `discount` con signo: positivo = descuento (resta del
+  // total), negativo = recargo (suma). `adjustmentAmount` es siempre el MONTO
+  // (en pesos) que ingresa el usuario; el signo lo decide el toggle desc/rec.
+  const signedDiscount = adjustmentType === 'discount' ? adjustmentAmount : -adjustmentAmount;
 
   const calculateTotals = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
     const tax = 0;
-    // adjustmentAmount > 0 reduce el subtotal (descuento), < 0 lo aumenta (recargo).
-    const adjustmentAmount = (subtotal * signedDiscount) / 100;
-    const subtotalAfterAdjustment = subtotal - adjustmentAmount;
+    const adjustmentApplied = signedDiscount;
+    const subtotalAfterAdjustment = subtotal - adjustmentApplied;
     const prepaidAmount = usePrepaid && clientPrepaid ? Math.min(clientPrepaid.amount, subtotalAfterAdjustment) : 0;
-    const total = subtotalAfterAdjustment + tax - prepaidAmount;
+    const total = Math.max(0, subtotalAfterAdjustment + tax - prepaidAmount);
 
-    return { subtotal, tax, adjustmentAmount, prepaidAmount, total };
+    return { subtotal, tax, adjustmentApplied, prepaidAmount, total };
   };
 
-  const { subtotal, tax, adjustmentAmount, prepaidAmount, total } = calculateTotals();
+  const { subtotal, tax, adjustmentApplied, prepaidAmount, total } = calculateTotals();
 
   // Auto-actualizar la línea CASH cuando hay un solo método y cambia el total
   // (caso típico del POS rápido). Si el operador armó un split, no tocamos.
@@ -354,7 +389,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setUsePrepaid(false);
     setLastProcessedBarcode('');
     setAdjustmentType('discount');
-    setAdjustmentPercentage(0);
+    setAdjustmentAmount(0);
     setShowAdjustmentInput(false);
 
     if (barcodeProcessingTimeout) {
@@ -385,10 +420,27 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setIsSubmitting(true);
 
     try {
-      // Si no hay cliente seleccionado, la venta va con sólo customerName
-      // (backend lo acepta). Para crear clientes nominales, usar /dashboard/clients
-      // o seleccionarlo desde el AsyncSelect.
-      const effectiveClientId = clientId;
+      // Si no hay cliente seleccionado pero hay nombre tipeado libre, creamos
+      // el cliente nominal con los datos que llenó el operador (CUIT, email,
+      // teléfono). Esto evita la fricción de salir a /dashboard/clients para
+      // dar de alta un cliente desde el flujo de venta.
+      let effectiveClientId = clientId;
+      if (!effectiveClientId && customerName.trim()) {
+        try {
+          const created = await clientsService.createClient({
+            fullName: customerName.trim(),
+            cuit: customerCuit.trim() || undefined,
+            phone: customerPhone.trim() || undefined,
+            email: customerEmail.trim() || undefined,
+          });
+          effectiveClientId = created.data.id;
+          showToast.success('Cliente creado y asociado a la venta');
+        } catch (err) {
+          // Si la creación falla (ej: email duplicado), seguimos con la venta
+          // sin clientId; el backend acepta venta solo con customerName.
+          console.warn('No se pudo crear el cliente, sigo con venta sin asociar:', err);
+        }
+      }
 
       const basePayload = {
         clientId: effectiveClientId || undefined,
@@ -773,26 +825,22 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                             size="sm"
                             onClick={() => {
                               setShowAdjustmentInput(false);
-                              setAdjustmentPercentage(0);
+                              setAdjustmentAmount(0);
                             }}
                             className="h-6 w-6 p-0 text-[#9d684e] hover:text-[#9d684e]/80"
                           >
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={adjustmentPercentage || ''}
-                          onChange={(e) => setAdjustmentPercentage(parseFloat(e.target.value) || 0)}
-                          placeholder="0.00%"
+                        <CurrencyInput
+                          value={adjustmentAmount}
+                          onChange={(v) => setAdjustmentAmount(v)}
+                          placeholder="0,00"
                           className="border-[#9d684e]/20 focus:border-[#9d684e]"
                         />
                         <p className="text-xs text-[#455a54]/70">
                           {adjustmentType === 'discount' ? 'Descuento' : 'Recargo'}:{' '}
-                          {formatCurrency(Math.abs(adjustmentAmount))}
+                          {formatCurrency(adjustmentAmount)}
                         </p>
                       </div>
                     )}
@@ -804,17 +852,17 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                       <span>Subtotal:</span>
                       <span>{formatCurrency(subtotal)}</span>
                     </div>
-                    {adjustmentPercentage > 0 && (
+                    {adjustmentApplied !== 0 && (
                       <div
                         className={
                           'flex justify-between text-xs sm:text-sm ' +
-                          (adjustmentType === 'discount' ? 'text-blue-600' : 'text-orange-600')
+                          (adjustmentApplied > 0 ? 'text-blue-600' : 'text-orange-600')
                         }
                       >
-                        <span>{adjustmentType === 'discount' ? 'Descuento' : 'Recargo'}:</span>
+                        <span>{adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}:</span>
                         <span>
-                          {adjustmentType === 'discount' ? '-' : '+'}
-                          {formatCurrency(Math.abs(adjustmentAmount))}
+                          {adjustmentApplied > 0 ? '-' : '+'}
+                          {formatCurrency(Math.abs(adjustmentApplied))}
                         </span>
                       </div>
                     )}
@@ -871,6 +919,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           </div>
         </form>
       </DialogContent>
+      <PrepaidAmountDialog
+        open={!!pendingPrepaidProduct}
+        onOpenChange={(v) => { if (!v) setPendingPrepaidProduct(null); }}
+        productName={pendingPrepaidProduct?.name ?? 'Seña'}
+        onConfirm={handleConfirmPrepaidAmount}
+      />
     </Dialog>
   );
 }

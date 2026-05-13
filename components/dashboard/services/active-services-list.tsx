@@ -475,7 +475,6 @@ export function ActiveServicesList() {
                 </div>
               )}
 
-              {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -536,7 +535,6 @@ export function ActiveServicesList() {
                   </div>
                 )}
               </div>
-              */}
 
               <div className="flex gap-2 pt-4">
                 <Button

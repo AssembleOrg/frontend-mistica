@@ -201,7 +201,7 @@ export function generateStockReport(
   return {
     totalProducts: products.length,
     totalStockValue: products.reduce((total, product) => {
-      return total + product.stock * product.costPrice;
+      return total + product.stock * (product.costPrice ?? 0);
     }, 0),
     lowStockProducts: activeAlerts.filter((a) => a.type === 'stock_bajo')
       .length,

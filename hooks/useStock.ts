@@ -75,7 +75,7 @@ export function useStock() {
   }, [stockMovements]);
 
   const getOutOfStockProducts = useCallback(() => {
-    return products.filter(p => p.stock === 0 && p.status === 'active');
+    return products.filter(p => p.stock === 0);
   }, [products]);
 
   const stockSummary = {

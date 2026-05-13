@@ -231,9 +231,10 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
     minute: '2-digit',
   });
 
-  const discountAmount = sale.discount > 0 ? sale.subtotal * (sale.discount / 100) : 0;
+  // `sale.discount` ahora es MONTO FIJO (positivo=descuento, negativo=recargo).
+  const adjustmentApplied = sale.discount || 0;
   const hasPrepaid    = (sale.prepaidUsed ?? 0) > 0;
-  const hasDiscount   = sale.discount > 0;
+  const hasAdjustment = adjustmentApplied !== 0;
   const hasTax        = sale.tax > 0;
   const isMultiPay    = (sale.payments ?? []).length > 1;
 
@@ -307,9 +308,12 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         {/* Totales */}
         <Section title="Resumen" icon={FileText}>
           <Row label="Subtotal">{formatCurrency(sale.subtotal)}</Row>
-          {hasDiscount && (
-            <Row label={`Descuento ${sale.discount}%`}>
-              <span className="text-[#cc844a]">−{formatCurrency(discountAmount)}</span>
+          {hasAdjustment && (
+            <Row label={adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}>
+              <span className={adjustmentApplied > 0 ? 'text-[#cc844a]' : 'text-[#9d684e]'}>
+                {adjustmentApplied > 0 ? '−' : '+'}
+                {formatCurrency(Math.abs(adjustmentApplied))}
+              </span>
             </Row>
           )}
           {hasPrepaid && (
@@ -326,7 +330,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
           </div>
         </Section>
 
-        {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
+        {/* AFIP — solo si tiene datos */}
         {hasAfipData(sale) && (
           <Section title="Factura AFIP" icon={ShieldCheck}>
             <Row label="CAE">{sale.afipCae}</Row>
@@ -338,7 +342,6 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
             )}
           </Section>
         )}
-        */}
 
         {/* Notas */}
         {sale.notes && (
@@ -358,7 +361,6 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
           <>
             {/* Completar venta */}
             <div className="bg-white/60 rounded-lg border border-[#9d684e]/10 p-3 space-y-2.5">
-              {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
               <div className="flex items-center gap-2">
                 <Checkbox
                   id="generateInvoice"
@@ -374,7 +376,6 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                   Emitir factura AFIP
                 </Label>
               </div>
-              */}
               <Button
                 onClick={handleCompleteSale}
                 disabled={isUpdating}
@@ -421,7 +422,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 Ver comprobante
                 <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F4</kbd>
               </Button>
-              {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
+              {/* NC sólo tiene sentido si la venta fue facturada (hay algo que invalidar). */}
               {isInvoiced && (
                 <Button
                   onClick={() => setShowCreditNote(true)}
@@ -432,10 +433,11 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                   NC
                 </Button>
               )}
-              */}
             </div>
 
-            {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
+            {/* Si se completó sin facturar, ofrecemos emitir factura AFIP ahora.
+                El click abre un modal donde se elige tipo (A/B/C) y, si aplica,
+                se carga el CUIT y se valida contra el padrón AFIP. */}
             {!isInvoiced && (
               <Button
                 onClick={() => setShowInvoiceDialog(true)}
@@ -447,7 +449,6 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 {isUpdating ? 'Facturando…' : 'Facturar AFIP'}
               </Button>
             )}
-            */}
           </>
         )}
 

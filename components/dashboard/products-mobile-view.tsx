@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { categoryConfig, statusConfig } from '@/lib/config';
+import { getCategoryStyle } from '@/lib/config';
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { DateRange } from 'react-day-picker';
@@ -113,9 +113,8 @@ export function ProductsMobileView({
       {/* Products Cards */}
       <div className="space-y-3">
       {products.map((product) => {
-        const categoryInfo = categoryConfig[product.category];
-        const statusInfo = statusConfig[product.status];
-        const profitMargin = calculateProfitMargin(product.costPrice, product.price);
+        const categoryInfo = getCategoryStyle(product.category);
+        const profitMargin = calculateProfitMargin(product.costPrice ?? 0, product.price);
 
         return (
           <div key={product.id} className="mobile-card">
@@ -123,26 +122,18 @@ export function ProductsMobileView({
               <div className="flex-1">
                 <h3 className="mobile-card-title">{product.name}</h3>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge 
-                    style={{ 
-                      backgroundColor: categoryInfo.color + '20',
-                      color: categoryInfo.color,
-                      border: `1px solid ${categoryInfo.color}40`
-                    }}
-                    className="text-xs"
-                  >
-                    {categoryInfo.label}
-                  </Badge>
-                  <Badge
-                    style={{ 
-                      backgroundColor: statusInfo.color + '20',
-                      color: statusInfo.color,
-                      border: `1px solid ${statusInfo.color}40`
-                    }}
-                    className="text-xs"
-                  >
-                    {statusInfo.label}
-                  </Badge>
+                  {product.category && (
+                    <Badge
+                      style={{
+                        backgroundColor: categoryInfo.color + '20',
+                        color: categoryInfo.color,
+                        border: `1px solid ${categoryInfo.color}40`
+                      }}
+                      className="text-xs"
+                    >
+                      {categoryInfo.label === '—' ? product.category : categoryInfo.label}
+                    </Badge>
+                  )}
                 </div>
               </div>
               
@@ -193,7 +184,7 @@ export function ProductsMobileView({
 
               <div className="mobile-card-row">
                 <span className="mobile-card-label">Costo</span>
-                <span className="mobile-card-value">${product.costPrice.toFixed(2)}</span>
+                <span className="mobile-card-value">${(product.costPrice ?? 0).toFixed(2)}</span>
               </div>
 
               <div className="mobile-card-row">

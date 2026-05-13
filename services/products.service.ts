@@ -1,12 +1,28 @@
 // services/products.service.ts
 
 import { apiService, ApiResponse } from './api.service';
-import type { paths } from '@/lib/api-types';
-import type { Product, ProductCategory } from '@/lib/types';
+import type { Product, ProductCategory, ProductKind } from '@/lib/types';
 
-// Extract types from OpenAPI schema
-type CreateProductRequest = paths['/products']['post']['requestBody']['content']['application/json'];
-type UpdateProductRequest = paths['/products/{id}']['patch']['requestBody']['content']['application/json'];
+// Request shapes locales (antes venían del OpenAPI generado, pero el backend
+// cambió y los types auto-generados quedaron stale). Categoría ahora es
+// free-text. Las propiedades requeridas son sólo `name`, `barcode` y `price`;
+// el resto es opcional (servicios y señas no tienen costo/stock/uom).
+export interface CreateProductRequest {
+  name: string;
+  barcode: string;
+  price: number;
+  category?: string;
+  costPrice?: number;
+  stock?: number;
+  unitOfMeasure?: 'litro' | 'gramo' | 'unidad';
+  image?: string;
+  description?: string;
+  profitMargin?: number;
+  specialProduct?: boolean;
+  kind?: ProductKind;
+}
+
+export type UpdateProductRequest = Partial<CreateProductRequest>;
 
 // Paginated response interface — alineado con la forma real que devuelve
 // el backend NestJS (`meta`, con flags hasNextPage/hasPreviousPage).
@@ -116,26 +132,24 @@ export class ProductsService {
   }
 
   // Helper to clean payload and add required fields
-  private cleanPayload(data: Record<string, unknown>): Record<string, unknown> {
-    const cleaned = { ...data };
-    
-    // Remove undefined fields (backend doesn't accept undefined values)
-    Object.keys(cleaned).forEach(key => {
-      if (cleaned[key] === undefined) {
-        delete cleaned[key];
-      }
+  private cleanPayload(data: CreateProductRequest | UpdateProductRequest): Record<string, unknown> {
+    const cleaned: Record<string, unknown> = { ...data };
+
+    Object.keys(cleaned).forEach((key) => {
+      if (cleaned[key] === undefined) delete cleaned[key];
     });
-    
-    // Add required fields with defaults if missing
-    if (!cleaned.image) {
-      cleaned.image = 'https://via.placeholder.com/300x300/e5e7eb/9ca3af?text=Sin+Imagen';
+
+    // Imagen y descripción ya no son obligatorias en el backend: si vienen
+    // vacías, las dejamos vacías para que la UI no muestre placeholders
+    // inventados. Lo único que aseguramos es no mandar strings con sólo
+    // espacios.
+    if (typeof cleaned.image === 'string' && cleaned.image.trim() === '') {
+      delete cleaned.image;
     }
-    
-    // Ensure description is not empty (backend might require non-empty string)
-    if (!cleaned.description || (typeof cleaned.description === 'string' && cleaned.description.trim() === '')) {
-      cleaned.description = 'Sin descripción';
+    if (typeof cleaned.description === 'string' && cleaned.description.trim() === '') {
+      delete cleaned.description;
     }
-    
+
     return cleaned;
   }
 
@@ -292,15 +306,17 @@ export class ProductsService {
     return apiService.get<{ isUnique: boolean }>(`/products/validate/barcode?${params.toString()}`);
   }
 
-  // Calculate profit margins
+  // Calculate profit margins. Si no hay costo (servicios/señas), no hay margen.
   calculateProfitMargin(product: Product): number {
-    if (product.costPrice <= 0) return 0;
-    return ((product.price - product.costPrice) / product.costPrice) * 100;
+    const cost = product.costPrice ?? 0;
+    if (cost <= 0) return 0;
+    return ((product.price - cost) / cost) * 100;
   }
 
   // Calculate potential profit
   calculatePotentialProfit(product: Product): number {
-    return (product.price - product.costPrice) * product.stock;
+    const cost = product.costPrice ?? 0;
+    return (product.price - cost) * product.stock;
   }
 }
 
@@ -308,4 +324,4 @@ export class ProductsService {
 export const productsService = new ProductsService();
 
 // Export types for external use
-export type { CreateProductRequest, UpdateProductRequest, StockOperation, PaginatedResponse };
+export type { StockOperation, PaginatedResponse };

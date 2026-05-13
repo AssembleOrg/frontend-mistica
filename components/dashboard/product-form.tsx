@@ -1,10 +1,3 @@
-/**
- * CAPA 4: PRESENTATION LAYER - PRODUCT FORM (CLEAN VERSION)
- *
- * Componente UI PURO que solo renderiza y delega al controller
- * Sin lógica de negocio, sin acceso directo a stores
- */
-
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -15,6 +8,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { NumberInput } from '@/components/ui/number-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Card,
   CardContent,
@@ -33,7 +27,8 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Calculator, CheckCircle2, RefreshCw, Save, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useProducts } from '@/hooks/useProducts';
-import { Product } from '@/lib/types';
+import { useCategories } from '@/hooks/useCategories';
+import { Product, ProductKind } from '@/lib/types';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { generateBarcode } from '@/lib/barcode-utils';
 import { validateBarcode } from '@/lib/barcode-validation';
@@ -48,22 +43,16 @@ interface ProductFormProps {
 interface FormData {
   name: string;
   barcode: string;
-  category: Product['category'];
+  category: string;
   price: number;
   costPrice: number;
   stock: number;
-  unitOfMeasure: Product['unitOfMeasure'];
+  unitOfMeasure: '' | 'litro' | 'gramo' | 'unidad';
   image: string;
   description: string;
-  status: Product['status'];
+  kind: ProductKind;
   profitMargin?: number;
 }
-
-const categories = [
-  { value: 'organicos' as const, label: 'Orgánicos' },
-  { value: 'aromaticos' as const, label: 'Aromáticos' },
-  { value: 'wellness' as const, label: 'Wellness' },
-];
 
 const unitsOfMeasure = [
   { value: 'litro' as const, label: 'Litro' },
@@ -71,58 +60,36 @@ const unitsOfMeasure = [
   { value: 'unidad' as const, label: 'Unidad' },
 ];
 
-const statusOptions = [
-  { value: 'active' as const, label: 'Activo' },
-  { value: 'inactive' as const, label: 'Inactivo' },
-  { value: 'out_of_stock' as const, label: 'Sin Stock' },
-];
-
-
-export function ProductForm({
-  product,
-  mode,
-  onSuccess,
-  onCancel,
-}: ProductFormProps) {
+export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormProps) {
   const router = useRouter();
 
-  // Simple hooks API
   const { createProduct, updateProduct } = useProducts();
+  const { categories, isLoading: loadingCategories } = useCategories();
 
-  // Form state.
-  // En modo "add" el barcode arranca VACÍO: el primer gesto del operador es
-  // disparar el scanner. Si el producto no tiene barcode externo (artesanal),
-  // el botón "Generar" lo llena con un código nuevo.
+  // El operador-tipo arranca scaneando el código primero. En "add" el barcode
+  // queda vacío para que el primer gesto sea el scanner; el botón "Generar"
+  // crea uno interno si el producto no tiene GTIN del proveedor.
   const [formData, setFormData] = useState<FormData>({
     name: product?.name || '',
     barcode: product?.barcode || '',
-    category: product?.category || 'organicos',
+    category: product?.category || '',
     price: product?.price || 0,
     costPrice: product?.costPrice || 0,
     stock: product?.stock || 0,
-    unitOfMeasure: product?.unitOfMeasure || 'litro',
+    unitOfMeasure: product?.unitOfMeasure || '',
     image: product?.image || '',
     description: product?.description || '',
-    status: product?.status || 'active',
+    kind: product?.kind || 'STANDARD',
     profitMargin: product?.profitMargin,
   });
 
-  const [validationErrors, setValidationErrors] = useState<
-    Record<string, string>
-  >({});
-
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
-
-  // Estado del barcode reconocido (se muestra como badge debajo del input).
   const [barcodeFormat, setBarcodeFormat] = useState<string | null>(null);
 
-  // Refs para el flow scanner-first: al detectar un código válido, el foco
-  // salta del input de barcode al de nombre.
   const barcodeInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus inicial en el barcode cuando estamos creando un producto
-  // (caso típico: el operador apenas abre la pantalla y dispara el scanner).
   useEffect(() => {
     if (mode === 'add' && !formData.barcode) {
       barcodeInputRef.current?.focus();
@@ -130,7 +97,6 @@ export function ProductForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Si entró un barcode válido al hidratar (mode='edit'), mostramos su formato.
   useEffect(() => {
     if (formData.barcode) {
       const v = validateBarcode(formData.barcode);
@@ -139,24 +105,21 @@ export function ProductForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Computed values
+  const isService = formData.kind === 'SERVICE';
+
+  // Margen sólo aplica cuando hay costo y no es servicio.
   const profitMargin =
-    formData.price && formData.costPrice
+    !isService && formData.price > 0 && formData.costPrice > 0
       ? ((formData.price - formData.costPrice) / formData.costPrice) * 100
       : 0;
 
   const isFormValid =
     formData.name.trim().length >= 3 &&
     formData.price > 0 &&
-    formData.costPrice > 0 &&
-    formData.description.trim().length > 0 &&
     formData.barcode.trim().length > 0;
 
-  // Form handlers - delegate to controller
   const handleInputChange = (field: keyof FormData, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-
-    // Clear validation error for this field
+    setFormData((prev) => ({ ...prev, [field]: value as FormData[typeof field] }));
     if (validationErrors[field]) {
       setValidationErrors((prev) => {
         const { [field]: _, ...rest } = prev;
@@ -165,36 +128,50 @@ export function ProductForm({
     }
   };
 
+  const handleServiceToggle = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      kind: checked ? 'SERVICE' : 'STANDARD',
+      // Al marcar servicio, limpiamos campos que dejan de aplicar.
+      costPrice: checked ? 0 : prev.costPrice,
+      stock: checked ? 0 : prev.stock,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!isFormValid) {
-      showToast.error('Por favor completa todos los campos requeridos');
+      showToast.error('Por favor completá los campos obligatorios');
       return;
     }
 
-    console.log('📤 Enviando producto:', formData);
-    
     setIsLoading(true);
-
     try {
-      if (mode === 'add') {
-        await createProduct(formData);
-      } else {
-        await updateProduct(product!.id, formData);
-      }
+      // Construimos el payload omitiendo campos vacíos opcionales para que el
+      // backend respete sus defaults y validaciones permisivas.
+      const payload: Record<string, unknown> = {
+        name: formData.name.trim(),
+        barcode: formData.barcode.trim(),
+        price: formData.price,
+        kind: formData.kind,
+      };
+      if (formData.category) payload.category = formData.category;
+      if (!isService && formData.costPrice > 0) payload.costPrice = formData.costPrice;
+      if (!isService) payload.stock = formData.stock;
+      if (formData.unitOfMeasure) payload.unitOfMeasure = formData.unitOfMeasure;
+      if (formData.image) payload.image = formData.image.trim();
+      if (formData.description) payload.description = formData.description.trim();
 
+      if (mode === 'add') {
+        await createProduct(payload as never);
+      } else {
+        await updateProduct(product!.id, payload as never);
+      }
       onSuccess?.();
-      showToast.success(
-        mode === 'add' 
-          ? 'Producto creado correctamente' 
-          : 'Producto actualizado correctamente'
-      );
+      showToast.success(mode === 'add' ? 'Producto creado' : 'Producto actualizado');
       router.push('/dashboard/products');
     } catch (error) {
-      showToast.error(
-        error instanceof Error ? error.message : 'Error al guardar producto'
-      );
+      showToast.error(error instanceof Error ? error.message : 'Error al guardar producto');
     } finally {
       setIsLoading(false);
     }
@@ -205,30 +182,20 @@ export function ProductForm({
     router.back();
   };
 
-  // Scanner-first: al cambiar el barcode (sea por scanner o tipeo manual),
-  // si quedó un código válido (EAN-13, UPC-A, EAN-8 o el MST interno) movemos
-  // foco al siguiente campo (Nombre) para que el operador siga sin clicks.
-  // Para evitar saltos repetidos al re-tipear el mismo código, recordamos
-  // el último valor con el que avanzamos.
   const lastAdvancedBarcodeRef = useRef<string>('');
 
   const handleBarcodeInput = (value: string) => {
     handleInputChange('barcode', value);
     const trimmed = value.trim();
-
     if (!trimmed) {
       setBarcodeFormat(null);
       lastAdvancedBarcodeRef.current = '';
       return;
     }
-
     const v = validateBarcode(trimmed);
     setBarcodeFormat(v.isValid ? v.format : null);
-
     if (v.autoAccept && trimmed !== lastAdvancedBarcodeRef.current) {
       lastAdvancedBarcodeRef.current = trimmed;
-      // Pequeño delay para que el scanner termine de "tipear" y para que el
-      // toast no compita con el cambio de foco.
       setTimeout(() => {
         nameInputRef.current?.focus();
         nameInputRef.current?.select();
@@ -236,8 +203,6 @@ export function ProductForm({
     }
   };
 
-  // Algunos scanners disparan Enter al final; en ese caso forzamos avance
-  // aunque el código no haya superado todavía la longitud típica.
   const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -248,7 +213,6 @@ export function ProductForm({
     }
   };
 
-  // Generar un código interno (producto artesanal sin GTIN del proveedor).
   const handleGenerateBarcode = () => {
     const generated = generateBarcode();
     handleInputChange('barcode', generated);
@@ -262,16 +226,13 @@ export function ProductForm({
 
   return (
     <div className='space-y-6'>
-      {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-responsive-lg font-bold text-[#455a54] font-tan-nimbus mt-6'>
             {mode === 'add' ? 'Agregar Producto' : 'Editar Producto'}
           </h1>
           <p className='text-[#455a54]/70 font-winter-solid text-responsive-sm'>
-            {mode === 'add'
-              ? 'Complete la información del nuevo producto'
-              : 'Modifique la información del producto'}
+            {mode === 'add' ? 'Complete la información del nuevo producto' : 'Modifique la información del producto'}
           </p>
           <p className='text-xs sm:text-sm text-[#455a54]/60 font-winter-solid mt-1'>
             Los campos marcados con <span className='text-red-500'>*</span> son obligatorios
@@ -279,26 +240,34 @@ export function ProductForm({
         </div>
       </div>
 
+      <form onSubmit={handleSubmit} className='space-y-4 sm:space-y-6'>
+        {/* Toggle servicio/producto */}
+        <Card className='border-[#9d684e]/20'>
+          <CardContent className='py-3 flex items-center gap-3'>
+            <Checkbox
+              id='kindService'
+              checked={isService}
+              onCheckedChange={(v) => handleServiceToggle(v === true)}
+              className='data-[state=checked]:bg-[#9d684e] data-[state=checked]:border-[#9d684e]'
+            />
+            <Label htmlFor='kindService' className='cursor-pointer text-[#455a54] font-winter-solid'>
+              Es un servicio (sin stock ni precio de costo)
+            </Label>
+          </CardContent>
+        </Card>
 
-      {/* Edit Form */}
-      <form
-        onSubmit={handleSubmit}
-        className='space-y-4 sm:space-y-6'
-      >
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6'>
-          {/* Basic Information */}
           <Card className='border-[#9d684e]/20'>
-            <CardHeader className="pb-4">
+            <CardHeader className='pb-4'>
               <CardTitle className='text-[#455a54] font-tan-nimbus text-base sm:text-lg'>Información Básica</CardTitle>
               <CardDescription className='text-[#455a54]/70 font-winter-solid text-sm'>Datos principales del producto</CardDescription>
             </CardHeader>
             <CardContent className='space-y-3 sm:space-y-4'>
-              {/* Barcode (PRIMER campo: foco automático en alta) */}
               <div>
                 <Label htmlFor='barcode' className='text-[#455a54] font-winter-solid text-sm'>
                   Código de Barras <span className='text-red-500'>*</span>
                 </Label>
-                <div className="relative">
+                <div className='relative'>
                   <Input
                     id='barcode'
                     ref={barcodeInputRef}
@@ -311,18 +280,17 @@ export function ProductForm({
                     className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 pr-28 touch-target font-mono ${validationErrors.barcode ? 'border-red-500' : ''}`}
                   />
                   <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 px-2 text-xs text-[#9d684e] hover:bg-[#9d684e]/10 touch-target"
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    className='absolute right-1 top-1/2 -translate-y-1/2 h-8 px-2 text-xs text-[#9d684e] hover:bg-[#9d684e]/10 touch-target'
                     onClick={handleGenerateBarcode}
-                    title="Generar código interno (producto sin barcode externo)"
+                    title='Generar código interno'
                   >
-                    <RefreshCw className="h-3 w-3 mr-1" />
+                    <RefreshCw className='h-3 w-3 mr-1' />
                     Generar
                   </Button>
                 </div>
-                {/* Indicador del formato detectado */}
                 {barcodeFormat && (
                   <p className='text-xs text-green-700 mt-1 flex items-center gap-1 font-winter-solid'>
                     <CheckCircle2 className='w-3 h-3' />
@@ -337,9 +305,10 @@ export function ProductForm({
                 )}
               </div>
 
-              {/* Name */}
               <div>
-                <Label htmlFor='name' className='text-[#455a54] font-winter-solid text-sm'>Nombre del Producto <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='name' className='text-[#455a54] font-winter-solid text-sm'>
+                  Nombre del Producto <span className='text-red-500'>*</span>
+                </Label>
                 <Input
                   id='name'
                   ref={nameInputRef}
@@ -357,42 +326,39 @@ export function ProductForm({
                 )}
               </div>
 
-              {/* Category */}
               <div>
-                <Label htmlFor='category' className='text-[#455a54] font-winter-solid'>Categoría <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='category' className='text-[#455a54] font-winter-solid'>Categoría</Label>
                 <Select
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    handleInputChange('category', value)
-                  }
+                  value={formData.category || undefined}
+                  onValueChange={(value) => handleInputChange('category', value)}
                 >
-                  <SelectTrigger className="border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20">
-                    <SelectValue placeholder='Seleccione una categoría' />
+                  <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20'>
+                    <SelectValue placeholder={loadingCategories ? 'Cargando...' : 'Seleccione una categoría'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((category) => (
+                    {categories.map((c) => (
                       <SelectItem
-                        key={category.value}
-                        value={category.value}
-                        className="hover:bg-[#9d684e]/10 focus:bg-[#9d684e]/10"
+                        key={c.id}
+                        value={c.name}
+                        className='hover:bg-[#9d684e]/10 focus:bg-[#9d684e]/10'
                       >
-                        {category.label}
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className='text-[10px] text-[#455a54]/50 mt-1 font-winter-solid'>
+                  ¿No ves la categoría? Cargala desde <a href='/dashboard/categories' className='underline'>Categorías</a>.
+                </p>
               </div>
 
-              {/* Unit of Measure */}
               <div>
-                <Label htmlFor='unitOfMeasure' className='text-[#455a54] font-winter-solid'>Unidad de Medida <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='unitOfMeasure' className='text-[#455a54] font-winter-solid'>Unidad de Medida</Label>
                 <Select
-                  value={formData.unitOfMeasure}
-                  onValueChange={(value) =>
-                    handleInputChange('unitOfMeasure', value)
-                  }
+                  value={formData.unitOfMeasure || undefined}
+                  onValueChange={(value) => handleInputChange('unitOfMeasure', value)}
                 >
-                  <SelectTrigger className="border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20">
+                  <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20'>
                     <SelectValue placeholder='Seleccione la unidad de medida' />
                   </SelectTrigger>
                   <SelectContent>
@@ -400,7 +366,7 @@ export function ProductForm({
                       <SelectItem
                         key={unit.value}
                         value={unit.value}
-                        className="hover:bg-[#9d684e]/10 focus:bg-[#9d684e]/10"
+                        className='hover:bg-[#9d684e]/10 focus:bg-[#9d684e]/10'
                       >
                         {unit.label}
                       </SelectItem>
@@ -409,7 +375,6 @@ export function ProductForm({
                 </Select>
               </div>
 
-              {/* Image URL */}
               <div>
                 <Label htmlFor='image' className='text-[#455a54] font-winter-solid'>URL de Imagen</Label>
                 <Input
@@ -417,133 +382,71 @@ export function ProductForm({
                   value={formData.image}
                   onChange={(e) => handleInputChange('image', e.target.value)}
                   placeholder='https://ejemplo.com/imagen.jpg'
-                  className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 ${validationErrors.image ? 'border-red-500' : ''}`}
+                  className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20'
                 />
-                {validationErrors.image && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
-                    <AlertCircle className='w-3 h-3' />
-                    {validationErrors.image}
-                  </p>
-                )}
               </div>
 
-              {/* Description */}
               <div>
-                <Label htmlFor='description' className='text-[#455a54] font-winter-solid'>Descripción <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='description' className='text-[#455a54] font-winter-solid'>Descripción</Label>
                 <Textarea
                   id='description'
                   value={formData.description}
-                  onChange={(e) =>
-                    handleInputChange('description', e.target.value)
-                  }
+                  onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder='Ingrese la descripción del producto'
                   rows={3}
-                  required
-                  className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 ${validationErrors.description ? 'border-red-500' : ''}`}
+                  className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20'
                 />
-                {validationErrors.description && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
-                    <AlertCircle className='w-3 h-3' />
-                    {validationErrors.description}
-                  </p>
-                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Commercial Information */}
           <Card className='border-[#9d684e]/20'>
             <CardHeader>
               <CardTitle className='text-[#455a54] font-tan-nimbus'>Información Comercial</CardTitle>
               <CardDescription className='text-[#455a54]/70 font-winter-solid'>
-                Precios, stock y estado del producto
+                {isService ? 'Sólo precio de venta — los servicios no tienen stock ni costo' : 'Precios y stock del producto'}
               </CardDescription>
             </CardHeader>
             <CardContent className='space-y-4'>
-              {/* Price */}
               <div>
-                <Label htmlFor='price' className='text-[#455a54] font-winter-solid'>Precio de Venta <span className='text-red-500'>*</span></Label>
+                <Label htmlFor='price' className='text-[#455a54] font-winter-solid'>
+                  Precio de Venta <span className='text-red-500'>*</span>
+                </Label>
                 <CurrencyInput
                   id='price'
                   value={formData.price || 0}
                   onChange={(value) => handleInputChange('price', value)}
                   placeholder='0,00'
-                  className={validationErrors.price ? 'border-red-500' : ''}
                 />
-                {validationErrors.price && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
-                    <AlertCircle className='w-3 h-3' />
-                    {validationErrors.price}
-                  </p>
-                )}
               </div>
 
-              {/* Cost Price */}
-              <div>
-                <Label htmlFor='costPrice' className='text-[#455a54] font-winter-solid'>Precio de Costo <span className='text-red-500'>*</span></Label>
-                <CurrencyInput
-                  id='costPrice'
-                  value={formData.costPrice || 0}
-                  onChange={(value) => handleInputChange('costPrice', value)}
-                  placeholder='0,00'
-                  className={validationErrors.costPrice ? 'border-red-500' : ''}
-                />
-                {validationErrors.costPrice && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
-                    <AlertCircle className='w-3 h-3' />
-                    {validationErrors.costPrice}
-                  </p>
-                )}
-              </div>
+              {!isService && (
+                <>
+                  <div>
+                    <Label htmlFor='costPrice' className='text-[#455a54] font-winter-solid'>Precio de Costo</Label>
+                    <CurrencyInput
+                      id='costPrice'
+                      value={formData.costPrice || 0}
+                      onChange={(value) => handleInputChange('costPrice', value)}
+                      placeholder='0,00'
+                    />
+                  </div>
 
-              {/* Stock */}
-              <div>
-                <Label htmlFor='stock' className='text-[#455a54] font-winter-solid'>Stock <span className='text-red-500'>*</span></Label>
-                <NumberInput
-                  id='stock'
-                  value={formData.stock || 0}
-                  onChange={(value) => handleInputChange('stock', value)}
-                  min={0}
-                  step={1}
-                  placeholder='0'
-                  className={validationErrors.stock ? 'border-red-500' : ''}
-                />
-                {validationErrors.stock && (
-                  <p className='text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
-                    <AlertCircle className='w-3 h-3' />
-                    {validationErrors.stock}
-                  </p>
-                )}
-              </div>
+                  <div>
+                    <Label htmlFor='stock' className='text-[#455a54] font-winter-solid'>Stock</Label>
+                    <NumberInput
+                      id='stock'
+                      value={formData.stock || 0}
+                      onChange={(value) => handleInputChange('stock', value)}
+                      min={0}
+                      step={1}
+                      placeholder='0'
+                    />
+                  </div>
+                </>
+              )}
 
-              {/* Status */}
-              <div>
-                <Label htmlFor='status' className='text-[#455a54] font-winter-solid'>Estado <span className='text-red-500'>*</span></Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) =>
-                    handleInputChange('status', value)
-                  }
-                >
-                  <SelectTrigger className="border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20">
-                    <SelectValue placeholder='Seleccione el estado' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((status) => (
-                      <SelectItem
-                        key={status.value}
-                        value={status.value}
-                        className="hover:bg-[#9d684e]/10 focus:bg-[#9d684e]/10"
-                      >
-                        {status.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Profit Margin Display */}
-              {formData.price > 0 && formData.costPrice > 0 && (
+              {!isService && formData.price > 0 && formData.costPrice > 0 && (
                 <div className='p-3 border border-[#9d684e]/20 rounded-lg bg-[#9d684e]/5'>
                   <div className='flex items-center gap-2 text-sm text-[#455a54] font-winter-solid'>
                     <Calculator className='w-4 h-4 text-[#9d684e]' />
@@ -553,17 +456,14 @@ export function ProductForm({
                     </Badge>
                   </div>
                   <p className='text-xs text-[#455a54]/70 mt-1 font-winter-solid'>
-                    Ganancia por unidad:{' '}
-                    {formatCurrency(formData.price - formData.costPrice)}
+                    Ganancia por unidad: {formatCurrency(formData.price - formData.costPrice)}
                   </p>
                 </div>
               )}
-
             </CardContent>
           </Card>
         </div>
 
-        {/* Form Actions */}
         <div className='flex justify-end gap-4 pt-4 border-t border-[#9d684e]/20'>
           <Button
             type='button'
@@ -575,25 +475,16 @@ export function ProductForm({
             <X className='w-4 h-4 mr-2' />
             Cancelar
           </Button>
-
           <Button
             type='submit'
             disabled={!isFormValid || isLoading}
             className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white'
           >
-            <>
-              <Save className='w-4 h-4 mr-2' />
-              {isLoading 
-                ? 'Guardando...' 
-                : mode === 'add' 
-                  ? 'Crear Producto' 
-                  : 'Guardar Cambios'
-              }
-            </>
+            <Save className='w-4 h-4 mr-2' />
+            {isLoading ? 'Guardando...' : mode === 'add' ? 'Crear Producto' : 'Guardar Cambios'}
           </Button>
         </div>
       </form>
-
     </div>
   );
 }

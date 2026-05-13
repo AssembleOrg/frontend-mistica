@@ -24,15 +24,14 @@ const HEADERS = {
   price: 'Precio Venta',
   stock: 'Stock',
   unitOfMeasure: 'Unidad',
-  status: 'Estado',
   description: 'Descripción',
 } as const;
 
 type HeaderKey = keyof typeof HEADERS;
 
-const VALID_CATEGORIES: ProductCategory[] = ['organicos', 'aromaticos', 'wellness'];
+// Estos arrays son legacy. Category dejó de ser enum cerrado (free-text con
+// CRUD en /dashboard/categories) y status se removió completo.
 const VALID_UNITS: Product['unitOfMeasure'][] = ['litro', 'gramo', 'unidad'];
-const VALID_STATUSES: Product['status'][] = ['active', 'inactive', 'out_of_stock'];
 
 /**
  * Exporta productos a Excel. El archivo resultante sirve también como
@@ -52,8 +51,7 @@ export function exportProductsToExcel(products: Product[], filename?: string): v
     [HEADERS.costPrice]: Number(p.costPrice), // raw number
     [HEADERS.price]: Number(p.price),
     [HEADERS.stock]: Number(p.stock),
-    [HEADERS.unitOfMeasure]: p.unitOfMeasure,
-    [HEADERS.status]: p.status,
+    [HEADERS.unitOfMeasure]: p.unitOfMeasure ?? '',
     [HEADERS.description]: p.description ?? '',
   }));
 
@@ -121,7 +119,6 @@ export interface ParsedRow {
     costPrice: number;
     stock: number;
     unitOfMeasure: Product['unitOfMeasure'];
-    status: Product['status'];
     description: string;
   }>;
 }
@@ -202,17 +199,12 @@ export async function parseProductsExcel(file: File): Promise<ParseResult> {
     const description = asString(r[HEADERS.description]);
     if (description !== undefined) row.fields.description = description;
 
-    const category = asString(r[HEADERS.category])?.toLowerCase();
-    if (category !== undefined) {
-      if (!VALID_CATEGORIES.includes(category as ProductCategory)) {
-        errors.push({
-          rowNumber,
-          barcode,
-          message: `Categoría inválida: "${category}". Valores: ${VALID_CATEGORIES.join(', ')}`,
-        });
-        return;
-      }
-      row.fields.category = category as ProductCategory;
+    // Categoría: free-text. El backend acepta cualquier string; si querés
+    // validar contra la lista actual lo hace /dashboard/categories. Acá sólo
+    // chequeamos que no esté vacía.
+    const category = asString(r[HEADERS.category]);
+    if (category !== undefined && category.trim().length > 0) {
+      row.fields.category = category.trim();
     }
 
     const unit = asString(r[HEADERS.unitOfMeasure])?.toLowerCase();
@@ -226,19 +218,6 @@ export async function parseProductsExcel(file: File): Promise<ParseResult> {
         return;
       }
       row.fields.unitOfMeasure = unit as Product['unitOfMeasure'];
-    }
-
-    const status = asString(r[HEADERS.status])?.toLowerCase();
-    if (status !== undefined) {
-      if (!VALID_STATUSES.includes(status as Product['status'])) {
-        errors.push({
-          rowNumber,
-          barcode,
-          message: `Estado inválido: "${status}". Valores: ${VALID_STATUSES.join(', ')}`,
-        });
-        return;
-      }
-      row.fields.status = status as Product['status'];
     }
 
     const price = asNumber(r[HEADERS.price]);
@@ -292,7 +271,7 @@ export function getExportSummary(products: Product[]): {
   };
 
   for (const p of products) {
-    const label = categoryConfig[p.category]?.label || p.category;
+    const label = p.category ? (categoryConfig[p.category]?.label ?? p.category) : 'Sin categoría';
     summary.categories[label] = (summary.categories[label] || 0) + 1;
     summary.totalValue += p.price * p.stock;
   }

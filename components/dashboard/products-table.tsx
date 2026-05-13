@@ -46,7 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Product } from '@/lib/types';
-import { categoryConfig, statusConfig } from '@/lib/config';
+import { getCategoryStyle } from '@/lib/config';
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { exportProductsToExcel, getExportSummary } from '@/lib/excel-utils';
 import { showToast } from '@/lib/toast';
@@ -291,17 +291,15 @@ export function ProductsTable({
         );
       },
       cell: ({ row }) => {
-        const category = row.getValue('category') as Product['category'];
-        const config = categoryConfig[category];
+        const category = row.getValue('category') as string | undefined;
+        if (!category) return <span className='text-[#455a54]/40 text-xs'>—</span>;
+        const config = getCategoryStyle(category);
         return (
           <div
             className='inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
-            style={{
-              color: config.color,
-              backgroundColor: config.bgColor,
-            }}
+            style={{ color: config.color, backgroundColor: config.bgColor }}
           >
-            {config.label}
+            {config.label === '—' ? category : config.label}
           </div>
         );
       },
@@ -427,12 +425,9 @@ export function ProductsTable({
       cell: ({ row }) => {
         const stock = row.getValue('stock') as number;
         const unitOfMeasure = row.original.unitOfMeasure;
-        const unitLabel =
-          {
-            gramo: 'g',
-            litro: 'L',
-            unidad: 'u',
-          }[unitOfMeasure] || unitOfMeasure;
+        const unitLabel = unitOfMeasure
+          ? ({ gramo: 'g', litro: 'L', unidad: 'u' }[unitOfMeasure] ?? unitOfMeasure)
+          : '';
 
         return (
           <div className="flex items-center justify-between gap-2">
@@ -454,36 +449,6 @@ export function ProductsTable({
             >
               Ajustar
             </Button>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: 'status',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-[#455a54] font-winter-solid hover:text-[#9d684e]'
-          >
-            Estado
-            <ArrowUpDown className='ml-2 h-4 w-4' />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const status = row.getValue('status') as Product['status'];
-        const config = statusConfig[status];
-        return (
-          <div
-            className='inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
-            style={{
-              color: config.color,
-              backgroundColor: config.bgColor,
-            }}
-          >
-            {config.label}
           </div>
         );
       },

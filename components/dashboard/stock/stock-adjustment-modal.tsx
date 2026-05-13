@@ -44,7 +44,7 @@ export function StockAdjustmentModal({ isOpen, onClose, product }: StockAdjustme
   useEffect(() => {
     if (product) {
       setNewStock(product.stock.toString());
-      setNewUnitOfMeasure(product.unitOfMeasure);
+      setNewUnitOfMeasure(product.unitOfMeasure ?? 'unidad');
       setReason('');
     }
   }, [product]);
@@ -115,7 +115,7 @@ export function StockAdjustmentModal({ isOpen, onClose, product }: StockAdjustme
     // Reset form
     if (product) {
       setNewStock(product.stock.toString());
-      setNewUnitOfMeasure(product.unitOfMeasure);
+      setNewUnitOfMeasure(product.unitOfMeasure ?? 'unidad');
       setReason('');
     }
     onClose();

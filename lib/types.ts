@@ -1,21 +1,35 @@
-// Product related types
-export type ProductCategory = 'organicos' | 'aromaticos' | 'wellness';
+// Product related types. La categoría es ahora free-text (string) que matchea
+// con el `name` de un documento `Category`. Antes era un enum cerrado.
+export type ProductCategory = string;
+// STANDARD = producto físico con stock.
+// SERVICE  = item sin stock (consultoría, servicios prestados).
+// PREPAID  = línea virtual que crea una seña para el cliente al venderse.
+export type ProductKind = 'STANDARD' | 'SERVICE' | 'PREPAID';
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface Product {
   id: string;
   name: string;
-  barcode: string; // Código de barras único generado por la app
-  category: ProductCategory;
-  price: number; // Precio de venta
-  costPrice: number; // Precio de costo
+  barcode: string;
+  category?: string;
+  price: number;
+  costPrice?: number;
   stock: number;
-  unitOfMeasure: 'litro' | 'gramo' | 'unidad';
+  unitOfMeasure?: 'litro' | 'gramo' | 'unidad';
   image?: string;
-  description: string;
-  status: 'active' | 'inactive' | 'out_of_stock';
+  description?: string;
   createdAt: Date;
   updatedAt: Date;
   profitMargin?: number;
+  kind?: ProductKind;
 }
 
 // Stock Management Types

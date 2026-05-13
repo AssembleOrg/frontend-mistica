@@ -63,7 +63,7 @@ function StockAdjustmentsContent() {
       if (product) {
         setSelectedProduct(product);
         setNewStock(product.stock.toString());
-        setNewUnitOfMeasure(product.unitOfMeasure);
+        setNewUnitOfMeasure(product.unitOfMeasure ?? 'unidad');
         console.log('🎯 Pre-seleccionado producto desde URL:', product.name);
       }
     }
@@ -104,7 +104,7 @@ function StockAdjustmentsContent() {
   const handleProductSelect = (product: Product) => {
     setSelectedProduct(product);
     setNewStock(product.stock.toString());
-    setNewUnitOfMeasure(product.unitOfMeasure);
+    setNewUnitOfMeasure(product.unitOfMeasure ?? 'unidad');
     setSearchQuery('');
   };
 

@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/types';
-import { categoryConfig, statusConfig } from '@/lib/config';
+import { getCategoryStyle } from '@/lib/config';
 import { useProducts } from '@/hooks/useProducts';
 // Removed mock import - now using real API data
 import { calculateProfitMargin } from '@/lib/barcode-utils';
@@ -144,7 +144,8 @@ export default function ProductDetailsPage() {
     litro: 'L'
   };
   
-  const profitMargin = calculateProfitMargin(product.price, product.costPrice);
+  const profitMargin = calculateProfitMargin(product.price, product.costPrice ?? 0);
+  const categoryStyle = getCategoryStyle(product.category);
 
   return (
     <div className="max-w-2xl mx-auto mt-6 space-y-6 px-4 sm:px-0">
@@ -180,22 +181,16 @@ export default function ProductDetailsPage() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Badge
-                style={{
-                  color: categoryConfig[product.category].color,
-                  backgroundColor: categoryConfig[product.category].bgColor,
-                }}
-              >
-                {categoryConfig[product.category].label}
-              </Badge>
-              <Badge
-                style={{
-                  color: statusConfig[product.status].color,
-                  backgroundColor: statusConfig[product.status].bgColor,
-                }}
-              >
-                {statusConfig[product.status].label}
-              </Badge>
+              {product.category && (
+                <Badge
+                  style={{
+                    color: categoryStyle.color,
+                    backgroundColor: categoryStyle.bgColor,
+                  }}
+                >
+                  {categoryStyle.label === '—' ? product.category : categoryStyle.label}
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -244,7 +239,7 @@ export default function ProductDetailsPage() {
                 {new Intl.NumberFormat('es-AR', {
                   style: 'currency',
                   currency: 'ARS',
-                }).format(product.costPrice)}
+                }).format(product.costPrice ?? 0)}
               </p>
             </div>
             <div className="space-y-1">

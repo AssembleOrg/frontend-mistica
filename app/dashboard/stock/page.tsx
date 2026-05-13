@@ -156,7 +156,9 @@ export default function StockDashboard() {
   const movements = getStockMovements();
   const lowStockProducts = getLowStockProducts();
   const outOfStockProducts = getOutOfStockProducts();
-  const activeProducts = products.filter(p => p.status === 'active').length;
+  // Antes filtraba por status === 'active'. Removimos status del modelo;
+  // ahora "activos" = todos los productos no borrados (los que retorna el API).
+  const activeProducts = products.length;
 
   useEffect(() => {
     if (!loadingProducts) {

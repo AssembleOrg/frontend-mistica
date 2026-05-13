@@ -153,7 +153,6 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
             
             {canEdit && (
               <div className="flex flex-col gap-4">
-                {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="generateInvoice"
@@ -165,7 +164,6 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
                     Realizar Factura
                   </Label>
                 </div>
-                */}
                 
                 <Button 
                   onClick={handleCompleteSale}
@@ -402,7 +400,6 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
               </Button>
             )}
 
-            {/* AFIP-HIDDEN: bloque ocultado por pedido del cliente. Reactivar descomentando.
             {(isCompleted || isCancelled) && (
               <Button
                 onClick={() => setShowCreditNote(true)}
@@ -413,7 +410,6 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
                 Emitir NC
               </Button>
             )}
-            */}
           </div>
           
           <Button

@@ -74,11 +74,9 @@ export function isDevelopment(): boolean {
   return process.env.NODE_ENV === 'development';
 }
 
-// Devuelve el base URL del API:
-// - En cliente: '' (mismo origen, lo resuelve el rewrite de Next).
-// - En servidor (RSC / Route Handlers): apunta directo al backend para que
-//   `fetch` no intente resolver una URL relativa.
-export function getBaseUrl(): string {
-  if (typeof window !== 'undefined') return '';
-  return process.env.BACKEND_URL || 'http://localhost:3000';
-}
+/**
+ * @deprecated Usar `getApiBaseUrl()` de `@/lib/api/base-url`.
+ * Wrapper que delega al helper nuevo (que ya incluye sufijo `/api` y
+ * soporta private domain Railway).
+ */
+export { getApiBaseUrl as getBaseUrl } from './api/base-url';

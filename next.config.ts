@@ -1,26 +1,22 @@
 import type { NextConfig } from 'next';
 
-// Backend URL para el rewrite de /api/* → backend.
-// En dev defaultea a localhost:3000 (el puerto donde corre Nest).
-const RAW_BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
-
-// Saca barra final accidental y valida el esquema antes de armar el rewrite.
-const BACKEND_URL = RAW_BACKEND_URL.replace(/\/+$/, '');
-if (!/^https?:\/\//.test(BACKEND_URL)) {
-  throw new Error(
-    `BACKEND_URL inválida: "${RAW_BACKEND_URL}". Debe empezar con http:// o https://`
-  );
-}
-
 const nextConfig: NextConfig = {
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${BACKEND_URL}/api/:path*`,
-      },
-    ];
-  },
+  compress: true,
+
+  // El proxy al backend antes era una rewrite (`/api/:path* → BACKEND_URL/api/:path*`),
+  // pero Next 16.1.x con path-to-regexp v8 explota cuando el destino tiene
+  // un `:NNNN` (port) literal — lo interpreta como param name inválido.
+  // Las URLs internas de Railway tienen puerto explícito
+  // (`http://service.railway.internal:3000/api`), así que el rewrite queda
+  // inutilizable.
+  //
+  // Reemplazado por un Route Handler en `app/api/[...path]/route.ts` que
+  // proxea programáticamente con fetch:
+  //   - Cero parsing de URL por path-to-regexp.
+  //   - Forwardea Set-Cookie correctamente (múltiples cookies).
+  //   - Funciona con private domain Railway server-side.
+  //
+  // URL del backend se lee de `process.env.BACKEND_URL` (server-only).
 };
 
 export default nextConfig;

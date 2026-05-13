@@ -168,10 +168,9 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
         await updateProduct(product!.id, payload as never);
       }
       onSuccess?.();
-      showToast.success(mode === 'add' ? 'Producto creado' : 'Producto actualizado');
       router.push('/dashboard/products');
-    } catch (error) {
-      showToast.error(error instanceof Error ? error.message : 'Error al guardar producto');
+    } catch {
+      // El toast de error ya lo dispara handleApiError dentro del hook useProducts.
     } finally {
       setIsLoading(false);
     }

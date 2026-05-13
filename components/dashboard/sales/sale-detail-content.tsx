@@ -243,10 +243,10 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
       {/* ── Header ─────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-2 mb-4 max-xl:mb-3 min-w-0">
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#455a54]/40 font-winter-solid mb-0.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#455a54]/40 font-winter-solid mb-1">
             Venta
           </p>
-          <h2 className="text-lg max-xl:text-base font-bold text-[#455a54] font-tan-nimbus leading-none truncate">
+          <h2 className="text-lg max-xl:text-base font-bold text-[#455a54] font-tan-nimbus leading-[1.6] truncate py-0.5">
             #{sale.saleNumber}
           </h2>
           <p className="text-xs text-[#455a54]/50 font-winter-solid mt-1">{formattedDate}</p>

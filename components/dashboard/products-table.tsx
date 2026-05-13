@@ -54,6 +54,8 @@ import { PaginationControls } from '@/components/ui/pagination-controls';
 import { useRouter } from 'next/navigation';
 import { StockAdjustmentModal } from '@/components/dashboard/stock/stock-adjustment-modal';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
+import { useAppStore } from '@/stores/app.store';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +104,8 @@ export function ProductsTable({
 }: ProductsTableProps) {
   const router = useRouter();
   const { deleteProduct } = useProducts();
+  const { categories } = useCategories();
+  const lowStockThreshold = useAppStore((s) => s.settings.lowStockThreshold);
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -116,12 +120,9 @@ export function ProductsTable({
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Product | null>(null);
 
-  // Category options for filter
   const categoryOptions: FilterOption[] = [
     { value: 'all', label: 'Todas las categorías' },
-    { value: 'organicos', label: 'Orgánicos' },
-    { value: 'aromaticos', label: 'Aromáticos' },
-    { value: 'wellness', label: 'Wellness' },
+    ...categories.map((c) => ({ value: c.name, label: c.name })),
   ];
 
   const handleClearFilters = () => {
@@ -202,7 +203,7 @@ export function ProductsTable({
         : `productos-mistica-${today}.xlsx`;
 
       // Exportar
-      exportProductsToExcel(filteredProducts, filename);
+      exportProductsToExcel(filteredProducts, categories, filename);
 
       // Mostrar resumen
       const summary = getExportSummary(filteredProducts);
@@ -293,7 +294,7 @@ export function ProductsTable({
       cell: ({ row }) => {
         const category = row.getValue('category') as string | undefined;
         if (!category) return <span className='text-[#455a54]/40 text-xs'>—</span>;
-        const config = getCategoryStyle(category);
+        const config = getCategoryStyle(category, categories);
         return (
           <div
             className='inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium'
@@ -435,7 +436,7 @@ export function ProductsTable({
               className={`font-medium tabular-nums ${
                 stock === 0
                   ? 'text-[#4e4247]'
-                  : stock <= 10
+                  : stock <= lowStockThreshold
                   ? 'text-[#cc844a]'
                   : 'text-[#455a54]'
               }`}
@@ -535,34 +536,35 @@ export function ProductsTable({
   });
 
   return (
-    <div className="space-y-4">
-      <TableFilters
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        searchPlaceholder="Buscar por nombre o código de barras..."
-        showDateFilter={false}
-        customFilters={[
-          {
-            key: 'category',
-            label: 'Categoría',
-            value: categoryFilter || 'all',
-            options: categoryOptions,
-            onChange: onCategoryFilterChange || (() => {}),
-          },
-        ]}
-        onClearFilters={handleClearFilters}
-        onRefresh={() => window.location.reload()}
-        showAdvancedFilters={showAdvancedFilters}
-        onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
-      />
-      
-      <div className='flex flex-col sm:flex-row items-start sm:items-center gap-3 py-4'>
-        <div className='flex gap-2 w-full sm:w-auto sm:ml-auto'>
+    <div className="space-y-3">
+      <div className='flex flex-col lg:flex-row lg:items-start gap-3'>
+        <div className='flex-1 min-w-0'>
+          <TableFilters
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+            searchPlaceholder="Buscar por nombre o código de barras..."
+            showDateFilter={false}
+            customFilters={[
+              {
+                key: 'category',
+                label: 'Categoría',
+                value: categoryFilter || 'all',
+                options: categoryOptions,
+                onChange: onCategoryFilterChange || (() => {}),
+              },
+            ]}
+            onClearFilters={handleClearFilters}
+            onRefresh={() => window.location.reload()}
+            showAdvancedFilters={showAdvancedFilters}
+            onToggleAdvanced={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          />
+        </div>
+        <div className='flex gap-2 w-full lg:w-auto lg:shrink-0'>
           <Button
             onClick={handleExportFiltered}
             disabled={isExporting || data.length === 0}
             variant='outline'
-            className='flex-1 sm:flex-none border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target text-xs sm:text-sm'
+            className='flex-1 lg:flex-none h-9 border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target text-xs sm:text-sm'
           >
             {isExporting ? (
               <>
@@ -582,7 +584,7 @@ export function ProductsTable({
             <DropdownMenuTrigger asChild>
               <Button
                 variant='outline'
-                className='flex-1 sm:flex-none border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target text-xs sm:text-sm'
+                className='flex-1 lg:flex-none h-9 border-[#9d684e]/20 text-[#455a54] hover:bg-[#efcbb9]/30 touch-target text-xs sm:text-sm'
               >
                 <span className='hidden sm:inline'>Columnas</span>
                 <span className='sm:hidden'>Col</span>

@@ -20,6 +20,7 @@ interface QuickActionsWidgetProps {
   description: string;
   actions: QuickAction[];
   layout?: 'horizontal' | 'vertical';
+  hideHeader?: boolean;
 }
 
 const colorStyles = {
@@ -29,23 +30,26 @@ const colorStyles = {
   success: 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white',
 };
 
-export function QuickActionsWidget({ 
-  title, 
-  description, 
-  actions, 
-  layout = 'horizontal' 
+export function QuickActionsWidget({
+  title,
+  description,
+  actions,
+  layout = 'horizontal',
+  hideHeader = false,
 }: QuickActionsWidgetProps) {
   return (
     <Card className='border-[#9d684e]/20'>
-      <CardHeader className="pb-3 sm:pb-6">
-        <CardTitle className='text-base sm:text-lg font-tan-nimbus text-[#455a54]'>
-          {title}
-        </CardTitle>
-        <CardDescription className='text-[#455a54]/70 text-sm'>
-          {description}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+      {!hideHeader && (
+        <CardHeader className="pb-2">
+          <CardTitle className='text-sm sm:text-base font-tan-nimbus text-[#455a54]'>
+            {title}
+          </CardTitle>
+          <CardDescription className='text-[#455a54]/70 text-xs sm:text-sm'>
+            {description}
+          </CardDescription>
+        </CardHeader>
+      )}
+      <CardContent className={hideHeader ? 'p-3 sm:p-4' : 'pt-2'}>
         <div className={`grid gap-2 sm:gap-3 ${
           layout === 'horizontal' 
             ? 'grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap' 

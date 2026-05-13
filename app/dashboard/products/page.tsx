@@ -23,8 +23,9 @@ import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget'
 import { BulkUpdateProductsDialog } from '@/components/dashboard/products/bulk-update-dialog';
 import { useProducts } from '@/hooks/useProducts';
 import { useStock } from '@/hooks/useStock';
+import { useCategories } from '@/hooks/useCategories';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { Plus, Package, Grid, List, Download, Upload, AlertTriangle, Layers, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
+import { Plus, Package, Grid, List, Download, Upload, AlertTriangle, Layers, ChevronDown, ArrowRight } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { exportProductsToExcel } from '@/lib/excel-utils';
 import Link from 'next/link';
@@ -37,6 +38,7 @@ export default function ProductsPage() {
   // Simple hooks API for actions and computed values
   const { products, stats, fetchProducts } = useProducts();
   const { getLowStockProducts, getOutOfStockProducts } = useStock();
+  const { categories } = useCategories();
 
   // Mobile detection and view state
   const isMobile = useIsMobile();
@@ -128,11 +130,11 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-4'>
       {/* Header */}
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-responsive-lg font-bold text-[#455a54] font-tan-nimbus mt-6'>
+          <h1 className='text-responsive-lg font-bold text-[#455a54] font-tan-nimbus'>
             Gestión de Productos
           </h1>
           <p className='text-[#455a54]/70 font-winter-solid text-responsive-sm'>
@@ -168,6 +170,7 @@ export default function ProductsPage() {
         title="Gestión de Productos"
         description="Acciones rápidas para el catálogo"
         layout="horizontal"
+        hideHeader
         actions={[
           {
             id: 'new-product',
@@ -183,7 +186,7 @@ export default function ProductsPage() {
             description: 'Descargar template editable',
             icon: Download,
             color: 'secondary',
-            onClick: () => exportProductsToExcel(products),
+            onClick: () => exportProductsToExcel(products, categories),
           },
           {
             id: 'bulk-update',
@@ -218,30 +221,58 @@ export default function ProductsPage() {
           onClick?: () => void; expanded?: boolean;
         }) => {
           const styles = {
-            alert:    { wrap: 'bg-[#cc844a]/8 border-[#cc844a]/25',  num: 'text-[#cc844a]',  icon: 'text-[#cc844a]/50'  },
-            critical: { wrap: 'bg-[#4e4247]/8 border-[#4e4247]/25',  num: 'text-[#4e4247]',  icon: 'text-[#4e4247]/40'  },
-            neutral:  { wrap: 'bg-[#9d684e]/8 border-[#9d684e]/20',  num: 'text-[#9d684e]',  icon: 'text-[#9d684e]/40'  },
-            primary:  { wrap: 'bg-[#455a54]/8 border-[#455a54]/20',  num: 'text-[#455a54]',  icon: 'text-[#455a54]/30'  },
+            alert: {
+              wrapStatic:    'bg-[#cc844a]/10 border-[#cc844a]/30',
+              wrapClickable: 'bg-[#cc844a]/15 border-[#cc844a]/45 hover:border-[#cc844a]/70 hover:shadow-md hover:-translate-y-0.5',
+              num: 'text-[#cc844a]', icon: 'text-[#cc844a]/60', badge: 'text-[#cc844a]',
+            },
+            critical: {
+              wrapStatic:    'bg-[#4e4247]/10 border-[#4e4247]/30',
+              wrapClickable: 'bg-[#4e4247]/15 border-[#4e4247]/45 hover:border-[#4e4247]/70 hover:shadow-md hover:-translate-y-0.5',
+              num: 'text-[#4e4247]', icon: 'text-[#4e4247]/60', badge: 'text-[#4e4247]',
+            },
+            neutral: {
+              wrapStatic:    'bg-[#9d684e]/10 border-[#9d684e]/30',
+              wrapClickable: '',
+              num: 'text-[#9d684e]', icon: 'text-[#9d684e]/50', badge: '',
+            },
+            primary: {
+              wrapStatic:    'bg-[#455a54]/10 border-[#455a54]/30',
+              wrapClickable: '',
+              num: 'text-[#455a54]', icon: 'text-[#455a54]/40', badge: '',
+            },
           };
           const s = styles[variant];
+          const isClickable = Boolean(onClick);
+          const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (!isClickable) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onClick?.();
+            }
+          };
           return (
             <div
-              className={`${s.wrap} border rounded-xl p-4 transition-all ${onClick ? 'cursor-pointer hover:brightness-95 select-none' : ''}`}
+              role={isClickable ? 'button' : undefined}
+              tabIndex={isClickable ? 0 : undefined}
+              aria-expanded={isClickable ? expanded : undefined}
+              onKeyDown={isClickable ? handleKey : undefined}
+              className={`${isClickable ? s.wrapClickable : s.wrapStatic} border rounded-xl p-4 transition-all duration-150 ${isClickable ? 'cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#455a54]/40' : ''}`}
               onClick={onClick}
             >
               <div className='flex items-start justify-between gap-2'>
-                <div>
+                <div className='min-w-0'>
                   <div className={`text-2xl font-bold font-tan-nimbus ${s.num} leading-none mb-1.5`}>{value}</div>
-                  <div className='text-xs uppercase tracking-wide font-winter-solid text-[#455a54]/60'>{label}</div>
+                  <div className='text-xs uppercase tracking-wide font-winter-solid font-medium text-[#455a54]/80'>{label}</div>
                 </div>
-                <div className='flex flex-col items-center gap-1 pt-0.5'>
-                  <Icon className={`h-4 w-4 ${s.icon}`} />
-                  {onClick && (expanded
-                    ? <ChevronUp className={`h-3 w-3 ${s.icon}`} />
-                    : <ChevronDown className={`h-3 w-3 ${s.icon}`} />
-                  )}
-                </div>
+                <Icon className={`h-4 w-4 shrink-0 ${s.icon}`} />
               </div>
+              {isClickable && (
+                <span className={`mt-2 inline-flex items-center gap-1 text-[10px] font-winter-solid font-semibold uppercase tracking-wide ${s.badge} bg-white/70 rounded-full px-2 py-0.5`}>
+                  {expanded ? 'Ocultar lista' : 'Ver detalle'}
+                  <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+                </span>
+              )}
             </div>
           );
         };
@@ -251,10 +282,10 @@ export default function ProductsPage() {
           return (
             <div className='divide-y divide-[#9d684e]/10'>
               {list.map(p => (
-                <div key={p.id} className='flex items-center justify-between py-3 gap-3'>
+                <div key={p.id} className='flex items-center justify-between py-2.5 gap-3'>
                   <div className='min-w-0 flex-1'>
                     <p className='text-sm font-semibold text-[#455a54] font-winter-solid truncate'>{p.name}</p>
-                    <p className='text-xs text-[#455a54]/50 font-mono tabular-nums'>{p.stock} unidades actuales</p>
+                    <p className='text-xs text-[#455a54]/70 font-mono tabular-nums'>{p.stock} unidades actuales</p>
                   </div>
                   <Link href={`/dashboard/stock/adjustments?product=${p.id}`}>
                     <Button size='sm' className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid text-xs h-7 px-3 flex-shrink-0'>
@@ -280,7 +311,7 @@ export default function ProductsPage() {
               <StatCard value={stats.total} label='Total' icon={Package} variant='neutral' />
               <StatCard value={stats.total - stats.outOfStock} label='Disponibles' icon={Layers} variant='primary' />
               <StatCard
-                value={stats.lowStock} label='Stock Bajo' icon={AlertTriangle} variant='alert'
+                value={lowStockProducts.length} label='Stock Bajo' icon={AlertTriangle} variant='alert'
                 expanded={showLowStock}
                 onClick={() => { setShowLowStock(v => !v); setShowOutOfStock(false); }}
               />
@@ -292,28 +323,28 @@ export default function ProductsPage() {
             </div>
 
             {showLowStock && (
-              <Card className='border-[#cc844a]/25 bg-[#cc844a]/5'>
-                <CardHeader className='pb-2 pt-4'>
+              <Card className='border-[#cc844a]/45 bg-[#cc844a]/15 shadow-sm'>
+                <CardHeader className='pb-1.5 pt-3 px-4'>
                   <CardTitle className='text-sm font-tan-nimbus text-[#cc844a] flex items-center gap-2'>
                     <AlertTriangle className='h-3.5 w-3.5' />
                     Stock bajo — {lowStockProducts.length} producto{lowStockProducts.length !== 1 ? 's' : ''}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className='pt-1 px-4 pb-3'>
                   <AlertList products={lowStockProducts} empty='Todos los productos tienen stock suficiente.' />
                 </CardContent>
               </Card>
             )}
 
             {showOutOfStock && (
-              <Card className='border-[#4e4247]/20 bg-[#4e4247]/5'>
-                <CardHeader className='pb-2 pt-4'>
+              <Card className='border-[#4e4247]/45 bg-[#4e4247]/15 shadow-sm'>
+                <CardHeader className='pb-1.5 pt-3 px-4'>
                   <CardTitle className='text-sm font-tan-nimbus text-[#4e4247] flex items-center gap-2'>
                     <Package className='h-3.5 w-3.5' />
                     Agotados — {outOfStockProducts.length} producto{outOfStockProducts.length !== 1 ? 's' : ''}
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className='pt-1 px-4 pb-3'>
                   <AlertList products={outOfStockProducts} empty='No hay productos agotados.' />
                 </CardContent>
               </Card>
@@ -324,7 +355,7 @@ export default function ProductsPage() {
 
       {/* Products Table with loading state */}
       <Card className='border-[#9d684e]/20'>
-        <CardHeader>
+        <CardHeader className='pb-2'>
           <CardTitle className='text-[#455a54] font-tan-nimbus text-responsive-base'>
             Catálogo de Productos
           </CardTitle>
@@ -332,7 +363,7 @@ export default function ProductsPage() {
             Lista completa de productos con opciones de filtrado y ordenamiento
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className='pt-2'>
           {isLoading ? (
             <div className='flex items-center justify-center p-8'>
               <div className='text-center'>

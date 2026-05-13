@@ -13,6 +13,7 @@ import { Search, ScanLine, Filter } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { cn } from '@/lib/utils';
+import { useCategories } from '@/hooks/useCategories';
 
 interface ProductSearchSectionProps {
   onSearch: (query: string, category?: string) => void;
@@ -34,12 +35,11 @@ export function ProductSearchSection({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const { categories: dbCategories } = useCategories();
 
   const categories = [
     { value: 'all', label: 'Todas las categorías' },
-    { value: 'organicos', label: 'Orgánicos' },
-    { value: 'aromaticos', label: 'Aromáticos' },
-    { value: 'wellness', label: 'Wellness' },
+    ...dbCategories.map((c) => ({ value: c.name, label: c.name })),
   ];
 
   const handleSearch = (query: string = searchQuery, category: string = selectedCategory) => {

@@ -16,6 +16,7 @@ import {
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useCategories } from '@/hooks/useCategories';
+import { ColorSwatchPicker } from '@/components/ui/color-swatch-picker';
 import { categoriesService } from '@/services/categories.service';
 import { showToast } from '@/lib/toast';
 import type { Category } from '@/lib/types';
@@ -197,13 +198,17 @@ export default function CategoriesPage() {
               />
             </div>
             <div className='space-y-1.5'>
-              <Label className='text-xs text-[#455a54] font-winter-solid'>Color (hex)</Label>
-              <div className='flex gap-2 items-center'>
+              <Label className='text-xs text-[#455a54] font-winter-solid'>Color</Label>
+              <ColorSwatchPicker
+                value={form.color}
+                onChange={(hex) => setForm((f) => ({ ...f, color: hex }))}
+              />
+              <div className='flex gap-2 items-center pt-1'>
                 <Input
                   value={form.color}
                   onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
-                  placeholder='#9d684e'
-                  className='h-9 border-[#9d684e]/20 flex-1'
+                  placeholder='#9d684e (custom)'
+                  className='h-9 border-[#9d684e]/20 flex-1 text-xs'
                 />
                 {form.color && (
                   <span

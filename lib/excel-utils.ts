@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Product, ProductCategory } from './types';
+import type { Product, ProductCategory, Category } from './types';
 import { categoryConfig, statusConfig } from './config';
 
 // =====================================================================
@@ -38,7 +38,11 @@ const VALID_UNITS: Product['unitOfMeasure'][] = ['litro', 'gramo', 'unidad'];
  * **template para re-importar** (los headers y los valores son los mismos
  * que el parser espera).
  */
-export function exportProductsToExcel(products: Product[], filename?: string): void {
+export function exportProductsToExcel(
+  products: Product[],
+  categories?: Category[],
+  filename?: string,
+): void {
   if (products.length === 0) {
     console.warn('No hay productos para exportar');
     return;
@@ -82,10 +86,15 @@ export function exportProductsToExcel(products: Product[], filename?: string): v
   ];
 
   // Hoja "Leyenda" para que el usuario sepa qué valores son válidos.
+  const categoryLegendRows = categories && categories.length > 0
+    ? categories.map((c) => ({ Campo: 'Categoría', Valor: c.name, Significado: c.name }))
+    : [
+        { Campo: 'Categoría', Valor: 'organicos', Significado: categoryConfig.organicos?.label ?? 'Orgánicos' },
+        { Campo: 'Categoría', Valor: 'aromaticos', Significado: categoryConfig.aromaticos?.label ?? 'Aromáticos' },
+        { Campo: 'Categoría', Valor: 'wellness', Significado: categoryConfig.wellness?.label ?? 'Wellness' },
+      ];
   const legendRows = [
-    { Campo: 'Categoría', Valor: 'organicos', Significado: categoryConfig.organicos?.label ?? 'Orgánicos' },
-    { Campo: 'Categoría', Valor: 'aromaticos', Significado: categoryConfig.aromaticos?.label ?? 'Aromáticos' },
-    { Campo: 'Categoría', Valor: 'wellness', Significado: categoryConfig.wellness?.label ?? 'Wellness' },
+    ...categoryLegendRows,
     { Campo: 'Unidad', Valor: 'litro', Significado: 'Litro' },
     { Campo: 'Unidad', Valor: 'gramo', Significado: 'Gramo' },
     { Campo: 'Unidad', Valor: 'unidad', Significado: 'Unidad' },

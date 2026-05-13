@@ -32,6 +32,7 @@ import { showToast } from '@/lib/toast';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { PaginationWithMore } from '@/components/ui/pagination-with-more';
 import type { Product } from '@/lib/types';
@@ -54,6 +55,7 @@ function StockAdjustmentsContent() {
   // Simple hooks API
   const { adjustStockQuantity } = useStock();
   const { products, updateProduct } = useProducts();
+  const { categories: dbCategories } = useCategories();
 
   // Pre-select product from URL parameters
   useEffect(() => {
@@ -96,9 +98,7 @@ function StockAdjustmentsContent() {
 
   const categories = [
     { value: 'all', label: 'Todas las categorías' },
-    { value: 'organicos', label: 'Orgánicos' },
-    { value: 'aromaticos', label: 'Aromáticos' },
-    { value: 'wellness', label: 'Wellness' },
+    ...dbCategories.map((c) => ({ value: c.name, label: c.name })),
   ];
 
   const handleProductSelect = (product: Product) => {

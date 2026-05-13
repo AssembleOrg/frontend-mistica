@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { getCategoryStyle } from '@/lib/config';
+import { useCategories } from '@/hooks/useCategories';
+import { useAppStore } from '@/stores/app.store';
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { DateRange } from 'react-day-picker';
@@ -43,13 +45,12 @@ export function ProductsMobileView({
   onRefresh,
   isLoading
 }: ProductsMobileViewProps) {
+  const { categories } = useCategories();
+  const lowStockThreshold = useAppStore((s) => s.settings.lowStockThreshold);
 
-  // Category options for filters
   const categoryOptions: FilterOption[] = [
     { value: 'all', label: 'Todas las categorías' },
-    { value: 'organicos', label: 'Orgánicos' },
-    { value: 'aromaticos', label: 'Aromáticos' },
-    { value: 'wellness', label: 'Wellness' },
+    ...categories.map((c) => ({ value: c.name, label: c.name })),
   ];
 
   const handleClearFilters = () => {
@@ -113,7 +114,7 @@ export function ProductsMobileView({
       {/* Products Cards */}
       <div className="space-y-3">
       {products.map((product) => {
-        const categoryInfo = getCategoryStyle(product.category);
+        const categoryInfo = getCategoryStyle(product.category, categories);
         const profitMargin = calculateProfitMargin(product.costPrice ?? 0, product.price);
 
         return (
@@ -175,8 +176,8 @@ export function ProductsMobileView({
               <div className="mobile-card-row">
                 <span className="mobile-card-label">Stock</span>
                 <span className={`mobile-card-value font-medium ${
-                  product.stock <= 5 ? 'text-[#4e4247]' :
-                  product.stock <= 10 ? 'text-[#cc844a]' : 'text-[#455a54]'
+                  product.stock === 0 ? 'text-[#4e4247]' :
+                  product.stock <= lowStockThreshold ? 'text-[#cc844a]' : 'text-[#455a54]'
                 }`}>
                   {product.stock} unidades
                 </span>

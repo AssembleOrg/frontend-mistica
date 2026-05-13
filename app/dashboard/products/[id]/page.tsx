@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Product } from '@/lib/types';
 import { getCategoryStyle } from '@/lib/config';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useCategories';
+import { useAppStore } from '@/stores/app.store';
 // Removed mock import - now using real API data
 import { calculateProfitMargin } from '@/lib/barcode-utils';
 import Barcode from 'react-barcode';
@@ -27,6 +29,8 @@ export default function ProductDetailsPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { products } = useProducts();
+  const { categories } = useCategories();
+  const lowStockThreshold = useAppStore((s) => s.settings.lowStockThreshold);
 
   useEffect(() => {
     // Load product from real data
@@ -145,7 +149,7 @@ export default function ProductDetailsPage() {
   };
   
   const profitMargin = calculateProfitMargin(product.price, product.costPrice ?? 0);
-  const categoryStyle = getCategoryStyle(product.category);
+  const categoryStyle = getCategoryStyle(product.category, categories);
 
   return (
     <div className="max-w-2xl mx-auto mt-6 space-y-6 px-4 sm:px-0">
@@ -267,7 +271,7 @@ export default function ProductDetailsPage() {
               <p className={`text-lg font-medium ${
                 product.stock === 0
                   ? 'text-red-500'
-                  : product.stock <= 10
+                  : product.stock <= lowStockThreshold
                   ? 'text-orange-500'
                   : 'text-[#455a54]'
               }`}>

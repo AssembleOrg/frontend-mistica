@@ -75,6 +75,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
+  // Track de si ya intentamos precargar "Cliente Mostrador" para esta apertura
+  // del modal. Sin esto, el useEffect re-corría cada vez que `selectedClient`
+  // pasaba a null (caso típico: el usuario tipea un nombre nuevo en el
+  // AsyncSelect, que limpia la selección via `onChange(null)`) y sobrescribía
+  // el customerName recién tipeado con "Cliente Mostrador".
+  const mostradorPreloadedRef = useRef(false);
 
   const { createSale, updateSale } = useSalesAPI();
   const { getPrepaidsByClient, getPrepaidById } = usePrepaidsAPI();
@@ -144,10 +150,19 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   // Precarga el "Cliente Mostrador" como default al abrir el modal en modo nuevo.
   // Walk-in flow: 90% de las ventas son sin cliente nominal. El cajero puede
-  // reemplazarlo desde el AsyncSelect en cualquier momento.
+  // reemplazarlo desde el AsyncSelect en cualquier momento — y si lo limpia
+  // o tipea un nombre nuevo, NO volvemos a forzar Cliente Mostrador.
   useEffect(() => {
-    if (!isOpen || editingSale) return;
-    if (selectedClient) return;
+    if (!isOpen) {
+      // Resetea el flag al cerrar el modal para que la próxima apertura
+      // vuelva a precargar.
+      mostradorPreloadedRef.current = false;
+      return;
+    }
+    if (editingSale) return;
+    if (mostradorPreloadedRef.current) return;
+    mostradorPreloadedRef.current = true;
+
     let cancelled = false;
     (async () => {
       try {
@@ -171,7 +186,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, editingSale, selectedClient]);
+  }, [isOpen, editingSale]);
 
   // Fetcher para el AsyncSelect de clientes: usa el endpoint paginado con
   // search server-side. Devuelve los Client + meta de paginación.

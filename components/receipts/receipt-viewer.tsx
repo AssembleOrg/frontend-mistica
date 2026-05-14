@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Printer, Download, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { hasAfipData } from '@/lib/receipt-utils';
+import { parseNotesAndSeller } from '@/lib/sales-seller';
 
 interface ReceiptViewerProps {
   sale: Sale;
@@ -21,6 +22,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
   const { formatCurrency } = useCurrencyFormat();
   const [isLoading, setIsLoading] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const { seller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
 
   // Generar QR aleatorio para formato A4
   useEffect(() => {
@@ -124,6 +126,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           {sale.customerPhone && (
             <div>Tel: {sale.customerPhone}</div>
           )}
+          {seller && <div>Vendedor: {seller}</div>}
         </div>
       )}
 
@@ -259,6 +262,11 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
               <span className="font-medium">Teléfono:</span> {sale.customerPhone}
             </div>
           )}
+          {seller && (
+            <div>
+              <span className="font-medium">Vendedor:</span> {seller}
+            </div>
+          )}
           {sale.customerEmail && (
             <div>
               <span className="font-medium">Email:</span> {sale.customerEmail}
@@ -335,9 +343,9 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
               )}
             </div>
           ))}
-          {sale.notes && (
+          {cleanNotes && (
             <div className="mt-2">
-              <span className="font-medium">Notas:</span> {sale.notes}
+              <span className="font-medium">Notas:</span> {cleanNotes}
             </div>
           )}
         </div>

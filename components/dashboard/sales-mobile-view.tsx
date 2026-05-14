@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
+import { parseNotesAndSeller } from '@/lib/sales-seller';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
@@ -132,6 +133,7 @@ export function SalesMobileView({
           const primary = getPrimaryPaymentMethod(sale);
           const accent = statusAccent[sale.status] ?? 'bg-[#d9dadb]';
           const hasDiscount = (sale.discount ?? 0) > 0;
+          const cleanNotes = parseNotesAndSeller(sale.notes).notes;
 
           return (
             <div
@@ -174,8 +176,8 @@ export function SalesMobileView({
                     {hasDiscount && (
                       <span className="ml-1.5 text-[#cc844a]">· {sale.discount}% off</span>
                     )}
-                    {sale.notes && (
-                      <span className="block italic truncate max-w-[160px]">{sale.notes}</span>
+                    {cleanNotes && (
+                      <span className="block italic truncate max-w-[160px]">{cleanNotes}</span>
                     )}
                   </div>
                   <div className="text-right shrink-0 ml-2">

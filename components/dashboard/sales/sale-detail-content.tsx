@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Sale } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { parseNotesAndSeller } from '@/lib/sales-seller';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
@@ -237,6 +238,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const hasAdjustment = adjustmentApplied !== 0;
   const hasTax        = sale.tax > 0;
   const isMultiPay    = (sale.payments ?? []).length > 1;
+  const { seller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
 
   return (
     <>
@@ -262,6 +264,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
           <Row label="Nombre">{sale.customerName || '—'}</Row>
           {sale.customerEmail && <Row label="Email">{sale.customerEmail}</Row>}
           {sale.customerPhone && <Row label="Teléfono">{sale.customerPhone}</Row>}
+          {seller && <Row label="Vendedor">{seller}</Row>}
         </Section>
 
         {/* Productos */}
@@ -344,10 +347,10 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         )}
 
         {/* Notas */}
-        {sale.notes && (
+        {cleanNotes && (
           <Section title="Notas" icon={FileText}>
             <p className="text-xs text-[#455a54]/70 font-winter-solid py-2 leading-relaxed">
-              {sale.notes}
+              {cleanNotes}
             </p>
           </Section>
         )}

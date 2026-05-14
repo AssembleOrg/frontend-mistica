@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Package, Users, Landmark, Boxes, UserCircle2, Receipt, Activity } from 'lucide-react';
+import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Receipt, Activity } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -22,7 +22,6 @@ export default function Dashboard() {
     { name: 'Stock',      description: 'Inventario',       href: '/dashboard/stock',     icon: Boxes,       iconBg: 'bg-[#cc844a]/80' },
     { name: 'Clientes',   description: 'Base de clientes', href: '/dashboard/clients',   icon: UserCircle2, iconBg: 'bg-[#9d684e]/70' },
     { name: 'Señas',      description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70' },
-    { name: 'Personal',   description: 'Equipo',           href: '/dashboard/staff',     icon: Users,       iconBg: 'bg-[#e0a38d]' },
     { name: 'Actividad',  description: 'Historial',        href: '/dashboard/activity',  icon: Activity,    iconBg: 'bg-[#455a54]/50' },
   ];
 

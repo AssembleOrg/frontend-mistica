@@ -26,6 +26,7 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 import { formatCurrency, getCashPayment, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
+import { parseNotesAndSeller } from '@/lib/sales-seller';
 import {
   Dialog,
   DialogContent,
@@ -138,7 +139,9 @@ export default function SaleDetailPage() {
 
   const handlePrint = () => {
     if (!sale) return;
-    
+
+    const { seller: receiptSeller, notes: receiptCleanNotes } = parseNotesAndSeller(sale.notes);
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     
@@ -389,10 +392,16 @@ export default function SaleDetailPage() {
               })()}
             </div>
 
-            ${sale.notes && sale.notes.trim() ? `
+            ${receiptSeller ? `
+              <div class="section">
+                <strong>Vendedor:</strong> ${receiptSeller}
+              </div>
+            ` : ''}
+
+            ${receiptCleanNotes ? `
               <div class="section">
                 <strong>Notas:</strong><br>
-                <em>${sale.notes}</em>
+                <em>${receiptCleanNotes}</em>
               </div>
             ` : ''}
 
@@ -459,6 +468,7 @@ export default function SaleDetailPage() {
 
   const statusConfig = getStatusConfig(sale.status);
   const StatusIcon = statusConfig.icon;
+  const { seller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
 
   return (
     <div className='min-h-screen bg-gradient-to-br from-[var(--color-rosa-claro)]/20 to-[var(--color-durazno)]/20'>
@@ -607,12 +617,20 @@ export default function SaleDetailPage() {
                             {sale.customerPhone}
                           </p>
                         )}
+                        {seller && (
+                          <p className='text-sm font-winter-solid'>
+                            <span className='text-[var(--color-verde-profundo)]'>
+                              Vendedor:
+                            </span>{' '}
+                            {seller}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </>
                 )}
 
-                {sale.notes && (
+                {cleanNotes && (
                   <>
                     <Separator />
                     <div>
@@ -620,7 +638,7 @@ export default function SaleDetailPage() {
                         Notas
                       </h4>
                       <p className='text-sm text-[var(--color-ciruela-oscuro)] bg-[var(--color-rosa-claro)]/20 p-3 rounded-lg font-winter-solid'>
-                        {sale.notes}
+                        {cleanNotes}
                       </p>
                     </div>
                   </>

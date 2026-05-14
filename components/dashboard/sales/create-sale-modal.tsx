@@ -32,6 +32,7 @@ import { BarcodeScanner, BarcodeScannerRef } from './barcode-scanner';
 import { PaymentsEditor, paymentsAreValid } from './payments-editor';
 import { PrepaidAmountDialog } from './prepaid-amount-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import type { Product } from '@/lib/types';
 
 type AdjustmentType = 'discount' | 'surcharge';
@@ -58,6 +59,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [customerCuit, setCustomerCuit] = useState('');
   const [payments, setPayments] = useState<SalePayment[]>([]);
   const [notes, setNotes] = useState('');
+  const [sellerName, setSellerName] = useState('');
   const [cartItems, setCartItems] = useState<SaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientPrepaid, setClientPrepaid] = useState<{id: string, amount: number} | null>(null);
@@ -121,7 +123,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           changeGiven: p.changeGiven,
         }))
       );
-      setNotes(editingSale.notes || '');
+      {
+        const parsed = parseNotesAndSeller(editingSale.notes);
+        setSellerName(parsed.seller);
+        setNotes(parsed.notes);
+      }
 
       // Convert sale items to cart items
       const cartItems = editingSale.items.map(item => ({
@@ -399,6 +405,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setCustomerCuit('');
     setPayments([]);
     setNotes('');
+    setSellerName('');
     setCartItems([]);
     setClientPrepaid(null);
     setUsePrepaid(false);
@@ -469,7 +476,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         })),
         discount: signedDiscount,
         payments,
-        notes: notes.trim() || undefined,
+        notes: encodeNotesWithSeller(notes, sellerName),
         prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: usePrepaid,
       } as const;
@@ -604,6 +611,19 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 onChange={setPayments}
                 disabled={isSubmitting}
               />
+
+              <div className="space-y-2">
+                <Label htmlFor="sellerName" className="text-[#455a54] font-winter-solid">
+                  Vendedor
+                </Label>
+                <Input
+                  id="sellerName"
+                  value={sellerName}
+                  onChange={(e) => setSellerName(e.target.value.replace(/[\]\n\r]/g, ''))}
+                  placeholder=""
+                  className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
+                />
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="notes" className="text-[#455a54] font-winter-solid">

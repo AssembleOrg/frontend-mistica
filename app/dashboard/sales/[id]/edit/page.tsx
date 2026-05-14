@@ -40,6 +40,7 @@ import {
 import { Sale, SaleItem, Product } from '@/lib/types';
 import { showToast } from '@/lib/toast';
 import { formatCurrency, getCashPayment, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
+import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import { useProducts } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
 // Removed unused Dialog imports
@@ -60,6 +61,7 @@ export default function EditSalePage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'>('efectivo');
   const [notes, setNotes] = useState('');
+  const [preservedSeller, setPreservedSeller] = useState('');
   const [cashReceived, setCashReceived] = useState('');
   
   const [isLoading, setIsLoading] = useState(true);
@@ -102,7 +104,11 @@ export default function EditSalePage() {
         setCustomerEmail(foundSale.customerEmail || '');
         setCustomerPhone(foundSale.customerPhone || '');
         setPaymentMethod(mapPaymentMethod(getPrimaryPaymentMethod(foundSale)));
-        setNotes(foundSale.notes || '');
+        {
+          const parsed = parseNotesAndSeller(foundSale.notes);
+          setPreservedSeller(parsed.seller);
+          setNotes(parsed.notes);
+        }
         const cashPay = getCashPayment(foundSale);
         setCashReceived(cashPay?.receivedAmount?.toString() || '');
       }
@@ -227,7 +233,7 @@ export default function EditSalePage() {
       // de venta para reasignar pagos. Mantenemos sólo notas y datos de cliente.
       void mapPaymentMethodToAPI; // anti unused-var
       const success = editSale(saleId, {
-        notes,
+        notes: encodeNotesWithSeller(notes, preservedSeller),
         customerInfo: {
           name: customerName,
           email: customerEmail,
@@ -246,7 +252,7 @@ export default function EditSalePage() {
     } finally {
       setIsSaving(false);
     }
-  }, [sale, canEditSale, editSale, saleId, paymentMethod, notes, customerName, customerEmail, customerPhone, router]);
+  }, [sale, canEditSale, editSale, saleId, paymentMethod, notes, preservedSeller, customerName, customerEmail, customerPhone, router]);
 
   const handleCancel = useCallback(() => {
     if (confirm('¿Estás seguro de que deseas cancelar? Se perderán todos los cambios.')) {

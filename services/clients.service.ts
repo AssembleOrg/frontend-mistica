@@ -13,6 +13,7 @@ export interface Client {
   notes?: string;
   cuit?: string;
   prepaid: number; // Total de prepaids pendientes
+  transactionCount?: number;
   // Sólo viene poblado cuando se obtiene el cliente individualmente
   // (GET /clients/:id). En la lista paginada llega `undefined`.
   prepaids?: Prepaid[];

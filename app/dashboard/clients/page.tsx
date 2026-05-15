@@ -162,12 +162,10 @@ export default function ClientsPage() {
     const newThisMonth = clients.filter(
       (c) => new Date(c.createdAt) >= startOfMonth
     ).length;
-    const withCuit = clients.filter((c) => c.cuit && c.cuit.trim().length > 0).length;
     const withActivePrepaid = clients.filter((c) => c.prepaid > 0).length;
     return {
       total: totalItems || clients.length,
       newThisMonth,
-      withCuit,
       withActivePrepaid,
     };
   }, [clients, totalItems]);
@@ -205,7 +203,6 @@ export default function ClientsPage() {
         items={[
           { label: 'Total', value: kpis.total, hint: 'clientes' },
           { label: 'Nuevos este mes', value: kpis.newThisMonth, accent: 'var(--color-terracota)' },
-          { label: 'Con CUIT', value: kpis.withCuit, hint: `${kpis.total > 0 ? Math.round((kpis.withCuit / kpis.total) * 100) : 0}% del total` },
           { label: 'Con seña activa', value: kpis.withActivePrepaid, accent: 'var(--color-naranja-medio)' },
         ]}
       />

@@ -148,7 +148,7 @@ export function ClientsTable({
                   Contacto
                 </TableHead>
                 <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
-                  Seña
+                  Transacciones
                 </TableHead>
                 <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
                   Registrado
@@ -201,14 +201,9 @@ export function ClientsTable({
                     </div>
                   </TableCell>
                   <TableCell className='py-2.5'>
-                    {client.prepaid > 0 ? (
-                      <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-winter-solid bg-[#9d684e]/10 text-[#9d684e]'>
-                        <CreditCard className='h-2.5 w-2.5' />
-                        Con seña
-                      </span>
-                    ) : (
-                      <span className='text-[11px] text-[#455a54]/35 font-winter-solid'>—</span>
-                    )}
+                    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-winter-solid bg-[#9d684e]/10 text-[#9d684e]'>
+                      {client.transactionCount || 0} {client.transactionCount === 1 ? 'venta' : 'ventas'}
+                    </span>
                   </TableCell>
                   <TableCell className='py-2.5'>
                     <span className='text-[13px] text-[#455a54]/80 font-winter-solid tabular-nums'>

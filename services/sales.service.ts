@@ -150,6 +150,7 @@ export class SalesService {
     status?: string;
     from?: string;
     to?: string;
+    clientId?: string;
   }): Promise<ApiResponse<PaginatedResponse<Sale>>> {
     console.log('💰 SALES SERVICE: Obteniendo ventas paginadas:', { page, limit, filters });
     
@@ -171,6 +172,9 @@ export class SalesService {
       }
       if (filters.to) {
         params.append('to', filters.to);
+      }
+      if (filters.clientId) {
+        params.append('clientId', filters.clientId);
       }
     }
 

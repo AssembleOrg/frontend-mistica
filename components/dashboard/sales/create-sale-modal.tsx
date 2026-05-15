@@ -33,6 +33,7 @@ import { PaymentsEditor, paymentsAreValid } from './payments-editor';
 import { PrepaidAmountDialog } from './prepaid-amount-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
+import { salesService } from '@/services/sales.service';
 import type { Product } from '@/lib/types';
 
 type AdjustmentType = 'discount' | 'surcharge';
@@ -62,7 +63,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [sellerName, setSellerName] = useState('');
   const [cartItems, setCartItems] = useState<SaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [clientPrepaid, setClientPrepaid] = useState<{id: string, amount: number} | null>(null);
+  const [clientPrepaid, setClientPrepaid] = useState<{ id: string, amount: number } | null>(null);
   const [usePrepaid, setUsePrepaid] = useState(false);
   const [lastProcessedBarcode, setLastProcessedBarcode] = useState<string>('');
   const [barcodeProcessingTimeout, setBarcodeProcessingTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -75,6 +76,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // agregarlo al carrito.
   const [pendingPrepaidProduct, setPendingPrepaidProduct] = useState<Product | null>(null);
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
+  const [recentSales, setRecentSales] = useState<Sale[]>([]);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
   // Track de si ya intentamos precargar "Cliente Mostrador" para esta apertura
@@ -339,6 +341,15 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       setClientPrepaid(null);
       setUsePrepaid(false);
     }
+
+    try {
+      // Fetch recent sales (1 page, 3 items)
+      const salesRes = await salesService.getSales(1, 3, { clientId: client.id });
+      setRecentSales(salesRes.data?.data || []);
+    } catch (error) {
+      console.error('Error fetching recent sales:', error);
+      setRecentSales([]);
+    }
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -347,8 +358,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       return;
     }
 
-    setCartItems(prev => prev.map(item => 
-      item.productId === productId 
+    setCartItems(prev => prev.map(item =>
+      item.productId === productId
         ? { ...item, quantity, subtotal: quantity * item.unitPrice }
         : item
     ));
@@ -413,6 +424,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setAdjustmentType('discount');
     setAdjustmentAmount(0);
     setShowAdjustmentInput(false);
+    setRecentSales([]);
 
     if (barcodeProcessingTimeout) {
       clearTimeout(barcodeProcessingTimeout);
@@ -539,7 +551,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               <h3 className="text-base sm:text-lg font-medium text-[#455a54] font-winter-solid">
                 Información del Cliente
               </h3>
-              
+
               {/* Selector de cliente: doble función como input de nombre.
                   Si se elige uno existente, hidrata email/teléfono/cuit.
                   Si se tipea libre y no se elige, al confirmar venta se crea. */}
@@ -610,6 +622,24 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 />
               </div>
 
+              {selectedClient && recentSales.length > 0 && (
+                <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">
+                  <h4 className="text-xs font-semibold text-[#455a54] uppercase tracking-wider">Últimas transacciones</h4>
+                  <ul className="space-y-1.5">
+                    {recentSales.map((sale) => (
+                      <li key={sale.id} className="text-xs flex justify-between items-center text-[#455a54]/80 gap-2">
+                        <span className="truncate" title={sale.items.map(i => i.productName).join(', ')}>
+                          {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ')}</span>
+                        </span>
+                        <span className="font-semibold text-[#455a54] whitespace-nowrap">
+                          {formatCurrency(sale.total)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <PaymentsEditor
                 total={total}
                 value={payments}
@@ -646,19 +676,16 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
               {/* Client Prepaid Info */}
               {clientPrepaid && (
-                <div className={`mt-4 p-4 border rounded-lg ${
-                  editingSale ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
-                }`}>
+                <div className={`mt-4 p-4 border rounded-lg ${editingSale ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+                  }`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className={`font-medium ${
-                        editingSale ? 'text-blue-800' : 'text-green-800'
-                      }`}>
+                      <h4 className={`font-medium ${editingSale ? 'text-blue-800' : 'text-green-800'
+                        }`}>
                         {editingSale ? 'Seña de la Venta' : 'Seña Disponible'}
                       </h4>
-                      <p className={`text-sm ${
-                        editingSale ? 'text-blue-600' : 'text-green-600'
-                      }`}>
+                      <p className={`text-sm ${editingSale ? 'text-blue-600' : 'text-green-600'
+                        }`}>
                         {formatCurrency(clientPrepaid.amount)}
                       </p>
                     </div>
@@ -669,24 +696,21 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         checked={usePrepaid}
                         onChange={(e) => setUsePrepaid(e.target.checked)}
                         disabled={!!editingSale} // Disable in edit mode
-                        className={`rounded border-gray-300 focus:ring-green-500 ${
-                          editingSale 
-                            ? 'text-gray-400 cursor-not-allowed' 
+                        className={`rounded border-gray-300 focus:ring-green-500 ${editingSale
+                            ? 'text-gray-400 cursor-not-allowed'
                             : 'text-green-600'
-                        }`}
+                          }`}
                       />
-                      <label htmlFor="usePrepaid" className={`text-sm font-medium ${
-                        editingSale ? 'text-blue-800' : 'text-green-800'
-                      }`}>
+                      <label htmlFor="usePrepaid" className={`text-sm font-medium ${editingSale ? 'text-blue-800' : 'text-green-800'
+                        }`}>
                         {editingSale ? 'Seña aplicada' : 'Usar seña'}
                       </label>
                     </div>
                   </div>
                   {usePrepaid && (
-                    <p className={`text-xs mt-2 ${
-                      editingSale ? 'text-blue-600' : 'text-green-600'
-                    }`}>
-                      {editingSale 
+                    <p className={`text-xs mt-2 ${editingSale ? 'text-blue-600' : 'text-green-600'
+                      }`}>
+                      {editingSale
                         ? 'Esta seña ya está asociada a la venta'
                         : 'La seña se aplicará automáticamente al total'
                       }
@@ -885,7 +909,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Totals Summary */}
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs sm:text-sm">

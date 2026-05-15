@@ -58,6 +58,7 @@ export interface FinanceSummary {
     countedClosingCash: number | null;
     discrepancy: number | null;
     status: 'OPEN' | 'CLOSED';
+    closureType: 'MANUAL' | 'AUTO';
   }>;
   totalDiscrepancy: number;
 }

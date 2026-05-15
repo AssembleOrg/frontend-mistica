@@ -24,6 +24,7 @@ import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
 import { QuickEgressDialog } from '@/components/dashboard/finances/quick-egress-dialog';
 import { SessionDetailDialog } from '@/components/dashboard/finances/session-detail-dialog';
+import { ResolveAutoClosureDialog } from '@/components/dashboard/finances/resolve-auto-closure-dialog';
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -46,6 +47,7 @@ export default function FinancesPage() {
   const [loading, setLoading] = useState(false);
   const [showNewEgress, setShowNewEgress] = useState(false);
   const [selectedSession, setSelectedSession] = useState<FinanceSummary['cashSessions'][number] | null>(null);
+  const [sessionToResolve, setSessionToResolve] = useState<FinanceSummary['cashSessions'][number] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +94,10 @@ export default function FinancesPage() {
     : 0;
   const spct = (n: number) => (salesTotal > 0 ? (n / salesTotal) * 100 : 0);
 
+  const pendingAutoSession = useMemo(() => {
+    return summary?.cashSessions.find(s => s.closureType === 'AUTO');
+  }, [summary]);
+
   return (
     <div className="space-y-5 mt-6">
 
@@ -122,6 +128,11 @@ export default function FinancesPage() {
       <SessionDetailDialog
         session={selectedSession}
         onOpenChange={(open) => { if (!open) setSelectedSession(null); }}
+      />
+      <ResolveAutoClosureDialog
+        session={sessionToResolve}
+        onOpenChange={(open) => { if (!open) setSessionToResolve(null); }}
+        onResolved={load}
       />
 
       {/* Filtro de período */}
@@ -157,6 +168,30 @@ export default function FinancesPage() {
 
       {summary && (
         <>
+          {pendingAutoSession && (
+            <div className="rounded-xl border p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                 style={{ backgroundColor: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', borderColor: 'var(--color-naranja-medio)' }}>
+              <div className="flex items-start sm:items-center gap-3">
+                <AlertTriangle className="h-6 w-6 mt-0.5 sm:mt-0" style={{ color: 'var(--color-terracota)' }} />
+                <div>
+                  <p className="text-base font-semibold font-tan-nimbus" style={{ color: 'var(--color-terracota)' }}>
+                    Caja pendiente de arqueo
+                  </p>
+                  <p className="text-sm font-winter-solid mt-0.5" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                    El sistema cerró automáticamente la caja de ayer a la medianoche. Por favor, ingresa el dinero que contaste.
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => setSessionToResolve(pendingAutoSession)}
+                className="w-full sm:w-auto font-sans font-bold shadow-md"
+                style={{ background: 'var(--color-terracota)', color: 'white' }}
+              >
+                Completar Arqueo
+              </Button>
+            </div>
+          )}
+
           {/* Bloque D — Estado de caja (arriba del fold, auditoría inmediata) */}
           <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
             <CardHeader className="pb-2">

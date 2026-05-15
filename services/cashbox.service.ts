@@ -13,6 +13,7 @@ export interface CashSession {
   closingNotes?: string;
   openedByUserId?: string;
   closedByUserId?: string;
+  closureType?: 'MANUAL' | 'AUTO';
 }
 
 export interface OpenCashSessionRequest {
@@ -35,12 +36,20 @@ class CashboxService {
     return apiService.get<CashSession | null>('/cashbox/current');
   }
 
+  async getPendingAutoClosure(): Promise<ApiResponse<CashSession | null>> {
+    return apiService.get<CashSession | null>('/cashbox/pending-auto-closure');
+  }
+
   async open(req: OpenCashSessionRequest): Promise<ApiResponse<CashSession>> {
     return apiService.post<CashSession>('/cashbox/open', { ...req });
   }
 
   async close(req: CloseCashSessionRequest): Promise<ApiResponse<CashSession>> {
     return apiService.post<CashSession>('/cashbox/close', { ...req });
+  }
+
+  async resolveAutoClosure(id: string, req: CloseCashSessionRequest): Promise<ApiResponse<CashSession>> {
+    return apiService.patch<CashSession>(`/cashbox/${id}/resolve-auto`, { ...req });
   }
 
   async findAll(page = 1, limit = 10): Promise<ApiResponse<PaginatedResponse<CashSession>>> {

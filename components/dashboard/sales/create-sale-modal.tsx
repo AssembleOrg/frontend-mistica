@@ -429,6 +429,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       return;
     }
 
+    if (!sellerName.trim()) {
+      showToast.error('El nombre del vendedor es requerido');
+      return;
+    }
+
     if (cartItems.length === 0) {
       showToast.error('Debe agregar al menos un producto');
       return;
@@ -614,7 +619,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
               <div className="space-y-2">
                 <Label htmlFor="sellerName" className="text-[#455a54] font-winter-solid">
-                  Vendedor
+                  Vendedor *
                 </Label>
                 <Input
                   id="sellerName"

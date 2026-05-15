@@ -64,29 +64,29 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg" style={{ borderColor: 'var(--color-gris-claro)' }}>
         <DialogHeader>
-          <DialogTitle className="font-tan-nimbus text-lg" style={{ color: 'var(--color-verde-profundo)' }}>
+          <DialogTitle className="font-sans text-lg" style={{ color: 'var(--color-verde-profundo)' }}>
             Detalle de sesión
           </DialogTitle>
-          <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+          <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
             {fromLabel} → {toLabel}
           </p>
         </DialogHeader>
 
         {/* Resumen de caja */}
         <div
-          className="rounded-lg border p-4 space-y-1 text-sm font-winter-solid"
+          className="rounded-lg border p-4 space-y-1 text-sm font-sans"
           style={{ borderColor: 'var(--color-gris-claro)', background: 'color-mix(in srgb, var(--color-verde-profundo) 5%, transparent)' }}
         >
           <div className="flex justify-between">
             <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Apertura</span>
-            <span className="font-semibold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+            <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
               {formatCurrency(session.openingCash)}
             </span>
           </div>
           {session.expectedClosingCash !== null && (
             <div className="flex justify-between">
               <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Esperado al cierre</span>
-              <span className="font-semibold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+              <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
                 {formatCurrency(session.expectedClosingCash)}
               </span>
             </div>
@@ -94,7 +94,7 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
           {session.countedClosingCash !== null && (
             <div className="flex justify-between">
               <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Contado al cierre</span>
-              <span className="font-semibold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+              <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
                 {formatCurrency(session.countedClosingCash)}
               </span>
             </div>
@@ -105,7 +105,7 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                 <AlertTriangle className="inline h-3 w-3 mr-1" />
                 {session.discrepancy > 0 ? 'Sobrante' : 'Faltante'}
               </span>
-              <span className="font-semibold font-tan-nimbus" style={{ color: session.discrepancy > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}>
+              <span className="font-semibold font-sans" style={{ color: session.discrepancy > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}>
                 {formatCurrency(Math.abs(session.discrepancy))}
               </span>
             </div>
@@ -129,30 +129,30 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
               style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
             >
               <div className="p-3">
-                <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Ventas</p>
-                <p className="text-lg font-bold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>{summary.salesCount}</p>
-                <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(summary.totalRevenue)}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Ventas</p>
+                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{summary.salesCount}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(summary.totalRevenue)}</p>
               </div>
               <div className="p-3">
-                <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Egresos</p>
-                <p className="text-lg font-bold font-tan-nimbus" style={{ color: 'var(--color-terracota)' }}>{summary.expenses.count}</p>
-                <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(summary.expenses.total)}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Egresos</p>
+                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-terracota)' }}>{summary.expenses.count}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(summary.expenses.total)}</p>
               </div>
               <div className="p-3">
-                <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Balance</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Balance</p>
                 <p
-                  className="text-lg font-bold font-tan-nimbus"
+                  className="text-lg font-bold font-sans"
                   style={{ color: summary.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
                 >
                   {formatCurrency(summary.netBalance)}
                 </p>
-                <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>neto</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>neto</p>
               </div>
             </div>
 
             {/* Métodos de pago */}
             <div>
-              <p className="text-xs font-medium font-winter-solid uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+              <p className="text-xs font-medium font-sans uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
                 Cobrado por método
               </p>
               <div className="space-y-2">
@@ -161,13 +161,13 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                   { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'Tarjeta',     amount: summary.byPaymentMethod.CARD },
                   { icon: <Send className="h-3.5 w-3.5" />,        label: 'Transferencia', amount: summary.byPaymentMethod.TRANSFER },
                 ] as const).map(({ icon, label, amount }) => (
-                  <div key={label} className="flex items-center justify-between text-sm font-winter-solid">
+                  <div key={label} className="flex items-center justify-between text-sm font-sans">
                     <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>
                       {icon}
                       <span>{label}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+                      <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
                         {formatCurrency(amount)}
                       </span>
                       <span className="text-xs w-7 text-right" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>
@@ -182,14 +182,14 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
             {/* Top productos de la sesión */}
             {summary.topProducts.length > 0 && (
               <div>
-                <p className="text-xs font-medium font-winter-solid uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+                <p className="text-xs font-medium font-sans uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
                   Top productos
                 </p>
                 <div className="space-y-0">
                   {summary.topProducts.slice(0, 5).map((p, i) => (
                     <div
                       key={p.productId}
-                      className="flex items-center justify-between py-1.5 border-b last:border-0 text-sm font-winter-solid"
+                      className="flex items-center justify-between py-1.5 border-b last:border-0 text-sm font-sans"
                       style={{ borderColor: 'var(--color-gris-claro)' }}
                     >
                       <span style={{ color: 'var(--color-ciruela-oscuro)' }}>
@@ -198,7 +198,7 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                       </span>
                       <span className="flex items-center gap-2">
                         <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.4 }}>{p.quantity} u.</span>
-                        <span className="font-semibold font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
+                        <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
                           {formatCurrency(p.revenue)}
                         </span>
                       </span>

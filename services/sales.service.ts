@@ -33,6 +33,7 @@ export interface CreateSaleRequest {
   prepaidId?: string;
   consumedPrepaid?: boolean;
   discount?: number;
+  seller: string;
 }
 
 export type InvoiceType = 'A' | 'B' | 'C';
@@ -54,6 +55,7 @@ export interface UpdateSaleRequest {
   prepaidId?: string;
   consumedPrepaid?: boolean;
   discount?: number;
+  seller?: string;
   shouldInvoice?: boolean;
   // Datos AFIP cuando shouldInvoice=true. Si no se proveen, default Factura C.
   invoiceType?: InvoiceType;
@@ -98,6 +100,7 @@ export interface Sale {
   payments: SalePayment[];
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
+  seller?: string;
   consumedPrepaid?: boolean;
   createdAt: string;
   updatedAt: string;

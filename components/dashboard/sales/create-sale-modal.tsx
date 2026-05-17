@@ -127,7 +127,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       );
       {
         const parsed = parseNotesAndSeller(editingSale.notes);
-        setSellerName(parsed.seller);
+        setSellerName(editingSale.seller || parsed.seller);
         setNotes(parsed.notes);
       }
 
@@ -493,7 +493,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         })),
         discount: signedDiscount,
         payments,
-        notes: encodeNotesWithSeller(notes, sellerName),
+        notes: notes,
+        seller: sellerName.trim(),
         prepaidId: usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: usePrepaid,
       } as const;

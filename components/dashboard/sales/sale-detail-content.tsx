@@ -238,7 +238,8 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const hasAdjustment = adjustmentApplied !== 0;
   const hasTax        = sale.tax > 0;
   const isMultiPay    = (sale.payments ?? []).length > 1;
-  const { seller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
+  const { seller: parsedSeller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
+  const seller = sale.seller || parsedSeller;
 
   return (
     <>

@@ -391,19 +391,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const { subtotal, tax, adjustmentApplied, prepaidAmount, total } = calculateTotals();
 
-  // Auto-actualizar la línea CASH cuando hay un solo método y cambia el total
-  // (caso típico del POS rápido). Si el operador armó un split, no tocamos.
+  // Inicializar la línea CASH cuando no hay pagos cargados todavía. NO se
+  // re-balancea automáticamente al cambiar el total: el operador puede cobrar
+  // menos que el total y la diferencia se registra como descuento automático.
   useEffect(() => {
     if (payments.length === 0 && total > 0) {
       setPayments([{ method: 'CASH', amount: total, receivedAmount: total }]);
-      return;
-    }
-    if (payments.length === 1 && payments[0].method === 'CASH') {
-      setPayments([{
-        method: 'CASH',
-        amount: total,
-        receivedAmount: Math.max(payments[0].receivedAmount ?? total, total),
-      }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [total]);
@@ -452,7 +445,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
 
     if (!paymentsAreValid(payments, total)) {
-      showToast.error('La distribución del pago no coincide con el total');
+      showToast.error('Los pagos exceden el total a cobrar');
       return;
     }
 
@@ -919,10 +912,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                     </div>
                     {adjustmentApplied !== 0 && (
                       <div
-                        className={
-                          'flex justify-between text-xs sm:text-sm ' +
-                          (adjustmentApplied > 0 ? 'text-blue-600' : 'text-orange-600')
-                        }
+                        className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                        style={{ color: adjustmentApplied > 0 ? 'var(--color-verde-profundo)' : '#9d684e' }}
                       >
                         <span>{adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}:</span>
                         <span>
@@ -941,9 +932,30 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         <span>-{formatCurrency(prepaidAmount)}</span>
                       </div>
                     )}
+                    {(() => {
+                      const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
+                      const autoDiscount = Number((total - paymentsSum).toFixed(2));
+                      if (autoDiscount <= 0.01) return null;
+                      return (
+                        <div
+                          className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                          style={{ color: 'var(--color-verde-profundo)' }}
+                        >
+                          <span>Descuento automático:</span>
+                          <span>-{formatCurrency(autoDiscount)}</span>
+                        </div>
+                      );
+                    })()}
                     <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
-                      <span>Total:</span>
-                      <span className="text-[#9d684e]">{formatCurrency(total)}</span>
+                      <span>Total a cobrar:</span>
+                      <span className="text-[#9d684e]">
+                        {formatCurrency(
+                          Math.min(
+                            total,
+                            payments.reduce((acc, p) => acc + (p.amount || 0), 0) || total
+                          )
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>

@@ -510,7 +510,7 @@ export function SalesTable({
               </DropdownMenuItem>
               {isPending && (
                 <DropdownMenuItem
-                  className='hover:bg-[#cc844a]/10 text-[#cc844a]'
+                  className='hover:bg-[#cc844a]/15 text-[#a8632e] font-medium'
                   onClick={() => handleAction(sale.id, 'cancel')}
                   disabled={isActionLoading}
                 >

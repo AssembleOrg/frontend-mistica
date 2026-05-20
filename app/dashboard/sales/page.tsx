@@ -15,6 +15,7 @@ import { Plus, BarChart3, ShoppingCart } from 'lucide-react';
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
 import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
+// import { SalesTransactionsTab } from '@/components/dashboard/sales/sales-transactions-tab';
 import { SaleDetailPanel } from '@/components/dashboard/sales/sale-detail-panel';
 import { KbdShortcuts } from '@/components/dashboard/sales/kbd-shortcuts';
 
@@ -49,7 +50,7 @@ export default function SalesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
-  const { isLoading: loadingSales, sales, getSalesPaginated, getSaleById, getDailySales, deleteSale } = useSalesAPI();
+  const { isLoading: loadingSales, sales, getSalesPaginated, getSaleById, getDailySales, deleteSale, updateSale } = useSalesAPI();
 
   const loadSales = useCallback(async () => {
     const filters: { search?: string; status?: string; from?: string; to?: string } = {};
@@ -118,10 +119,15 @@ export default function SalesPage() {
     setShowEditSaleModal(true);
   }, []);
 
-  const handleUpdateSale = useCallback(async (_id: string, _data: UpdateSaleRequest) => {
-    showToast.success('Venta actualizada');
-    await refreshAll();
-  }, [refreshAll]);
+  const handleUpdateSale = useCallback(async (id: string, data: UpdateSaleRequest) => {
+    try {
+      await updateSale(id, data);
+      showToast.success('Venta actualizada');
+      await refreshAll();
+    } catch {
+      // useSalesAPI ya muestra el toast de error vía handleApiError
+    }
+  }, [updateSale, refreshAll]);
 
   const handleDeleteSale = useCallback(async (saleId: string) => {
     try {
@@ -207,6 +213,16 @@ export default function SalesPage() {
               <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
               Estadísticas
             </TabsTrigger>
+            {/* Tab Transacciones desactivado: ahora los movimientos viven dentro
+                del modal de detalle de sesión (accesible desde la card "Caja abierta"
+                en Estadísticas, o desde /dashboard/finances). */}
+            {/* <TabsTrigger
+              value="transactions"
+              className="data-[state=active]:bg-[#9d684e] data-[state=active]:text-white text-[#455a54] text-xs h-6 px-3 font-winter-solid"
+            >
+              <Receipt className="h-3.5 w-3.5 mr-1.5" />
+              Transacciones
+            </TabsTrigger> */}
           </TabsList>
           <Button
             onClick={() => setShowCreateSaleModal(true)}
@@ -291,6 +307,14 @@ export default function SalesPage() {
             <SalesStatsCards />
           </div>
         </TabsContent>
+
+        {/* Tab Transacciones desactivado — los movimientos se ven dentro del
+            modal de detalle de sesión (click en card "Caja abierta" de Estadísticas). */}
+        {/* <TabsContent value="transactions" className="flex-1 min-h-0 overflow-y-auto mt-0">
+          <div className="p-4 sm:p-6">
+            <SalesTransactionsTab />
+          </div>
+        </TabsContent> */}
       </Tabs>
 
       {/* ── Modales ─────────────────────────────────── */}

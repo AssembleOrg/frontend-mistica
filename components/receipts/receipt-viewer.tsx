@@ -149,8 +149,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         </div>
         {sale.discount > 0 && (
           <div className="flex justify-between">
-            <span>Descuento ({sale.discount}%):</span>
-            <span>-{formatCurrency(sale.subtotal * (sale.discount / 100))}</span>
+            <span>Descuento:</span>
+            <span>-{formatCurrency(sale.discount)}</span>
           </div>
         )}
         {sale.tax > 0 && (
@@ -309,8 +309,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             </div>
             {sale.discount > 0 && (
               <div className="flex justify-between text-red-600">
-                <span>Descuento ({sale.discount}%):</span>
-                <span>-{formatCurrency(sale.subtotal * (sale.discount / 100))}</span>
+                <span>Descuento:</span>
+                <span>-{formatCurrency(sale.discount)}</span>
               </div>
             )}
             <div className="flex justify-between">

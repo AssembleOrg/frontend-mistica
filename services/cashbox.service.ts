@@ -31,6 +31,23 @@ interface PaginatedResponse<T> {
   meta: { page: number; limit: number; total: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean };
 }
 
+export interface SessionTransaction {
+  id: string;
+  source: 'sale' | 'prepaid' | 'egress';
+  type: 'ingreso' | 'egreso';
+  amount: number;
+  description: string;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO' | string;
+  createdAt: string;
+  reference?: string;
+  afipCae?: string;
+}
+
+export interface SessionTransactionsResponse {
+  sessionId: string;
+  transactions: SessionTransaction[];
+}
+
 class CashboxService {
   async getCurrent(): Promise<ApiResponse<CashSession | null>> {
     return apiService.get<CashSession | null>('/cashbox/current');
@@ -58,6 +75,10 @@ class CashboxService {
 
   async findOne(id: string): Promise<ApiResponse<CashSession>> {
     return apiService.get<CashSession>(`/cashbox/${id}`);
+  }
+
+  async getSessionTransactions(id: string): Promise<ApiResponse<SessionTransactionsResponse>> {
+    return apiService.get<SessionTransactionsResponse>(`/cashbox/${id}/transactions`);
   }
 }
 

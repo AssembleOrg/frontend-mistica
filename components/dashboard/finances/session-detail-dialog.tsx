@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Banknote, CreditCard, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { financeService, type FinanceSummary } from '@/services/finance.service';
+import { cashboxService, type SessionTransaction } from '@/services/cashbox.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 
 interface CashSession {
@@ -32,21 +33,47 @@ function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress';
+type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER';
+
 export function SessionDetailDialog({ session, onOpenChange }: Props) {
   const open = session !== null;
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [transactions, setTransactions] = useState<SessionTransaction[]>([]);
+  const [loadingTx, setLoadingTx] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [methodFilter, setMethodFilter] = useState<MethodFilter>('all');
 
   useEffect(() => {
-    if (!session) { setSummary(null); return; }
+    if (!session) {
+      setSummary(null);
+      setTransactions([]);
+      setSourceFilter('all');
+      setMethodFilter('all');
+      return;
+    }
     setLoading(true);
+    setLoadingTx(true);
     const from = isoDate(new Date(session.openedAt));
     const to   = session.closedAt ? isoDate(new Date(session.closedAt)) : isoDate(new Date());
     financeService.summary({ from, to })
       .then(res => setSummary(res.data))
       .catch(() => setSummary(null))
       .finally(() => setLoading(false));
+    cashboxService.getSessionTransactions(session.id)
+      .then(res => setTransactions(res.data?.transactions ?? []))
+      .catch(() => setTransactions([]))
+      .finally(() => setLoadingTx(false));
   }, [session]);
+
+  const filteredTx = useMemo(() => {
+    return transactions.filter(t => {
+      if (sourceFilter !== 'all' && t.source !== sourceFilter) return false;
+      if (methodFilter !== 'all' && t.paymentMethod !== methodFilter) return false;
+      return true;
+    });
+  }, [transactions, sourceFilter, methodFilter]);
 
   if (!session) return null;
 
@@ -62,12 +89,12 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" style={{ borderColor: 'var(--color-gris-claro)' }}>
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" style={{ borderColor: 'var(--color-gris-claro)' }}>
         <DialogHeader>
-          <DialogTitle className="font-sans text-lg" style={{ color: 'var(--color-verde-profundo)' }}>
+          <DialogTitle className="font-tan-nimbus text-lg" style={{ color: 'var(--color-verde-profundo)' }}>
             Detalle de sesión
           </DialogTitle>
-          <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+          <p className="text-xs font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
             {fromLabel} → {toLabel}
           </p>
         </DialogHeader>
@@ -179,34 +206,157 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
               </div>
             </div>
 
-            {/* Top productos de la sesión */}
-            {summary.topProducts.length > 0 && (
-              <div>
-                <p className="text-xs font-medium font-sans uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
-                  Top productos
+            {/* Movimientos */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p
+                  className="text-xs font-medium font-winter-solid uppercase tracking-wide"
+                  style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}
+                >
+                  Movimientos
                 </p>
-                <div className="space-y-0">
-                  {summary.topProducts.slice(0, 5).map((p, i) => (
+                <span
+                  className="text-xs font-winter-solid"
+                  style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}
+                >
+                  {filteredTx.length} {filteredTx.length === 1 ? 'movimiento' : 'movimientos'}
+                </span>
+              </div>
+
+              {/* Chips: filtro por tipo */}
+              <div className="flex flex-wrap gap-1">
+                {([
+                  { v: 'all',     l: 'Todos'   },
+                  { v: 'sale',    l: 'Ventas'  },
+                  { v: 'prepaid', l: 'Señas'   },
+                  { v: 'egress',  l: 'Egresos' },
+                ] as const).map(o => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setSourceFilter(o.v)}
+                    className="px-2.5 py-1 rounded-full text-xs font-winter-solid transition"
+                    style={{
+                      backgroundColor: sourceFilter === o.v ? 'var(--color-verde-profundo)' : 'transparent',
+                      color: sourceFilter === o.v ? 'white' : 'var(--color-ciruela-oscuro)',
+                      border: '1px solid',
+                      borderColor: sourceFilter === o.v ? 'var(--color-verde-profundo)' : 'var(--color-gris-claro)',
+                    }}
+                  >
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+
+              {/* Chips: filtro por método */}
+              <div className="flex flex-wrap gap-1">
+                {([
+                  { v: 'all',      l: 'Todos los métodos' },
+                  { v: 'CASH',     l: 'Efectivo' },
+                  { v: 'CARD',     l: 'Tarjeta' },
+                  { v: 'TRANSFER', l: 'Transferencia' },
+                ] as const).map(o => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    onClick={() => setMethodFilter(o.v)}
+                    className="px-2.5 py-1 rounded-full text-xs font-winter-solid transition"
+                    style={{
+                      backgroundColor: methodFilter === o.v ? 'var(--color-terracota)' : 'transparent',
+                      color: methodFilter === o.v ? 'white' : 'var(--color-ciruela-oscuro)',
+                      border: '1px solid',
+                      borderColor: methodFilter === o.v ? 'var(--color-terracota)' : 'var(--color-gris-claro)',
+                    }}
+                  >
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+
+              {/* Timeline de movimientos */}
+              {loadingTx ? (
+                <div className="space-y-2 animate-pulse">
+                  {[0, 1, 2].map(i => (
                     <div
-                      key={p.productId}
-                      className="flex items-center justify-between py-1.5 border-b last:border-0 text-sm font-sans"
-                      style={{ borderColor: 'var(--color-gris-claro)' }}
-                    >
-                      <span style={{ color: 'var(--color-ciruela-oscuro)' }}>
-                        <span className="text-xs mr-2" style={{ opacity: 0.4 }}>#{i + 1}</span>
-                        {p.productName}
-                      </span>
-                      <span className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.4 }}>{p.quantity} u.</span>
-                        <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
-                          {formatCurrency(p.revenue)}
-                        </span>
-                      </span>
-                    </div>
+                      key={i}
+                      className="h-10 rounded-md"
+                      style={{ background: 'var(--color-gris-claro)' }}
+                    />
                   ))}
                 </div>
-              </div>
-            )}
+              ) : filteredTx.length === 0 ? (
+                <p
+                  className="text-xs font-winter-solid italic py-4 text-center"
+                  style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.55 }}
+                >
+                  {transactions.length === 0
+                    ? 'Aún no hay movimientos en esta sesión.'
+                    : 'Ningún movimiento coincide con los filtros.'}
+                </p>
+              ) : (
+                <div
+                  className="rounded-md border divide-y"
+                  style={{ borderColor: 'var(--color-gris-claro)' }}
+                >
+                  {filteredTx.map(t => {
+                    const isPrepaid = t.source === 'prepaid';
+                    const isIncome = t.type === 'ingreso';
+                    const hora = new Date(t.createdAt).toLocaleTimeString('es-AR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                    return (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-2 px-3 py-2 text-sm font-winter-solid"
+                        style={{
+                          borderColor: 'var(--color-gris-claro)',
+                          backgroundColor: isPrepaid ? 'rgba(254, 243, 199, 0.35)' : undefined,
+                        }}
+                      >
+                        <span
+                          className="text-xs shrink-0 w-10"
+                          style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}
+                        >
+                          {hora}
+                        </span>
+                        <span
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0"
+                          style={{
+                            color: isIncome ? '#2f6f3b' : '#9d2f2f',
+                            backgroundColor: isIncome ? 'rgba(47,111,59,0.12)' : 'rgba(157,47,47,0.12)',
+                          }}
+                        >
+                          {isIncome ? 'Ingreso' : 'Egreso'}
+                        </span>
+                        {isPrepaid && (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0"
+                            style={{ color: '#92400e', backgroundColor: '#fef3c7' }}
+                          >
+                            Seña
+                          </span>
+                        )}
+                        <span
+                          className="flex-1 truncate text-xs"
+                          style={{ color: 'var(--color-ciruela-oscuro)' }}
+                          title={t.description}
+                        >
+                          {t.description}
+                        </span>
+                        <span
+                          className="text-xs font-semibold shrink-0"
+                          style={{ color: isIncome ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
+                        >
+                          {isIncome ? '+' : '-'}
+                          {formatCurrency(t.amount)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </DialogContent>

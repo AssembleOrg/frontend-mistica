@@ -174,7 +174,7 @@ export function SalesMobileView({
                   <div className="text-xs text-[#455a54]/60 leading-relaxed">
                     <span>{lineCount} {lineCount === 1 ? 'producto' : 'productos'}</span>
                     {hasDiscount && (
-                      <span className="ml-1.5 text-[#cc844a]">· {sale.discount}% off</span>
+                      <span className="ml-1.5 text-[#cc844a]">· -{formatCurrency(sale.discount ?? 0)}</span>
                     )}
                     {cleanNotes && (
                       <span className="block italic truncate max-w-[160px]">{cleanNotes}</span>
@@ -220,7 +220,7 @@ export function SalesMobileView({
                     {sale.status === 'PENDING' && (
                       <DropdownMenuItem
                         onClick={() => onCancel?.(sale.id)}
-                        className="text-[#cc844a]"
+                        className="text-[#a8632e] font-medium"
                       >
                         <X className="mr-2 h-4 w-4" />
                         Cancelar comanda

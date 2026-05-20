@@ -328,14 +328,17 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
 
                 {sale.discount > 0 && (
                   <div>
-                    <div className="text-blue-600 font-winter-solid mb-1">Descuento:</div>
-                    <div className="text-blue-600 font-winter-solid text-lg">
-                      -{formatCurrency(sale.subtotal * (sale.discount / 100))}
-                      {sale.subtotal > 0 && (
-                        <span className="text-sm text-blue-500 ml-2">
-                          ({sale.discount} %)
-                        </span>
-                      )}
+                    <div className="font-winter-solid mb-1" style={{ color: 'var(--color-verde-profundo)' }}>Descuento:</div>
+                    <div className="font-winter-solid text-lg" style={{ color: 'var(--color-verde-profundo)' }}>
+                      -{formatCurrency(sale.discount)}
+                    </div>
+                  </div>
+                )}
+                {sale.discount < 0 && (
+                  <div>
+                    <div className="text-[#9d684e] font-winter-solid mb-1">Recargo:</div>
+                    <div className="text-[#9d684e] font-winter-solid text-lg">
+                      +{formatCurrency(Math.abs(sale.discount))}
                     </div>
                   </div>
                 )}

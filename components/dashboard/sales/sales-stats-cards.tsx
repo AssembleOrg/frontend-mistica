@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useSalesStats } from '@/hooks/useSalesStats';
 import { useCashbox } from '@/hooks/useCashbox';
@@ -16,10 +17,27 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { SessionDetailDialog } from '@/components/dashboard/finances/session-detail-dialog';
 
 export function SalesStatsCards() {
   const { statistics, isLoading, refreshData } = useSalesStats();
   const { current: cashSession, loading: cashLoading } = useCashbox();
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
+
+  // Adaptamos la sesión del hook al shape que pide SessionDetailDialog.
+  const sessionForDialog = useMemo(() => {
+    if (!cashSession) return null;
+    return {
+      id: cashSession.id,
+      openedAt: cashSession.openedAt,
+      closedAt: cashSession.closedAt ?? null,
+      openingCash: cashSession.openingCash,
+      expectedClosingCash: cashSession.expectedClosingCash ?? null,
+      countedClosingCash: cashSession.countedClosingCash ?? null,
+      discrepancy: cashSession.discrepancy ?? null,
+      status: cashSession.status,
+    };
+  }, [cashSession]);
 
   const loading = isLoading || cashLoading;
 
@@ -65,17 +83,22 @@ export function SalesStatsCards() {
         </button>
       </div>
 
-      {/* Sesión de caja actual */}
+      {/* Sesión de caja actual — clickeable para ver movimientos */}
       {cashSession ? (
-        <div
-          className="rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+        <button
+          type="button"
+          onClick={() => setSessionDialogOpen(true)}
+          className="w-full text-left rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors cursor-pointer"
           style={{ borderColor: 'var(--color-verde-profundo)', background: 'color-mix(in srgb, var(--color-verde-profundo) 6%, transparent)' }}
+          onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--color-verde-profundo) 12%, transparent)')}
+          onMouseLeave={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--color-verde-profundo) 6%, transparent)')}
+          title="Ver detalle y movimientos de la caja"
         >
           <div className="flex items-center gap-3">
             <Wallet className="h-5 w-5 shrink-0" style={{ color: 'var(--color-verde-profundo)' }} />
             <div>
               <p className="text-xs font-medium uppercase tracking-wide font-winter-solid" style={{ color: 'var(--color-verde-profundo)', opacity: 0.8 }}>
-                Caja abierta
+                Caja abierta · ver movimientos
               </p>
               <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
                 Desde {new Date(cashSession.openedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
@@ -93,7 +116,7 @@ export function SalesStatsCards() {
               </p>
             </div>
           )}
-        </div>
+        </button>
       ) : (
         <div
           className="rounded-xl border p-4 flex items-center gap-3"
@@ -296,6 +319,11 @@ export function SalesStatsCards() {
         </CardContent>
       </Card>
 
+      {/* Modal de detalle de sesión (movimientos de la caja actual) */}
+      <SessionDetailDialog
+        session={sessionDialogOpen ? sessionForDialog : null}
+        onOpenChange={(open) => setSessionDialogOpen(open)}
+      />
     </div>
   );
 }

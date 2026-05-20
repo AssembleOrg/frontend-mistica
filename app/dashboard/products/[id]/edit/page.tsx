@@ -62,18 +62,6 @@ export default function EditProductPage({ params }: EditProductPageProps) {
 
   return (
     <div className='space-y-6 mt-6'>
-      {/* Header */}
-      {/* <div>
-        <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>
-          Editar Producto
-        </h1>
-        <p className='text-[#455a54]/70 font-winter-solid'>
-          Modifica la información de:{' '}
-          <span className='font-medium'>{product?.name}</span>
-        </p>
-      </div> */}
-
-      {/* Form */}
       <ProductForm
         mode='edit'
         product={product || undefined}

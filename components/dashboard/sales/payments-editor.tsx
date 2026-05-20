@@ -176,15 +176,25 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
           balanced
             ? 'bg-green-50 border border-green-200 text-green-700'
             : remaining > 0
-              ? 'bg-amber-50 border border-amber-200 text-amber-700'
+              ? 'border'
               : 'bg-red-50 border border-red-200 text-red-700'
         }`}
+        style={
+          !balanced && remaining > 0
+            ? {
+                backgroundColor: 'color-mix(in srgb, var(--color-verde-profundo) 8%, white)',
+                borderColor: 'color-mix(in srgb, var(--color-verde-profundo) 25%, white)',
+                color: 'var(--color-verde-profundo)',
+              }
+            : undefined
+        }
       >
         {balanced ? (
           <>Pagos balanceados ✓</>
         ) : remaining > 0 ? (
           <>
-            Falta asignar <span className="font-semibold">{formatCurrency(remaining)}</span>
+            Se aplicará descuento automático de{' '}
+            <span className="font-semibold">{formatCurrency(remaining)}</span>
           </>
         ) : (
           <>
@@ -202,7 +212,7 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
  *  - ≥ 1 pago
  *  - cada amount > 0
  *  - una sola entrada por método (garantizado por el editor)
- *  - suma === total
+ *  - suma ≤ total (la diferencia, si la hay, se registra como descuento auto)
  *  - cash receivedAmount ≥ amount cuando se setea
  */
 export function paymentsAreValid(payments: SalePayment[], total: number): boolean {
@@ -214,5 +224,5 @@ export function paymentsAreValid(payments: SalePayment[], total: number): boolea
     }
   }
   const sum = payments.reduce((acc, p) => acc + p.amount, 0);
-  return Math.abs(sum - total) < 0.01;
+  return sum <= total + 0.01;
 }

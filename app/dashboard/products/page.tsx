@@ -25,8 +25,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { useStock } from '@/hooks/useStock';
 import { useCategories } from '@/hooks/useCategories';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
-import { Plus, Package, Grid, List, Download, Upload, AlertTriangle, Layers, ChevronDown, ArrowRight } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Plus, Package, Download, Upload, AlertTriangle, Layers, ChevronDown, ArrowRight } from 'lucide-react';
 import { exportProductsToExcel } from '@/lib/excel-utils';
 import Link from 'next/link';
 import type { Product } from '@/lib/types';
@@ -40,9 +39,6 @@ export default function ProductsPage() {
   const { getLowStockProducts, getOutOfStockProducts } = useStock();
   const { categories } = useCategories();
 
-  // Mobile detection and view state
-  const isMobile = useIsMobile();
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(isMobile ? 'cards' : 'table');
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
   const [showLowStock, setShowLowStock] = useState(false);
   const [showOutOfStock, setShowOutOfStock] = useState(false);
@@ -140,28 +136,6 @@ export default function ProductsPage() {
           <p className='text-[#455a54]/70 font-winter-solid text-responsive-sm'>
             Administra tu catálogo de productos místicos y wellness
           </p>
-        </div>
-        
-        {/* View Toggle */}
-        <div className='hidden sm:flex items-center gap-2 border border-[#9d684e]/20 rounded-lg p-1'>
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-            className={viewMode === 'table' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
-          >
-            <List className="h-4 w-4 mr-1" />
-            Tabla
-          </Button>
-          <Button
-            variant={viewMode === 'cards' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('cards')}
-            className={viewMode === 'cards' ? 'bg-[#9d684e] text-white' : 'text-[#455a54]'}
-          >
-            <Grid className="h-4 w-4 mr-1" />
-            Cards
-          </Button>
         </div>
       </div>
 
@@ -407,25 +381,6 @@ export default function ProductsPage() {
                   onRefresh={() => window.location.reload()}
                   isLoading={isLoading}
                 />
-              </div>
-              
-              {/* Desktop view toggle content */}
-              <div className="hidden sm:block">
-                {viewMode === 'cards' && (
-                  <div className="mt-4">
-                    <ProductsMobileView
-                      products={displayedProducts}
-                      searchValue={searchValue}
-                      onSearchChange={handleSearchChange}
-                      dateRange={dateRange}
-                      onDateRangeChange={handleDateRangeChange}
-                      categoryFilter={categoryFilter}
-                      onCategoryFilterChange={handleCategoryFilterChange}
-                      onRefresh={() => window.location.reload()}
-                      isLoading={isLoading}
-                    />
-                  </div>
-                )}
               </div>
             </>
           )}

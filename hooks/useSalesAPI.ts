@@ -28,6 +28,7 @@ export function useSalesAPI() {
     status?: string;
     from?: string;
     to?: string;
+    paymentMethod?: string;
   }) => {
     setIsLoading(true);
     try {

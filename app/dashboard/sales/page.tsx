@@ -48,16 +48,18 @@ export default function SalesPage() {
   const [searchValue, setSearchValue] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
 
   const { isLoading: loadingProducts, error: productsError } = useInitialProductsData();
   const { isLoading: loadingSales, sales, getSalesPaginated, getSaleById, getDailySales, deleteSale, updateSale } = useSalesAPI();
 
   const loadSales = useCallback(async () => {
-    const filters: { search?: string; status?: string; from?: string; to?: string } = {};
+    const filters: { search?: string; status?: string; from?: string; to?: string; paymentMethod?: string } = {};
     if (searchValue.trim()) filters.search = searchValue.trim();
     if (statusFilter && statusFilter !== 'all') filters.status = statusFilter;
     if (dateRange?.from) filters.from = dateRange.from.toISOString().split('T')[0];
     if (dateRange?.to) filters.to = dateRange.to.toISOString().split('T')[0];
+    if (paymentMethodFilter && paymentMethodFilter !== 'all') filters.paymentMethod = paymentMethodFilter;
 
     try {
       const result = await getSalesPaginated(currentPage, pageSize, filters);
@@ -68,7 +70,7 @@ export default function SalesPage() {
     } catch (error) {
       console.error('Error loading sales:', error);
     }
-  }, [currentPage, pageSize, searchValue, statusFilter, dateRange, getSalesPaginated]);
+  }, [currentPage, pageSize, searchValue, statusFilter, paymentMethodFilter, dateRange, getSalesPaginated]);
 
   useEffect(() => {
     if (!searchValue.trim()) { loadSales(); return; }
@@ -86,6 +88,7 @@ export default function SalesPage() {
   const handleSearchChange = useCallback((v: string) => { setSearchValue(v); setCurrentPage(1); }, []);
   const handleDateRangeChange = useCallback((r: DateRange | undefined) => { setDateRange(r); setCurrentPage(1); }, []);
   const handleStatusFilterChange = useCallback((s: string) => { setStatusFilter(s); setCurrentPage(1); }, []);
+  const handlePaymentMethodFilterChange = useCallback((v: string) => { setPaymentMethodFilter(v); setCurrentPage(1); }, []);
 
   // Sale selection — on mobile also opens Sheet
   const handleSelectSale = useCallback((sale: Sale) => {
@@ -255,6 +258,8 @@ export default function SalesPage() {
                   onDateRangeChange={handleDateRangeChange}
                   statusFilter={statusFilter}
                   onStatusFilterChange={handleStatusFilterChange}
+                  paymentMethodFilter={paymentMethodFilter}
+                  onPaymentMethodFilterChange={handlePaymentMethodFilterChange}
                   onRefresh={refreshAll}
                   isLoading={loadingSales}
                 />
@@ -284,6 +289,8 @@ export default function SalesPage() {
                   onDateRangeChange={handleDateRangeChange}
                   statusFilter={statusFilter}
                   onStatusFilterChange={handleStatusFilterChange}
+                  paymentMethodFilter={paymentMethodFilter}
+                  onPaymentMethodFilterChange={handlePaymentMethodFilterChange}
                   onRefresh={refreshAll}
                   searchInputRef={searchInputRef}
                 />

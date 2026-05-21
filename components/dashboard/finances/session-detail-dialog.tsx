@@ -34,7 +34,7 @@ function isoDate(d: Date) {
 }
 
 type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress';
-type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER';
+type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO';
 
 export function SessionDetailDialog({ session, onOpenChange }: Props) {
   const open = session !== null;
@@ -255,6 +255,7 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                   { v: 'CASH',     l: 'Efectivo' },
                   { v: 'CARD',     l: 'Tarjeta' },
                   { v: 'TRANSFER', l: 'Transferencia' },
+                  { v: 'MIXTO',    l: 'Mixto' },
                 ] as const).map(o => (
                   <button
                     key={o.v}

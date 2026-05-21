@@ -86,6 +86,8 @@ interface SalesTableProps {
   onDateRangeChange?: (range: DateRange | undefined) => void;
   statusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
+  paymentMethodFilter?: string;
+  onPaymentMethodFilterChange?: (value: string) => void;
   onRefresh?: () => void;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
@@ -113,6 +115,8 @@ export function SalesTable({
   onDateRangeChange,
   statusFilter = "",
   onStatusFilterChange,
+  paymentMethodFilter = "all",
+  onPaymentMethodFilterChange,
   onRefresh,
   searchInputRef,
 }: SalesTableProps) {
@@ -266,6 +270,7 @@ export function SalesTable({
     onSearchChange?.("");
     onDateRangeChange?.(undefined);
     onStatusFilterChange?.("all");
+    onPaymentMethodFilterChange?.("all");
     table.resetColumnFilters();
   };
 
@@ -578,6 +583,18 @@ export function SalesTable({
         statusValue={statusFilter}
         onStatusChange={onStatusFilterChange}
         statusOptions={statusOptions}
+        customFilters={[{
+          key: 'paymentMethod',
+          label: 'Método de pago',
+          value: paymentMethodFilter,
+          options: [
+            { value: 'CASH',     label: 'Efectivo' },
+            { value: 'CARD',     label: 'Tarjeta' },
+            { value: 'TRANSFER', label: 'Transferencia' },
+            { value: 'MIXED',    label: 'Mixto' },
+          ],
+          onChange: onPaymentMethodFilterChange ?? (() => {}),
+        }]}
         onClearFilters={handleClearFilters}
         onRefresh={onRefresh}
         showAdvancedFilters={showAdvancedFilters}

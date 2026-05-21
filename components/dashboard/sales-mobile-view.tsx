@@ -29,6 +29,8 @@ interface SalesMobileViewProps {
   onDateRangeChange?: (range: DateRange | undefined) => void;
   statusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
+  paymentMethodFilter?: string;
+  onPaymentMethodFilterChange?: (value: string) => void;
   onRefresh?: () => void;
   isLoading?: boolean;
 }
@@ -78,6 +80,8 @@ export function SalesMobileView({
   onDateRangeChange,
   statusFilter,
   onStatusFilterChange,
+  paymentMethodFilter = 'all',
+  onPaymentMethodFilterChange,
   onRefresh,
   isLoading,
 }: SalesMobileViewProps) {
@@ -92,6 +96,7 @@ export function SalesMobileView({
     onSearchChange?.('');
     onDateRangeChange?.(undefined);
     onStatusFilterChange?.('');
+    onPaymentMethodFilterChange?.('all');
   };
 
   const filters = (
@@ -104,6 +109,18 @@ export function SalesMobileView({
       statusValue={statusFilter || ''}
       onStatusChange={onStatusFilterChange || (() => {})}
       statusOptions={statusOptions}
+      customFilters={[{
+        key: 'paymentMethod',
+        label: 'Método de pago',
+        value: paymentMethodFilter,
+        options: [
+          { value: 'CASH',     label: 'Efectivo' },
+          { value: 'CARD',     label: 'Tarjeta' },
+          { value: 'TRANSFER', label: 'Transferencia' },
+          { value: 'MIXED',    label: 'Mixto' },
+        ],
+        onChange: onPaymentMethodFilterChange ?? (() => {}),
+      }]}
       onClearFilters={handleClearFilters}
       onRefresh={onRefresh || (() => {})}
       isLoading={isLoading || false}

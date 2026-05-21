@@ -41,12 +41,21 @@ export function useCashbox() {
     async (req: OpenCashSessionRequest) => {
       setSubmitting(true);
       try {
+        const pending = await cashboxService.getPendingAutoClosure();
+        if (pending.data) {
+          showToast.error(
+            'Hay un arqueo pendiente del día anterior. Resolvelo antes de abrir una nueva caja.',
+          );
+          throw new Error('PENDING_AUTO_CLOSURE');
+        }
         const res = await cashboxService.open(req);
         setCurrent(res.data);
         showToast.success('Caja abierta');
         return res.data;
       } catch (err: any) {
-        showToast.error(err?.message || 'No se pudo abrir la caja');
+        if (err?.message !== 'PENDING_AUTO_CLOSURE') {
+          showToast.error(err?.message || 'No se pudo abrir la caja');
+        }
         throw err;
       } finally {
         setSubmitting(false);

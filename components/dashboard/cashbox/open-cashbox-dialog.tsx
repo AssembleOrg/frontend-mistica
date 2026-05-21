@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,7 @@ interface Props {
 
 export function OpenCashboxDialog({ open, onOpenChange, onOpened }: Props) {
   const { openSession, submitting } = useCashbox();
+  const router = useRouter();
   const [openingCash, setOpeningCash] = useState(0);
   const [notes, setNotes] = useState('');
 
@@ -33,8 +35,12 @@ export function OpenCashboxDialog({ open, onOpenChange, onOpened }: Props) {
       setNotes('');
       onOpenChange(false);
       onOpened?.();
-    } catch {
-      // toast ya manejado en el hook
+    } catch (err: any) {
+      if (err?.message === 'PENDING_AUTO_CLOSURE') {
+        onOpenChange(false);
+        router.push('/dashboard/finances');
+      }
+      // resto de errores: toast ya manejado en el hook
     }
   }
 

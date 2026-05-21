@@ -534,7 +534,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             {editingSale ? 'Editar Venta' : 'Crear Nueva Venta'}
           </DialogTitle>
           <DialogDescription className="font-winter-solid text-sm text-[#455a54]/50">
-            <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none">F2</kbd> guardar &nbsp;·&nbsp; <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none">Esc</kbd> cerrar
+            <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none">F2</kbd> guardar &nbsp;·&nbsp; <kbd className="px-1 py-0.5 text-[10px] font-mono bg-[#455a54]/8 border border-[#455a54]/20 rounded leading-none">Esc</kbd> cerrar &nbsp;·&nbsp; Los campos con <span className="text-red-500">*</span> son obligatorios
           </DialogDescription>
         </DialogHeader>
 
@@ -551,7 +551,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   Si se tipea libre y no se elige, al confirmar venta se crea. */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-[#455a54] font-winter-solid">
-                  Cliente <span className="text-[#455a54]/50">(buscar o tipear nuevo)</span>
+                  Cliente <span className="text-red-500">*</span> <span className="text-[#455a54]/50">(buscar o tipear nuevo)</span>
                 </Label>
                 <AsyncSelect<Client>
                   value={selectedClient}
@@ -567,7 +567,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                       </span>
                     </div>
                   )}
-                  placeholder="Nombre completo *"
+                  placeholder="Nombre completo"
                   allowFreeText
                   freeTextValue={customerName}
                   onFreeTextChange={setCustomerName}
@@ -642,8 +642,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               />
 
               <div className="space-y-2">
-                <Label htmlFor="sellerName" className="text-[#455a54] font-winter-solid">
-                  Vendedor *
+                <Label htmlFor="sellerName" className="text-xs text-[#455a54] font-winter-solid">
+                  Vendedor <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="sellerName"
@@ -655,7 +655,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes" className="text-[#455a54] font-winter-solid">
+                <Label htmlFor="notes" className="text-xs text-[#455a54] font-winter-solid">
                   Notas
                 </Label>
                 <Textarea
@@ -663,7 +663,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Notas adicionales sobre la venta..."
-                  className="border-2 border-gray-700 focus:border-gray-900 focus:ring-2 focus:ring-gray-300"
+                  className="border-[#9d684e]/20 focus:border-[#9d684e]"
                   rows={3}
                 />
               </div>
@@ -760,7 +760,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               {/* Cart Items */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <Label className="text-[#455a54] font-winter-solid">
+                  <Label className="text-xs text-[#455a54] font-winter-solid">
                     Carrito ({cartItems.length} items)
                   </Label>
                   {cartItems.length > 0 && (

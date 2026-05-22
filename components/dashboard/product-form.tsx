@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Calculator, CheckCircle2, RefreshCw, Save, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Calculator, CheckCircle2, RefreshCw, Save, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useCategories';
@@ -108,10 +108,17 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
   const isService = formData.kind === 'SERVICE';
 
   // Margen sólo aplica cuando hay costo y no es servicio.
-  const profitMargin =
-    !isService && formData.price > 0 && formData.costPrice > 0
-      ? ((formData.price - formData.costPrice) / formData.costPrice) * 100
-      : 0;
+  const marginState = (() => {
+    if (isService || formData.price <= 0 || formData.costPrice <= 0) {
+      return { kind: 'none' as const, pct: 0, profit: 0 };
+    }
+    const profit = formData.price - formData.costPrice;
+    const pct = (profit / formData.costPrice) * 100;
+    if (profit < 0) return { kind: 'negative' as const, pct, profit };
+    if (profit === 0) return { kind: 'zero' as const, pct, profit };
+    return { kind: 'ok' as const, pct, profit };
+  })();
+  const hasMarginIssue = marginState.kind === 'negative' || marginState.kind === 'zero';
 
   const isFormValid =
     formData.name.trim().length >= 3 &&
@@ -416,6 +423,7 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
                   value={formData.price || 0}
                   onChange={(value) => handleInputChange('price', value)}
                   placeholder='0,00'
+                  className={hasMarginIssue ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''}
                 />
               </div>
 
@@ -428,6 +436,7 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
                       value={formData.costPrice || 0}
                       onChange={(value) => handleInputChange('costPrice', value)}
                       placeholder='0,00'
+                      className={hasMarginIssue ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''}
                     />
                   </div>
 
@@ -445,17 +454,44 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
                 </>
               )}
 
-              {!isService && formData.price > 0 && formData.costPrice > 0 && (
+              {marginState.kind === 'ok' && (
                 <div className='p-3 border border-[#9d684e]/20 rounded-lg bg-[#9d684e]/5'>
                   <div className='flex items-center gap-2 text-sm text-[#455a54] font-winter-solid'>
                     <Calculator className='w-4 h-4 text-[#9d684e]' />
                     <span>Margen de Ganancia:</span>
-                    <Badge variant={profitMargin > 0 ? 'default' : 'outline'} className={profitMargin > 0 ? 'bg-[#9d684e] text-white' : 'border-[#9d684e] text-[#455a54]'}>
-                      {profitMargin.toFixed(1)}%
+                    <Badge className='bg-[#9d684e] text-white'>
+                      {marginState.pct.toFixed(1)}%
                     </Badge>
                   </div>
                   <p className='text-xs text-[#455a54]/70 mt-1 font-winter-solid'>
-                    Ganancia por unidad: {formatCurrency(formData.price - formData.costPrice)}
+                    Ganancia por unidad: {formatCurrency(marginState.profit)}
+                  </p>
+                </div>
+              )}
+
+              {marginState.kind === 'negative' && (
+                <div className='p-3 border border-red-300 rounded-lg bg-red-50'>
+                  <div className='flex items-center gap-2 text-sm text-red-700 font-winter-solid'>
+                    <AlertTriangle className='w-4 h-4 text-red-600' />
+                    <span className='font-medium'>Estás vendiendo con pérdida</span>
+                    <Badge variant='outline' className='border-red-400 text-red-700 bg-white'>
+                      {marginState.pct.toFixed(1)}%
+                    </Badge>
+                  </div>
+                  <p className='text-xs text-red-700/80 mt-1 font-winter-solid'>
+                    Pérdida por unidad: {formatCurrency(Math.abs(marginState.profit))} — revisá que el costo no esté más alto que el precio de venta.
+                  </p>
+                </div>
+              )}
+
+              {marginState.kind === 'zero' && (
+                <div className='p-3 border border-amber-300 rounded-lg bg-amber-50'>
+                  <div className='flex items-center gap-2 text-sm text-amber-800 font-winter-solid'>
+                    <AlertCircle className='w-4 h-4 text-amber-600' />
+                    <span className='font-medium'>Sin ganancia</span>
+                  </div>
+                  <p className='text-xs text-amber-800/80 mt-1 font-winter-solid'>
+                    El precio de venta es igual al costo. No vas a ganar nada por unidad vendida.
                   </p>
                 </div>
               )}

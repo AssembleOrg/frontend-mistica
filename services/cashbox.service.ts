@@ -3,6 +3,7 @@ import { apiService, type ApiResponse } from './api.service';
 export interface CashSession {
   id: string;
   status: 'OPEN' | 'CLOSED';
+  label?: string;
   openedAt: string;
   closedAt?: string;
   openingCash: number;
@@ -79,6 +80,10 @@ class CashboxService {
 
   async getSessionTransactions(id: string): Promise<ApiResponse<SessionTransactionsResponse>> {
     return apiService.get<SessionTransactionsResponse>(`/cashbox/${id}/transactions`);
+  }
+
+  async updateSessionLabel(id: string, label: string): Promise<ApiResponse<CashSession>> {
+    return apiService.patch<CashSession>(`/cashbox/${id}/label`, { label });
   }
 }
 

@@ -50,6 +50,7 @@ export interface FinanceSummary {
 
   cashSessions: Array<{
     id: string;
+    label: string | null;
     openedAt: string;
     closedAt: string | null;
     openingCash: number;

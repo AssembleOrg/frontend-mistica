@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateRange } from 'react-day-picker';
 import {
   Banknote,
@@ -14,12 +14,15 @@ import {
   Clock,
   XCircle,
   RefreshCw,
+  Pencil,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { financeService, type FinanceSummary } from '@/services/finance.service';
+import { cashboxService } from '@/services/cashbox.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
 import { QuickEgressDialog } from '@/components/dashboard/finances/quick-egress-dialog';
@@ -37,6 +40,20 @@ function startOfMonth() {
   return d;
 }
 
+/** Nombre por default de una sesión: día en español + fecha, ej. "Miércoles 20/05/26". */
+function defaultSessionLabel(openedAt: string) {
+  const d = new Date(openedAt);
+  const tz = 'America/Argentina/Buenos_Aires';
+  const weekday = d.toLocaleDateString('es-AR', { weekday: 'long', timeZone: tz });
+  const date = d.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    timeZone: tz,
+  });
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)} ${date}`;
+}
+
 export default function FinancesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(),
@@ -48,6 +65,9 @@ export default function FinancesPage() {
   const [showNewEgress, setShowNewEgress] = useState(false);
   const [selectedSession, setSelectedSession] = useState<FinanceSummary['cashSessions'][number] | null>(null);
   const [sessionToResolve, setSessionToResolve] = useState<FinanceSummary['cashSessions'][number] | null>(null);
+  const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = useState('');
+  const cancelEditRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +88,46 @@ export default function FinancesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const startEditingLabel = useCallback(
+    (s: FinanceSummary['cashSessions'][number]) => {
+      cancelEditRef.current = false;
+      setLabelDraft(s.label ?? '');
+      setEditingLabelId(s.id);
+    },
+    [],
+  );
+
+  const saveLabel = useCallback(
+    async (id: string) => {
+      if (cancelEditRef.current) {
+        cancelEditRef.current = false;
+        setEditingLabelId(null);
+        return;
+      }
+      const value = labelDraft.trim();
+      setEditingLabelId(null);
+      // Optimista: actualizo el label en memoria sin recargar todo el resumen.
+      setSummary((prev) =>
+        prev
+          ? {
+              ...prev,
+              cashSessions: prev.cashSessions.map((s) =>
+                s.id === id ? { ...s, label: value || null } : s,
+              ),
+            }
+          : prev,
+      );
+      try {
+        await cashboxService.updateSessionLabel(id, value);
+      } catch (err) {
+        console.error(err);
+        showToast.error('No se pudo renombrar la caja');
+        load();
+      }
+    },
+    [labelDraft, load],
+  );
 
   const expectedCash = useMemo(() => {
     if (!summary) return 0;
@@ -232,8 +292,46 @@ export default function FinancesPage() {
                       onMouseEnter={e => (e.currentTarget.style.background = 'color-mix(in srgb, var(--color-verde-profundo) 5%, transparent)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'var(--color-blanco)')}
                     >
-                      <div>
-                        <div className="font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                      <div className="min-w-0 flex-1">
+                        {editingLabelId === s.id ? (
+                          <Input
+                            autoFocus
+                            value={labelDraft}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => setLabelDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                e.currentTarget.blur();
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                cancelEditRef.current = true;
+                                e.currentTarget.blur();
+                              }
+                            }}
+                            onBlur={() => saveLabel(s.id)}
+                            placeholder={defaultSessionLabel(s.openedAt)}
+                            className="h-7 text-sm max-w-xs"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+                              {s.label || defaultSessionLabel(s.openedAt)}
+                            </span>
+                            <button
+                              type="button"
+                              title="Renombrar caja"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingLabel(s);
+                              }}
+                              className="opacity-30 hover:opacity-100 transition-opacity"
+                            >
+                              <Pencil className="h-3.5 w-3.5" style={{ color: 'var(--color-ciruela-oscuro)' }} />
+                            </button>
+                          </div>
+                        )}
+                        <div className="text-xs mt-0.5 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.45 }}>
                           {new Date(s.openedAt).toLocaleString('es-AR')} →{' '}
                           {s.closedAt ? new Date(s.closedAt).toLocaleString('es-AR') : 'Abierta'}
                         </div>

@@ -114,10 +114,6 @@ export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
 export interface SalePayment {
   method: PaymentMethodCode;
   amount: number;
-  /** Sólo CASH: lo que entregó el cliente físicamente (≥ amount). */
-  receivedAmount?: number;
-  /** Sólo CASH: vuelto entregado (= receivedAmount - amount). */
-  changeGiven?: number;
 }
 
 export interface Sale {

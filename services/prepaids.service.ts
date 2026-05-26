@@ -9,10 +9,6 @@ export interface Prepaid {
   clientId: string;
   amount: number;
   paymentMethod: PaymentMethodCode;
-  /** Sólo CASH: lo entregado físicamente. */
-  receivedAmount?: number;
-  /** Sólo CASH: vuelto al cliente (= receivedAmount - amount). */
-  changeGiven?: number;
   status: 'PENDING' | 'CONSUMED';
   notes?: string;
   consumedAt?: string;
@@ -24,8 +20,6 @@ export interface Prepaid {
 export interface CreatePrepaidRequest {
   amount: number;
   paymentMethod: PaymentMethodCode;
-  /** Sólo CASH: lo entregado físicamente; si es mayor a `amount`, la diferencia es vuelto. */
-  receivedAmount?: number;
   notes?: string;
 }
 

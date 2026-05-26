@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { Sale, SaleItem, Product } from '@/lib/types';
 import { showToast } from '@/lib/toast';
-import { formatCurrency, getCashPayment, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
+import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import { useProducts } from '@/hooks/useProducts';
 import { useSales } from '@/hooks/useSales';
@@ -62,8 +62,7 @@ export default function EditSalePage() {
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta' | 'transferencia' | 'mixto'>('efectivo');
   const [notes, setNotes] = useState('');
   const [preservedSeller, setPreservedSeller] = useState('');
-  const [cashReceived, setCashReceived] = useState('');
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,8 +108,6 @@ export default function EditSalePage() {
           setPreservedSeller(parsed.seller);
           setNotes(parsed.notes);
         }
-        const cashPay = getCashPayment(foundSale);
-        setCashReceived(cashPay?.receivedAmount?.toString() || '');
       }
       setIsLoading(false);
     }
@@ -538,23 +535,6 @@ export default function EditSalePage() {
                   </Select>
                 </div>
 
-                {paymentMethod === 'efectivo' && (
-                  <div className="space-y-2">
-                    <Label>Efectivo recibido</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={cashReceived}
-                      onChange={(e) => setCashReceived(e.target.value)}
-                      placeholder="0.00"
-                    />
-                    {parseFloat(cashReceived) > totals.total && (
-                      <p className="text-sm text-green-600">
-                        Cambio: {formatCurrency(parseFloat(cashReceived) - totals.total)}
-                      </p>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
 

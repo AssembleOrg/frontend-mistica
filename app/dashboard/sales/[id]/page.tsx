@@ -25,7 +25,7 @@ import { useAppStore } from '@/stores/app.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
-import { formatCurrency, getCashPayment, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
+import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { parseNotesAndSeller } from '@/lib/sales-seller';
 import {
   Dialog,
@@ -376,20 +376,6 @@ export default function SaleDetailPage() {
                   <span><strong>${formatCurrency(p.amount)}</strong></span>
                 </div>
               `).join('')}
-              ${(() => {
-                const cash = sale.payments?.find((p) => p.method === 'CASH');
-                if (!cash || !cash.changeGiven) return '';
-                return `
-                  <div class="total-line">
-                    <span>Efectivo recibido:</span>
-                    <span>${formatCurrency(cash.receivedAmount ?? 0)}</span>
-                  </div>
-                  <div class="total-line">
-                    <span>Vuelto:</span>
-                    <span>${formatCurrency(cash.changeGiven ?? 0)}</span>
-                  </div>
-                `;
-              })()}
             </div>
 
             ${receiptSeller ? `
@@ -743,32 +729,6 @@ export default function SaleDetailPage() {
                     </span>
                   </div>
                 </div>
-
-                {(() => {
-                  const cash = getCashPayment(sale);
-                  if (!cash || !cash.changeGiven) return null;
-                  return (
-                    <>
-                      <Separator />
-                      <div className='space-y-2'>
-                        <div className='flex justify-between'>
-                          <span className='text-[var(--color-verde-profundo)] font-winter-solid'>
-                            Efectivo recibido:
-                          </span>
-                          <span className='font-medium font-winter-solid'>
-                            {formatCurrency(cash.receivedAmount ?? 0)}
-                          </span>
-                        </div>
-                        <div className='flex justify-between text-green-600'>
-                          <span className='font-winter-solid'>Vuelto:</span>
-                          <span className='font-bold font-winter-solid'>
-                            {formatCurrency(cash.changeGiven)}
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
               </CardContent>
             </Card>
 

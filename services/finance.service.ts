@@ -19,7 +19,6 @@ export interface FinanceSummary {
   averageTicket: number;
 
   byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
-  totalCashChange: number;
 
   byStatus: { PENDING: number; COMPLETED: number; CANCELLED: number };
 

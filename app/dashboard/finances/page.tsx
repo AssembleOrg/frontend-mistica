@@ -77,8 +77,7 @@ export default function FinancesPage() {
       opening +
       summary.byPaymentMethod.CASH +
       summary.prepaids.byPaymentMethod.CASH -
-      summary.expenses.byPaymentMethod.CASH -
-      summary.totalCashChange
+      summary.expenses.byPaymentMethod.CASH
     );
   }, [summary]);
 
@@ -318,11 +317,6 @@ export default function FinancesPage() {
                 <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
                   {summary.salesCount} {summary.salesCount === 1 ? 'venta' : 'ventas'} · ticket promedio {formatCurrency(summary.averageTicket)}
                 </p>
-                {summary.totalCashChange > 0 && (
-                  <p className="text-xs mt-2 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
-                    Vueltos entregados: {formatCurrency(summary.totalCashChange)}
-                  </p>
-                )}
               </CardContent>
             </Card>
           </div>

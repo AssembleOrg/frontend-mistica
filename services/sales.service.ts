@@ -10,10 +10,6 @@ export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
 export interface SalePayment {
   method: PaymentMethodCode;
   amount: number;
-  /** Sólo CASH: lo que entregó el cliente físicamente (≥ amount). */
-  receivedAmount?: number;
-  /** Sólo CASH: vuelto entregado al cliente (= receivedAmount - amount). */
-  changeGiven?: number;
 }
 
 export interface CreateSaleRequest {
@@ -136,8 +132,6 @@ interface DailySalesData {
       CARD: number;
       TRANSFER: number;
     };
-    /** Total entregado de vuelto en cash en el rango. */
-    totalCashChange: number;
     totalByStatus: {
       COMPLETED: number;
       PENDING: number;
@@ -456,9 +450,6 @@ export class SalesService {
         seen.add(p.method);
         if (!p.amount || p.amount <= 0) {
           errors.push(`El monto del pago en ${p.method} debe ser mayor a 0`);
-        }
-        if (p.method === 'CASH' && p.receivedAmount !== undefined && p.receivedAmount < p.amount) {
-          errors.push('El efectivo recibido no puede ser menor al monto a cobrar');
         }
       }
     }

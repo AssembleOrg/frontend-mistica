@@ -31,7 +31,6 @@ const METHODS: MethodMeta[] = [
  * Editor de la distribución del cobro por método de pago.
  * - Una sola entrada por método (no aparece doble CASH).
  * - La suma de `amount` debe igualar `total` para habilitar el submit.
- * - Para CASH se acepta `receivedAmount > amount`; el excedente es vuelto.
  */
 export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
   const usedMethods = useMemo(() => new Set(value.map((p) => p.method)), [value]);
@@ -42,11 +41,6 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
     [value]
   );
   const remaining = Number((total - sumAssigned).toFixed(2));
-
-  const cashLine = value.find((p) => p.method === 'CASH');
-  const cashChange = cashLine?.receivedAmount
-    ? Math.max(0, Number((cashLine.receivedAmount - cashLine.amount).toFixed(2)))
-    : 0;
 
   function updatePayment(method: PaymentMethodCode, patch: Partial<SalePayment>) {
     onChange(value.map((p) => (p.method === method ? { ...p, ...patch } : p)));
@@ -60,7 +54,6 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
     // El nuevo pago arranca con el remanente como sugerencia.
     const suggested = Math.max(0, remaining);
     const next: SalePayment = { method, amount: suggested };
-    if (method === 'CASH') next.receivedAmount = suggested;
     onChange([...value, next]);
   }
 
@@ -111,13 +104,7 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
                 )}
               </div>
 
-              <div
-                className={
-                  p.method === 'CASH'
-                    ? 'grid grid-cols-1 sm:grid-cols-2 gap-2'
-                    : 'grid grid-cols-1 gap-2'
-                }
-              >
+              <div className="grid grid-cols-1 gap-2">
                 <div>
                   <Label className="text-xs text-[#455a54]/70">Monto a cobrar</Label>
                   <CurrencyInput
@@ -127,24 +114,7 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
                     disabled={disabled}
                   />
                 </div>
-                {p.method === 'CASH' && (
-                  <div>
-                    <Label className="text-xs text-[#455a54]/70">Entregado</Label>
-                    <CurrencyInput
-                      value={p.receivedAmount ?? p.amount}
-                      onChange={(v) => updatePayment(p.method, { receivedAmount: v })}
-                      placeholder="0,00"
-                      disabled={disabled}
-                    />
-                  </div>
-                )}
               </div>
-
-              {p.method === 'CASH' && cashChange > 0 && (
-                <p className="text-xs text-[#9d684e] font-winter-solid">
-                  Vuelto: <span className="font-semibold">{formatCurrency(cashChange)}</span>
-                </p>
-              )}
             </div>
           );
         })}
@@ -213,15 +183,11 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
  *  - cada amount > 0
  *  - una sola entrada por método (garantizado por el editor)
  *  - suma ≤ total (la diferencia, si la hay, se registra como descuento auto)
- *  - cash receivedAmount ≥ amount cuando se setea
  */
 export function paymentsAreValid(payments: SalePayment[], total: number): boolean {
   if (!payments.length) return false;
   for (const p of payments) {
     if (!(p.amount > 0)) return false;
-    if (p.method === 'CASH' && p.receivedAmount !== undefined && p.receivedAmount < p.amount) {
-      return false;
-    }
   }
   const sum = payments.reduce((acc, p) => acc + p.amount, 0);
   return sum <= total + 0.01;

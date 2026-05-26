@@ -121,8 +121,6 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         (editingSale.payments || []).map((p) => ({
           method: p.method,
           amount: p.amount,
-          receivedAmount: p.receivedAmount,
-          changeGiven: p.changeGiven,
         }))
       );
       {
@@ -396,7 +394,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // menos que el total y la diferencia se registra como descuento automático.
   useEffect(() => {
     if (payments.length === 0 && total > 0) {
-      setPayments([{ method: 'CASH', amount: total, receivedAmount: total }]);
+      setPayments([{ method: 'CASH', amount: total }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [total]);

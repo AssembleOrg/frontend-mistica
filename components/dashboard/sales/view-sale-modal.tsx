@@ -234,12 +234,6 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
                         <CreditCard className="h-4 w-4 text-[#9d684e]" />
                         <span className="font-medium">{getPaymentMethodLabel(p.method)}:</span>
                         <span>{formatCurrency(p.amount)}</span>
-                        {p.method === 'CASH' && (p.changeGiven ?? 0) > 0 && (
-                          <span className="text-xs text-[#9d684e]/80">
-                            (entregó {formatCurrency(p.receivedAmount ?? 0)} · vuelto{' '}
-                            {formatCurrency(p.changeGiven ?? 0)})
-                          </span>
-                        )}
                       </li>
                     ))}
                   </ul>

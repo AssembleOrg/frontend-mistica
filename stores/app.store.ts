@@ -204,7 +204,7 @@ export const useAppStore = create<AppState>()(
       clearCart: () => set({ cart: [] }),
 
       // Sales Actions
-      completeSale: (paymentMethod, cashReceived, saleData) => {
+      completeSale: (paymentMethod, _cashReceived, saleData) => {
         const state = get();
         const subtotal = state.getCartTotal();
         const taxAmount = subtotal * state.settings.taxRate;
@@ -232,15 +232,6 @@ export const useAppStore = create<AppState>()(
           total: finalTotal,
           payments: (() => {
             const method = paymentMethod as 'CASH' | 'CARD' | 'TRANSFER';
-            if (method === 'CASH') {
-              const received = cashReceived ?? finalTotal;
-              return [{
-                method,
-                amount: finalTotal,
-                receivedAmount: received,
-                changeGiven: Math.max(0, received - finalTotal),
-              }];
-            }
             return [{ method, amount: finalTotal }];
           })(),
           status: 'COMPLETED',

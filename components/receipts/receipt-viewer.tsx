@@ -173,24 +173,6 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             <span>{formatCurrency(p.amount)}</span>
           </div>
         ))}
-        {(() => {
-          const cash = sale.payments?.find((p) => p.method === 'CASH');
-          if (cash && (cash.changeGiven ?? 0) > 0) {
-            return (
-              <>
-                <div className="flex justify-between">
-                  <span>Recibido</span>
-                  <span>{formatCurrency(cash.receivedAmount ?? 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Vuelto</span>
-                  <span>{formatCurrency(cash.changeGiven ?? 0)}</span>
-                </div>
-              </>
-            );
-          }
-          return null;
-        })()}
       </div>
 
       {/* Footer */}
@@ -335,12 +317,6 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             <div key={`${p.method}-${i}`}>
               <span className="font-medium">{getPaymentMethodLabel(p.method)}:</span>{' '}
               {formatCurrency(p.amount)}
-              {p.method === 'CASH' && (p.changeGiven ?? 0) > 0 && (
-                <span className="text-xs text-gray-600 ml-2">
-                  (entregó {formatCurrency(p.receivedAmount ?? 0)} · vuelto{' '}
-                  {formatCurrency(p.changeGiven ?? 0)})
-                </span>
-              )}
             </div>
           ))}
           {cleanNotes && (

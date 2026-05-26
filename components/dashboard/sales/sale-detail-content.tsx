@@ -299,11 +299,6 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 <span className="text-xs font-semibold text-[#455a54] font-winter-solid">
                   {formatCurrency(p.amount)}
                 </span>
-                {p.method === 'CASH' && (p.changeGiven ?? 0) > 0 && (
-                  <p className="text-[10px] text-[#455a54]/40 font-winter-solid">
-                    vuelto {formatCurrency(p.changeGiven ?? 0)}
-                  </p>
-                )}
               </div>
             </div>
           ))}

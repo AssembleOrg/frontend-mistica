@@ -39,7 +39,6 @@ export function PrepaidForm({
   const [formData, setFormData] = useState<{
     amount: number;
     paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
-    receivedAmount?: number;
     notes: string;
   }>({
     amount: 0,
@@ -54,7 +53,6 @@ export function PrepaidForm({
       setFormData({
         amount: prepaid.amount,
         paymentMethod: prepaid.paymentMethod ?? 'CASH',
-        receivedAmount: prepaid.receivedAmount,
         notes: prepaid.notes || '',
       });
       setSelectedClientId(prepaid.clientId);
@@ -190,8 +188,6 @@ export function PrepaidForm({
     }
 
     try {
-      // Para CASH, si entregaron más, calculamos vuelto en el backend
-      // (acá sólo mandamos lo entregado).
       const prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest = prepaid
         ? {
             amount: formData.amount,
@@ -200,8 +196,6 @@ export function PrepaidForm({
         : {
             amount: formData.amount,
             paymentMethod: formData.paymentMethod,
-            receivedAmount:
-              formData.paymentMethod === 'CASH' ? formData.receivedAmount : undefined,
             notes: formData.notes || undefined,
           };
 
@@ -215,14 +209,6 @@ export function PrepaidForm({
     if (prepaid && onMarkAsConsumed) {
       onMarkAsConsumed(prepaid);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'ARS',
-      minimumFractionDigits: 2,
-    }).format(amount);
   };
 
   const getClientName = (clientId: string) => {
@@ -370,8 +356,6 @@ export function PrepaidForm({
                         setFormData((prev) => ({
                           ...prev,
                           paymentMethod: m,
-                          // Al salir de CASH limpiamos el "entregado".
-                          receivedAmount: m === 'CASH' ? prev.receivedAmount : undefined,
                         }))
                       }
                       className={`px-3 py-2 rounded-md border text-sm font-winter-solid transition ${
@@ -385,23 +369,6 @@ export function PrepaidForm({
                   );
                 })}
               </div>
-            </div>
-          )}
-
-          {/* Recibido (sólo CASH en creación) */}
-          {!prepaid && formData.paymentMethod === 'CASH' && (
-            <div className="space-y-2">
-              <Label className="text-[#455a54] font-winter-solid">Entregado (efectivo)</Label>
-              <CurrencyInput
-                value={formData.receivedAmount ?? formData.amount}
-                onChange={(v) => setFormData((prev) => ({ ...prev, receivedAmount: v }))}
-                placeholder="0,00"
-              />
-              {(formData.receivedAmount ?? 0) > formData.amount && (
-                <p className="text-xs text-[#9d684e] font-winter-solid">
-                  Vuelto: {formatCurrency((formData.receivedAmount ?? 0) - formData.amount)}
-                </p>
-              )}
             </div>
           )}
 

@@ -33,7 +33,7 @@ export function PageHeader({
     >
       <div className='space-y-0.5 min-w-0'>
         <div className='flex items-baseline gap-2 flex-wrap'>
-          <h1 className='text-xl sm:text-2xl font-tan-nimbus text-[#455a54] leading-tight'>
+          <h1 className='text-xl sm:text-2xl font-bold font-tan-nimbus text-[#455a54] leading-tight'>
             {title}
           </h1>
           {meta && <span className='flex-shrink-0'>{meta}</span>}

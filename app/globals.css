@@ -38,7 +38,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-tan-nimbus: 'TAN Nimbus', 'Geist', sans-serif;
+  --font-tan-nimbus: var(--font-geist-sans), sans-serif;
   --font-winter-solid: 'Winter Solid', 'Geist', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);

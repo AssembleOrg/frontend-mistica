@@ -32,6 +32,7 @@ import { BarcodeScanner, BarcodeScannerRef } from './barcode-scanner';
 import { PaymentsEditor, paymentsAreValid } from './payments-editor';
 import { PrepaidAmountDialog } from './prepaid-amount-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { formatPhoneAR } from '@/lib/utils/whatsapp';
 import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import { salesService } from '@/services/sales.service';
 import type { Product } from '@/lib/types';
@@ -593,13 +594,15 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                     id="customerPhone"
                     type="tel"
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="+54 11 1234-5678"
+                    onChange={(e) => setCustomerPhone(formatPhoneAR(e.target.value))}
+                    placeholder="11 1234-5678"
                     className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
                   />
                 </div>
               </div>
 
+              {/* Email oculto a pedido: no aporta al flujo de venta.
+                  El estado customerEmail se mantiene (envía undefined por defecto).
               <div className="space-y-1">
                 <Label htmlFor="customerEmail" className="text-xs text-[#455a54] font-winter-solid">
                   Email
@@ -613,6 +616,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
                 />
               </div>
+              */}
 
               {selectedClient && recentSales.length > 0 && (
                 <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">

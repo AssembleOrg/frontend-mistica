@@ -15,6 +15,8 @@ import {
   XCircle,
   RefreshCw,
   Pencil,
+  LayoutList,
+  LayoutGrid,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,6 +69,7 @@ export default function FinancesPage() {
   const [sessionToResolve, setSessionToResolve] = useState<FinanceSummary['cashSessions'][number] | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
+  const [cashboxView, setCashboxView] = useState<'list' | 'grid'>('list');
   const cancelEditRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -263,17 +266,49 @@ export default function FinancesPage() {
                     Sesiones del rango y diferencias de cierre
                   </p>
                 </div>
-                <Badge
-                  style={
-                    summary.totalDiscrepancy === 0
-                      ? { background: 'color-mix(in srgb, var(--color-verde-profundo) 12%, transparent)', color: 'var(--color-verde-profundo)' }
-                      : summary.totalDiscrepancy > 0
-                        ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
-                        : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
-                  }
-                >
-                  Diferencia neta: {formatCurrency(summary.totalDiscrepancy)}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-0.5 rounded-lg p-1" style={{ background: 'var(--color-negro)' }}>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 hover:bg-white/10"
+                      aria-pressed={cashboxView === 'list'}
+                      title="Ver en lista"
+                      onClick={() => setCashboxView('list')}
+                    >
+                      <LayoutList
+                        className="h-4 w-4 transition-opacity"
+                        style={{ color: 'var(--color-durazno)', opacity: cashboxView === 'list' ? 1 : 0.4 }}
+                      />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 hover:bg-white/10"
+                      aria-pressed={cashboxView === 'grid'}
+                      title="Ver en grilla"
+                      onClick={() => setCashboxView('grid')}
+                    >
+                      <LayoutGrid
+                        className="h-4 w-4 transition-opacity"
+                        style={{ color: 'var(--color-durazno)', opacity: cashboxView === 'grid' ? 1 : 0.4 }}
+                      />
+                    </Button>
+                  </div>
+                  <Badge
+                    style={
+                      summary.totalDiscrepancy === 0
+                        ? { background: 'color-mix(in srgb, var(--color-verde-profundo) 12%, transparent)', color: 'var(--color-verde-profundo)' }
+                        : summary.totalDiscrepancy > 0
+                          ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
+                          : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
+                    }
+                  >
+                    Diferencia neta: {formatCurrency(summary.totalDiscrepancy)}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -282,7 +317,10 @@ export default function FinancesPage() {
                   No hubo aperturas de caja en este rango.
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className={cashboxView === 'grid'
+                  ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'
+                  : 'space-y-2'}
+                >
                   {summary.cashSessions.map((s) => (
                     <div
                       key={s.id}
@@ -331,15 +369,6 @@ export default function FinancesPage() {
                             </button>
                           </div>
                         )}
-                        <div className="text-xs mt-0.5 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.45 }}>
-                          {new Date(s.openedAt).toLocaleString('es-AR')} →{' '}
-                          {s.closedAt ? new Date(s.closedAt).toLocaleString('es-AR') : 'Abierta'}
-                        </div>
-                        <div className="text-xs mt-0.5 font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
-                          Apertura {formatCurrency(s.openingCash)}
-                          {s.expectedClosingCash !== null && <> · Esperado {formatCurrency(s.expectedClosingCash)}</>}
-                          {s.countedClosingCash !== null && <> · Contado {formatCurrency(s.countedClosingCash)}</>}
-                        </div>
                       </div>
                       {s.discrepancy !== null && s.discrepancy !== 0 && (
                         <Badge

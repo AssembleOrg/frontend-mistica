@@ -13,6 +13,8 @@ export interface SalePayment {
 }
 
 export interface CreateSaleRequest {
+  /** Nombre amigable opcional (ej. "Pepe"). El N° se sigue generando aparte. */
+  name?: string;
   clientId?: string;
   customerName: string;
   customerEmail?: string;
@@ -36,6 +38,7 @@ export type InvoiceType = 'A' | 'B' | 'C';
 export type TaxCondition = 'RESPONSABLE_INSCRIPTO' | 'MONOTRIBUTISTA' | 'EXENTO' | 'CONSUMIDOR_FINAL';
 
 export interface UpdateSaleRequest {
+  name?: string;
   clientId?: string;
   customerName?: string;
   customerEmail?: string;
@@ -82,6 +85,8 @@ export interface SaleItem {
 export interface Sale {
   id: string;
   saleNumber: string;
+  /** Nombre editable de la venta. Si está vacío, en la tabla se muestra "-". */
+  name?: string;
   clientId?: string;
   customerName: string;
   customerEmail?: string;
@@ -249,6 +254,11 @@ export class SalesService {
   async lookupAfipContributor(cuit: string): Promise<ApiResponse<AfipContributor>> {
     const params = new URLSearchParams({ cuit: cuit.replace(/\D/g, '') });
     return apiService.get<AfipContributor>(`/sales/afip/contributor?${params.toString()}`);
+  }
+
+  /** Renombra una venta (edición inline). String vacío deja la venta sin nombre. */
+  async updateSaleName(id: string, name: string): Promise<ApiResponse<Sale>> {
+    return apiService.patch<Sale>(`/sales/${id}/name`, { name });
   }
 
   // Update existing sale

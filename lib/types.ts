@@ -119,6 +119,8 @@ export interface SalePayment {
 export interface Sale {
   id: string;
   saleNumber: string;
+  /** Nombre editable. Si vacío, la tabla muestra "-". */
+  name?: string;
   clientId?: string;
   customerName: string;
   customerEmail?: string;

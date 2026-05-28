@@ -23,6 +23,7 @@ import {
   Download,
   X,
   Receipt,
+  Pencil,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
@@ -57,8 +58,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
-import { Sale } from '@/services/sales.service';
+import { Sale, salesService } from '@/services/sales.service';
 import { showToast } from '@/lib/toast';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 
@@ -122,13 +124,52 @@ export function SalesTable({
 }: SalesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
+    // "Detalles" arranca oculta. Sigue disponible desde el botón "Columnas".
+    details: false,
+  });
   const [rowSelection, setRowSelection] = React.useState({});
 
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [saleToCancel, setSaleToCancel] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Edición inline del nombre amigable de la venta.
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState('');
+  const cancelNameEditRef = React.useRef(false);
+  // Overrides optimistas mientras llega el refresh con el dato actualizado.
+  const [optimisticNames, setOptimisticNames] = useState<Record<string, string | null>>({});
+
+  const startEditName = React.useCallback((id: string, currentName: string | null | undefined) => {
+    cancelNameEditRef.current = false;
+    setNameDraft(currentName ?? '');
+    setEditingNameId(id);
+  }, []);
+
+  const saveNameEdit = React.useCallback(async (id: string) => {
+    if (cancelNameEditRef.current) {
+      cancelNameEditRef.current = false;
+      setEditingNameId(null);
+      return;
+    }
+    const value = nameDraft.trim();
+    setEditingNameId(null);
+    setOptimisticNames((prev) => ({ ...prev, [id]: value || null }));
+    try {
+      await salesService.updateSaleName(id, value);
+      onRefresh?.();
+    } catch (err) {
+      console.error(err);
+      showToast.error('No se pudo renombrar la venta');
+      setOptimisticNames((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
+  }, [nameDraft, onRefresh]);
 
   // Status options for filter
   const statusOptions: FilterOption[] = [
@@ -301,23 +342,80 @@ export function SalesTable({
     },
     {
       accessorKey: 'saleNumber',
-      header: ({ column }) => {
-        return (
-          <Button
-            variant='ghost'
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-            className='text-white font-winter-solid hover:text-white/80 hover:bg-transparent px-1'
-          >
-            N° Venta
-            <ArrowUpDown className='ml-1.5 h-3.5 w-3.5' />
-          </Button>
-        );
-      },
+      enableSorting: false,
+      header: () => (
+        <span className='text-white font-winter-solid px-1'>N° Venta</span>
+      ),
       cell: ({ row }) => (
         <div className='font-semibold text-[#455a54] text-xs max-w-[110px] truncate'>
           {row.getValue('saleNumber')}
         </div>
       ),
+    },
+    {
+      accessorKey: 'name',
+      header: ({ column }) => (
+        <Button
+          variant='ghost'
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className='text-white font-winter-solid hover:text-white/80 hover:bg-transparent px-1'
+        >
+          Nombre
+          <ArrowUpDown className='ml-1.5 h-3.5 w-3.5' />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const sale = row.original;
+        const optimistic = optimisticNames[sale.id];
+        const currentName = optimistic !== undefined ? optimistic : (sale.name ?? null);
+
+        if (editingNameId === sale.id) {
+          return (
+            <Input
+              autoFocus
+              value={nameDraft}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelNameEditRef.current = true;
+                  e.currentTarget.blur();
+                }
+              }}
+              onBlur={() => saveNameEdit(sale.id)}
+              className='h-7 text-sm max-w-[180px]'
+              placeholder='Nombre…'
+            />
+          );
+        }
+
+        return (
+          <div className='flex items-center gap-1.5 max-w-[180px] group'>
+            <span
+              className={`font-winter-solid text-sm truncate ${
+                currentName ? 'text-[#455a54]' : 'text-[#455a54]/40'
+              }`}
+            >
+              {currentName || '-'}
+            </span>
+            <button
+              type='button'
+              title='Renombrar venta'
+              onClick={(e) => {
+                e.stopPropagation();
+                startEditName(sale.id, currentName);
+              }}
+              className='opacity-30 hover:opacity-100 transition-opacity flex-shrink-0'
+            >
+              <Pencil className='h-3.5 w-3.5 text-[#455a54]' />
+            </button>
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'customerName',
@@ -577,7 +675,7 @@ export function SalesTable({
       <TableFilters
         searchValue={searchValue}
         onSearchChange={onSearchChange}
-        searchPlaceholder="Buscar ventas..."
+        searchPlaceholder="Buscar por nombre..."
         dateRange={dateRange}
         onDateRangeChange={onDateRangeChange}
         statusValue={statusFilter}

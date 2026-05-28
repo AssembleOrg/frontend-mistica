@@ -87,6 +87,42 @@ export function TableFilters({
   searchInputRef,
   showKbdHint = false,
 }: TableFiltersProps) {
+  // El input mantiene su propio estado local para que tipear sea instantáneo y
+  // no dependa del re-render (potencialmente pesado) del padre. La propagación
+  // hacia `onSearchChange` se debouncea, así el padre/tabla recién se actualizan
+  // cuando el usuario hace una pausa.
+  const [localSearch, setLocalSearch] = React.useState(searchValue);
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSentRef = React.useRef(searchValue);
+
+  // Sincroniza cuando `searchValue` cambia por afuera (ej. "Limpiar filtros"),
+  // sin pisar lo que el usuario está tipeando (comparando contra lo último que
+  // emitimos nosotros).
+  React.useEffect(() => {
+    if (searchValue !== lastSentRef.current) {
+      lastSentRef.current = searchValue;
+      setLocalSearch(searchValue);
+    }
+  }, [searchValue]);
+
+  React.useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const handleSearchInput = React.useCallback(
+    (value: string) => {
+      setLocalSearch(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        lastSentRef.current = value;
+        onSearchChange?.(value);
+      }, 300);
+    },
+    [onSearchChange],
+  );
+
   const hasActiveFilters = React.useMemo(() => {
     return (
       searchValue.length > 0 ||
@@ -107,8 +143,8 @@ export function TableFilters({
             <Input
               ref={searchInputRef}
               placeholder={searchPlaceholder}
-              value={searchValue}
-              onChange={(e) => onSearchChange?.(e.target.value)}
+              value={localSearch}
+              onChange={(e) => handleSearchInput(e.target.value)}
               className={cn(
                 "pl-10 h-9 bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54] placeholder:text-[#455a54]/40 text-sm font-medium",
                 showKbdHint ? "pr-12" : "pr-3"

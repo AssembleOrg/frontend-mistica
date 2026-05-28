@@ -72,11 +72,11 @@ export default function SalesPage() {
     }
   }, [currentPage, pageSize, searchValue, statusFilter, paymentMethodFilter, dateRange, getSalesPaginated]);
 
+  // La búsqueda ya viene debounceada desde el input (TableFilters), así que acá
+  // sólo recargamos cuando cambian los filtros/página efectivos.
   useEffect(() => {
-    if (!searchValue.trim()) { loadSales(); return; }
-    const t = setTimeout(loadSales, 500);
-    return () => clearTimeout(t);
-  }, [loadSales, searchValue]);
+    loadSales();
+  }, [loadSales]);
 
   useEffect(() => { getDailySales(); }, [getDailySales]);
 

@@ -55,6 +55,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // al confirmar la venta, si no hay clientId pero sí hay nombre, creamos el
   // cliente con los datos cargados manualmente.
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [saleName, setSaleName] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -115,6 +116,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           .then((res) => setSelectedClient(res.data))
           .catch(() => undefined);
       }
+      setSaleName(editingSale.name || '');
       setCustomerName(editingSale.customerName || '');
       setCustomerEmail(editingSale.customerEmail || '');
       setCustomerPhone(editingSale.customerPhone || '');
@@ -474,6 +476,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       }
 
       const basePayload = {
+        name: saleName.trim() || undefined,
         clientId: effectiveClientId || undefined,
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim() || undefined,
@@ -538,6 +541,20 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col h-full px-4 sm:px-6 pb-4 sm:pb-6 space-y-6">
+          {/* Nombre amigable de la venta (opcional). Para uso interno
+              seguimos teniendo el N° de venta que genera el backend. */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-[#455a54] font-winter-solid">
+              Nombre de la venta <span className="text-[#455a54]/50">(opcional)</span>
+            </Label>
+            <Input
+              value={saleName}
+              onChange={(e) => setSaleName(e.target.value)}
+              placeholder='Ej. "Pepe" o "Catering Johnson"'
+              maxLength={100}
+              className="bg-white border-[#455a54]/30 focus:border-[#455a54] font-winter-solid text-[#455a54]"
+            />
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             {/* Customer Information */}
             <div className="space-y-3">

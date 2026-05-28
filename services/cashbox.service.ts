@@ -10,6 +10,13 @@ export interface CashSessionEditEntry {
     amount: number;
     paymentMethod: string;
   }>;
+  addedIncomes: Array<{
+    incomeId: string;
+    incomeNumber: string;
+    concept: string;
+    amount: number;
+    paymentMethod: string;
+  }>;
 }
 
 export interface CashSession {
@@ -35,6 +42,13 @@ export interface RetroactiveEgressInput {
   amount: number;
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
+  notes?: string;
+}
+
+export interface RetroactiveIncomeInput {
+  concept: string;
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   notes?: string;
 }
 
@@ -123,16 +137,16 @@ class CashboxService {
   }
 
   /**
-   * Edita una sesión cerrada: carga egresos retroactivos. Sólo permitido
-   * dentro de las 72hs siguientes a `closedAt` (validación en el backend).
-   * Los egresos se crean con createdAt = closedAt de la sesión, así el
-   * arqueo recalcula correctamente.
+   * Edita una sesión cerrada: carga egresos y/o ingresos retroactivos. Sólo
+   * permitido dentro de las 72hs siguientes a `closedAt` (validación en el
+   * backend). Los movimientos se crean con createdAt = closedAt de la sesión,
+   * así el arqueo recalcula correctamente. Backend exige al menos uno.
    */
   async editSession(
     id: string,
-    addEgresses: RetroactiveEgressInput[],
+    body: { addEgresses?: RetroactiveEgressInput[]; addIncomes?: RetroactiveIncomeInput[] },
   ): Promise<ApiResponse<CashSession>> {
-    return apiService.patch<CashSession>(`/cashbox/${id}/edit`, { addEgresses });
+    return apiService.patch<CashSession>(`/cashbox/${id}/edit`, body);
   }
 }
 

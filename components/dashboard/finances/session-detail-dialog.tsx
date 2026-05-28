@@ -39,7 +39,7 @@ function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress';
+type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress' | 'income';
 type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO';
 
 export function SessionDetailDialog({ session, onOpenChange }: Props) {
@@ -280,6 +280,7 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                   { v: 'sale',    l: 'Ventas'  },
                   { v: 'prepaid', l: 'Señas'   },
                   { v: 'egress',  l: 'Egresos' },
+                  { v: 'income',  l: 'Ingresos' },
                 ] as const).map(o => (
                   <button
                     key={o.v}
@@ -421,39 +422,67 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                 <div className="space-y-2">
                   {[...editHistory]
                     .sort((a, b) => new Date(b.editedAt).getTime() - new Date(a.editedAt).getTime())
-                    .map((entry, idx) => (
-                      <div
-                        key={idx}
-                        className="rounded-lg border p-2.5 text-xs font-winter-solid"
-                        style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
-                            {new Date(entry.editedAt).toLocaleString('es-AR')}
-                          </span>
-                          <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>
-                            {entry.addedEgresses.length}{' '}
-                            {entry.addedEgresses.length === 1 ? 'egreso cargado' : 'egresos cargados'}
-                          </span>
+                    .map((entry, idx) => {
+                      const egressCount = entry.addedEgresses.length;
+                      const incomeCount = (entry.addedIncomes ?? []).length;
+                      const summaryParts: string[] = [];
+                      if (egressCount > 0) {
+                        summaryParts.push(
+                          `${egressCount} ${egressCount === 1 ? 'egreso' : 'egresos'}`,
+                        );
+                      }
+                      if (incomeCount > 0) {
+                        summaryParts.push(
+                          `${incomeCount} ${incomeCount === 1 ? 'ingreso' : 'ingresos'}`,
+                        );
+                      }
+                      return (
+                        <div
+                          key={idx}
+                          className="rounded-lg border p-2.5 text-xs font-winter-solid"
+                          style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+                              {new Date(entry.editedAt).toLocaleString('es-AR')}
+                            </span>
+                            <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>
+                              {summaryParts.join(' + ')}
+                            </span>
+                          </div>
+                          <ul className="space-y-0.5 pl-1">
+                            {entry.addedEgresses.map((a) => (
+                              <li
+                                key={a.egressId}
+                                className="flex items-center justify-between gap-2"
+                                style={{ color: 'var(--color-ciruela-oscuro)' }}
+                              >
+                                <span className="truncate" title={a.concept}>
+                                  · {a.concept}
+                                </span>
+                                <span className="font-semibold shrink-0" style={{ color: 'var(--color-terracota)' }}>
+                                  -{formatCurrency(a.amount)}
+                                </span>
+                              </li>
+                            ))}
+                            {(entry.addedIncomes ?? []).map((a) => (
+                              <li
+                                key={a.incomeId}
+                                className="flex items-center justify-between gap-2"
+                                style={{ color: 'var(--color-ciruela-oscuro)' }}
+                              >
+                                <span className="truncate" title={a.concept}>
+                                  · {a.concept}
+                                </span>
+                                <span className="font-semibold shrink-0" style={{ color: 'var(--color-verde-profundo)' }}>
+                                  +{formatCurrency(a.amount)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <ul className="space-y-0.5 pl-1">
-                          {entry.addedEgresses.map((a) => (
-                            <li
-                              key={a.egressId}
-                              className="flex items-center justify-between gap-2"
-                              style={{ color: 'var(--color-ciruela-oscuro)' }}
-                            >
-                              <span className="truncate" title={a.concept}>
-                                · {a.concept}
-                              </span>
-                              <span className="font-semibold shrink-0" style={{ color: 'var(--color-terracota)' }}>
-                                -{formatCurrency(a.amount)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               </div>
             )}

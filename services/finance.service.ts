@@ -40,6 +40,14 @@ export interface FinanceSummary {
     byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
   };
 
+  // Ingresos puntuales (correcciones de saldo, miscelánea) en el rango.
+  // Hoy se cargan desde la edición de una sesión cerrada.
+  incomes: {
+    count: number;
+    total: number;
+    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
+  };
+
   prepaids: {
     count: number;
     total: number;

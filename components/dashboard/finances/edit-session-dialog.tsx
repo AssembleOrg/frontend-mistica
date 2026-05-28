@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cashboxService, type RetroactiveEgressInput } from '@/services/cashbox.service';
+import {
+  cashboxService,
+  type RetroactiveEgressInput,
+  type RetroactiveIncomeInput,
+} from '@/services/cashbox.service';
 import { showToast } from '@/lib/toast';
 
 interface Props {
@@ -41,11 +45,25 @@ type EgressRow = {
   notes: string;
 };
 
-const EMPTY_ROW: EgressRow = {
+type IncomeRow = {
+  concept: string;
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  notes: string;
+};
+
+const EMPTY_EGRESS: EgressRow = {
   concept: '',
   amount: 0,
   paymentMethod: 'CASH',
   type: 'EXPENSE',
+  notes: '',
+};
+
+const EMPTY_INCOME: IncomeRow = {
+  concept: '',
+  amount: 0,
+  paymentMethod: 'CASH',
   notes: '',
 };
 
@@ -64,12 +82,13 @@ const METHOD_LABELS: Record<EgressRow['paymentMethod'], string> = {
 };
 
 /**
- * Editar una sesión CERRADA cargando egresos que no se registraron en el
- * momento. Sólo permitido dentro de las 72hs siguientes al cierre — el botón
- * que dispara este diálogo ya lo controla, y el backend lo valida de nuevo.
+ * Editar una sesión CERRADA cargando egresos y/o ingresos retroactivos
+ * (correcciones de saldo, miscelánea). Sólo permitido dentro de las 72hs
+ * siguientes al cierre — el botón que dispara este diálogo lo controla,
+ * y el backend lo valida de nuevo.
  *
- * Cada egreso se persiste con createdAt = session.closedAt, así pertenece a la
- * ventana de esa sesión y el arqueo recalcula esperado+discrepancia.
+ * Cada movimiento se persiste con createdAt = session.closedAt, así pertenece
+ * a la ventana de esa sesión y el arqueo recalcula esperado+discrepancia.
  */
 export function EditSessionDialog({
   sessionId,
@@ -79,44 +98,74 @@ export function EditSessionDialog({
   onSaved,
 }: Props) {
   const open = sessionId !== null;
-  const [rows, setRows] = useState<EgressRow[]>([{ ...EMPTY_ROW }]);
+  const [egresses, setEgresses] = useState<EgressRow[]>([]);
+  const [incomes, setIncomes] = useState<IncomeRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setRows([{ ...EMPTY_ROW }]);
+      // Por default arrancamos con UNA fila de egreso (caso típico). El cajero
+      // puede agregar ingresos con el botón si los necesita.
+      setEgresses([{ ...EMPTY_EGRESS }]);
+      setIncomes([]);
       setSubmitting(false);
     }
   }, [open]);
 
-  function addRow() {
-    setRows((prev) => [...prev, { ...EMPTY_ROW }]);
+  function addEgress() {
+    setEgresses((prev) => [...prev, { ...EMPTY_EGRESS }]);
   }
-  function removeRow(idx: number) {
-    setRows((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
+  function removeEgress(idx: number) {
+    setEgresses((prev) => prev.filter((_, i) => i !== idx));
   }
-  function patchRow(idx: number, patch: Partial<EgressRow>) {
-    setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  function patchEgress(idx: number, patch: Partial<EgressRow>) {
+    setEgresses((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
-  const validRows = rows.filter((r) => r.concept.trim().length > 0 && r.amount > 0);
-  const canSubmit = !submitting && validRows.length > 0;
+  function addIncome() {
+    setIncomes((prev) => [...prev, { ...EMPTY_INCOME }]);
+  }
+  function removeIncome(idx: number) {
+    setIncomes((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function patchIncome(idx: number, patch: Partial<IncomeRow>) {
+    setIncomes((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  }
+
+  const validEgresses = egresses.filter((r) => r.concept.trim().length > 0 && r.amount > 0);
+  const validIncomes = incomes.filter((r) => r.concept.trim().length > 0 && r.amount > 0);
+  const total = validEgresses.length + validIncomes.length;
+  const canSubmit = !submitting && total > 0;
 
   async function handleSubmit() {
-    if (!sessionId || validRows.length === 0) return;
+    if (!sessionId || total === 0) return;
     setSubmitting(true);
-    const payload: RetroactiveEgressInput[] = validRows.map((r) => ({
+    const addEgresses: RetroactiveEgressInput[] = validEgresses.map((r) => ({
       concept: r.concept.trim(),
       amount: r.amount,
       paymentMethod: r.paymentMethod,
       type: r.type,
       notes: r.notes.trim() || undefined,
     }));
+    const addIncomes: RetroactiveIncomeInput[] = validIncomes.map((r) => ({
+      concept: r.concept.trim(),
+      amount: r.amount,
+      paymentMethod: r.paymentMethod,
+      notes: r.notes.trim() || undefined,
+    }));
     try {
-      await cashboxService.editSession(sessionId, payload);
-      showToast.success(
-        `${payload.length} ${payload.length === 1 ? 'egreso cargado' : 'egresos cargados'} en la sesión`,
-      );
+      await cashboxService.editSession(sessionId, {
+        addEgresses: addEgresses.length > 0 ? addEgresses : undefined,
+        addIncomes: addIncomes.length > 0 ? addIncomes : undefined,
+      });
+      const parts: string[] = [];
+      if (addEgresses.length > 0) {
+        parts.push(`${addEgresses.length} ${addEgresses.length === 1 ? 'egreso' : 'egresos'}`);
+      }
+      if (addIncomes.length > 0) {
+        parts.push(`${addIncomes.length} ${addIncomes.length === 1 ? 'ingreso' : 'ingresos'}`);
+      }
+      showToast.success(`${parts.join(' y ')} cargado${total === 1 ? '' : 's'} en la sesión`);
       onSaved?.();
       onOpenChange(false);
     } catch (err: any) {
@@ -136,8 +185,9 @@ export function EditSessionDialog({
         <DialogHeader>
           <DialogTitle>Editar sesión{sessionLabel ? ` · ${sessionLabel}` : ''}</DialogTitle>
           <DialogDescription>
-            Cargá egresos que se te pasaron en el momento. Cada egreso queda
-            asignado a esta sesión y el arqueo se recalcula automáticamente.
+            Cargá egresos y/o ingresos que se te pasaron en el momento. Cada
+            movimiento queda asignado a esta sesión y el arqueo se recalcula
+            automáticamente.
             {closedAt && (
               <span className='block mt-1 text-xs text-[#455a54]/60'>
                 Fecha asignada: {new Date(closedAt).toLocaleString('es-AR')}
@@ -146,118 +196,230 @@ export function EditSessionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className='space-y-3 py-2'>
-          {rows.map((r, i) => (
-            <div
-              key={i}
-              className='rounded-md border border-[#9d684e]/20 bg-[#efcbb9]/15 p-3 space-y-2.5'
-            >
-              <div className='flex items-center justify-between'>
-                <span className='text-xs font-winter-solid text-[#455a54]/70'>
-                  Egreso {i + 1}
-                </span>
-                {rows.length > 1 && (
+        <div className='space-y-5 py-2'>
+          {/* === EGRESOS === */}
+          <section className='space-y-3'>
+            <div className='flex items-center justify-between'>
+              <h3 className='flex items-center gap-1.5 text-sm font-winter-solid text-[#455a54]'>
+                <ArrowDownRight className='h-4 w-4 text-[#a0473d]' />
+                Egresos retroactivos
+              </h3>
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                onClick={addEgress}
+                className='h-7 text-xs text-[#455a54] hover:bg-[#efcbb9]/30'
+              >
+                <Plus className='h-3.5 w-3.5 mr-1' /> Agregar egreso
+              </Button>
+            </div>
+
+            {egresses.length === 0 && (
+              <p className='text-xs text-[#455a54]/50 italic'>Sin egresos para cargar.</p>
+            )}
+
+            {egresses.map((r, i) => (
+              <div
+                key={`e-${i}`}
+                className='rounded-md border border-[#a0473d]/20 bg-[#a0473d]/5 p-3 space-y-2.5'
+              >
+                <div className='flex items-center justify-between'>
+                  <span className='text-xs font-winter-solid text-[#455a54]/70'>
+                    Egreso {i + 1}
+                  </span>
                   <Button
                     type='button'
                     variant='ghost'
                     size='sm'
-                    onClick={() => removeRow(i)}
+                    onClick={() => removeEgress(i)}
                     className='h-7 text-[#a0473d] hover:bg-[#a0473d]/10'
                   >
                     <Trash2 className='h-3.5 w-3.5' />
                   </Button>
-                )}
-              </div>
+                </div>
 
-              <div className='space-y-1.5'>
-                <Label className='text-xs'>Concepto</Label>
-                <Input
-                  value={r.concept}
-                  onChange={(e) => patchRow(i, { concept: e.target.value })}
-                  placeholder='Ej. Proveedor X, pago de luz, retiro…'
-                  className='h-9'
-                />
-              </div>
-
-              <div className='grid grid-cols-2 gap-2'>
                 <div className='space-y-1.5'>
-                  <Label className='text-xs'>Monto</Label>
-                  <CurrencyInput
-                    value={r.amount}
-                    onChange={(v) => patchRow(i, { amount: v })}
-                    placeholder='0,00'
+                  <Label className='text-xs'>Concepto</Label>
+                  <Input
+                    value={r.concept}
+                    onChange={(e) => patchEgress(i, { concept: e.target.value })}
+                    placeholder='Ej. Proveedor X, pago de luz, retiro…'
+                    className='h-9'
                   />
                 </div>
+
+                <div className='grid grid-cols-2 gap-2'>
+                  <div className='space-y-1.5'>
+                    <Label className='text-xs'>Monto</Label>
+                    <CurrencyInput
+                      value={r.amount}
+                      onChange={(v) => patchEgress(i, { amount: v })}
+                      placeholder='0,00'
+                    />
+                  </div>
+                  <div className='space-y-1.5'>
+                    <Label className='text-xs'>Método de pago</Label>
+                    <Select
+                      value={r.paymentMethod}
+                      onValueChange={(v) =>
+                        patchEgress(i, { paymentMethod: v as EgressRow['paymentMethod'] })
+                      }
+                    >
+                      <SelectTrigger className='h-9'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(METHOD_LABELS) as Array<EgressRow['paymentMethod']>).map(
+                          (m) => (
+                            <SelectItem key={m} value={m}>
+                              {METHOD_LABELS[m]}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className='space-y-1.5'>
-                  <Label className='text-xs'>Método de pago</Label>
+                  <Label className='text-xs'>Tipo</Label>
                   <Select
-                    value={r.paymentMethod}
-                    onValueChange={(v) =>
-                      patchRow(i, { paymentMethod: v as EgressRow['paymentMethod'] })
-                    }
+                    value={r.type}
+                    onValueChange={(v) => patchEgress(i, { type: v as EgressRow['type'] })}
                   >
                     <SelectTrigger className='h-9'>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(METHOD_LABELS) as Array<EgressRow['paymentMethod']>).map(
-                        (m) => (
-                          <SelectItem key={m} value={m}>
-                            {METHOD_LABELS[m]}
-                          </SelectItem>
-                        ),
-                      )}
+                      {(Object.keys(TYPE_LABELS) as Array<EgressRow['type']>).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {TYPE_LABELS[t]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div className='space-y-1.5'>
-                <Label className='text-xs'>Tipo</Label>
-                <Select
-                  value={r.type}
-                  onValueChange={(v) => patchRow(i, { type: v as EgressRow['type'] })}
-                >
-                  <SelectTrigger className='h-9'>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(Object.keys(TYPE_LABELS) as Array<EgressRow['type']>).map((t) => (
-                      <SelectItem key={t} value={t}>
-                        {TYPE_LABELS[t]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className='space-y-1.5'>
+                  <Label className='text-xs'>Notas (opcional)</Label>
+                  <Textarea
+                    value={r.notes}
+                    onChange={(e) => patchEgress(i, { notes: e.target.value })}
+                    rows={2}
+                    placeholder='Detalle adicional…'
+                    className='text-sm'
+                  />
+                </div>
               </div>
+            ))}
+          </section>
 
-              <div className='space-y-1.5'>
-                <Label className='text-xs'>Notas (opcional)</Label>
-                <Textarea
-                  value={r.notes}
-                  onChange={(e) => patchRow(i, { notes: e.target.value })}
-                  rows={2}
-                  placeholder='Detalle adicional…'
-                  className='text-sm'
-                />
-              </div>
+          {/* === INGRESOS === */}
+          <section className='space-y-3'>
+            <div className='flex items-center justify-between'>
+              <h3 className='flex items-center gap-1.5 text-sm font-winter-solid text-[#455a54]'>
+                <ArrowUpRight className='h-4 w-4 text-[#2f6f3b]' />
+                Ingresos / correcciones de saldo
+              </h3>
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                onClick={addIncome}
+                className='h-7 text-xs text-[#455a54] hover:bg-[#efcbb9]/30'
+              >
+                <Plus className='h-3.5 w-3.5 mr-1' /> Agregar ingreso
+              </Button>
             </div>
-          ))}
 
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={addRow}
-            className='w-full border-dashed'
-          >
-            <Plus className='h-3.5 w-3.5 mr-1' /> Agregar otro egreso
-          </Button>
+            {incomes.length === 0 && (
+              <p className='text-xs text-[#455a54]/50 italic'>
+                Sin ingresos para cargar. Si hubo una corrección de saldo o entró plata fuera de una venta, agregala acá.
+              </p>
+            )}
 
-          {validRows.length === 0 && (
+            {incomes.map((r, i) => (
+              <div
+                key={`i-${i}`}
+                className='rounded-md border border-[#2f6f3b]/20 bg-[#2f6f3b]/5 p-3 space-y-2.5'
+              >
+                <div className='flex items-center justify-between'>
+                  <span className='text-xs font-winter-solid text-[#455a54]/70'>
+                    Ingreso {i + 1}
+                  </span>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => removeIncome(i)}
+                    className='h-7 text-[#a0473d] hover:bg-[#a0473d]/10'
+                  >
+                    <Trash2 className='h-3.5 w-3.5' />
+                  </Button>
+                </div>
+
+                <div className='space-y-1.5'>
+                  <Label className='text-xs'>Concepto</Label>
+                  <Input
+                    value={r.concept}
+                    onChange={(e) => patchIncome(i, { concept: e.target.value })}
+                    placeholder='Ej. corrección de saldo, devolución recibida…'
+                    className='h-9'
+                  />
+                </div>
+
+                <div className='grid grid-cols-2 gap-2'>
+                  <div className='space-y-1.5'>
+                    <Label className='text-xs'>Monto</Label>
+                    <CurrencyInput
+                      value={r.amount}
+                      onChange={(v) => patchIncome(i, { amount: v })}
+                      placeholder='0,00'
+                    />
+                  </div>
+                  <div className='space-y-1.5'>
+                    <Label className='text-xs'>Método</Label>
+                    <Select
+                      value={r.paymentMethod}
+                      onValueChange={(v) =>
+                        patchIncome(i, { paymentMethod: v as IncomeRow['paymentMethod'] })
+                      }
+                    >
+                      <SelectTrigger className='h-9'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(METHOD_LABELS) as Array<IncomeRow['paymentMethod']>).map(
+                          (m) => (
+                            <SelectItem key={m} value={m}>
+                              {METHOD_LABELS[m]}
+                            </SelectItem>
+                          ),
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className='space-y-1.5'>
+                  <Label className='text-xs'>Notas (opcional)</Label>
+                  <Textarea
+                    value={r.notes}
+                    onChange={(e) => patchIncome(i, { notes: e.target.value })}
+                    rows={2}
+                    placeholder='Detalle adicional…'
+                    className='text-sm'
+                  />
+                </div>
+              </div>
+            ))}
+          </section>
+
+          {total === 0 && (
             <p className='text-xs flex items-start gap-1 text-[#a0473d]'>
               <AlertTriangle className='h-3 w-3 mt-0.5 flex-shrink-0' />
-              Completá al menos un egreso con concepto y monto.
+              Cargá al menos un egreso o ingreso (con concepto y monto).
             </p>
           )}
         </div>
@@ -278,7 +440,9 @@ export function EditSessionDialog({
           >
             {submitting
               ? 'Guardando…'
-              : `Guardar ${validRows.length || ''} ${validRows.length === 1 ? 'egreso' : 'egresos'}`.trim()}
+              : total > 0
+                ? `Guardar ${total} movimiento${total === 1 ? '' : 's'}`
+                : 'Guardar'}
           </Button>
         </DialogFooter>
       </DialogContent>

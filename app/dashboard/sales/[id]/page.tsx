@@ -24,9 +24,12 @@ import {
 import { useAppStore } from '@/stores/app.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
+import { Sale as ServiceSale } from '@/services/sales.service';
 import { showToast } from '@/lib/toast';
 import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { parseNotesAndSeller } from '@/lib/sales-seller';
+import { AddSalePaymentDialog } from '@/components/dashboard/sales/add-payment-dialog';
+import { Wallet } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +54,7 @@ export default function SaleDetailPage() {
   }, []);
   const [sale, setSale] = useState<Sale | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAddPayment, setShowAddPayment] = useState(false);
 
   useEffect(() => {
     if (saleId) {
@@ -75,32 +79,33 @@ export default function SaleDetailPage() {
 
   const getStatusConfig = (status: Sale['status']) => {
     const configs = {
-      completed: {
+      COMPLETED: {
         label: 'Completada',
         icon: CheckCircle,
         color: 'text-green-600',
         bgColor: 'bg-green-100',
       },
-      draft: {
-        label: 'Borrador',
+      PENDING: {
+        label: 'Pendiente',
         icon: Clock,
         color: 'text-gray-600',
         bgColor: 'bg-gray-100',
       },
-      cancelled: {
+      PARTIAL: {
+        label: 'Parcial',
+        icon: RefreshCcw,
+        // Naranja medio acorde al resto de la UI para ventas parciales.
+        color: 'text-[#cc844a]',
+        bgColor: 'bg-[#cc844a]/10',
+      },
+      CANCELLED: {
         label: 'Cancelada',
         icon: XCircle,
         color: 'text-red-600',
         bgColor: 'bg-red-100',
       },
-      refunded: {
-        label: 'Reembolsada',
-        icon: RefreshCcw,
-        color: 'text-orange-600',
-        bgColor: 'bg-orange-100',
-      },
-    };
-    return configs[status as keyof typeof configs] || configs.draft;
+    } as const;
+    return configs[status as keyof typeof configs] || configs.PENDING;
   };
 
   const getPaymentMethodConfig = (method: 'CASH' | 'CARD' | 'TRANSFER' | 'MIXED') => {
@@ -728,6 +733,21 @@ export default function SaleDetailPage() {
                       {formatCurrency(sale.total)}
                     </span>
                   </div>
+
+                  {sale.status === 'PARTIAL' && (
+                    <div
+                      className='flex justify-between text-lg font-bold pt-2 border-t'
+                      style={{
+                        color: 'var(--color-naranja-medio)',
+                        borderColor: 'color-mix(in srgb, var(--color-naranja-medio) 25%, transparent)',
+                      }}
+                    >
+                      <span className='font-winter-solid'>Saldo pendiente:</span>
+                      <span className='font-winter-solid'>
+                        {formatCurrency(sale.balanceDue ?? 0)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -740,6 +760,16 @@ export default function SaleDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className='space-y-3'>
+                {sale.status === 'PARTIAL' && (
+                  <Button
+                    onClick={() => setShowAddPayment(true)}
+                    className='w-full font-winter-solid text-white'
+                    style={{ backgroundColor: 'var(--color-naranja-medio)' }}
+                  >
+                    <Wallet className='h-4 w-4 mr-2' />
+                    Agregar pago
+                  </Button>
+                )}
                 <Button
                   onClick={handlePrint}
                   className='w-full font-winter-solid'
@@ -795,6 +825,26 @@ export default function SaleDetailPage() {
           </div>
         </div>
       </div>
+
+      <AddSalePaymentDialog
+        sale={
+          // El dialog espera el shape de Sale del service (incluye balanceDue,
+          // saleNumber, status). El Sale del store local tiene casi los mismos
+          // campos, salvo `seller` que en este store puede no existir — el
+          // dialog no lo usa, así que cast seguro.
+          showAddPayment && sale && sale.status === 'PARTIAL'
+            ? (sale as unknown as ServiceSale)
+            : null
+        }
+        onOpenChange={(v) => setShowAddPayment(v)}
+        onSuccess={() => {
+          // Esta página legacy no tiene refetch real (lee del app store).
+          // Cerramos el dialog y refrescamos el router para que el store
+          // re-hidrate si corresponde.
+          setShowAddPayment(false);
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

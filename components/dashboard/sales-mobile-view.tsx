@@ -52,12 +52,14 @@ const paymentMethodColors: Record<string, string> = {
 const statusLabels = {
   COMPLETED: 'Completada',
   PENDING: 'Pendiente',
+  PARTIAL: 'Parcial',
   CANCELLED: 'Cancelada',
 } as const;
 
 const statusColors: Record<string, string> = {
   COMPLETED: 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/20',
   PENDING: 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/20',
+  PARTIAL: 'bg-[#cc844a]/15 text-[#cc844a] border-[#cc844a]/30',
   CANCELLED: 'bg-[#9d684e]/10 text-[#9d684e] border-[#9d684e]/20',
 };
 
@@ -65,6 +67,7 @@ const statusColors: Record<string, string> = {
 const statusAccent: Record<string, string> = {
   COMPLETED: 'bg-[#455a54]',
   PENDING: 'bg-[#cc844a]',
+  PARTIAL: 'bg-[#cc844a]',
   CANCELLED: 'bg-[#9d684e]',
 };
 

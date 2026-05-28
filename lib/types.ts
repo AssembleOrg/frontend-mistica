@@ -107,6 +107,9 @@ export interface SaleItem {
   discountAmount?: number;
   discountPercentage?: number;
   notes?: string;
+  /** Cantidad bonificada (regalada). Subtotal de línea =
+   *  (quantity − bonifiedQty) * unitPrice. */
+  bonifiedQty?: number;
 }
 
 export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
@@ -114,6 +117,9 @@ export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
 export interface SalePayment {
   method: PaymentMethodCode;
   amount: number;
+  /** Fecha en la que se registró el pago (ISO). El server lo estampa al crear
+   *  o ampliar la venta; para PARTIAL atribuye cada pago a la sesión correcta. */
+  createdAt?: string;
 }
 
 export interface Sale {
@@ -131,7 +137,7 @@ export interface Sale {
   discount: number;
   total: number;
   payments: SalePayment[];
-  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
   notes?: string;
   createdAt: string;
   updatedAt: string;
@@ -140,6 +146,8 @@ export interface Sale {
   cancelledAt?: string;
   // Customer balance properties
   balanceUsed?: number;
+  /** Saldo pendiente (sólo > 0 cuando status === 'PARTIAL'). */
+  balanceDue?: number;
 }
 
 export interface POSSettings {

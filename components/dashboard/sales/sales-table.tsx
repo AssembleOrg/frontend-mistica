@@ -174,6 +174,7 @@ export function SalesTable({
   // Status options for filter
   const statusOptions: FilterOption[] = [
     { value: 'PENDING', label: 'Pendiente' },
+    { value: 'PARTIAL', label: 'Parcial' },
     { value: 'COMPLETED', label: 'Completada' },
     { value: 'CANCELLED', label: 'Cancelada' },
   ];
@@ -215,6 +216,7 @@ export function SalesTable({
     const labels = {
       COMPLETED: 'Completada',
       PENDING: 'Pendiente',
+      PARTIAL: 'Parcial',
       CANCELLED: 'Cancelada',
     };
 
@@ -224,6 +226,10 @@ export function SalesTable({
           return 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/30';
         case 'PENDING':
           return 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/30';
+        case 'PARTIAL':
+          // Naranja medio: distinguible de PENDING (que ya usa cc844a), y
+          // semánticamente "en curso" / saldo abierto.
+          return '';
         case 'CANCELLED':
           return 'bg-[#4e4247]/10 text-[#4e4247] border-[#4e4247]/30';
         default:
@@ -231,9 +237,26 @@ export function SalesTable({
       }
     };
 
+    // PARTIAL usa estilos inline para tomar exactamente var(--color-naranja-medio).
+    if (status === 'PARTIAL') {
+      return (
+        <Badge
+          variant="outline"
+          className="font-winter-solid border"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--color-naranja-medio) 12%, white)',
+            borderColor: 'color-mix(in srgb, var(--color-naranja-medio) 40%, white)',
+            color: 'var(--color-naranja-medio)',
+          }}
+        >
+          {labels.PARTIAL}
+        </Badge>
+      );
+    }
+
     return (
-      <Badge 
-        variant="outline" 
+      <Badge
+        variant="outline"
         className={`${getStatusStyles(status)} font-winter-solid`}
       >
         {labels[status as keyof typeof labels] || status}

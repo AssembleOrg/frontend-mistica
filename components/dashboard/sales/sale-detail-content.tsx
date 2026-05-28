@@ -18,6 +18,7 @@ import { GeneratingPdfDialog } from '@/components/ui/generating-pdf-dialog';
 import { IssueCreditNoteDialog } from './issue-credit-note-dialog';
 import { IssueInvoiceDialog } from './issue-invoice-dialog';
 import { ConfirmCancelDialog } from './confirm-cancel-dialog';
+import { AddSalePaymentDialog } from './add-payment-dialog';
 import {
   CheckCircle2,
   XCircle,
@@ -31,6 +32,7 @@ import {
   Calendar,
   Package,
   ShieldCheck,
+  Wallet,
 } from 'lucide-react';
 
 interface SaleDetailContentProps {
@@ -55,10 +57,27 @@ const PAYMENT_LABELS: Record<string, string> = {
 const STATUS_CONFIG = {
   COMPLETED: { label: 'Completada', className: 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/30' },
   PENDING:   { label: 'Pendiente',  className: 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/30' },
+  PARTIAL:   { label: 'Parcial',    className: '' },
   CANCELLED: { label: 'Cancelada',  className: 'bg-[#4e4247]/10 text-[#4e4247] border-[#4e4247]/30' },
 } as const;
 
 function StatusBadge({ status }: { status: string }) {
+  // PARTIAL usa inline styles para tomar var(--color-naranja-medio).
+  if (status === 'PARTIAL') {
+    return (
+      <Badge
+        variant="outline"
+        className="font-winter-solid text-xs border"
+        style={{
+          backgroundColor: 'color-mix(in srgb, var(--color-naranja-medio) 12%, white)',
+          borderColor: 'color-mix(in srgb, var(--color-naranja-medio) 40%, white)',
+          color: 'var(--color-naranja-medio)',
+        }}
+      >
+        Parcial
+      </Badge>
+    );
+  }
   const cfg = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ?? {
     label: status,
     className: 'bg-[#455a54]/5 text-[#455a54]/60 border-[#455a54]/20',
@@ -107,6 +126,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const [showCreditNote, setShowCreditNote] = useState(false);
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showAddPayment, setShowAddPayment] = useState(false);
   const { updateSale, getSaleById, deleteSale } = useSalesAPI();
   const { recordSaleMovements } = useStock();
   const { products } = useProducts();
@@ -114,6 +134,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const isPending   = sale.status === 'PENDING';
   const isCompleted = sale.status === 'COMPLETED';
   const isCancelled = sale.status === 'CANCELLED';
+  const isPartial   = sale.status === 'PARTIAL';
   // Una venta está "facturada" cuando AFIP devolvió CAE. Hasta entonces no
   // tiene sentido emitir nota de crédito (no hay factura que invalidar).
   const isInvoiced  = !!sale.afipCae;
@@ -270,19 +291,27 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
 
         {/* Productos */}
         <Section title={`Productos · ${sale.items.length}`} icon={Package}>
-          {sale.items.map((item, i) => (
-            <div key={i} className="flex items-center justify-between py-2 gap-2">
-              <div className="min-w-0">
-                <p className="text-sm text-[#455a54] font-winter-solid truncate font-medium">{item.productName}</p>
-                <p className="text-xs text-[#455a54]/60 font-winter-solid mt-0.5">
-                  {item.quantity} × {formatCurrency(item.unitPrice)}
-                </p>
+          {sale.items.map((item, i) => {
+            const bonif = item.bonifiedQty ?? 0;
+            return (
+              <div key={i} className="flex items-center justify-between py-2 gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm text-[#455a54] font-winter-solid truncate font-medium">{item.productName}</p>
+                  <p className="text-xs text-[#455a54]/60 font-winter-solid mt-0.5">
+                    {item.quantity} × {formatCurrency(item.unitPrice)}
+                    {bonif > 0 && (
+                      <span className="ml-1.5 text-[#cc844a]">
+                        ({bonif} bonif.)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold text-[#455a54] font-winter-solid shrink-0">
+                  {formatCurrency(item.subtotal)}
+                </span>
               </div>
-              <span className="text-sm font-semibold text-[#455a54] font-winter-solid shrink-0">
-                {formatCurrency(item.subtotal)}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </Section>
 
         {/* Pago */}
@@ -327,6 +356,22 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
               {formatCurrency(sale.total)}
             </span>
           </div>
+          {isPartial && (
+            <div className="flex items-center justify-between py-2 gap-4 max-xl:gap-2">
+              <span
+                className="text-xs font-bold font-tan-nimbus shrink-0"
+                style={{ color: 'var(--color-naranja-medio)' }}
+              >
+                Saldo pendiente
+              </span>
+              <span
+                className="text-base font-bold font-tan-nimbus truncate"
+                style={{ color: 'var(--color-naranja-medio)' }}
+              >
+                {formatCurrency(sale.balanceDue ?? 0)}
+              </span>
+            </div>
+          )}
         </Section>
 
         {/* AFIP — solo si tiene datos */}
@@ -461,6 +506,29 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
             Emitir nota de crédito
           </Button>
         )}
+
+        {isPartial && (
+          <>
+            <Button
+              onClick={() => setShowAddPayment(true)}
+              disabled={isUpdating}
+              className="w-full text-white text-xs h-8 font-winter-solid"
+              style={{ backgroundColor: 'var(--color-naranja-medio)' }}
+            >
+              <Wallet className="h-3.5 w-3.5 mr-1.5" />
+              Agregar pago
+            </Button>
+            {onRequestEdit && (
+              <Button
+                onClick={() => onRequestEdit(sale)}
+                variant="outline"
+                className="w-full border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
+              >
+                Editar
+              </Button>
+            )}
+          </>
+        )}
       </div>
 
       <ConfirmCancelDialog
@@ -483,6 +551,11 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         onOpenChange={setShowInvoiceDialog}
         total={sale.total}
         onConfirm={handleConfirmInvoice}
+      />
+      <AddSalePaymentDialog
+        sale={showAddPayment ? sale : null}
+        onOpenChange={(v) => setShowAddPayment(v)}
+        onSuccess={() => onSaleUpdated?.()}
       />
     </>
   );

@@ -10,6 +10,10 @@ export type PaymentMethodCode = 'CASH' | 'CARD' | 'TRANSFER';
 export interface SalePayment {
   method: PaymentMethodCode;
   amount: number;
+  /** Fecha en la que se registró el pago (ISO). El server lo estampa en
+   *  el momento del POST/PATCH; para ventas parciales esto permite atribuir
+   *  cada pago a la sesión de caja correcta. */
+  createdAt?: string;
 }
 
 export interface CreateSaleRequest {
@@ -23,6 +27,9 @@ export interface CreateSaleRequest {
     productId: string;
     quantity: number;
     unitPrice: number;
+    /** Cantidad bonificada inline (regalada). Subtotal de línea =
+     *  (quantity − bonifiedQty) * unitPrice. Backend valida ≤ quantity. */
+    bonifiedQty?: number;
   }[];
   tax?: number;
   /** Distribución del pago — una entrada por método; suma === total. */
@@ -32,6 +39,19 @@ export interface CreateSaleRequest {
   consumedPrepaid?: boolean;
   discount?: number;
   seller: string;
+  /** Marca la venta como PARTIAL (seña/pago parcial). Σ payments puede ser
+   *  menor al total; la diferencia queda como `balanceDue`. */
+  isPartial?: boolean;
+  /** Total de la venta cuando es PARTIAL y NO tiene items (servicio sin
+   *  productos). Si hay items, el total se deriva normalmente. */
+  partialTotal?: number;
+}
+
+/** Body para PATCH /sales/:id/payments — agrega pagos a una venta PARTIAL. */
+export interface AddSalePaymentsRequest {
+  payments: { method: PaymentMethodCode; amount: number }[];
+  /** Si true, marca la venta como COMPLETED (cierra el saldo). */
+  markCompleted?: boolean;
 }
 
 export type InvoiceType = 'A' | 'B' | 'C';
@@ -47,10 +67,11 @@ export interface UpdateSaleRequest {
     productId: string;
     quantity: number;
     unitPrice: number;
+    bonifiedQty?: number;
   }[];
   payments?: SalePayment[];
   notes?: string;
-  status?: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  status?: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
   prepaidId?: string;
   consumedPrepaid?: boolean;
   discount?: number;
@@ -80,6 +101,9 @@ export interface SaleItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  /** Cantidad bonificada (regalada). El subtotal ya viene calculado por el
+   *  server como (quantity − bonifiedQty) * unitPrice. */
+  bonifiedQty?: number;
 }
 
 export interface Sale {
@@ -99,7 +123,7 @@ export interface Sale {
   prepaidId?: string;
   total: number;
   payments: SalePayment[];
-  status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
   notes?: string;
   seller?: string;
   consumedPrepaid?: boolean;
@@ -109,6 +133,8 @@ export interface Sale {
   afipCae?: string;
   afipNumero?: number;
   afipFechaVto?: string;
+  /** Saldo pendiente (sólo > 0 cuando status === 'PARTIAL'). */
+  balanceDue?: number;
 }
 
 // Paginated response interface
@@ -267,6 +293,18 @@ export class SalesService {
     const cleanedUpdates = this.cleanPayload(updates, false);
     const response = await apiService.patch<Sale>(`/sales/${id}`, cleanedUpdates);
     console.log('💰 SALES SERVICE: Venta actualizada:', response.data?.saleNumber);
+    return response;
+  }
+
+  /**
+   * Agrega pagos a una venta PARTIAL. El backend estampa `createdAt = now`
+   * en cada pago nuevo, así cada pago entra a la sesión de caja del día en
+   * que se registró. Si `markCompleted=true`, la venta pasa a COMPLETED.
+   */
+  async addSalePayments(id: string, req: AddSalePaymentsRequest): Promise<ApiResponse<Sale>> {
+    console.log('💰 SALES SERVICE: Agregando pagos a venta parcial:', id);
+    const response = await apiService.patch<Sale>(`/sales/${id}/payments`, { ...req });
+    console.log('💰 SALES SERVICE: Pagos agregados; nuevo saldo:', response.data?.balanceDue);
     return response;
   }
 

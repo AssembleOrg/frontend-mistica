@@ -380,6 +380,14 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const signedDiscount = adjustmentType === 'discount' ? adjustmentAmount : -adjustmentAmount;
 
   const calculateTotals = () => {
+    // Venta sin productos: el total ES el "monto a cobrar" (suma de pagos).
+    // No aplican descuentos, impuestos ni señas; el subtotal queda alineado
+    // al total para que la vista lo muestre coherente.
+    if (cartItems.length === 0) {
+      const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
+      return { subtotal: paymentsSum, tax: 0, adjustmentApplied: 0, prepaidAmount: 0, total: paymentsSum };
+    }
+
     const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
     const tax = 0;
     const adjustmentApplied = signedDiscount;
@@ -440,8 +448,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       return;
     }
 
-    if (cartItems.length === 0) {
-      showToast.error('Debe agregar al menos un producto');
+    // Una venta válida necesita o productos en el carrito o un monto a cobrar
+    // ingresado en los pagos.
+    if (cartItems.length === 0 && total <= 0) {
+      showToast.error('Agregá al menos un producto o ingresá un monto a cobrar');
       return;
     }
 
@@ -996,7 +1006,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             <Button
               ref={submitButtonRef}
               type="submit"
-              disabled={!customerName.trim() || cartItems.length === 0 || isSubmitting}
+              disabled={!customerName.trim() || (cartItems.length === 0 && total <= 0) || isSubmitting}
               className="flex-1 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid touch-target"
             >
               {isSubmitting ? (

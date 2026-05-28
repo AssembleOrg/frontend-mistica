@@ -59,6 +59,7 @@ export interface FinanceSummary {
     discrepancy: number | null;
     status: 'OPEN' | 'CLOSED';
     closureType: 'MANUAL' | 'AUTO';
+    wasEdited: boolean;
   }>;
   totalDiscrepancy: number;
 }

@@ -1,5 +1,17 @@
 import { apiService, type ApiResponse } from './api.service';
 
+export interface CashSessionEditEntry {
+  editedAt: string;
+  editedByUserId?: string;
+  addedEgresses: Array<{
+    egressId: string;
+    egressNumber: string;
+    concept: string;
+    amount: number;
+    paymentMethod: string;
+  }>;
+}
+
 export interface CashSession {
   id: string;
   status: 'OPEN' | 'CLOSED';
@@ -15,6 +27,15 @@ export interface CashSession {
   openedByUserId?: string;
   closedByUserId?: string;
   closureType?: 'MANUAL' | 'AUTO';
+  editHistory?: CashSessionEditEntry[];
+}
+
+export interface RetroactiveEgressInput {
+  concept: string;
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
+  notes?: string;
 }
 
 export interface OpenCashSessionRequest {
@@ -99,6 +120,19 @@ class CashboxService {
 
   async updateSessionLabel(id: string, label: string): Promise<ApiResponse<CashSession>> {
     return apiService.patch<CashSession>(`/cashbox/${id}/label`, { label });
+  }
+
+  /**
+   * Edita una sesión cerrada: carga egresos retroactivos. Sólo permitido
+   * dentro de las 72hs siguientes a `closedAt` (validación en el backend).
+   * Los egresos se crean con createdAt = closedAt de la sesión, así el
+   * arqueo recalcula correctamente.
+   */
+  async editSession(
+    id: string,
+    addEgresses: RetroactiveEgressInput[],
+  ): Promise<ApiResponse<CashSession>> {
+    return apiService.patch<CashSession>(`/cashbox/${id}/edit`, { addEgresses });
   }
 }
 

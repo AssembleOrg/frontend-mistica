@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Banknote, CreditCard, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Banknote, CreditCard, Pencil, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { financeService, type FinanceSummary } from '@/services/finance.service';
-import { cashboxService, type SessionTransaction } from '@/services/cashbox.service';
+import {
+  cashboxService,
+  type CashSessionEditEntry,
+  type SessionTransaction,
+} from '@/services/cashbox.service';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { EditSessionDialog } from './edit-session-dialog';
 
 interface CashSession {
   id: string;
@@ -44,15 +50,14 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
   const [loadingTx, setLoadingTx] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [methodFilter, setMethodFilter] = useState<MethodFilter>('all');
+  // editHistory + label vienen de un fetch a /cashbox/:id (la prop `session`
+  // se arma desde finance.summary que sólo expone wasEdited).
+  const [editHistory, setEditHistory] = useState<CashSessionEditEntry[]>([]);
+  const [sessionLabel, setSessionLabel] = useState<string | undefined>(undefined);
+  const [showEdit, setShowEdit] = useState(false);
 
-  useEffect(() => {
-    if (!session) {
-      setSummary(null);
-      setTransactions([]);
-      setSourceFilter('all');
-      setMethodFilter('all');
-      return;
-    }
+  const loadAll = useCallback(() => {
+    if (!session) return;
     setLoading(true);
     setLoadingTx(true);
     const from = isoDate(new Date(session.openedAt));
@@ -65,6 +70,36 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
       .then(res => setTransactions(res.data?.transactions ?? []))
       .catch(() => setTransactions([]))
       .finally(() => setLoadingTx(false));
+    cashboxService.findOne(session.id)
+      .then(res => {
+        setEditHistory(res.data?.editHistory ?? []);
+        setSessionLabel(res.data?.label);
+      })
+      .catch(() => {
+        setEditHistory([]);
+        setSessionLabel(undefined);
+      });
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) {
+      setSummary(null);
+      setTransactions([]);
+      setEditHistory([]);
+      setSessionLabel(undefined);
+      setSourceFilter('all');
+      setMethodFilter('all');
+      return;
+    }
+    loadAll();
+  }, [session, loadAll]);
+
+  // Sesión editable: CLOSED + closedAt hace menos de 72 hs.
+  // El backend revalida; este check es para mostrar/ocultar el botón.
+  const canEdit = useMemo(() => {
+    if (!session || session.status !== 'CLOSED' || !session.closedAt) return false;
+    const hours = (Date.now() - new Date(session.closedAt).getTime()) / 3_600_000;
+    return hours < 72;
   }, [session]);
 
   const filteredTx = useMemo(() => {
@@ -138,6 +173,21 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
             </div>
           )}
         </div>
+
+        {canEdit && (
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEdit(true)}
+              className="h-8 text-xs"
+              style={{ borderColor: 'var(--color-gris-claro)', color: 'var(--color-ciruela-oscuro)' }}
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Editar sesión (cargar egresos)
+            </Button>
+          </div>
+        )}
 
         {loading && (
           <div className="space-y-2 animate-pulse">
@@ -358,8 +408,65 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
                 </div>
               )}
             </div>
+
+            {/* Historial de ediciones (egresos retroactivos) */}
+            {editHistory.length > 0 && (
+              <div className="space-y-2">
+                <p
+                  className="text-xs font-medium font-winter-solid uppercase tracking-wide"
+                  style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}
+                >
+                  Historial de cambios
+                </p>
+                <div className="space-y-2">
+                  {[...editHistory]
+                    .sort((a, b) => new Date(b.editedAt).getTime() - new Date(a.editedAt).getTime())
+                    .map((entry, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-lg border p-2.5 text-xs font-winter-solid"
+                        style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
+                            {new Date(entry.editedAt).toLocaleString('es-AR')}
+                          </span>
+                          <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>
+                            {entry.addedEgresses.length}{' '}
+                            {entry.addedEgresses.length === 1 ? 'egreso cargado' : 'egresos cargados'}
+                          </span>
+                        </div>
+                        <ul className="space-y-0.5 pl-1">
+                          {entry.addedEgresses.map((a) => (
+                            <li
+                              key={a.egressId}
+                              className="flex items-center justify-between gap-2"
+                              style={{ color: 'var(--color-ciruela-oscuro)' }}
+                            >
+                              <span className="truncate" title={a.concept}>
+                                · {a.concept}
+                              </span>
+                              <span className="font-semibold shrink-0" style={{ color: 'var(--color-terracota)' }}>
+                                -{formatCurrency(a.amount)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
+
+        <EditSessionDialog
+          sessionId={showEdit ? session.id : null}
+          sessionLabel={sessionLabel}
+          closedAt={session.closedAt ?? undefined}
+          onOpenChange={(o) => !o && setShowEdit(false)}
+          onSaved={loadAll}
+        />
       </DialogContent>
     </Dialog>
   );

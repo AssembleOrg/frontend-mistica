@@ -370,18 +370,32 @@ export default function FinancesPage() {
                           </div>
                         )}
                       </div>
-                      {s.discrepancy !== null && s.discrepancy !== 0 && (
-                        <Badge
-                          style={
-                            s.discrepancy > 0
-                              ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
-                              : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
-                          }
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {s.discrepancy > 0 ? 'Sobrante' : 'Faltante'} {formatCurrency(Math.abs(s.discrepancy))}
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {s.wasEdited && (
+                          <Badge
+                            title="Esta sesión fue editada después del cierre"
+                            style={{
+                              background: 'color-mix(in srgb, var(--color-ciruela-oscuro) 12%, transparent)',
+                              color: 'var(--color-ciruela-oscuro)',
+                            }}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Editada
+                          </Badge>
+                        )}
+                        {s.discrepancy !== null && s.discrepancy !== 0 && (
+                          <Badge
+                            style={
+                              s.discrepancy > 0
+                                ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
+                                : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
+                            }
+                          >
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {s.discrepancy > 0 ? 'Sobrante' : 'Faltante'} {formatCurrency(Math.abs(s.discrepancy))}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

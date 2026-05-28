@@ -58,6 +58,21 @@ class CashboxService {
     return apiService.get<CashSession | null>('/cashbox/pending-auto-closure');
   }
 
+  /**
+   * Preview en vivo del esperado en la caja abierta (mismo cálculo que el
+   * cierre, sin escribir). Lo usa el diálogo "Cerrar caja" para mostrar al
+   * cajero cuánto debería tener antes de tipear el conteo físico.
+   */
+  async getCurrentExpected(): Promise<ApiResponse<{
+    sessionId: string;
+    openedAt: string;
+    openingCash: number;
+    expectedClosingCash: number;
+    asOf: string;
+  } | null>> {
+    return apiService.get('/cashbox/current/expected');
+  }
+
   async open(req: OpenCashSessionRequest): Promise<ApiResponse<CashSession>> {
     return apiService.post<CashSession>('/cashbox/open', { ...req });
   }

@@ -190,6 +190,7 @@ export default function FinancesPage() {
       <SessionDetailDialog
         session={selectedSession}
         onOpenChange={(open) => { if (!open) setSelectedSession(null); }}
+        onChanged={load}
       />
       <ResolveAutoClosureDialog
         session={sessionToResolve}

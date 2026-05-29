@@ -33,6 +33,12 @@ interface CashSession {
 interface Props {
   session: CashSession | null;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Callback que se dispara cuando la sesión cambia en el backend (ej. tras
+   * editarla con egresos/ingresos retroactivos). El padre lo usa para
+   * recargar su lista Estado de caja con los nuevos `wasEdited` y discrepancias.
+   */
+  onChanged?: () => void;
 }
 
 function isoDate(d: Date) {
@@ -42,7 +48,7 @@ function isoDate(d: Date) {
 type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress' | 'income';
 type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO';
 
-export function SessionDetailDialog({ session, onOpenChange }: Props) {
+export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props) {
   const open = session !== null;
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -50,10 +56,17 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
   const [loadingTx, setLoadingTx] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [methodFilter, setMethodFilter] = useState<MethodFilter>('all');
-  // editHistory + label vienen de un fetch a /cashbox/:id (la prop `session`
-  // se arma desde finance.summary que sólo expone wasEdited).
+  // editHistory + label + valores frescos vienen de un fetch a /cashbox/:id.
+  // El headline (apertura/esperado/contado/faltante) los lee de ACÁ y no del
+  // prop, así reflejan la última edición sin necesidad de reabrir el diálogo.
   const [editHistory, setEditHistory] = useState<CashSessionEditEntry[]>([]);
   const [sessionLabel, setSessionLabel] = useState<string | undefined>(undefined);
+  const [fresh, setFresh] = useState<{
+    openingCash: number;
+    expectedClosingCash: number | null;
+    countedClosingCash: number | null;
+    discrepancy: number | null;
+  } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
 
   const loadAll = useCallback(() => {
@@ -74,10 +87,21 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
       .then(res => {
         setEditHistory(res.data?.editHistory ?? []);
         setSessionLabel(res.data?.label);
+        if (res.data) {
+          setFresh({
+            openingCash: res.data.openingCash,
+            expectedClosingCash: res.data.expectedClosingCash ?? null,
+            countedClosingCash: res.data.countedClosingCash ?? null,
+            discrepancy: res.data.discrepancy ?? null,
+          });
+        } else {
+          setFresh(null);
+        }
       })
       .catch(() => {
         setEditHistory([]);
         setSessionLabel(undefined);
+        setFresh(null);
       });
   }, [session]);
 
@@ -87,6 +111,7 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
       setTransactions([]);
       setEditHistory([]);
       setSessionLabel(undefined);
+      setFresh(null);
       setSourceFilter('all');
       setMethodFilter('all');
       return;
@@ -139,39 +164,51 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
           className="rounded-lg border p-4 space-y-1 text-sm font-sans"
           style={{ borderColor: 'var(--color-gris-claro)', background: 'color-mix(in srgb, var(--color-verde-profundo) 5%, transparent)' }}
         >
-          <div className="flex justify-between">
-            <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Apertura</span>
-            <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
-              {formatCurrency(session.openingCash)}
-            </span>
-          </div>
-          {session.expectedClosingCash !== null && (
-            <div className="flex justify-between">
-              <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Esperado al cierre</span>
-              <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
-                {formatCurrency(session.expectedClosingCash)}
-              </span>
-            </div>
-          )}
-          {session.countedClosingCash !== null && (
-            <div className="flex justify-between">
-              <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Contado al cierre</span>
-              <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
-                {formatCurrency(session.countedClosingCash)}
-              </span>
-            </div>
-          )}
-          {session.discrepancy !== null && session.discrepancy !== 0 && (
-            <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--color-gris-claro)' }}>
-              <span style={{ color: session.discrepancy > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}>
-                <AlertTriangle className="inline h-3 w-3 mr-1" />
-                {session.discrepancy > 0 ? 'Sobrante' : 'Faltante'}
-              </span>
-              <span className="font-semibold font-sans" style={{ color: session.discrepancy > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}>
-                {formatCurrency(Math.abs(session.discrepancy))}
-              </span>
-            </div>
-          )}
+          {(() => {
+            // Preferimos los valores del fetch /cashbox/:id (siempre frescos).
+            // Si todavía no llegaron, caemos al prop original.
+            const opening = fresh?.openingCash ?? session.openingCash;
+            const expected = fresh?.expectedClosingCash ?? session.expectedClosingCash;
+            const counted = fresh?.countedClosingCash ?? session.countedClosingCash;
+            const discrepancy = fresh?.discrepancy ?? session.discrepancy;
+            return (
+              <>
+                <div className="flex justify-between">
+                  <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Apertura</span>
+                  <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
+                    {formatCurrency(opening)}
+                  </span>
+                </div>
+                {expected !== null && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Esperado al cierre</span>
+                    <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
+                      {formatCurrency(expected)}
+                    </span>
+                  </div>
+                )}
+                {counted !== null && (
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Contado al cierre</span>
+                    <span className="font-semibold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>
+                      {formatCurrency(counted)}
+                    </span>
+                  </div>
+                )}
+                {discrepancy !== null && discrepancy !== 0 && (
+                  <div className="flex justify-between pt-1 border-t" style={{ borderColor: 'var(--color-gris-claro)' }}>
+                    <span style={{ color: discrepancy > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}>
+                      <AlertTriangle className="inline h-3 w-3 mr-1" />
+                      {discrepancy > 0 ? 'Sobrante' : 'Faltante'}
+                    </span>
+                    <span className="font-semibold font-sans" style={{ color: discrepancy > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}>
+                      {formatCurrency(Math.abs(discrepancy))}
+                    </span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {canEdit && (
@@ -494,7 +531,12 @@ export function SessionDetailDialog({ session, onOpenChange }: Props) {
           sessionLabel={sessionLabel}
           closedAt={session.closedAt ?? undefined}
           onOpenChange={(o) => !o && setShowEdit(false)}
-          onSaved={loadAll}
+          onSaved={() => {
+            // Refresca el detalle (headline + transactions + historial)
+            // y avisa al padre para que actualice la lista Estado de caja.
+            loadAll();
+            onChanged?.();
+          }}
         />
       </DialogContent>
     </Dialog>

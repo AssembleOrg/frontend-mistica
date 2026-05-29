@@ -185,8 +185,9 @@ export function EditSessionDialog({
         <DialogHeader>
           <DialogTitle>Editar sesión{sessionLabel ? ` · ${sessionLabel}` : ''}</DialogTitle>
           <DialogDescription>
-            Cargá egresos y/o ingresos que se te pasaron en el momento. Cada
-            movimiento queda asignado a esta sesión y el arqueo se recalcula
+            Cargá egresos que no logueaste, o ingresos para corregir el conteo
+            si tenías más plata de la que contaste. Egresos reducen el
+            esperado; ingresos suman al contado. El arqueo se recalcula
             automáticamente.
             {closedAt && (
               <span className='block mt-1 text-xs text-[#455a54]/60'>
@@ -335,7 +336,7 @@ export function EditSessionDialog({
 
             {incomes.length === 0 && (
               <p className='text-xs text-[#455a54]/50 italic'>
-                Sin ingresos para cargar. Si hubo una corrección de saldo o entró plata fuera de una venta, agregala acá.
+                Sin ingresos para cargar. Si tenías plata en la caja que no contaste al cierre, agregala acá: suma al "contado" y reduce el faltante (o aumenta el sobrante).
               </p>
             )}
 

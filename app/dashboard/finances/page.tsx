@@ -8,7 +8,6 @@ import {
   Send,
   TrendingUp,
   TrendingDown,
-  ArrowDownRight,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -27,7 +26,6 @@ import { financeService, type FinanceSummary } from '@/services/finance.service'
 import { cashboxService } from '@/services/cashbox.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
-import { QuickEgressDialog } from '@/components/dashboard/finances/quick-egress-dialog';
 import { SessionDetailDialog } from '@/components/dashboard/finances/session-detail-dialog';
 import { ResolveAutoClosureDialog } from '@/components/dashboard/finances/resolve-auto-closure-dialog';
 
@@ -64,7 +62,6 @@ export default function FinancesPage() {
 
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showNewEgress, setShowNewEgress] = useState(false);
   const [selectedSession, setSelectedSession] = useState<FinanceSummary['cashSessions'][number] | null>(null);
   const [sessionToResolve, setSessionToResolve] = useState<FinanceSummary['cashSessions'][number] | null>(null);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -175,18 +172,8 @@ export default function FinancesPage() {
         </div>
         <div className="flex items-center gap-2">
           {loading && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: 'var(--color-terracota)' }} />}
-          <Button
-            onClick={() => setShowNewEgress(true)}
-            className="w-full sm:w-auto text-white"
-            style={{ background: 'var(--color-terracota)' }}
-          >
-            <ArrowDownRight className="h-4 w-4 mr-2" />
-            Registrar egreso
-          </Button>
         </div>
       </div>
-
-      <QuickEgressDialog open={showNewEgress} onOpenChange={setShowNewEgress} onCreated={load} />
       <SessionDetailDialog
         session={selectedSession}
         onOpenChange={(open) => { if (!open) setSelectedSession(null); }}

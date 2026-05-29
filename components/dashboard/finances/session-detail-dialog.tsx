@@ -221,7 +221,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
               style={{ borderColor: 'var(--color-gris-claro)', color: 'var(--color-ciruela-oscuro)' }}
             >
               <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              Editar sesión (cargar egresos)
+              Editar sesión (cargar ingresos y egresos)
             </Button>
           </div>
         )}

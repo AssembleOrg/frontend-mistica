@@ -234,11 +234,10 @@ export class SalesService {
     return response;
   }
 
-  // Helper to clean payload and add required fields
-  // `isCreate=true` indica que la validación de items es obligatoria. Para
-  // updates parciales (ej: solo `shouldInvoice` o solo `status`), no requerimos
-  // items: el backend valida lo que llegue y deja intacto lo que no.
-  private cleanPayload(data: any, isCreate: boolean = false): any {
+  // Helper to clean payload and add required fields.
+  // No exige items en CREATE: una venta sin productos toma el total del
+  // "monto a cobrar" en los pagos. El backend valida el resto.
+  private cleanPayload(data: any): any {
     const cleaned = { ...data };
     Object.keys(cleaned).forEach(key => {
       if (cleaned[key] === undefined) {
@@ -252,17 +251,10 @@ export class SalesService {
       }
     }
 
-    if (isCreate) {
-      // En CREATE los items son obligatorios.
-      if (!Array.isArray(cleaned.items) || cleaned.items.length === 0) {
-        throw new Error('La venta debe tener al menos un producto');
-      }
-    } else if ('items' in cleaned) {
-      // En UPDATE, si vienen items, no pueden venir vacíos.
-      if (!Array.isArray(cleaned.items) || cleaned.items.length === 0) {
-        throw new Error('La venta debe tener al menos un producto');
-      }
-    }
+    // Items puede venir vacío: en ese caso el backend toma el total de los
+    // pagos ("monto a cobrar") — venta sin productos. La validación de
+    // "requiere productos O monto a cobrar > 0" ya la hace el formulario antes
+    // de invocar este service.
 
     return cleaned;
   }
@@ -270,7 +262,7 @@ export class SalesService {
   // Create new sale
   async createSale(saleData: CreateSaleRequest): Promise<ApiResponse<Sale>> {
     console.log('💰 SALES SERVICE: Creando venta para cliente:', saleData.customerName);
-    const cleanedData = this.cleanPayload(saleData, true);
+    const cleanedData = this.cleanPayload(saleData);
     const response = await apiService.post<Sale>('/sales', cleanedData);
     console.log('💰 SALES SERVICE: Venta creada:', response.data?.saleNumber);
     return response;
@@ -290,7 +282,7 @@ export class SalesService {
   // Update existing sale
   async updateSale(id: string, updates: UpdateSaleRequest): Promise<ApiResponse<Sale>> {
     console.log('💰 SALES SERVICE: Actualizando venta:', id);
-    const cleanedUpdates = this.cleanPayload(updates, false);
+    const cleanedUpdates = this.cleanPayload(updates);
     const response = await apiService.patch<Sale>(`/sales/${id}`, cleanedUpdates);
     console.log('💰 SALES SERVICE: Venta actualizada:', response.data?.saleNumber);
     return response;
@@ -465,10 +457,8 @@ export class SalesService {
       errors.push('El nombre del cliente es requerido');
     }
 
-    if (!saleData.items || saleData.items.length === 0) {
-      errors.push('La venta debe tener al menos un producto');
-    }
-
+    // Items opcional: una venta puede no tener productos (el total se toma
+    // del "monto a cobrar" en los pagos). Si vienen items, los validamos.
     if (saleData.items) {
       saleData.items.forEach((item: { productId: string; quantity: number; unitPrice: number }, index: number) => {
         if (!item.productId) {

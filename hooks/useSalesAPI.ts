@@ -99,8 +99,10 @@ export function useSalesAPI() {
     }
   }, []);
 
+  // No toca `isLoading`: ese flag controla el estado de carga de la tabla de ventas.
+  // Las stats cards manejan su propia carga, así que refrescar ventas-del-día no debe
+  // blanquear ni atenuar la tabla.
   const getDailySales = useCallback(async (date?: string, timezone = 'America/Argentina/Buenos_Aires'): Promise<DailySalesData> => {
-    setIsLoading(true);
     try {
       const response = await salesService.getDailySales(date, timezone);
       setDailySales(response.data);
@@ -109,8 +111,6 @@ export function useSalesAPI() {
       const errorMessage = (error as Error).message || 'Error al obtener las ventas del día';
       showToast.error('Error', errorMessage);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 

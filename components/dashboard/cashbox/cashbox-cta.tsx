@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { LockOpen, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCashbox } from '@/hooks/useCashbox';
+import { type CashSession } from '@/services/cashbox.service';
 import { OpenCashboxDialog } from './open-cashbox-dialog';
 import { CloseCashboxDialog } from './close-cashbox-dialog';
+import { EditSessionDialog } from '@/components/dashboard/finances/edit-session-dialog';
 
 /**
  * Botón CTA contextual:
@@ -17,6 +19,21 @@ export function CashboxCta() {
   const { current, isOpen, loading, refresh } = useCashbox();
   const [showOpen, setShowOpen] = useState(false);
   const [showClose, setShowClose] = useState(false);
+  const [sessionToEdit, setSessionToEdit] = useState<CashSession | null>(null);
+
+  // El EditSessionDialog se monta SIEMPRE (fuera de los branches): tras cerrar
+  // la caja, `isOpen` pasa a false y el árbol cambia de branch; si viviera
+  // dentro del branch "abierta" se desmontaría justo cuando el usuario elige
+  // cargar movimientos. Acá sobrevive a ese cambio.
+  const editDialog = (
+    <EditSessionDialog
+      sessionId={sessionToEdit?.id ?? null}
+      sessionLabel={sessionToEdit?.label}
+      closedAt={sessionToEdit?.closedAt}
+      onOpenChange={(o) => { if (!o) setSessionToEdit(null); }}
+      onSaved={refresh}
+    />
+  );
 
   if (loading) {
     return (
@@ -42,6 +59,7 @@ export function CashboxCta() {
           onOpenChange={setShowOpen}
           onOpened={refresh}
         />
+        {editDialog}
       </>
     );
   }
@@ -62,8 +80,10 @@ export function CashboxCta() {
           onOpenChange={setShowClose}
           session={current}
           onClosed={refresh}
+          onLoadMovements={setSessionToEdit}
         />
       )}
+      {editDialog}
     </>
   );
 }

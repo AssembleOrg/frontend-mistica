@@ -46,6 +46,7 @@ const sourceBadge: Record<SessionTransaction['source'], { label: string; color: 
   sale: null,
   prepaid: { label: 'Seña', color: '#92400e', bg: '#fef3c7' },
   egress: null,
+  income: { label: 'Ingreso', color: '#2f6f3b', bg: 'rgba(47,111,59,0.12)' },
 };
 
 const paymentLabel = (m: string) => {

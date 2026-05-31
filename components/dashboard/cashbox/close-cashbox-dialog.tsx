@@ -22,26 +22,38 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   session: CashSession;
+  /** Se dispara tras cerrar con éxito; sirve para refrescar el estado de caja. */
   onClosed?: () => void;
+  /**
+   * El usuario, en el paso de éxito, eligió "Cargar egresos / ingresos".
+   * El padre usa la sesión cerrada para abrir el EditSessionDialog.
+   */
+  onLoadMovements?: (closed: CashSession) => void;
 }
 
 /**
- * Modal de cierre. El usuario tipea el conteo físico de efectivo. Mostramos
- * el monto inicial; el `expected` lo calcula el backend al cerrar y se ve
- * en el resultado. Si hay diferencia, no bloqueamos: queda registrada.
+ * Modal de cierre en dos pasos dentro de la misma ventana:
+ *  - `count`: el cajero tipea el conteo físico. El `expected` lo calcula el
+ *    backend; la diferencia es informativa y NO bloquea el cierre.
+ *  - `done`: confirmación de cierre con resumen. Acá el cajero DECIDE si quiere
+ *    cargar egresos/ingresos de esa sesión ahora o simplemente terminar.
  */
-export function CloseCashboxDialog({ open, onOpenChange, session, onClosed }: Props) {
+export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLoadMovements }: Props) {
   const { closeSession, submitting } = useCashbox();
+  const [step, setStep] = useState<'count' | 'done'>('count');
   const [counted, setCounted] = useState(0);
   const [notes, setNotes] = useState('');
   const [expected, setExpected] = useState<number | null>(null);
   const [loadingExpected, setLoadingExpected] = useState(false);
+  const [closed, setClosed] = useState<CashSession | null>(null);
 
   useEffect(() => {
     if (open) {
+      setStep('count');
       setCounted(0);
       setNotes('');
       setExpected(null);
+      setClosed(null);
       setLoadingExpected(true);
       cashboxService
         .getCurrentExpected()
@@ -95,12 +107,93 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed }: Pr
 
   async function handleSubmit() {
     try {
-      await closeSession({ countedClosingCash: counted, notes: notes || undefined });
-      onOpenChange(false);
-      onClosed?.();
+      // OJO: NO llamamos onClosed?.() acá. Ese refresh recarga el estado de
+      // caja (current → null) y desmontaría este modal antes de mostrar el
+      // paso `done`. Refrescamos recién al cerrar el modal (Listo / Cargar).
+      const result = await closeSession({ countedClosingCash: counted, notes: notes || undefined });
+      setClosed(result);
+      setStep('done');
     } catch {
       // toast manejado en hook
     }
+  }
+
+  function handleDone() {
+    onOpenChange(false);
+    onClosed?.();
+  }
+
+  function handleLoadMovements() {
+    onOpenChange(false);
+    onClosed?.();
+    if (closed) onLoadMovements?.(closed);
+  }
+
+  if (step === 'done' && closed) {
+    const finalDiff = closed.discrepancy ?? 0;
+    const isSurplus = finalDiff > 0;
+    const isFaltante = finalDiff < 0;
+    return (
+      // Cerrar con la X / click afuera en este paso equivale a "Listo": cierra
+      // y refresca el estado de caja.
+      <Dialog open={open} onOpenChange={(o) => { if (!o) handleDone(); }}>
+        <DialogContent className='w-[95vw] max-w-[95vw] sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle className='flex items-center gap-2'>
+              <CheckCircle2 className='h-5 w-5 text-green-600' />
+              Caja cerrada
+            </DialogTitle>
+            <DialogDescription>
+              La caja se cerró correctamente. ¿Querés cargar egresos o ingresos
+              de esta sesión ahora? Podés hacerlo también más tarde desde Finanzas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='py-2'>
+            <div className='rounded-md bg-[#efcbb9]/30 border border-[#9d684e]/20 p-3 text-sm font-winter-solid space-y-1.5'>
+              <div className='flex items-center justify-between'>
+                <span>Esperado</span>
+                <span className='font-semibold'>{formatCurrency(closed.expectedClosingCash ?? 0)}</span>
+              </div>
+              <div className='flex items-center justify-between'>
+                <span>Contado</span>
+                <span className='font-semibold'>{formatCurrency(closed.countedClosingCash ?? 0)}</span>
+              </div>
+              {finalDiff !== 0 && (
+                <div
+                  className='flex items-center justify-between pt-1 border-t border-[#9d684e]/15'
+                  style={{ color: isSurplus ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}
+                >
+                  <span className='flex items-center gap-1'>
+                    <AlertTriangle className='h-3.5 w-3.5' />
+                    {isSurplus ? 'Sobrante' : 'Faltante'}
+                  </span>
+                  <span className='font-semibold'>{formatCurrency(Math.abs(finalDiff))}</span>
+                </div>
+              )}
+            </div>
+            {isFaltante && (
+              <p className='text-xs text-[#455a54]/70 mt-2'>
+                Si el faltante se explica por un egreso que no logueaste, cargalo
+                ahora para corregir el arqueo.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className='flex-col-reverse sm:flex-row gap-2'>
+            <Button variant='outline' onClick={handleDone} className='w-full sm:w-auto'>
+              Listo
+            </Button>
+            <Button
+              onClick={handleLoadMovements}
+              className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto'
+            >
+              Cargar egresos / ingresos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   return (

@@ -69,7 +69,7 @@ interface PaginatedResponse<T> {
 
 export interface SessionTransaction {
   id: string;
-  source: 'sale' | 'prepaid' | 'egress';
+  source: 'sale' | 'prepaid' | 'egress' | 'income';
   type: 'ingreso' | 'egreso';
   amount: number;
   description: string;

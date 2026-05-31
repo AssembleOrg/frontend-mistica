@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, AlertTriangle, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { Trash2, AlertTriangle, ArrowDownRight, ArrowUpRight, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -207,12 +207,12 @@ export function EditSessionDialog({
               </h3>
               <Button
                 type='button'
-                variant='ghost'
+                variant='outline'
                 size='sm'
                 onClick={addEgress}
-                className='h-7 text-xs text-[#455a54] hover:bg-[#efcbb9]/30'
+                className='h-7 text-xs border-[#a0473d]/30 text-[#a0473d] hover:bg-[#a0473d]/10 hover:text-[#a0473d]'
               >
-                <Plus className='h-3.5 w-3.5 mr-1' /> Agregar egreso
+                <ArrowDownCircle className='h-3.5 w-3.5 mr-1' /> Agregar egreso
               </Button>
             </div>
 
@@ -325,12 +325,12 @@ export function EditSessionDialog({
               </h3>
               <Button
                 type='button'
-                variant='ghost'
+                variant='outline'
                 size='sm'
                 onClick={addIncome}
-                className='h-7 text-xs text-[#455a54] hover:bg-[#efcbb9]/30'
+                className='h-7 text-xs border-[#2f6f3b]/30 text-[#2f6f3b] hover:bg-[#2f6f3b]/10 hover:text-[#2f6f3b]'
               >
-                <Plus className='h-3.5 w-3.5 mr-1' /> Agregar ingreso
+                <ArrowUpCircle className='h-3.5 w-3.5 mr-1' /> Agregar ingreso
               </Button>
             </div>
 

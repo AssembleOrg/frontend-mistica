@@ -679,18 +679,10 @@ export function SalesTable({
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className='w-full p-4 space-y-2'>
-        {/* Header skeleton */}
-        <Skeleton className='h-9 w-full rounded-md bg-[#efcbb9]/40' />
-        {/* Row skeletons */}
-        {Array.from({ length: 8 }).map((_, i) => (
-          <Skeleton key={i} className='h-12 w-full rounded-md bg-[#efcbb9]/30' />
-        ))}
-      </div>
-    );
-  }
+  // Sólo mostramos skeleton de filas en la carga inicial (sin datos todavía).
+  // En recargas por búsqueda/filtro mantenemos la tabla y los filtros montados
+  // para no desmontar el input (perder foco) mientras el usuario tipea.
+  const isInitialLoading = isLoading && data.length === 0;
 
   return (
     <div className='w-full px-4 pb-4 pt-3'>
@@ -763,7 +755,9 @@ export function SalesTable({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className='rounded-md border-2 border-[#455a54]/40 bg-white overflow-hidden'>
+      <div className={`rounded-md border-2 border-[#455a54]/40 bg-white overflow-hidden transition-opacity ${
+        isLoading && !isInitialLoading ? 'opacity-60' : ''
+      }`}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -792,7 +786,15 @@ export function SalesTable({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {isInitialLoading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`} className='border-b border-[#455a54]/8'>
+                  <TableCell colSpan={columns.length} className='py-2'>
+                    <Skeleton className='h-8 w-full rounded-md bg-[#efcbb9]/30' />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const isSelected = row.original.id === selectedSaleId;
                 return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Banknote, CreditCard, Pencil, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { AlertTriangle, Banknote, CreditCard, Plus, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { financeService, type FinanceSummary } from '@/services/finance.service';
 import {
   cashboxService,
   type CashSessionEditEntry,
@@ -41,17 +40,11 @@ interface Props {
   onChanged?: () => void;
 }
 
-function isoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
-
 type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress' | 'income';
 type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO';
 
 export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props) {
   const open = session !== null;
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
-  const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<SessionTransaction[]>([]);
   const [loadingTx, setLoadingTx] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
@@ -71,14 +64,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
 
   const loadAll = useCallback(() => {
     if (!session) return;
-    setLoading(true);
     setLoadingTx(true);
-    const from = isoDate(new Date(session.openedAt));
-    const to   = session.closedAt ? isoDate(new Date(session.closedAt)) : isoDate(new Date());
-    financeService.summary({ from, to })
-      .then(res => setSummary(res.data))
-      .catch(() => setSummary(null))
-      .finally(() => setLoading(false));
     cashboxService.getSessionTransactions(session.id)
       .then(res => setTransactions(res.data?.transactions ?? []))
       .catch(() => setTransactions([]))
@@ -107,7 +93,6 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
 
   useEffect(() => {
     if (!session) {
-      setSummary(null);
       setTransactions([]);
       setEditHistory([]);
       setSessionLabel(undefined);
@@ -135,6 +120,40 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     });
   }, [transactions, sourceFilter, methodFilter]);
 
+  // KPIs y "cobrado por método" se derivan de las transacciones de ESTA sesión
+  // (ventana openedAt..closedAt exacta), no del summary del día calendario —
+  // así no se mezclan dos cierres del mismo día y los ingresos sí se cuentan.
+  const kpis = useMemo(() => {
+    let salesCount = 0, salesTotal = 0;
+    let egressCount = 0, egressTotal = 0;
+    let incomeCount = 0, incomeTotal = 0;
+    let inflow = 0, outflow = 0;
+    const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0 };
+
+    for (const t of transactions) {
+      if (t.source === 'sale') { salesCount++; salesTotal += t.amount; }
+      else if (t.source === 'egress') { egressCount++; egressTotal += t.amount; }
+      else if (t.source === 'income') { incomeCount++; incomeTotal += t.amount; }
+
+      if (t.type === 'ingreso') {
+        inflow += t.amount;
+        if (t.paymentMethod === 'CASH' || t.paymentMethod === 'CARD' || t.paymentMethod === 'TRANSFER') {
+          byMethod[t.paymentMethod] += t.amount;
+        }
+      } else {
+        outflow += t.amount;
+      }
+    }
+
+    return {
+      salesCount, salesTotal,
+      egressCount, egressTotal,
+      incomeCount, incomeTotal,
+      netBalance: Number((inflow - outflow).toFixed(2)),
+      byMethod,
+    };
+  }, [transactions]);
+
   if (!session) return null;
 
   const fromLabel = new Date(session.openedAt).toLocaleString('es-AR');
@@ -142,9 +161,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     ? new Date(session.closedAt).toLocaleString('es-AR')
     : 'Abierta';
 
-  const payTotal = summary
-    ? summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER
-    : 0;
+  const payTotal = kpis.byMethod.CASH + kpis.byMethod.CARD + kpis.byMethod.TRANSFER;
   const pct = (n: number) => (payTotal > 0 ? Math.round((n / payTotal) * 100) : 0);
 
   return (
@@ -212,21 +229,16 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
         </div>
 
         {canEdit && (
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowEdit(true)}
-              className="h-8 text-xs"
-              style={{ borderColor: 'var(--color-gris-claro)', color: 'var(--color-ciruela-oscuro)' }}
-            >
-              <Pencil className="h-3.5 w-3.5 mr-1.5" />
-              Editar sesión (cargar ingresos y egresos)
-            </Button>
-          </div>
+          <Button
+            onClick={() => setShowEdit(true)}
+            className="w-full bg-[#9d684e] hover:bg-[#9d684e]/90 text-white font-winter-solid"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Cargar egresos / ingresos
+          </Button>
         )}
 
-        {loading && (
+        {loadingTx && (
           <div className="space-y-2 animate-pulse">
             {[0, 1, 2].map(i => (
               <div key={i} className="h-8 rounded-lg" style={{ background: 'var(--color-gris-claro)' }} />
@@ -234,46 +246,51 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
           </div>
         )}
 
-        {!loading && summary && (
+        {!loadingTx && (
           <div className="space-y-4">
 
-            {/* KPIs del período */}
+            {/* KPIs de la sesión (derivados de las transacciones de la ventana) */}
             <div
-              className="grid grid-cols-3 divide-x rounded-lg border overflow-hidden text-center"
+              className="grid grid-cols-2 sm:grid-cols-4 divide-x rounded-lg border overflow-hidden text-center"
               style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
             >
               <div className="p-3">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Ventas</p>
-                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{summary.salesCount}</p>
-                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(summary.totalRevenue)}</p>
+                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{kpis.salesCount}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(kpis.salesTotal)}</p>
+              </div>
+              <div className="p-3">
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Ingresos</p>
+                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{kpis.incomeCount}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(kpis.incomeTotal)}</p>
               </div>
               <div className="p-3">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Egresos</p>
-                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-terracota)' }}>{summary.expenses.count}</p>
-                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(summary.expenses.total)}</p>
+                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-terracota)' }}>{kpis.egressCount}</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(kpis.egressTotal)}</p>
               </div>
               <div className="p-3">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Balance</p>
                 <p
                   className="text-lg font-bold font-sans"
-                  style={{ color: summary.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
+                  style={{ color: kpis.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
                 >
-                  {formatCurrency(summary.netBalance)}
+                  {formatCurrency(kpis.netBalance)}
                 </p>
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>neto</p>
               </div>
             </div>
 
-            {/* Métodos de pago */}
+            {/* Métodos de pago (ingresos de la sesión) */}
             <div>
               <p className="text-xs font-medium font-sans uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
                 Cobrado por método
               </p>
               <div className="space-y-2">
                 {([
-                  { icon: <Banknote className="h-3.5 w-3.5" />, label: 'Efectivo',      amount: summary.byPaymentMethod.CASH },
-                  { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'Tarjeta',     amount: summary.byPaymentMethod.CARD },
-                  { icon: <Send className="h-3.5 w-3.5" />,        label: 'Transferencia', amount: summary.byPaymentMethod.TRANSFER },
+                  { icon: <Banknote className="h-3.5 w-3.5" />, label: 'Efectivo',      amount: kpis.byMethod.CASH },
+                  { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'Tarjeta',     amount: kpis.byMethod.CARD },
+                  { icon: <Send className="h-3.5 w-3.5" />,        label: 'Transferencia', amount: kpis.byMethod.TRANSFER },
                 ] as const).map(({ icon, label, amount }) => (
                   <div key={label} className="flex items-center justify-between text-sm font-sans">
                     <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>

@@ -40,7 +40,10 @@ interface Props {
   onChanged?: () => void;
 }
 
-type SourceFilter = 'all' | 'sale' | 'prepaid' | 'egress' | 'income';
+// 'sena' es un filtro unificado: muestra tanto las señas-prepaid (saldo a
+// favor) como las ventas con saldo pendiente (status PARTIAL). Se filtra por
+// el flag `isSena` del movimiento, no por `source`.
+type SourceFilter = 'all' | 'sale' | 'sena' | 'egress' | 'income';
 type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO';
 
 export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props) {
@@ -114,7 +117,14 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
 
   const filteredTx = useMemo(() => {
     return transactions.filter(t => {
-      if (sourceFilter !== 'all' && t.source !== sourceFilter) return false;
+      if (sourceFilter !== 'all') {
+        // El chip "Seña" agrupa prepaid + ventas con saldo pendiente vía isSena.
+        if (sourceFilter === 'sena') {
+          if (!t.isSena) return false;
+        } else if (t.source !== sourceFilter) {
+          return false;
+        }
+      }
       if (methodFilter !== 'all' && t.paymentMethod !== methodFilter) return false;
       return true;
     });
@@ -332,7 +342,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                 {([
                   { v: 'all',     l: 'Todos'   },
                   { v: 'sale',    l: 'Ventas'  },
-                  { v: 'prepaid', l: 'Señas'   },
+                  { v: 'sena',    l: 'Seña'    },
                   { v: 'egress',  l: 'Egresos' },
                   { v: 'income',  l: 'Ingresos' },
                 ] as const).map(o => (
@@ -405,7 +415,9 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                   style={{ borderColor: 'var(--color-gris-claro)' }}
                 >
                   {filteredTx.map(t => {
-                    const isPrepaid = t.source === 'prepaid';
+                    // isSena unifica prepaid + venta con saldo pendiente: ambas
+                    // se resaltan en amarillo y llevan el badge "Seña".
+                    const isPrepaid = !!t.isSena;
                     const isIncome = t.type === 'ingreso';
                     const hora = new Date(t.createdAt).toLocaleTimeString('es-AR', {
                       hour: '2-digit',

@@ -776,10 +776,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 />
                 <label htmlFor="isPartial" className="flex-1 cursor-pointer">
                   <div className="text-sm font-medium text-[#455a54] font-winter-solid">
-                    Pago parcial (seña)
+                    Seña
                   </div>
                   <div className="text-[11px] text-[#455a54]/60 font-winter-solid">
-                    El cobro puede ser menor al total; el saldo queda pendiente.
+                    Cobrás la seña ahora; el resto queda como saldo a abonar.
                   </div>
                 </label>
               </div>
@@ -1138,7 +1138,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                             className="flex justify-between text-xs sm:text-sm font-winter-solid"
                             style={{ color: 'var(--color-naranja-medio)' }}
                           >
-                            <span>Saldo pendiente:</span>
+                            <span>Falta abonar:</span>
                             <span>{formatCurrency(diff)}</span>
                           </div>
                         );

@@ -9,7 +9,7 @@ import {
   LogOut,
   Warehouse,
   UserCheck,
-  CreditCard,
+  // CreditCard, // usado por la card de Señas (ocultada)
   DollarSign,
   Tag,
 } from 'lucide-react';
@@ -59,12 +59,15 @@ const navigationItems = [
     icon: UserCheck,
     enabled: true,
   },
-  {
-    title: 'Señas',
-    url: '/dashboard/prepaids',
-    icon: CreditCard,
-    enabled: true,
-  },
+  // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
+  // se siguen creando desde la venta y viéndose en el detalle del cliente;
+  // sólo se quita el acceso directo a /dashboard/prepaids (la ruta queda).
+  // {
+  //   title: 'Señas',
+  //   url: '/dashboard/prepaids',
+  //   icon: CreditCard,
+  //   enabled: true,
+  // },
   {
     title: 'Caja y Finanzas',
     url: '/dashboard/finances',

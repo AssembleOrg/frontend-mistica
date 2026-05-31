@@ -57,7 +57,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 const STATUS_CONFIG = {
   COMPLETED: { label: 'Completada', className: 'bg-[#455a54]/10 text-[#455a54] border-[#455a54]/30' },
   PENDING:   { label: 'Pendiente',  className: 'bg-[#cc844a]/10 text-[#cc844a] border-[#cc844a]/30' },
-  PARTIAL:   { label: 'Parcial',    className: '' },
+  PARTIAL:   { label: 'Seña',       className: '' },
   CANCELLED: { label: 'Cancelada',  className: 'bg-[#4e4247]/10 text-[#4e4247] border-[#4e4247]/30' },
 } as const;
 
@@ -74,7 +74,7 @@ function StatusBadge({ status }: { status: string }) {
           color: 'var(--color-naranja-medio)',
         }}
       >
-        Parcial
+        Seña
       </Badge>
     );
   }
@@ -362,7 +362,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 className="text-xs font-bold font-tan-nimbus shrink-0"
                 style={{ color: 'var(--color-naranja-medio)' }}
               >
-                Saldo pendiente
+                Falta abonar
               </span>
               <span
                 className="text-base font-bold font-tan-nimbus truncate"

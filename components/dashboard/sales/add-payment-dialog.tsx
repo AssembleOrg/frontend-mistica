@@ -56,6 +56,10 @@ export function AddSalePaymentDialog({
     [payments],
   );
   const newBalance = Math.max(0, Number((balanceDue - sumNew).toFixed(2)));
+  // Si el pago cubre todo el saldo, la venta se completa automáticamente: no
+  // tiene sentido pedir un toggle manual. El toggle sólo aparece cuando queda
+  // saldo > 0 (para cerrar la venta perdonando el resto, ej. cobrar de menos).
+  const cubreTodo = sumNew > 0 && newBalance <= 0.01;
 
   // Al abrir el dialog, reseteamos el formulario y arrancamos una línea CASH
   // con el saldo sugerido (operador puede sobrescribirlo).
@@ -85,12 +89,16 @@ export function AddSalePaymentDialog({
 
     setIsSubmitting(true);
     try {
+      // Cuando el pago cubre todo el saldo, forzamos markCompleted: el backend
+      // no auto-completa solo (dejaría la venta PARTIAL con saldo 0). Si queda
+      // saldo, respetamos el toggle (cerrar perdonando el resto).
+      const completar = markCompleted || cubreTodo;
       await salesService.addSalePayments(sale.id, {
         payments: payments.map((p) => ({ method: p.method, amount: p.amount })),
-        markCompleted: markCompleted || undefined,
+        markCompleted: completar || undefined,
       });
       showToast.success(
-        markCompleted ? 'Venta completada' : 'Pago agregado',
+        completar ? 'Venta completada' : 'Pago agregado',
       );
       onSuccess();
       onOpenChange(false);
@@ -120,7 +128,7 @@ export function AddSalePaymentDialog({
           <div className="flex items-center gap-2">
             <Banknote className="h-4 w-4 text-[#9d684e]" />
             <DialogTitle className="text-base font-bold text-[#455a54] font-tan-nimbus">
-              Agregar pago a venta {sale.saleNumber}
+              Agregar pago a venta {sale.name?.trim() || sale.saleNumber}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs font-winter-solid text-[#455a54]/70 mt-1">
@@ -158,28 +166,48 @@ export function AddSalePaymentDialog({
             </div>
           </div>
 
-          <div className="flex items-start gap-2 rounded-md border border-[#9d684e]/20 bg-white p-2.5">
-            <input
-              type="checkbox"
-              id="markCompleted"
-              checked={markCompleted}
-              onChange={(e) => setMarkCompleted(e.target.checked)}
-              disabled={isSubmitting}
-              className="mt-0.5 rounded border-[#9d684e]/40 text-[#455a54] focus:ring-[#455a54]"
-            />
-            <Label
-              htmlFor="markCompleted"
-              className="flex-1 cursor-pointer text-sm font-winter-solid text-[#455a54]"
+          {cubreTodo ? (
+            // El pago cubre todo: la venta se completa automáticamente. No hay
+            // decisión que tomar, así que mostramos un aviso en vez del toggle.
+            <div
+              className="flex items-center gap-2 rounded-md p-2.5 text-sm font-winter-solid border"
+              style={{
+                backgroundColor:
+                  'color-mix(in srgb, var(--color-verde-profundo) 8%, white)',
+                borderColor:
+                  'color-mix(in srgb, var(--color-verde-profundo) 25%, white)',
+                color: 'var(--color-verde-profundo)',
+              }}
             >
-              <div className="font-medium flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                Marcar venta como completada
-              </div>
-              <div className="text-[11px] text-[#455a54]/60">
-                Cierra el saldo pendiente y deja la venta en estado completada.
-              </div>
-            </Label>
-          </div>
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>Pago completo — la venta se cerrará automáticamente.</span>
+            </div>
+          ) : (
+            // Queda saldo: el toggle permite cerrar igual perdonando el resto.
+            <div className="flex items-start gap-2 rounded-md border border-[#9d684e]/20 bg-white p-2.5">
+              <input
+                type="checkbox"
+                id="markCompleted"
+                checked={markCompleted}
+                onChange={(e) => setMarkCompleted(e.target.checked)}
+                disabled={isSubmitting}
+                className="mt-0.5 rounded border-[#9d684e]/40 text-[#455a54] focus:ring-[#455a54]"
+              />
+              <Label
+                htmlFor="markCompleted"
+                className="flex-1 cursor-pointer text-sm font-winter-solid text-[#455a54]"
+              >
+                <div className="font-medium flex items-center gap-1.5">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Cerrar la venta perdonando el saldo restante
+                </div>
+                <div className="text-[11px] text-[#455a54]/60">
+                  Completa la venta aunque queden {formatCurrency(newBalance)} sin
+                  cobrar (se registran como descuento).
+                </div>
+              </Label>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-[#9d684e]/10 bg-[#efcbb9]/20">

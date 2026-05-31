@@ -77,6 +77,9 @@ export interface SessionTransaction {
   createdAt: string;
   reference?: string;
   afipCae?: string;
+  // true cuando es seña: prepaid (saldo a favor) o venta con saldo pendiente
+  // (status PARTIAL). Lo usa el chip "Seña" unificado del detalle de sesión.
+  isSena?: boolean;
 }
 
 export interface SessionTransactionsResponse {

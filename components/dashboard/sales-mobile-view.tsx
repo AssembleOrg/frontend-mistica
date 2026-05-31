@@ -52,7 +52,8 @@ const paymentMethodColors: Record<string, string> = {
 const statusLabels = {
   COMPLETED: 'Completada',
   PENDING: 'Pendiente',
-  PARTIAL: 'Parcial',
+  // PARTIAL se muestra como "Seña" de cara al usuario (estado interno intacto).
+  PARTIAL: 'Seña',
   CANCELLED: 'Cancelada',
 } as const;
 

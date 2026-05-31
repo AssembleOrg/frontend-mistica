@@ -68,6 +68,12 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
 
   const isInvoice = hasAfipData(sale);
 
+  // Venta-seña: status PARTIAL con saldo pendiente. El ticket muestra el
+  // Total real (Y), la Seña abonada ahora (X = total - saldo) y lo que resta
+  // abonar (Y - X). No es una factura formal: en señas tax = 0.
+  const esSena = sale.status === 'PARTIAL' && (sale.balanceDue ?? 0) > 0;
+  const senaAbonada = sale.total - (sale.balanceDue ?? 0);
+
   const handlePrint = () => {
     window.print();
   };
@@ -163,6 +169,18 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           <span>TOTAL:</span>
           <span>{formatCurrency(sale.total)}</span>
         </div>
+        {esSena && (
+          <>
+            <div className="flex justify-between">
+              <span>Seña:</span>
+              <span>{formatCurrency(senaAbonada)}</span>
+            </div>
+            <div className="flex justify-between font-bold">
+              <span>Resta abonar:</span>
+              <span>{formatCurrency(sale.balanceDue ?? 0)}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Payment breakdown */}
@@ -295,16 +313,30 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
                 <span>-{formatCurrency(sale.discount)}</span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span>IVA (21%):</span>
-              <span>{formatCurrency(sale.tax)}</span>
-            </div>
+            {sale.tax > 0 && (
+              <div className="flex justify-between">
+                <span>IVA (21%):</span>
+                <span>{formatCurrency(sale.tax)}</span>
+              </div>
+            )}
             <div className="border-t border-gray-300 pt-2">
               <div className="flex justify-between text-lg font-bold text-[#455a54]">
                 <span>TOTAL:</span>
                 <span>{formatCurrency(sale.total)}</span>
               </div>
             </div>
+            {esSena && (
+              <div className="border-t border-gray-300 pt-2 space-y-2">
+                <div className="flex justify-between">
+                  <span>Seña:</span>
+                  <span>{formatCurrency(senaAbonada)}</span>
+                </div>
+                <div className="flex justify-between font-bold" style={{ color: 'var(--color-naranja-medio)' }}>
+                  <span>Resta abonar:</span>
+                  <span>{formatCurrency(sale.balanceDue ?? 0)}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

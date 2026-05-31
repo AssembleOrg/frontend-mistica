@@ -174,7 +174,7 @@ export function SalesTable({
   // Status options for filter
   const statusOptions: FilterOption[] = [
     { value: 'PENDING', label: 'Pendiente' },
-    { value: 'PARTIAL', label: 'Parcial' },
+    { value: 'PARTIAL', label: 'Seña' },
     { value: 'COMPLETED', label: 'Completada' },
     { value: 'CANCELLED', label: 'Cancelada' },
   ];
@@ -216,7 +216,9 @@ export function SalesTable({
     const labels = {
       COMPLETED: 'Completada',
       PENDING: 'Pendiente',
-      PARTIAL: 'Parcial',
+      // PARTIAL = venta con saldo pendiente. De cara al usuario lo llamamos
+      // "Seña" (aún falta abonar el resto); el estado interno sigue siendo PARTIAL.
+      PARTIAL: 'Seña',
       CANCELLED: 'Cancelada',
     };
 

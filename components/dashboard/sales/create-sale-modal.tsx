@@ -460,7 +460,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     return { subtotal, tax, adjustmentApplied, prepaidAmount, total };
   };
 
-  const { subtotal, tax, adjustmentApplied, prepaidAmount, total } = calculateTotals();
+  const { subtotal, adjustmentApplied, prepaidAmount, total } = calculateTotals();
 
   // Inicializar la línea CASH cuando no hay pagos cargados todavía. NO se
   // re-balancea automáticamente al cambiar el total: el operador puede cobrar
@@ -1098,75 +1098,83 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   </div>
 
                   {/* Totals Summary */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span>Subtotal:</span>
-                      <span>{formatCurrency(subtotal)}</span>
-                    </div>
-                    {adjustmentApplied !== 0 && (
-                      <div
-                        className="flex justify-between text-xs sm:text-sm font-winter-solid"
-                        style={{ color: adjustmentApplied > 0 ? 'var(--color-verde-profundo)' : '#9d684e' }}
-                      >
-                        <span>{adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}:</span>
-                        <span>
-                          {adjustmentApplied > 0 ? '-' : '+'}
-                          {formatCurrency(Math.abs(adjustmentApplied))}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span>Impuestos:</span>
-                      <span>{formatCurrency(tax)}</span>
-                    </div>
-                    {usePrepaid && prepaidAmount > 0 && (
-                      <div className="flex justify-between text-xs sm:text-sm text-green-600">
-                        <span>Seña aplicada:</span>
-                        <span>-{formatCurrency(prepaidAmount)}</span>
-                      </div>
-                    )}
-                    {(() => {
-                      const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
-                      const diff = Number((total - paymentsSum).toFixed(2));
-                      if (diff <= 0.01) return null;
-                      // En PARTIAL la diferencia es saldo pendiente (deuda
-                      // viva), NO descuento automático: distinguimos UX para
-                      // que el operador entienda que esto se cobrará después.
-                      if (isPartial) {
-                        return (
-                          <div
-                            className="flex justify-between text-xs sm:text-sm font-winter-solid"
-                            style={{ color: 'var(--color-naranja-medio)' }}
-                          >
-                            <span>Falta abonar:</span>
-                            <span>{formatCurrency(diff)}</span>
-                          </div>
-                        );
-                      }
+                  {(() => {
+                    const cobradoAhora = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+                    // Modo seña (pago parcial): el total es el valor de la venta,
+                    // los pagos son lo cobrado ahora y la diferencia es el saldo
+                    // pendiente. Nomenclatura alineada con el ticket/PDF y el
+                    // detalle de venta (Total / Pagado (seña) / Saldo pendiente).
+                    if (isPartial) {
+                      const saldo = Math.max(0, Number((total - cobradoAhora).toFixed(2)));
                       return (
-                        <div
-                          className="flex justify-between text-xs sm:text-sm font-winter-solid"
-                          style={{ color: 'var(--color-verde-profundo)' }}
-                        >
-                          <span>Descuento automático:</span>
-                          <span>-{formatCurrency(diff)}</span>
+                        <div className="space-y-1">
+                          <div className="flex justify-between font-bold text-base sm:text-lg">
+                            <span>Total:</span>
+                            <span className="text-[#9d684e]">{formatCurrency(total)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs sm:text-sm">
+                            <span>Pagado (seña):</span>
+                            <span>{formatCurrency(cobradoAhora)}</span>
+                          </div>
+                          {saldo > 0.01 && (
+                            <div
+                              className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                              style={{ color: 'var(--color-naranja-medio)' }}
+                            >
+                              <span>Saldo pendiente:</span>
+                              <span>{formatCurrency(saldo)}</span>
+                            </div>
+                          )}
                         </div>
                       );
-                    })()}
-                    <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
-                      <span>Total a cobrar:</span>
-                      <span className="text-[#9d684e]">
-                        {formatCurrency(
-                          isPartial
-                            ? total
-                            : Math.min(
-                                total,
-                                payments.reduce((acc, p) => acc + (p.amount || 0), 0) || total
-                              )
+                    }
+
+                    // Modo normal: Subtotal, ajuste (si hay), seña aplicada (si
+                    // hay) y total. Sin "Impuestos" (el sistema no maneja IVA).
+                    const diff = Number((total - cobradoAhora).toFixed(2));
+                    return (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs sm:text-sm">
+                          <span>Subtotal:</span>
+                          <span>{formatCurrency(subtotal)}</span>
+                        </div>
+                        {adjustmentApplied !== 0 && (
+                          <div
+                            className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                            style={{ color: adjustmentApplied > 0 ? 'var(--color-verde-profundo)' : '#9d684e' }}
+                          >
+                            <span>{adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}:</span>
+                            <span>
+                              {adjustmentApplied > 0 ? '-' : '+'}
+                              {formatCurrency(Math.abs(adjustmentApplied))}
+                            </span>
+                          </div>
                         )}
-                      </span>
-                    </div>
-                  </div>
+                        {usePrepaid && prepaidAmount > 0 && (
+                          <div className="flex justify-between text-xs sm:text-sm text-green-600">
+                            <span>Seña aplicada:</span>
+                            <span>-{formatCurrency(prepaidAmount)}</span>
+                          </div>
+                        )}
+                        {diff > 0.01 && (
+                          <div
+                            className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                            style={{ color: 'var(--color-verde-profundo)' }}
+                          >
+                            <span>Descuento automático:</span>
+                            <span>-{formatCurrency(diff)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
+                          <span>Total a cobrar:</span>
+                          <span className="text-[#9d684e]">
+                            {formatCurrency(Math.min(total, cobradoAhora || total))}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

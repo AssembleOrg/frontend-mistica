@@ -52,6 +52,23 @@ export interface RetroactiveIncomeInput {
   notes?: string;
 }
 
+export interface CreateCashIncomeRequest {
+  concept: string;
+  amount: number;
+  paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  notes?: string;
+}
+
+export interface CashIncomeResponse {
+  id: string;
+  incomeNumber: string;
+  concept: string;
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  notes?: string;
+  createdAt: string;
+}
+
 export interface OpenCashSessionRequest {
   openingCash: number;
   notes?: string;
@@ -117,6 +134,15 @@ class CashboxService {
 
   async close(req: CloseCashSessionRequest): Promise<ApiResponse<CashSession>> {
     return apiService.post<CashSession>('/cashbox/close', { ...req });
+  }
+
+  /**
+   * Registra un ingreso puntual a la caja ABIERTA.
+   * El backend stampa createdAt = now y el ingreso ya
+   * suma al esperado de cierre. Falla con 409 si no hay caja abierta.
+   */
+  async createIncome(req: CreateCashIncomeRequest): Promise<ApiResponse<CashIncomeResponse>> {
+    return apiService.post<CashIncomeResponse>('/cashbox/current/incomes', { ...req });
   }
 
   async resolveAutoClosure(id: string, req: CloseCashSessionRequest): Promise<ApiResponse<CashSession>> {

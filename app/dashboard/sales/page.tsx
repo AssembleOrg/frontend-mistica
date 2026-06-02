@@ -10,7 +10,7 @@ import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { Sale, UpdateSaleRequest } from '@/services/sales.service';
-import { Plus, BarChart3, ShoppingCart } from 'lucide-react';
+import { Plus, BarChart3, ShoppingCart, Wallet } from 'lucide-react';
 
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
@@ -27,6 +27,10 @@ const EditSaleModal = dynamic(
   () => import('@/components/dashboard/sales/edit-sale-modal').then(m => m.EditSaleModal),
   { ssr: false }
 );
+const CashIncomeDialog = dynamic(
+  () => import('@/components/dashboard/sales/cash-income-dialog').then(m => m.CashIncomeDialog),
+  { ssr: false }
+);
 
 export default function SalesPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -35,6 +39,7 @@ export default function SalesPage() {
 
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
+  const [showCashIncomeModal, setShowCashIncomeModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
@@ -227,16 +232,28 @@ export default function SalesPage() {
               Transacciones
             </TabsTrigger> */}
           </TabsList>
-          <Button
-            onClick={() => setShowCreateSaleModal(true)}
-            aria-label="Nueva venta"
-            title="Nueva venta"
-            className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white h-8 text-sm font-winter-solid px-2 sm:px-4 shrink-0"
-          >
-            <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
-            <span className="hidden sm:inline">Nueva venta</span>
-            <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F2</kbd>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              onClick={() => setShowCashIncomeModal(true)}
+              aria-label="Ingreso de efectivo a la caja"
+              title="Ingreso de efectivo a la caja"
+              variant="outline"
+              className="border-[#9d684e]/40 text-[#9d684e] hover:bg-[#efcbb9]/40 h-8 text-sm font-winter-solid px-2 sm:px-3"
+            >
+              <Wallet className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Ingreso a caja</span>
+            </Button>
+            <Button
+              onClick={() => setShowCreateSaleModal(true)}
+              aria-label="Nueva venta"
+              title="Nueva venta"
+              className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white h-8 text-sm font-winter-solid px-2 sm:px-4"
+            >
+              <Plus className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Nueva venta</span>
+              <kbd className="hidden lg:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-white/20 border border-white/40 rounded leading-none">F2</kbd>
+            </Button>
+          </div>
         </div>
 
         {/* ── Tab: Ventas ── Master-Detail ───────────── */}
@@ -337,6 +354,11 @@ export default function SalesPage() {
         sale={selectedSale}
         onSave={handleUpdateSale}
         submitButtonRef={submitEditButtonRef}
+      />
+      <CashIncomeDialog
+        open={showCashIncomeModal}
+        onOpenChange={setShowCashIncomeModal}
+        onSuccess={() => { getDailySales(); }}
       />
       <KbdShortcuts
         sales={sales}

@@ -73,12 +73,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // En el form se controla por separado: tipo + magnitud absoluta.
   const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('discount');
   const [adjustmentAmount, setAdjustmentAmount] = useState(0);
-  // Pago parcial (seña). Cuando está activo:
-  //  - Σ payments puede ser < total → la diferencia es saldo pendiente.
-  //  - Si NO hay productos, `partialTotal` define el total de la venta.
-  //  - Si hay productos, el total se deriva normalmente del carrito.
+  // Pago parcial / precio libre. Cuando está activo, el total de la venta ES lo
+  // que se cobra ahora (Σ payments): el precio de lista de los productos se
+  // ignora y la cuenta queda saldada (sin descuento ni saldo). El backend
+  // reescala los ítems a ese total.
   const [isPartial, setIsPartial] = useState(false);
-  const [partialTotal, setPartialTotal] = useState<number>(0);
   // Producto seña pendiente de capturar monto. Cuando es no-null, mostramos
   // el PrepaidAmountDialog para que el operador ingrese el monto antes de
   // agregarlo al carrito.
@@ -417,28 +416,17 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const signedDiscount = adjustmentType === 'discount' ? adjustmentAmount : -adjustmentAmount;
 
   const calculateTotals = () => {
-    // Pago parcial (seña): el TOTAL es el valor REAL de la venta — los pagos
-    // pueden ser menores y la diferencia queda como saldo pendiente (no es
-    // descuento). No se consumen señas en una venta parcial.
+    // Pago parcial / precio libre: el TOTAL es lo que se cobra ahora (Σ pagos).
+    // El precio de lista de los productos se ignora (el backend reescala los
+    // ítems a este total). Sin descuentos, sin saldo, sin señas consumidas.
     if (isPartial) {
-      if (cartItems.length === 0) {
-        // Sin productos: el total lo define el operador (`partialTotal`).
-        return {
-          subtotal: partialTotal,
-          tax: 0,
-          adjustmentApplied: 0,
-          prepaidAmount: 0,
-          total: partialTotal,
-        };
-      }
-      // Con productos: total derivado del carrito sin descuentos/recargos.
-      const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+      const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
       return {
-        subtotal,
+        subtotal: paymentsSum,
         tax: 0,
         adjustmentApplied: 0,
         prepaidAmount: 0,
-        total: subtotal,
+        total: paymentsSum,
       };
     }
 
@@ -463,17 +451,18 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const { subtotal, adjustmentApplied, prepaidAmount, total } = calculateTotals();
 
   // Inicializar la línea CASH cuando no hay pagos cargados todavía. NO se
-  // re-balancea automáticamente al cambiar el total: el operador puede cobrar
-  // menos que el total y la diferencia se registra como descuento automático
-  // (o como saldo pendiente cuando es PARTIAL).
+  // re-balancea automáticamente al cambiar el total. En precio libre (isPartial)
+  // arrancamos una línea CASH en 0: lo que tipee el operador ES el total.
   useEffect(() => {
-    if (payments.length === 0 && total > 0) {
-      // En PARTIAL no pre-llenamos el monto: el operador define cuánto se
-      // cobra ahora (la diferencia queda como saldo pendiente).
-      setPayments([{ method: 'CASH', amount: isPartial ? 0 : total }]);
+    if (payments.length === 0) {
+      if (isPartial) {
+        setPayments([{ method: 'CASH', amount: 0 }]);
+      } else if (total > 0) {
+        setPayments([{ method: 'CASH', amount: total }]);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total]);
+  }, [total, isPartial]);
 
   const resetForm = () => {
     setSelectedClient(null);
@@ -493,7 +482,6 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setShowAdjustmentInput(false);
     setRecentSales([]);
     setIsPartial(false);
-    setPartialTotal(0);
 
     if (barcodeProcessingTimeout) {
       clearTimeout(barcodeProcessingTimeout);
@@ -516,11 +504,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
 
     // Una venta válida necesita o productos en el carrito o un monto a cobrar
-    // ingresado en los pagos. En pago parcial sin productos pedimos `partialTotal>0`.
-    if (isPartial && cartItems.length === 0 && !(partialTotal > 0)) {
-      showToast.error('Ingresá el total a cobrar');
-      return;
-    }
+    // ingresado en los pagos. En precio libre el monto cobrado ES el total, así
+    // que sólo pedimos al menos un pago > 0 (se valida más abajo).
     if (!isPartial && cartItems.length === 0 && total <= 0) {
       showToast.error('Agregá al menos un producto o ingresá un monto a cobrar');
       return;
@@ -528,8 +513,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-    // Pago parcial: pedimos al menos un pago > 0 (la diferencia es saldo pendiente).
-    // El backend valida que Σ payments ≤ total y rechaza el exceso.
+    // Precio libre: lo cobrado ES el total. Sólo pedimos al menos un pago > 0.
     if (isPartial) {
       if (!(paymentsSum > 0)) {
         showToast.error('Ingresá al menos un pago');
@@ -587,13 +571,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         payments,
         notes: notes,
         seller: sellerName.trim(),
-        // Las señas existentes (consumedPrepaid) no se mezclan con una venta
-        // parcial — el flujo PARTIAL crea su propio saldo.
+        // Las señas/prepaids existentes (consumedPrepaid) no se mezclan con una
+        // venta de precio libre (el total es lo cobrado, no se descuenta nada).
         prepaidId: !isPartial && usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: !isPartial && usePrepaid,
         isPartial: isPartial || undefined,
-        partialTotal:
-          isPartial && cartItems.length === 0 ? partialTotal : undefined,
       } as const;
 
       if (editingSale) {
@@ -755,10 +737,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 </div>
               )}
 
-              {/* Toggle Pago parcial: Σ pagos puede ser menor al total, la
-                  diferencia queda como saldo pendiente y la venta nace PENDING.
-                  Si no hay productos pedimos el total a cobrar (sino, el total =
-                  subtotal del carrito). */}
+              {/* Toggle Pago parcial / precio libre: el total de la venta es lo
+                  que se cobra (Σ pagos). El precio de lista del producto se
+                  ignora y la cuenta queda saldada (sin descuento ni saldo). */}
               <div className="flex items-start gap-2 rounded-md border border-[#9d684e]/20 bg-white p-2.5">
                 <input
                   type="checkbox"
@@ -767,7 +748,6 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   onChange={(e) => {
                     const next = e.target.checked;
                     setIsPartial(next);
-                    if (!next) setPartialTotal(0);
                     // Al cambiar de modo limpiamos pagos para que el operador
                     // ingrese los montos del modo correcto sin arrastrar valores.
                     setPayments([]);
@@ -780,26 +760,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                     Pago parcial
                   </div>
                   <div className="text-[11px] text-[#455a54]/60 font-winter-solid">
-                    Cobrás una parte ahora; el resto queda como saldo a abonar.
+                    El total de la venta es lo que cobrás ahora. La cuenta queda saldada.
                   </div>
                 </label>
               </div>
-
-              {isPartial && cartItems.length === 0 && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-[#455a54] font-winter-solid">
-                    Total a cobrar <span className="text-red-500">*</span>
-                    <span className="text-[#455a54]/50"> (valor total de la venta)</span>
-                  </Label>
-                  <CurrencyInput
-                    value={partialTotal}
-                    onChange={(v) => setPartialTotal(v)}
-                    placeholder="0,00"
-                    className="border-[#9d684e]/20 focus:border-[#9d684e]"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              )}
 
               <PaymentsEditor
                 total={total}
@@ -1102,31 +1066,15 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   {(() => {
                     const cobradoAhora = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-                    // Modo pago parcial: el total es el valor de la venta, los
-                    // pagos son lo cobrado ahora y la diferencia es el saldo
-                    // pendiente. Nomenclatura alineada con el ticket/PDF y el
-                    // detalle de venta (Total / Pagado / Saldo pendiente).
+                    // Modo precio libre (pago parcial): el total ES lo que se
+                    // cobra ahora. La cuenta queda saldada: sin descuento ni saldo.
                     if (isPartial) {
-                      const saldo = Math.max(0, Number((total - cobradoAhora).toFixed(2)));
                       return (
                         <div className="space-y-1">
                           <div className="flex justify-between font-bold text-base sm:text-lg">
                             <span>Total:</span>
-                            <span className="text-[#9d684e]">{formatCurrency(total)}</span>
+                            <span className="text-[#9d684e]">{formatCurrency(cobradoAhora)}</span>
                           </div>
-                          <div className="flex justify-between text-xs sm:text-sm">
-                            <span>Pagado:</span>
-                            <span>{formatCurrency(cobradoAhora)}</span>
-                          </div>
-                          {saldo > 0.01 && (
-                            <div
-                              className="flex justify-between text-xs sm:text-sm font-winter-solid"
-                              style={{ color: 'var(--color-naranja-medio)' }}
-                            >
-                              <span>Saldo pendiente:</span>
-                              <span>{formatCurrency(saldo)}</span>
-                            </div>
-                          )}
                         </div>
                       );
                     }
@@ -1198,10 +1146,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               disabled={(() => {
                 if (!customerName.trim() || isSubmitting) return true;
                 if (isPartial) {
-                  // En parcial habilitamos cuando hay un total > 0 (vía carrito
-                  // o `partialTotal`) y al menos un pago > 0.
+                  // Precio libre: habilitamos cuando hay al menos un pago > 0
+                  // (lo cobrado ES el total).
                   const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
-                  if (!(total > 0)) return true;
                   if (!(paymentsSum > 0)) return true;
                   return false;
                 }

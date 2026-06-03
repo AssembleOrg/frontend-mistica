@@ -174,7 +174,6 @@ export function SalesTable({
   // Status options for filter
   const statusOptions: FilterOption[] = [
     { value: 'PENDING', label: 'Pendiente' },
-    { value: 'PARTIAL', label: 'Seña' },
     { value: 'COMPLETED', label: 'Completada' },
     { value: 'CANCELLED', label: 'Cancelada' },
   ];
@@ -294,10 +293,11 @@ export function SalesTable({
         setShowCancelDialog(true);
         return; // No continuar con la ejecución aquí
       } else if (action === 'receipt') {
-        // Comprobante NO fiscal: disponible para ventas completadas y para
-        // señas (PARTIAL). La factura AFIP sigue siendo solo de completadas.
-        if (sale.status !== 'COMPLETED' && sale.status !== 'PARTIAL') {
-          showToast.error('Error', 'Solo se puede ver el comprobante de ventas completadas o en seña.');
+        // Comprobante NO fiscal: disponible para ventas completadas y pendientes
+        // (incluye las pendientes con saldo, ex-"señas"). La factura AFIP sigue
+        // siendo solo de completadas.
+        if (sale.status !== 'COMPLETED' && sale.status !== 'PENDING') {
+          showToast.error('Error', 'Solo se puede ver el comprobante de ventas completadas o pendientes.');
           return;
         }
         onViewReceipt?.(sale);
@@ -589,7 +589,6 @@ export function SalesTable({
         const isActionLoading = actionLoading[sale.id] || false;
         const isCompleted = sale.status === 'COMPLETED';
         const isPending = sale.status === 'PENDING';
-        const isPartial = sale.status === 'PARTIAL';
 
         return (
           <DropdownMenu>
@@ -618,7 +617,7 @@ export function SalesTable({
                 Ver detalles
               </DropdownMenuItem>
               
-              {(isCompleted || isPartial) && (
+              {(isCompleted || isPending) && (
                 <DropdownMenuItem
                   className='hover:bg-[#efcbb9]/30 text-[#455a54]'
                   onClick={() => handleAction(sale.id, 'receipt')}

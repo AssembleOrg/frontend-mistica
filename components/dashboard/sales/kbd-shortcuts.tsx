@@ -144,12 +144,12 @@ export function KbdShortcuts({
     [selectedSale],
   );
 
-  // F4: ver comprobante (COMPLETED o seña/PARTIAL — comprobante no fiscal)
+  // F4: ver comprobante no fiscal (COMPLETED o PENDING, incluye pendientes con saldo)
   useHotkeys(
     'f4',
     (e) => {
       e.preventDefault();
-      if (selectedSale?.status === 'COMPLETED' || selectedSale?.status === 'PARTIAL') {
+      if (selectedSale?.status === 'COMPLETED' || selectedSale?.status === 'PENDING') {
         onViewReceipt(selectedSale);
       }
     },

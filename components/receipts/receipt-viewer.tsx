@@ -68,11 +68,10 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
 
   const isInvoice = hasAfipData(sale);
 
-  // Venta-seña: status PARTIAL con saldo pendiente. El ticket muestra el
-  // Total real (Y), la Seña abonada ahora (X = total - saldo) y lo que resta
-  // abonar (Y - X). No es una factura formal: en señas tax = 0.
-  const esSena = sale.status === 'PARTIAL' && (sale.balanceDue ?? 0) > 0;
-  const senaAbonada = sale.total - (sale.balanceDue ?? 0);
+  // Venta con saldo pendiente (pago parcial): el ticket muestra el Total real,
+  // lo pagado (total − saldo) y lo que resta abonar. Ya no existe el estado "seña".
+  const hasBalance = (sale.balanceDue ?? 0) > 0;
+  const montoPagado = sale.total - (sale.balanceDue ?? 0);
 
   const handlePrint = () => {
     window.print();
@@ -169,14 +168,14 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           <span className="min-w-0 truncate">TOTAL:</span>
           <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.total)}</span>
         </div>
-        {esSena && (
+        {hasBalance && (
           <>
             <div className="flex justify-between gap-2">
-              <span className="min-w-0 truncate">Seña:</span>
-              <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(senaAbonada)}</span>
+              <span className="min-w-0 truncate">Pagado:</span>
+              <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(montoPagado)}</span>
             </div>
             <div className="flex justify-between gap-2 font-bold">
-              <span className="min-w-0 truncate">Resta abonar:</span>
+              <span className="min-w-0 truncate">Saldo pendiente:</span>
               <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.balanceDue ?? 0)}</span>
             </div>
           </>
@@ -325,14 +324,14 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
                 <span>{formatCurrency(sale.total)}</span>
               </div>
             </div>
-            {esSena && (
+            {hasBalance && (
               <div className="border-t border-gray-300 pt-2 space-y-2">
                 <div className="flex justify-between">
-                  <span>Seña:</span>
-                  <span>{formatCurrency(senaAbonada)}</span>
+                  <span>Pagado:</span>
+                  <span>{formatCurrency(montoPagado)}</span>
                 </div>
                 <div className="flex justify-between font-bold" style={{ color: 'var(--color-naranja-medio)' }}>
-                  <span>Resta abonar:</span>
+                  <span>Saldo pendiente:</span>
                   <span>{formatCurrency(sale.balanceDue ?? 0)}</span>
                 </div>
               </div>

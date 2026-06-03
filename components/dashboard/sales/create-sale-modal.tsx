@@ -516,9 +516,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
 
     // Una venta válida necesita o productos en el carrito o un monto a cobrar
-    // ingresado en los pagos. En PARTIAL sin productos pedimos `partialTotal>0`.
+    // ingresado en los pagos. En pago parcial sin productos pedimos `partialTotal>0`.
     if (isPartial && cartItems.length === 0 && !(partialTotal > 0)) {
-      showToast.error('Ingresá el total a cobrar de la seña');
+      showToast.error('Ingresá el total a cobrar');
       return;
     }
     if (!isPartial && cartItems.length === 0 && total <= 0) {
@@ -528,11 +528,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-    // PARTIAL: pedimos al menos un pago > 0 (la diferencia es saldo pendiente).
+    // Pago parcial: pedimos al menos un pago > 0 (la diferencia es saldo pendiente).
     // El backend valida que Σ payments ≤ total y rechaza el exceso.
     if (isPartial) {
       if (!(paymentsSum > 0)) {
-        showToast.error('Ingresá al menos un pago para la seña');
+        showToast.error('Ingresá al menos un pago');
         return;
       }
       if (paymentsSum > total + 0.01) {
@@ -755,9 +755,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 </div>
               )}
 
-              {/* Toggle Pago parcial (seña): Σ pagos puede ser menor al total,
-                  la diferencia queda como saldo pendiente. Si no hay productos
-                  pedimos el total a cobrar (sino, el total = subtotal del carrito). */}
+              {/* Toggle Pago parcial: Σ pagos puede ser menor al total, la
+                  diferencia queda como saldo pendiente y la venta nace PENDING.
+                  Si no hay productos pedimos el total a cobrar (sino, el total =
+                  subtotal del carrito). */}
               <div className="flex items-start gap-2 rounded-md border border-[#9d684e]/20 bg-white p-2.5">
                 <input
                   type="checkbox"
@@ -776,10 +777,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 />
                 <label htmlFor="isPartial" className="flex-1 cursor-pointer">
                   <div className="text-sm font-medium text-[#455a54] font-winter-solid">
-                    Seña
+                    Pago parcial
                   </div>
                   <div className="text-[11px] text-[#455a54]/60 font-winter-solid">
-                    Cobrás la seña ahora; el resto queda como saldo a abonar.
+                    Cobrás una parte ahora; el resto queda como saldo a abonar.
                   </div>
                 </label>
               </div>
@@ -1101,10 +1102,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   {(() => {
                     const cobradoAhora = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-                    // Modo seña (pago parcial): el total es el valor de la venta,
-                    // los pagos son lo cobrado ahora y la diferencia es el saldo
+                    // Modo pago parcial: el total es el valor de la venta, los
+                    // pagos son lo cobrado ahora y la diferencia es el saldo
                     // pendiente. Nomenclatura alineada con el ticket/PDF y el
-                    // detalle de venta (Total / Pagado (seña) / Saldo pendiente).
+                    // detalle de venta (Total / Pagado / Saldo pendiente).
                     if (isPartial) {
                       const saldo = Math.max(0, Number((total - cobradoAhora).toFixed(2)));
                       return (
@@ -1114,7 +1115,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                             <span className="text-[#9d684e]">{formatCurrency(total)}</span>
                           </div>
                           <div className="flex justify-between text-xs sm:text-sm">
-                            <span>Pagado (seña):</span>
+                            <span>Pagado:</span>
                             <span>{formatCurrency(cobradoAhora)}</span>
                           </div>
                           {saldo > 0.01 && (

@@ -144,12 +144,14 @@ export function KbdShortcuts({
     [selectedSale],
   );
 
-  // F4: ver comprobante (solo COMPLETED)
+  // F4: ver comprobante (COMPLETED o seña/PARTIAL — comprobante no fiscal)
   useHotkeys(
     'f4',
     (e) => {
       e.preventDefault();
-      if (selectedSale?.status === 'COMPLETED') onViewReceipt(selectedSale);
+      if (selectedSale?.status === 'COMPLETED' || selectedSale?.status === 'PARTIAL') {
+        onViewReceipt(selectedSale);
+      }
     },
     { enableOnFormTags: false },
     [selectedSale],

@@ -294,8 +294,10 @@ export function SalesTable({
         setShowCancelDialog(true);
         return; // No continuar con la ejecución aquí
       } else if (action === 'receipt') {
-        if (sale.status !== 'COMPLETED') {
-          showToast.error('Error', 'Solo se puede ver el comprobante de ventas completadas.');
+        // Comprobante NO fiscal: disponible para ventas completadas y para
+        // señas (PARTIAL). La factura AFIP sigue siendo solo de completadas.
+        if (sale.status !== 'COMPLETED' && sale.status !== 'PARTIAL') {
+          showToast.error('Error', 'Solo se puede ver el comprobante de ventas completadas o en seña.');
           return;
         }
         onViewReceipt?.(sale);
@@ -587,6 +589,7 @@ export function SalesTable({
         const isActionLoading = actionLoading[sale.id] || false;
         const isCompleted = sale.status === 'COMPLETED';
         const isPending = sale.status === 'PENDING';
+        const isPartial = sale.status === 'PARTIAL';
 
         return (
           <DropdownMenu>
@@ -615,7 +618,7 @@ export function SalesTable({
                 Ver detalles
               </DropdownMenuItem>
               
-              {isCompleted && (
+              {(isCompleted || isPartial) && (
                 <DropdownMenuItem
                   className='hover:bg-[#efcbb9]/30 text-[#455a54]'
                   onClick={() => handleAction(sale.id, 'receipt')}

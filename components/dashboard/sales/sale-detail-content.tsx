@@ -518,6 +518,18 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
               <Wallet className="h-3.5 w-3.5 mr-1.5" />
               Agregar pago
             </Button>
+            {/* Comprobante NO fiscal de la seña (recibo interno). Sale con la
+                fecha original de la venta (sale.createdAt), aunque se pida
+                semanas después. La factura AFIP sigue reservada a COMPLETED. */}
+            <Button
+              onClick={handleViewReceipt}
+              variant="outline"
+              className="w-full border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
+            >
+              <Receipt className="h-3.5 w-3.5 mr-1.5" />
+              Ver comprobante
+              <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-[#9d684e]/10 border border-[#9d684e]/30 rounded leading-none">F4</kbd>
+            </Button>
             {onRequestEdit && (
               <Button
                 onClick={() => onRequestEdit(sale)}

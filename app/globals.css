@@ -349,30 +349,84 @@
 
 /* Receipt and Print Styles */
 @media print {
+  /* Ancho del rollo térmico: la altura crece según el contenido */
   @page {
+    size: 58mm auto;
     margin: 0;
   }
-  
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   body * {
     visibility: hidden;
   }
-  
+
   .receipt-thermal, .receipt-thermal * {
     visibility: visible;
   }
-  
+
   .receipt-a4, .receipt-a4 * {
     visibility: visible;
   }
-  
+
   .receipt-thermal {
     position: absolute;
     left: 0;
     top: 0;
-    width: 100%;
-    height: 100%;
+    margin: 0 !important;
+    padding: 4px !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    min-height: auto !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
   }
-  
+
+  /*
+   * Térmico: TODO negro INTENSO y bien grueso.
+   * La cabeza térmica es 1-bit (quema o no quema): el anti-aliasing del navegador
+   * pinta los bordes de las letras en gris y esos píxeles salen tenues. Para que
+   * lea negro sólido: fuente sans gruesa (Arial Black), peso 900, tamaño mayor
+   * (trazo más ancho = menos proporción de borde gris) y engrosado del glifo con
+   * text-shadow/text-stroke.
+   */
+  .receipt-thermal, .receipt-thermal * {
+    color: #000 !important;
+    font-family: 'Arial Black', Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
+    font-weight: 900 !important;
+    opacity: 1 !important;
+    text-shadow: 0 0 0 #000 !important;
+    -webkit-text-stroke: 0.18px #000 !important;
+    -webkit-font-smoothing: antialiased !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Énfasis: nombre de empresa y TOTAL más grandes que el cuerpo.
+     Incluye los hijos (span) porque la regla general fija 12px !important. */
+  .receipt-thermal .thermal-title,
+  .receipt-thermal .thermal-title * {
+    font-size: 15px !important;
+  }
+  .receipt-thermal .thermal-total,
+  .receipt-thermal .thermal-total * {
+    font-size: 15px !important;
+  }
+  .receipt-thermal .thermal-subtitle,
+  .receipt-thermal .thermal-subtitle * {
+    font-size: 13px !important;
+  }
+
+  /* Separadores punteados en negro sólido, no gris */
+  .receipt-thermal [class*="border-"] {
+    border-color: #000 !important;
+  }
+
   .receipt-a4 {
     position: absolute;
     left: 0;
@@ -380,17 +434,7 @@
     width: 100%;
     height: 100%;
   }
-  
-  .receipt-thermal {
-    margin: 0 !important;
-    padding: 4px !important;
-    width: 58mm !important;
-    max-width: 58mm !important;
-    min-height: auto !important;
-    font-size: 10px !important;
-    line-height: 1.3 !important;
-  }
-  
+
   .print\:hidden {
     display: none !important;
   }
@@ -401,6 +445,9 @@
   line-height: 1.3;
   width: 58mm;
   max-width: 58mm;
+  color: #000;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .receipt-a4 {

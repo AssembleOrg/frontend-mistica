@@ -105,42 +105,42 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
   };
 
   const ThermalReceipt = () => (
-    <div className="receipt-thermal bg-white text-black font-mono leading-tight p-2" style={{ fontSize: '11px', lineHeight: '1.3', width: '58mm', maxWidth: '58mm' }}>
+    <div className="receipt-thermal bg-white text-black font-mono leading-tight p-2 break-words" style={{ fontSize: '11px', lineHeight: '1.3', width: '58mm', maxWidth: '58mm' }}>
       {/* Header */}
-      <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="font-black uppercase" style={{ fontSize: '13px' }}>{companyInfo.name}</div>
-        <div>{companyInfo.address}</div>
-        <div>{companyInfo.phone}</div>
+      <div className="border-b border-dashed border-black pb-2 mb-2">
+        <div className="thermal-title font-black uppercase break-words" style={{ fontSize: '13px' }}>{companyInfo.name}</div>
+        <div className="break-words">{companyInfo.address}</div>
+        <div className="break-words">{companyInfo.phone}</div>
       </div>
 
       {/* Comprobante/Factura Info */}
-      <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="font-black uppercase" style={{ fontSize: '12px' }}>
+      <div className="border-b border-dashed border-black pb-2 mb-2">
+        <div className="thermal-subtitle font-black uppercase" style={{ fontSize: '12px' }}>
           {isInvoice ? 'FACTURA' : 'TICKET DE VENTA'}
         </div>
-        <div>No: {sale.saleNumber}</div>
+        <div className="break-words">No: {sale.saleNumber}</div>
         {isInvoice && sale.afipNumero && (
-          <div>Factura AFIP: {sale.afipNumero}</div>
+          <div className="break-words">Factura AFIP: {sale.afipNumero}</div>
         )}
         <div>{formatDate(new Date(sale.createdAt))}</div>
       </div>
 
       {/* Customer - Solo si hay datos */}
       {(sale.customerName && sale.customerName !== 'Cliente Anónimo') && (
-        <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
-          <div className="font-bold">Cliente: {sale.customerName}</div>
+        <div className="border-b border-dashed border-black pb-2 mb-2">
+          <div className="font-bold break-words">Cliente: {sale.customerName}</div>
           {sale.customerPhone && (
-            <div>Tel: {sale.customerPhone}</div>
+            <div className="break-words">Tel: {sale.customerPhone}</div>
           )}
-          {seller && <div>Vendedor: {seller}</div>}
+          {seller && <div className="break-words">Vendedor: {seller}</div>}
         </div>
       )}
 
       {/* Items */}
-      <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
+      <div className="border-b border-dashed border-black pb-2 mb-2">
         {sale.items.map((item, index) => (
           <div key={index} className="mb-1">
-            <div className="font-bold">{item.productName}</div>
+            <div className="font-bold break-words">{item.productName}</div>
             <div>{item.quantity} x {formatCurrency(item.unitPrice)}</div>
             <div className="text-right font-bold">{formatCurrency(item.subtotal)}</div>
           </div>
@@ -148,47 +148,47 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       </div>
 
       {/* Totals */}
-      <div className="space-y-1 border-b border-dashed border-gray-800 pb-2 mb-2">
-        <div className="flex justify-between">
-          <span>Subtotal:</span>
-          <span>{formatCurrency(sale.subtotal)}</span>
+      <div className="space-y-1 border-b border-dashed border-black pb-2 mb-2">
+        <div className="flex justify-between gap-2">
+          <span className="min-w-0 truncate">Subtotal:</span>
+          <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.subtotal)}</span>
         </div>
         {sale.discount > 0 && (
-          <div className="flex justify-between">
-            <span>Descuento:</span>
-            <span>-{formatCurrency(sale.discount)}</span>
+          <div className="flex justify-between gap-2">
+            <span className="min-w-0 truncate">Descuento:</span>
+            <span className="flex-shrink-0 whitespace-nowrap text-right">-{formatCurrency(sale.discount)}</span>
           </div>
         )}
         {sale.tax > 0 && (
-          <div className="flex justify-between">
-            <span>IVA (21%):</span>
-            <span>{formatCurrency(sale.tax)}</span>
+          <div className="flex justify-between gap-2">
+            <span className="min-w-0 truncate">IVA (21%):</span>
+            <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.tax)}</span>
           </div>
         )}
-        <div className="flex justify-between font-black border-t border-gray-800 pt-1" style={{ fontSize: '13px' }}>
-          <span>TOTAL:</span>
-          <span>{formatCurrency(sale.total)}</span>
+        <div className="thermal-total flex justify-between gap-2 font-black border-t border-black pt-1" style={{ fontSize: '13px' }}>
+          <span className="min-w-0 truncate">TOTAL:</span>
+          <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.total)}</span>
         </div>
         {esSena && (
           <>
-            <div className="flex justify-between">
-              <span>Seña:</span>
-              <span>{formatCurrency(senaAbonada)}</span>
+            <div className="flex justify-between gap-2">
+              <span className="min-w-0 truncate">Seña:</span>
+              <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(senaAbonada)}</span>
             </div>
-            <div className="flex justify-between font-bold">
-              <span>Resta abonar:</span>
-              <span>{formatCurrency(sale.balanceDue ?? 0)}</span>
+            <div className="flex justify-between gap-2 font-bold">
+              <span className="min-w-0 truncate">Resta abonar:</span>
+              <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.balanceDue ?? 0)}</span>
             </div>
           </>
         )}
       </div>
 
       {/* Payment breakdown */}
-      <div className="border-b border-dashed border-gray-800 pb-2 mb-2">
+      <div className="border-b border-dashed border-black pb-2 mb-2">
         {(sale.payments ?? []).map((p, i) => (
-          <div key={`${p.method}-${i}`} className="flex justify-between">
-            <span>{getPaymentMethodLabel(p.method)}</span>
-            <span>{formatCurrency(p.amount)}</span>
+          <div key={`${p.method}-${i}`} className="flex justify-between gap-2">
+            <span className="min-w-0 truncate">{getPaymentMethodLabel(p.method)}</span>
+            <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(p.amount)}</span>
           </div>
         ))}
       </div>
@@ -197,13 +197,13 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       <div>
         <div className="mb-1">¡Gracias por su compra!</div>
         {isInvoice && sale.afipCae && sale.afipFechaVto && (
-          <div className="mt-2 border-t border-dashed border-gray-800 pt-2">
-            <div><strong>CAE:</strong> {sale.afipCae}</div>
-            <div><strong>Vto. CAE:</strong> {formatAfipDate(sale.afipFechaVto)}</div>
+          <div className="mt-2 border-t border-dashed border-black pt-2">
+            <div className="break-words"><strong>CAE:</strong> {sale.afipCae}</div>
+            <div className="break-words"><strong>Vto. CAE:</strong> {formatAfipDate(sale.afipFechaVto)}</div>
           </div>
         )}
         {!isInvoice && (
-          <div className="mt-2 border-t border-dashed border-gray-800 pt-2">
+          <div className="mt-2 border-t border-dashed border-black pt-2">
             <div className="font-black">COMPROBANTE NO VALIDO</div>
             <div className="font-black">COMO FACTURA</div>
           </div>

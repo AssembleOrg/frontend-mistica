@@ -24,9 +24,10 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const { seller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
 
-  // Generar QR aleatorio para formato A4
+  // Generar QR aleatorio (mensaje del Tarot) para A4 y térmico.
+  // Alta resolución + quiet zone (margin 2) para que escanee bien impreso en térmica 203 DPI.
   useEffect(() => {
-    if (type === 'a4') {
+    if (type === 'a4' || type === 'thermal') {
       const generateRandomQR = async () => {
         try {
           // Generar número aleatorio entre 0 y 21 (22 arcanos total)
@@ -35,8 +36,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           const arcanoUrl = `${window.location.origin}/arcano?numero=${randomArcano}`;
           // Generar el código QR
           const qrDataUrl = await QRCode.toDataURL(arcanoUrl, {
-            width: 150,
-            margin: 1,
+            width: 320,
+            margin: 2,
             color: {
               dark: '#000000',
               light: '#FFFFFF'
@@ -141,7 +142,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           <div key={index} className="mb-1">
             <div className="font-bold break-words">{item.productName}</div>
             <div>{item.quantity} x {formatCurrency(item.unitPrice)}</div>
-            <div className="text-right font-bold">{formatCurrency(item.subtotal)}</div>
+            <div className="thermal-amount text-right font-bold">{formatCurrency(item.subtotal)}</div>
           </div>
         ))}
       </div>
@@ -150,33 +151,33 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       <div className="space-y-1 border-b border-dashed border-black pb-2 mb-2">
         <div className="flex justify-between gap-2">
           <span className="min-w-0 truncate">Subtotal:</span>
-          <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.subtotal)}</span>
+          <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.subtotal)}</span>
         </div>
         {sale.discount > 0 && (
           <div className="flex justify-between gap-2">
             <span className="min-w-0 truncate">Descuento:</span>
-            <span className="flex-shrink-0 whitespace-nowrap text-right">-{formatCurrency(sale.discount)}</span>
+            <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">-{formatCurrency(sale.discount)}</span>
           </div>
         )}
         {sale.tax > 0 && (
           <div className="flex justify-between gap-2">
             <span className="min-w-0 truncate">IVA (21%):</span>
-            <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.tax)}</span>
+            <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.tax)}</span>
           </div>
         )}
         <div className="thermal-total flex justify-between gap-2 font-black border-t border-black pt-1" style={{ fontSize: '13px' }}>
           <span className="min-w-0 truncate">TOTAL:</span>
-          <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.total)}</span>
+          <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.total)}</span>
         </div>
         {hasBalance && (
           <>
             <div className="flex justify-between gap-2">
               <span className="min-w-0 truncate">Pagado:</span>
-              <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(montoPagado)}</span>
+              <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(montoPagado)}</span>
             </div>
             <div className="flex justify-between gap-2 font-bold">
               <span className="min-w-0 truncate">Saldo pendiente:</span>
-              <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.balanceDue ?? 0)}</span>
+              <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.balanceDue ?? 0)}</span>
             </div>
           </>
         )}
@@ -187,10 +188,23 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         {(sale.payments ?? []).map((p, i) => (
           <div key={`${p.method}-${i}`} className="flex justify-between gap-2">
             <span className="min-w-0 truncate">{getPaymentMethodLabel(p.method)}</span>
-            <span className="flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(p.amount)}</span>
+            <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(p.amount)}</span>
           </div>
         ))}
       </div>
+
+      {/* QR Mensaje del Tarot */}
+      {qrCodeUrl && (
+        <div className="qr-thermal border-b border-dashed border-black pb-2 mb-2" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '10px' }}>🔮 Tu mensaje del Tarot</div>
+          <img
+            src={qrCodeUrl}
+            alt="QR Tarot"
+            style={{ width: '28mm', height: '28mm', margin: '4px auto', display: 'block' }}
+          />
+          <div style={{ fontSize: '9px' }}>Escaneá para tu mensaje personalizado</div>
+        </div>
+      )}
 
       {/* Footer */}
       <div>

@@ -377,13 +377,15 @@
     left: 0;
     top: 0;
     margin: 0 !important;
-    padding: 4px !important;
-    width: 58mm !important;
-    max-width: 58mm !important;
+    /* La térmica de 58mm solo imprime ~48mm y tiene un borde derecho "muerto".
+       Damos margen derecho amplio (7mm) para que los montos no se recorten. */
+    padding: 4px 7mm 4px 2mm !important;
+    width: 56mm !important;
+    max-width: 56mm !important;
     min-height: auto !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
-    font-size: 12px !important;
+    font-size: 11px !important;
     line-height: 1.35 !important;
   }
 
@@ -398,28 +400,45 @@
   .receipt-thermal, .receipt-thermal * {
     color: #000 !important;
     font-family: 'Arial Black', Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
-    font-weight: 900 !important;
+    font-weight: 800 !important;
     opacity: 1 !important;
     text-shadow: 0 0 0 #000 !important;
-    -webkit-text-stroke: 0.18px #000 !important;
+    -webkit-text-stroke: 0.06px #000 !important;
     -webkit-font-smoothing: antialiased !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Montos (derecha): un poco más chicos y algo menos pesados, ocupan menos ancho */
+  .receipt-thermal .thermal-amount {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+  }
+
+  /* QR: bordes nítidos (sin interpolación gris) y que el blanco no se descarte */
+  .receipt-thermal .qr-thermal img {
+    image-rendering: pixelated !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* hints del QR: textos chicos, no forzar tamaño general */
+  .receipt-thermal .qr-thermal {
+    font-size: 9px !important;
   }
 
   /* Énfasis: nombre de empresa y TOTAL más grandes que el cuerpo.
      Incluye los hijos (span) porque la regla general fija 12px !important. */
   .receipt-thermal .thermal-title,
   .receipt-thermal .thermal-title * {
-    font-size: 15px !important;
+    font-size: 14px !important;
   }
   .receipt-thermal .thermal-total,
   .receipt-thermal .thermal-total * {
-    font-size: 15px !important;
+    font-size: 14px !important;
   }
   .receipt-thermal .thermal-subtitle,
   .receipt-thermal .thermal-subtitle * {
-    font-size: 13px !important;
+    font-size: 12px !important;
   }
 
   /* Separadores punteados en negro sólido, no gris */

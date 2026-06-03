@@ -69,6 +69,23 @@ export interface CashIncomeResponse {
   createdAt: string;
 }
 
+export interface CreateCashExpenseRequest {
+  concept: string;
+  amount: number;
+  paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  notes?: string;
+}
+
+export interface CashExpenseResponse {
+  id: string;
+  egressNumber: string;
+  concept: string;
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+  notes?: string;
+  createdAt: string;
+}
+
 export interface OpenCashSessionRequest {
   openingCash: number;
   notes?: string;
@@ -143,6 +160,15 @@ class CashboxService {
    */
   async createIncome(req: CreateCashIncomeRequest): Promise<ApiResponse<CashIncomeResponse>> {
     return apiService.post<CashIncomeResponse>('/cashbox/current/incomes', { ...req });
+  }
+
+  /**
+   * Registra un egreso puntual desde la caja ABIERTA (retiro, pago a proveedor,
+   * gasto). El backend stampa createdAt = now y el egreso ya se descuenta del
+   * esperado de cierre. Falla con 409 si no hay caja abierta.
+   */
+  async createExpense(req: CreateCashExpenseRequest): Promise<ApiResponse<CashExpenseResponse>> {
+    return apiService.post<CashExpenseResponse>('/cashbox/current/egresses', { ...req });
   }
 
   async resolveAutoClosure(id: string, req: CloseCashSessionRequest): Promise<ApiResponse<CashSession>> {

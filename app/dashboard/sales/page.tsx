@@ -10,7 +10,7 @@ import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { Sale, UpdateSaleRequest } from '@/services/sales.service';
-import { Plus, BarChart3, ShoppingCart, Wallet } from 'lucide-react';
+import { Plus, BarChart3, ShoppingCart, Wallet, TrendingDown } from 'lucide-react';
 
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
@@ -31,6 +31,10 @@ const CashIncomeDialog = dynamic(
   () => import('@/components/dashboard/sales/cash-income-dialog').then(m => m.CashIncomeDialog),
   { ssr: false }
 );
+const CashEgressDialog = dynamic(
+  () => import('@/components/dashboard/sales/cash-egress-dialog').then(m => m.CashEgressDialog),
+  { ssr: false }
+);
 
 export default function SalesPage() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -40,6 +44,7 @@ export default function SalesPage() {
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
   const [showCashIncomeModal, setShowCashIncomeModal] = useState(false);
+  const [showCashEgressModal, setShowCashEgressModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
@@ -234,6 +239,16 @@ export default function SalesPage() {
           </TabsList>
           <div className="flex items-center gap-2 shrink-0">
             <Button
+              onClick={() => setShowCashEgressModal(true)}
+              aria-label="Egreso de efectivo de la caja"
+              title="Egreso de efectivo de la caja"
+              variant="outline"
+              className="border-[#9d684e]/40 text-[#9d684e] hover:bg-[#efcbb9]/40 h-8 text-sm font-winter-solid px-2 sm:px-3"
+            >
+              <TrendingDown className="h-3.5 w-3.5 sm:mr-1.5" />
+              <span className="hidden sm:inline">Egreso de caja</span>
+            </Button>
+            <Button
               onClick={() => setShowCashIncomeModal(true)}
               aria-label="Ingreso de efectivo a la caja"
               title="Ingreso de efectivo a la caja"
@@ -358,6 +373,11 @@ export default function SalesPage() {
       <CashIncomeDialog
         open={showCashIncomeModal}
         onOpenChange={setShowCashIncomeModal}
+        onSuccess={() => { getDailySales(); }}
+      />
+      <CashEgressDialog
+        open={showCashEgressModal}
+        onOpenChange={setShowCashEgressModal}
         onSuccess={() => { getDailySales(); }}
       />
       <KbdShortcuts

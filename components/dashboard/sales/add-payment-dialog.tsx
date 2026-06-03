@@ -22,7 +22,7 @@ import {
 } from '@/services/sales.service';
 
 interface AddSalePaymentDialogProps {
-  /** Cuando NO es null y `sale.status === 'PARTIAL'` el dialog se abre. */
+  /** Cuando NO es null y la venta es PENDING con saldo pendiente, el dialog se abre. */
   sale: Sale | null;
   onOpenChange: (open: boolean) => void;
   /** Se invoca tras un submit exitoso para refrescar el estado del padre. */
@@ -30,7 +30,8 @@ interface AddSalePaymentDialogProps {
 }
 
 /**
- * Diálogo para agregar pagos a una venta PARTIAL.
+ * Diálogo para agregar pagos a una venta PENDING con saldo pendiente (cobrar el
+ * resto de un pago parcial). Ya no existe el estado "seña".
  *
  * - El backend estampa `createdAt = now` en cada pago nuevo: los pagos cuentan
  *   automáticamente para la sesión de caja del día en que se registraron.
@@ -46,8 +47,8 @@ export function AddSalePaymentDialog({
   const [markCompleted, setMarkCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Solo abrir cuando hay venta y es PARTIAL.
-  const open = !!sale && sale.status === 'PARTIAL';
+  // Solo abrir cuando hay venta PENDING con saldo pendiente por cobrar.
+  const open = !!sale && sale.status === 'PENDING' && (sale.balanceDue ?? 0) > 0;
 
   const balanceDue = sale?.balanceDue ?? 0;
 
@@ -90,7 +91,7 @@ export function AddSalePaymentDialog({
     setIsSubmitting(true);
     try {
       // Cuando el pago cubre todo el saldo, forzamos markCompleted: el backend
-      // no auto-completa solo (dejaría la venta PARTIAL con saldo 0). Si queda
+      // no auto-completa solo (dejaría la venta PENDING con saldo 0). Si queda
       // saldo, respetamos el toggle (cerrar perdonando el resto).
       const completar = markCompleted || cubreTodo;
       await salesService.addSalePayments(sale.id, {

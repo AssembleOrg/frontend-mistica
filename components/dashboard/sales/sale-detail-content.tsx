@@ -134,7 +134,8 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const isPending   = sale.status === 'PENDING';
   const isCompleted = sale.status === 'COMPLETED';
   const isCancelled = sale.status === 'CANCELLED';
-  const isPartial   = sale.status === 'PARTIAL';
+  // Venta pendiente con saldo por cobrar (ex-"seña"). Ya no es un estado propio.
+  const hasBalance  = (sale.balanceDue ?? 0) > 0;
   // Una venta está "facturada" cuando AFIP devolvió CAE. Hasta entonces no
   // tiene sentido emitir nota de crédito (no hay factura que invalidar).
   const isInvoiced  = !!sale.afipCae;
@@ -356,7 +357,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
               {formatCurrency(sale.total)}
             </span>
           </div>
-          {isPartial && (
+          {hasBalance && (
             <div className="flex items-center justify-between py-2 gap-4 max-xl:gap-2">
               <span
                 className="text-xs font-bold font-tan-nimbus shrink-0"
@@ -429,6 +430,31 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
                 {isUpdating ? 'Completando…' : 'Completar venta'}
               </Button>
             </div>
+
+            {/* Cobrar saldo pendiente (ex-"seña"): sólo si la venta tiene saldo. */}
+            {hasBalance && (
+              <Button
+                onClick={() => setShowAddPayment(true)}
+                disabled={isUpdating}
+                className="w-full text-white text-xs h-8 font-winter-solid"
+                style={{ backgroundColor: 'var(--color-naranja-medio)' }}
+              >
+                <Wallet className="h-3.5 w-3.5 mr-1.5" />
+                Agregar pago
+              </Button>
+            )}
+
+            {/* Comprobante NO fiscal (recibo interno). Sale con la fecha original
+                de la venta. La factura AFIP sigue reservada a COMPLETED. */}
+            <Button
+              onClick={handleViewReceipt}
+              variant="outline"
+              className="w-full border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
+            >
+              <Receipt className="h-3.5 w-3.5 mr-1.5" />
+              Ver comprobante
+              <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-[#9d684e]/10 border border-[#9d684e]/30 rounded leading-none">F4</kbd>
+            </Button>
 
             {/* Editar / Cancelar */}
             <div className="flex gap-2">
@@ -507,40 +533,6 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
           </Button>
         )}
 
-        {isPartial && (
-          <>
-            <Button
-              onClick={() => setShowAddPayment(true)}
-              disabled={isUpdating}
-              className="w-full text-white text-xs h-8 font-winter-solid"
-              style={{ backgroundColor: 'var(--color-naranja-medio)' }}
-            >
-              <Wallet className="h-3.5 w-3.5 mr-1.5" />
-              Agregar pago
-            </Button>
-            {/* Comprobante NO fiscal de la seña (recibo interno). Sale con la
-                fecha original de la venta (sale.createdAt), aunque se pida
-                semanas después. La factura AFIP sigue reservada a COMPLETED. */}
-            <Button
-              onClick={handleViewReceipt}
-              variant="outline"
-              className="w-full border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
-            >
-              <Receipt className="h-3.5 w-3.5 mr-1.5" />
-              Ver comprobante
-              <kbd className="hidden xl:inline-flex ml-2 px-1 py-0.5 text-[10px] font-mono bg-[#9d684e]/10 border border-[#9d684e]/30 rounded leading-none">F4</kbd>
-            </Button>
-            {onRequestEdit && (
-              <Button
-                onClick={() => onRequestEdit(sale)}
-                variant="outline"
-                className="w-full border-[#9d684e]/30 text-[#455a54] hover:bg-[#9d684e]/8 text-xs h-8 font-winter-solid"
-              >
-                Editar
-              </Button>
-            )}
-          </>
-        )}
       </div>
 
       <ConfirmCancelDialog

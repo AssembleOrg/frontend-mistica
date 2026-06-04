@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Sale } from '@/services/sales.service';
+import { Sale, RelatedSaleSummary } from '@/services/sales.service';
+import { LinkSalesDialog } from './link-sales-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { parseNotesAndSeller } from '@/lib/sales-seller';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
@@ -33,12 +34,15 @@ import {
   Package,
   ShieldCheck,
   Wallet,
+  Link2,
 } from 'lucide-react';
 
 interface SaleDetailContentProps {
   sale: Sale;
   onSaleUpdated?: () => void;
   onRequestEdit?: (sale: Sale) => void;
+  /** Abrir otra venta (relacionada) en el mismo panel de detalle. */
+  onOpenRelated?: (saleId: string) => void;
   stickyActions?: boolean;
 }
 
@@ -119,7 +123,7 @@ function Section({ title, icon: Icon, children }: {
   );
 }
 
-export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyActions }: SaleDetailContentProps) {
+export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRelated, stickyActions }: SaleDetailContentProps) {
   const [generateInvoice, setGenerateInvoice] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -127,7 +131,29 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
   const [showInvoiceDialog, setShowInvoiceDialog] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showAddPayment, setShowAddPayment] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  // Ventas relacionadas (informativo). Si la venta vino de GET /sales/:id ya
+  // trae `relatedSales`; si vino de la lista (sólo ids), las traemos con un fetch.
+  const [relatedSales, setRelatedSales] = useState<RelatedSaleSummary[]>(sale.relatedSales || []);
   const { updateSale, getSaleById, deleteSale } = useSalesAPI();
+
+  const relatedIdsKey = (sale.relatedSaleIds || []).join(',');
+  useEffect(() => {
+    let cancelled = false;
+    if (sale.relatedSales) {
+      setRelatedSales(sale.relatedSales);
+      return;
+    }
+    if (!relatedIdsKey) {
+      setRelatedSales([]);
+      return;
+    }
+    getSaleById(sale.id)
+      .then((fresh) => { if (!cancelled) setRelatedSales(fresh.relatedSales || []); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sale.id, relatedIdsKey, sale.relatedSales]);
   const { recordSaleMovements } = useStock();
   const { products } = useProducts();
 
@@ -396,6 +422,54 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
             </p>
           </Section>
         )}
+
+        {/* Ventas relacionadas (informativo, vínculo mutuo) */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Link2 className="h-3.5 w-3.5 text-[#9d684e]" />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#455a54]/70 font-winter-solid">
+                Ventas relacionadas
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLinkDialog(true)}
+              className="text-[10px] font-winter-solid text-[#9d684e] hover:underline"
+            >
+              {relatedSales.length ? 'Editar' : 'Vincular'}
+            </button>
+          </div>
+          {relatedSales.length === 0 ? (
+            <p className="text-xs text-[#455a54]/50 font-winter-solid px-3 py-2 bg-[#efcbb9]/30 rounded-lg border border-[#9d684e]/15">
+              Sin ventas relacionadas
+            </p>
+          ) : (
+            <div className="bg-[#efcbb9]/50 rounded-lg border border-[#9d684e]/25 px-3 divide-y divide-[#9d684e]/15 min-w-0">
+              {relatedSales.map((rs) => (
+                <button
+                  key={rs.id}
+                  type="button"
+                  onClick={() => onOpenRelated?.(rs.id)}
+                  disabled={!onOpenRelated}
+                  className="w-full flex items-center justify-between py-2 gap-2 text-left transition-opacity enabled:hover:opacity-60 disabled:cursor-default"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-[#455a54] font-winter-solid truncate">
+                      #{rs.saleNumber}{rs.name ? ` · ${rs.name}` : ''}
+                    </p>
+                    <p className="text-[11px] text-[#455a54]/60 font-winter-solid">
+                      {new Date(rs.createdAt).toLocaleDateString('es-AR')}
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-[#9d684e] font-winter-solid shrink-0">
+                    {formatCurrency(rs.total)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Acciones ───────────────────────────────────── */}
@@ -560,6 +634,11 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, stickyAc
         sale={showAddPayment ? sale : null}
         onOpenChange={(v) => setShowAddPayment(v)}
         onSuccess={() => onSaleUpdated?.()}
+      />
+      <LinkSalesDialog
+        sale={showLinkDialog ? sale : null}
+        onOpenChange={(v) => setShowLinkDialog(v)}
+        onLinked={() => onSaleUpdated?.()}
       />
     </>
   );

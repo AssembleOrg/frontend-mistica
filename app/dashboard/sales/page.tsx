@@ -127,6 +127,19 @@ export default function SalesPage() {
     processReceiptGeneration(sale, hasAfipData(sale));
   }, []);
 
+  // Abrir una venta relacionada en el panel de detalle. Traemos la versión
+  // enriquecida (con relatedSales) por id.
+  const handleOpenRelated = useCallback((saleId: string) => {
+    getSaleById(saleId)
+      .then((fresh) => {
+        setSelectedSale(fresh);
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+          setMobileDetailOpen(true);
+        }
+      })
+      .catch(() => showToast.error('No se pudo abrir la venta relacionada'));
+  }, [getSaleById]);
+
   const handleEditSale = useCallback((sale: Sale) => {
     setSelectedSale(sale);
     setShowEditSaleModal(true);
@@ -334,6 +347,7 @@ export default function SalesPage() {
               sale={selectedSale}
               onSaleUpdated={handleSaleUpdated}
               onRequestEdit={handleEditSale}
+              onOpenRelated={handleOpenRelated}
               mobileOpen={mobileDetailOpen}
               onMobileClose={() => setMobileDetailOpen(false)}
             />

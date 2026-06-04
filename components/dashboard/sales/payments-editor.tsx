@@ -141,38 +141,36 @@ export function PaymentsEditor({ total, value, onChange, disabled }: Props) {
         </div>
       )}
 
-      <div
-        className={`rounded-md p-2 text-sm font-winter-solid ${
-          balanced
-            ? 'bg-green-50 border border-green-200 text-green-700'
-            : remaining > 0
-              ? 'border'
-              : 'bg-red-50 border border-red-200 text-red-700'
-        }`}
-        style={
-          !balanced && remaining > 0
-            ? {
-                backgroundColor: 'color-mix(in srgb, var(--color-verde-profundo) 8%, white)',
-                borderColor: 'color-mix(in srgb, var(--color-verde-profundo) 25%, white)',
-                color: 'var(--color-verde-profundo)',
-              }
-            : undefined
-        }
-      >
-        {balanced ? (
-          <>Pagos balanceados ✓</>
-        ) : remaining > 0 ? (
-          <>
-            Se aplicará descuento automático de{' '}
-            <span className="font-semibold">{formatCurrency(remaining)}</span>
-          </>
-        ) : (
-          <>
-            Excede en <span className="font-semibold">{formatCurrency(Math.abs(remaining))}</span>
-            {' '}— ajustá los montos
-          </>
-        )}
-      </div>
+      {/* A pedido del cliente NO mostramos el cartelito de "Excede" cuando los
+          pagos superan el total: ese caso ya no bloquea ni se advierte. Sólo
+          mostramos el estado balanceado o el de descuento automático. */}
+      {(balanced || remaining > 0) && (
+        <div
+          className={`rounded-md p-2 text-sm font-winter-solid ${
+            balanced
+              ? 'bg-green-50 border border-green-200 text-green-700'
+              : 'border'
+          }`}
+          style={
+            !balanced && remaining > 0
+              ? {
+                  backgroundColor: 'color-mix(in srgb, var(--color-verde-profundo) 8%, white)',
+                  borderColor: 'color-mix(in srgb, var(--color-verde-profundo) 25%, white)',
+                  color: 'var(--color-verde-profundo)',
+                }
+              : undefined
+          }
+        >
+          {balanced ? (
+            <>Pagos balanceados ✓</>
+          ) : (
+            <>
+              Se aplicará descuento automático de{' '}
+              <span className="font-semibold">{formatCurrency(remaining)}</span>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

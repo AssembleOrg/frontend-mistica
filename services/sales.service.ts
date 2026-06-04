@@ -106,6 +106,16 @@ export interface SaleItem {
   bonifiedQty?: number;
 }
 
+/** Resumen liviano de una venta relacionada (para el distintivo informativo). */
+export interface RelatedSaleSummary {
+  id: string;
+  saleNumber: string;
+  name?: string;
+  total: number;
+  status: 'PENDING' | 'COMPLETED' | 'CANCELLED' | 'PARTIAL';
+  createdAt: string;
+}
+
 export interface Sale {
   id: string;
   saleNumber: string;
@@ -135,6 +145,11 @@ export interface Sale {
   afipFechaVto?: string;
   /** Saldo pendiente (sólo > 0 cuando status === 'PARTIAL'). */
   balanceDue?: number;
+  /** Ids de ventas relacionadas (vínculo mutuo, informativo). Viene en la lista
+   *  y el detalle; sirve para mostrar el distintivo 🔗. */
+  relatedSaleIds?: string[];
+  /** Resúmenes de las ventas relacionadas — sólo lo devuelve GET /sales/:id. */
+  relatedSales?: RelatedSaleSummary[];
 }
 
 // Paginated response interface
@@ -277,6 +292,15 @@ export class SalesService {
   /** Renombra una venta (edición inline). String vacío deja la venta sin nombre. */
   async updateSaleName(id: string, name: string): Promise<ApiResponse<Sale>> {
     return apiService.patch<Sale>(`/sales/${id}/name`, { name });
+  }
+
+  /**
+   * Define el set COMPLETO de ventas relacionadas (vínculo mutuo, informativo).
+   * El backend reconcilia ambos lados. Pasar [] desvincula todo. No afecta
+   * totales ni saldos.
+   */
+  async setSaleLinks(id: string, relatedSaleIds: string[]): Promise<ApiResponse<Sale>> {
+    return apiService.patch<Sale>(`/sales/${id}/links`, { relatedSaleIds });
   }
 
   // Update existing sale

@@ -24,6 +24,7 @@ import {
   X,
   Receipt,
   Pencil,
+  Link2,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
@@ -373,11 +374,22 @@ export function SalesTable({
       header: () => (
         <span className='text-white font-winter-solid px-1'>N° Venta</span>
       ),
-      cell: ({ row }) => (
-        <div className='font-semibold text-[#455a54] text-xs max-w-[110px] truncate'>
-          {row.getValue('saleNumber')}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const hasRelated = (row.original.relatedSaleIds?.length ?? 0) > 0;
+        return (
+          <div className='flex items-center gap-1 max-w-[120px]'>
+            <span className='font-semibold text-[#455a54] text-xs truncate'>
+              {row.getValue('saleNumber')}
+            </span>
+            {hasRelated && (
+              <Link2
+                className='h-3 w-3 text-[#9d684e] shrink-0'
+                aria-label='Tiene ventas relacionadas'
+              />
+            )}
+          </div>
+        );
+      },
     },
     {
       accessorKey: 'name',

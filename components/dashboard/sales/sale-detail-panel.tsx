@@ -15,6 +15,7 @@ interface SaleDetailPanelProps {
   sale: Sale | null;
   onSaleUpdated?: () => void;
   onRequestEdit?: (sale: Sale) => void;
+  onOpenRelated?: (saleId: string) => void;
   // mobile sheet
   mobileOpen: boolean;
   onMobileClose: () => void;
@@ -43,6 +44,7 @@ export function SaleDetailPanel({
   sale,
   onSaleUpdated,
   onRequestEdit,
+  onOpenRelated,
   mobileOpen,
   onMobileClose,
 }: SaleDetailPanelProps) {
@@ -57,6 +59,7 @@ export function SaleDetailPanel({
                 sale={sale}
                 onSaleUpdated={onSaleUpdated}
                 onRequestEdit={onRequestEdit}
+                onOpenRelated={onOpenRelated}
               />
             </div>
           </ScrollArea>
@@ -94,6 +97,7 @@ export function SaleDetailPanel({
                     onRequestEdit?.(s);
                     onMobileClose();
                   }}
+                  onOpenRelated={onOpenRelated}
                 />
               </div>
             </ScrollArea>

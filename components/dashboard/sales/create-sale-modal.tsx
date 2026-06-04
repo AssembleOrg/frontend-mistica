@@ -29,7 +29,7 @@ import { productsService } from '@/services/products.service';
 import { usePrepaidsAPI } from '@/hooks/usePrepaidsAPI';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { BarcodeScanner, BarcodeScannerRef } from './barcode-scanner';
-import { PaymentsEditor, paymentsAreValid } from './payments-editor';
+import { PaymentsEditor } from './payments-editor';
 import { PrepaidAmountDialog } from './prepaid-amount-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { formatPhoneAR } from '@/lib/utils/whatsapp';
@@ -84,6 +84,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [pendingPrepaidProduct, setPendingPrepaidProduct] = useState<Product | null>(null);
   const [showAdjustmentInput, setShowAdjustmentInput] = useState(false);
   const [recentSales, setRecentSales] = useState<Sale[]>([]);
+  // Ventas relacionadas (vínculo mutuo, sólo informativo). Se marcan desde la
+  // sección "Últimas transacciones". Se persiste con setSaleLinks tras crear /
+  // actualizar la venta — NO afecta totales ni saldos.
+  const [relatedSaleIds, setRelatedSaleIds] = useState<string[]>([]);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
   // Track de si ya intentamos precargar "Cliente Mostrador" para esta apertura
@@ -122,6 +126,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           .catch(() => undefined);
       }
       setSaleName(editingSale.name || '');
+      setRelatedSaleIds(editingSale.relatedSaleIds || []);
       setCustomerName(editingSale.customerName || '');
       setCustomerEmail(editingSale.customerEmail || '');
       setCustomerPhone(editingSale.customerPhone || '');
@@ -481,6 +486,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setAdjustmentAmount(0);
     setShowAdjustmentInput(false);
     setRecentSales([]);
+    setRelatedSaleIds([]);
     setIsPartial(false);
 
     if (barcodeProcessingTimeout) {
@@ -513,18 +519,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-    // Precio libre: lo cobrado ES el total. Sólo pedimos al menos un pago > 0.
-    if (isPartial) {
-      if (!(paymentsSum > 0)) {
-        showToast.error('Ingresá al menos un pago');
-        return;
-      }
-      if (paymentsSum > total + 0.01) {
-        showToast.error('Los pagos exceden el total de la venta');
-        return;
-      }
-    } else if (!paymentsAreValid(payments, total)) {
-      showToast.error('Los pagos exceden el total a cobrar');
+    // Sólo pedimos al menos un pago > 0. A pedido del cliente NO bloqueamos
+    // cuando los pagos exceden el total a cobrar: el operador puede cargar el
+    // monto que necesite (la diferencia ≤ total sigue siendo descuento auto).
+    if (!(paymentsSum > 0)) {
+      showToast.error('Ingresá al menos un pago');
       return;
     }
 
@@ -581,12 +580,35 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       if (editingSale) {
         const updateData: UpdateSaleRequest = { ...basePayload };
         await updateSale(editingSale.id, updateData);
+        // Sincronizar ventas relacionadas (vínculo mutuo). Sólo si cambió el set
+        // respecto del que traía la venta — evita un PATCH extra innecesario.
+        const prev = editingSale.relatedSaleIds || [];
+        const changed =
+          prev.length !== relatedSaleIds.length ||
+          prev.some((x) => !relatedSaleIds.includes(x));
+        if (changed) {
+          try {
+            await salesService.setSaleLinks(editingSale.id, relatedSaleIds);
+          } catch (e) {
+            console.error('No se pudieron actualizar las ventas relacionadas', e);
+            showToast.error('La venta se guardó, pero no se pudo actualizar el vínculo');
+          }
+        }
         if (onSaleUpdated) {
           await onSaleUpdated(editingSale.id, updateData);
         }
       } else {
         const saleData: CreateSaleRequest = { ...basePayload };
         const createdSale = await createSale(saleData);
+        // Persistir las relaciones marcadas en "Últimas transacciones" (mutuo).
+        if (relatedSaleIds.length > 0 && createdSale?.id) {
+          try {
+            await salesService.setSaleLinks(createdSale.id, relatedSaleIds);
+          } catch (e) {
+            console.error('No se pudieron vincular las ventas relacionadas', e);
+            showToast.error('La venta se creó, pero no se pudo guardar el vínculo');
+          }
+        }
         onSaleCreated?.(createdSale);
       }
 
@@ -722,17 +744,40 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               {selectedClient && recentSales.length > 0 && (
                 <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">
                   <h4 className="text-xs font-semibold text-[#455a54] uppercase tracking-wider">Últimas transacciones</h4>
+                  <p className="text-[10px] text-[#455a54]/50 font-winter-solid -mt-1">
+                    Tildá para relacionar esta venta con otra (informativo).
+                  </p>
                   <ul className="space-y-1.5">
-                    {recentSales.map((sale) => (
-                      <li key={sale.id} className="text-xs flex justify-between items-center text-[#455a54]/80 gap-2">
-                        <span className="truncate" title={sale.items.map(i => i.productName).join(', ')}>
-                          {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ')}</span>
-                        </span>
-                        <span className="font-semibold text-[#455a54] whitespace-nowrap">
-                          {formatCurrency(sale.total)}
-                        </span>
-                      </li>
-                    ))}
+                    {recentSales
+                      // No ofrecemos relacionar la venta consigo misma (modo edición).
+                      .filter((sale) => sale.id !== editingSale?.id)
+                      .map((sale) => {
+                        const isLinked = relatedSaleIds.includes(sale.id);
+                        return (
+                          <li key={sale.id}>
+                            <label className="text-xs flex items-center cursor-pointer text-[#455a54]/80 gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isLinked}
+                                onChange={(e) => {
+                                  setRelatedSaleIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, sale.id]
+                                      : prev.filter((x) => x !== sale.id),
+                                  );
+                                }}
+                                className="rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a] shrink-0"
+                              />
+                              <span className="truncate flex-1" title={sale.items.map(i => i.productName).join(', ')}>
+                                {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
+                              </span>
+                              <span className="font-semibold text-[#455a54] whitespace-nowrap">
+                                {formatCurrency(sale.total)}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
                   </ul>
                 </div>
               )}
@@ -1066,12 +1111,35 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   {(() => {
                     const cobradoAhora = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-                    // Modo precio libre (pago parcial): el total ES lo que se
-                    // cobra ahora. La cuenta queda saldada: sin descuento ni saldo.
+                    // Modo precio libre (pago parcial): la venta se salda con lo
+                    // que se cobra ahora (total = cobradoAhora, sin saldo real).
+                    // A pedido del cliente, igual mostramos el faltante respecto
+                    // del precio de lista del carrito (informativo): el operador
+                    // ve cuánto resta sobre el valor de lista. NO afecta el total
+                    // de la venta ni genera saldo pendiente.
                     if (isPartial) {
+                      const listSubtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
+                      const faltante = Math.max(0, Number((listSubtotal - cobradoAhora).toFixed(2)));
                       return (
                         <div className="space-y-1">
-                          <div className="flex justify-between font-bold text-base sm:text-lg">
+                          <div className="flex justify-between text-xs sm:text-sm">
+                            <span>Subtotal (lista):</span>
+                            <span>{formatCurrency(listSubtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-xs sm:text-sm">
+                            <span>Seña (cobrado):</span>
+                            <span>{formatCurrency(cobradoAhora)}</span>
+                          </div>
+                          {faltante > 0.01 && (
+                            <div
+                              className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                              style={{ color: 'var(--color-naranja-medio)' }}
+                            >
+                              <span>Faltante:</span>
+                              <span>{formatCurrency(faltante)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
                             <span>Total:</span>
                             <span className="text-[#9d684e]">{formatCurrency(cobradoAhora)}</span>
                           </div>

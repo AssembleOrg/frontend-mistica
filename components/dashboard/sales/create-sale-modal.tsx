@@ -124,6 +124,13 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           .getClient(editingSale.clientId)
           .then((res) => setSelectedClient(res.data))
           .catch(() => undefined);
+        // Cargamos las últimas transacciones del cliente también en edición, así
+        // la sección de "relacionar" aparece y se pueden ajustar los vínculos
+        // desde el modal (no sólo desde el detalle). El render excluye la propia.
+        salesService
+          .getSales(1, 5, { clientId: editingSale.clientId })
+          .then((r) => setRecentSales(r.data?.data || []))
+          .catch(() => setRecentSales([]));
       }
       setSaleName(editingSale.name || '');
       setRelatedSaleIds(editingSale.relatedSaleIds || []);

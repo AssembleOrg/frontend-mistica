@@ -349,10 +349,11 @@
 
 /* Receipt and Print Styles */
 @media print {
-  /* Ancho del rollo térmico: la altura crece según el contenido */
+  /* Rollo térmico 58mm. El margen de 3mm mantiene el contenido (48mm) fuera
+     de la zona "muerta" derecha del cabezal (diseño tomado de sublimarte). */
   @page {
     size: 58mm auto;
-    margin: 0;
+    margin: 3mm;
   }
 
   html, body {
@@ -373,52 +374,40 @@
   }
 
   .receipt-thermal {
-    position: absolute;
-    left: 0;
-    top: 0;
-    margin: 0 !important;
-    /* La térmica de 58mm solo imprime ~48mm (zona derecha "muerta").
-       Contenido a 48mm para que NADA caiga en la zona no imprimible. */
-    padding: 4px 2mm 4px 2mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
     width: 48mm !important;
     max-width: 48mm !important;
     min-height: auto !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
-    font-size: 11px !important;
+    font-size: 12px !important;
     line-height: 1.35 !important;
   }
 
   /*
-   * Térmico: TODO negro INTENSO y bien grueso.
-   * La cabeza térmica es 1-bit (quema o no quema): el anti-aliasing del navegador
-   * pinta los bordes de las letras en gris y esos píxeles salen tenues. Para que
-   * lea negro sólido: fuente sans gruesa (Arial Black), peso 900, tamaño mayor
-   * (trazo más ancho = menos proporción de borde gris) y engrosado del glifo con
-   * text-shadow/text-stroke.
+   * Térmico: TODO NEGRO PLENO y bold. La cabeza térmica es 1-bit: el GRIS se
+   * imprime como dithering = borroso. Por eso NUNCA se usa gris; la jerarquía se
+   * maneja SOLO con tamaño de fuente. (Diseño de sublimarte.)
    */
   .receipt-thermal, .receipt-thermal * {
     color: #000 !important;
     font-family: 'Arial Black', Arial, 'Helvetica Neue', Helvetica, sans-serif !important;
-    font-weight: 800 !important;
+    font-weight: bold !important;
     opacity: 1 !important;
-    text-shadow: 0 0 0 #000 !important;
-    -webkit-text-stroke: 0.06px #000 !important;
-    -webkit-font-smoothing: antialiased !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Montos: en su propia línea (no se cortan). Chicos y un poco grises, como recibo térmico. */
+  /* Montos a la derecha, MISMA fila. Negro pleno, tamaño del cuerpo. */
   .receipt-thermal .thermal-amount {
-    font-size: 9px !important;
-    font-weight: 600 !important;
-    color: #444 !important;
-    -webkit-text-stroke: 0 !important;
+    font-size: 12px !important;
+    color: #000 !important;
+    white-space: nowrap !important;
   }
-  /* Labels de los totales: un poco más chicos */
+  /* Labels de los totales: tamaño del cuerpo, negro */
   .receipt-thermal .thermal-label {
-    font-size: 10px !important;
+    font-size: 12px !important;
   }
 
   /* QR: bordes nítidos (sin interpolación gris) y que el blanco no se descarte */
@@ -432,21 +421,39 @@
     font-size: 9px !important;
   }
 
-  /* Énfasis: nombre de empresa y TOTAL más grandes que el cuerpo.
-     Incluye los hijos (span) porque la regla general fija 12px !important. */
+  /* Jerarquía SOLO por tamaño (todo negro). Nombre de empresa grande. */
   .receipt-thermal .thermal-title,
   .receipt-thermal .thermal-title * {
     font-size: 14px !important;
   }
-  /* Monto del TOTAL: negro pleno y un toque más grande que el resto, pero sin gritar */
-  .receipt-thermal .thermal-total {
-    font-size: 11px !important;
-    color: #000 !important;
-    font-weight: 800 !important;
+  /* Dirección + teléfono de la empresa: un poco más chicos */
+  .receipt-thermal .thermal-company-sub {
+    font-size: 10px !important;
   }
+  /* "TICKET DE VENTA" / "FACTURA" */
   .receipt-thermal .thermal-subtitle,
   .receipt-thermal .thermal-subtitle * {
     font-size: 12px !important;
+  }
+  /* Líneas No:/Factura AFIP:/fecha del ticket: leve más chicas */
+  .receipt-thermal .thermal-meta {
+    font-size: 10px !important;
+  }
+  /* TOTAL (label y monto): el más grande, negro pleno, 900 */
+  .receipt-thermal .thermal-total,
+  .receipt-thermal .thermal-total * {
+    font-size: 15px !important;
+    color: #000 !important;
+    font-weight: 900 !important;
+  }
+  /* "¡Gracias por su compra!": levemente más chico */
+  .receipt-thermal .thermal-thanks {
+    font-size: 10px !important;
+  }
+  /* "COMPROBANTE NO VALIDO COMO FACTURA": muy chico pero notorio (bold, negro) */
+  .receipt-thermal .thermal-fineprint {
+    font-size: 8px !important;
+    font-weight: bold !important;
   }
 
   /* Separadores punteados en negro sólido, no gris */

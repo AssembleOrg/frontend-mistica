@@ -109,8 +109,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       {/* Header */}
       <div className="border-b border-dashed border-black pb-2 mb-2">
         <div className="thermal-title font-black uppercase break-words" style={{ fontSize: '13px' }}>{companyInfo.name}</div>
-        <div className="break-words">{companyInfo.address}</div>
-        <div className="break-words">{companyInfo.phone}</div>
+        <div className="thermal-company-sub break-words">{companyInfo.address}</div>
+        <div className="thermal-company-sub break-words">{companyInfo.phone}</div>
       </div>
 
       {/* Comprobante/Factura Info */}
@@ -118,11 +118,11 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         <div className="thermal-subtitle font-black uppercase" style={{ fontSize: '12px' }}>
           {isInvoice ? 'FACTURA' : 'TICKET DE VENTA'}
         </div>
-        <div className="break-words">No: {sale.saleNumber}</div>
+        <div className="thermal-meta break-words">No: {sale.saleNumber}</div>
         {isInvoice && sale.afipNumero && (
-          <div className="break-words">Factura AFIP: {sale.afipNumero}</div>
+          <div className="thermal-meta break-words">Factura AFIP: {sale.afipNumero}</div>
         )}
-        <div>{formatDate(new Date(sale.createdAt))}</div>
+        <div className="thermal-meta">{formatDate(new Date(sale.createdAt))}</div>
       </div>
 
       {/* Customer - Solo si hay datos */}
@@ -141,54 +141,56 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         {sale.items.map((item, index) => (
           <div key={index} className="mb-1">
             <div className="font-bold break-words">{item.productName}</div>
-            <div className="thermal-label">{item.quantity} x {formatCurrency(item.unitPrice)}</div>
-            <div className="thermal-amount break-words">{formatCurrency(item.subtotal)}</div>
+            <div className="flex justify-between gap-2">
+              <span className="thermal-label">{item.quantity} x {formatCurrency(item.unitPrice)}</span>
+              <span className="thermal-amount">{formatCurrency(item.subtotal)}</span>
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Totals - label arriba, monto debajo a la izquierda (nunca se corta) */}
+      {/* Totals - label izq, monto a la derecha (estilo sublimarte) */}
       <div className="space-y-1 border-b border-dashed border-black pb-2 mb-2">
-        <div>
-          <div className="thermal-label">Subtotal:</div>
-          <div className="thermal-amount break-words">{formatCurrency(sale.subtotal)}</div>
+        <div className="flex justify-between gap-2">
+          <span className="thermal-label">Subtotal:</span>
+          <span className="thermal-amount">{formatCurrency(sale.subtotal)}</span>
         </div>
         {sale.discount > 0 && (
-          <div>
-            <div className="thermal-label">Descuento:</div>
-            <div className="thermal-amount break-words">- {formatCurrency(sale.discount)}</div>
+          <div className="flex justify-between gap-2">
+            <span className="thermal-label">Descuento:</span>
+            <span className="thermal-amount">- {formatCurrency(sale.discount)}</span>
           </div>
         )}
         {sale.tax > 0 && (
-          <div>
-            <div className="thermal-label">IVA (21%):</div>
-            <div className="thermal-amount break-words">{formatCurrency(sale.tax)}</div>
+          <div className="flex justify-between gap-2">
+            <span className="thermal-label">IVA (21%):</span>
+            <span className="thermal-amount">{formatCurrency(sale.tax)}</span>
           </div>
         )}
-        <div className="border-t border-black pt-1 mt-1">
-          <div className="thermal-label font-black">TOTAL:</div>
-          <div className="thermal-total break-words">{formatCurrency(sale.total)}</div>
+        <div className="thermal-total flex justify-between gap-2 border-t border-black pt-1 mt-1">
+          <span>TOTAL:</span>
+          <span>{formatCurrency(sale.total)}</span>
         </div>
         {hasBalance && (
           <>
-            <div>
-              <div className="thermal-label">Pagado:</div>
-              <div className="thermal-amount break-words">{formatCurrency(montoPagado)}</div>
+            <div className="flex justify-between gap-2">
+              <span className="thermal-label">Pagado:</span>
+              <span className="thermal-amount">{formatCurrency(montoPagado)}</span>
             </div>
-            <div>
-              <div className="thermal-label font-bold">Saldo pendiente:</div>
-              <div className="thermal-amount break-words">{formatCurrency(sale.balanceDue ?? 0)}</div>
+            <div className="flex justify-between gap-2">
+              <span className="thermal-label font-bold">Saldo pendiente:</span>
+              <span className="thermal-amount">{formatCurrency(sale.balanceDue ?? 0)}</span>
             </div>
           </>
         )}
       </div>
 
-      {/* Payment breakdown - label arriba, monto debajo a la izquierda */}
+      {/* Payment breakdown - label izq, monto a la derecha */}
       <div className="border-b border-dashed border-black pb-2 mb-2">
         {(sale.payments ?? []).map((p, i) => (
-          <div key={`${p.method}-${i}`}>
-            <div className="thermal-label">{getPaymentMethodLabel(p.method)}</div>
-            <div className="thermal-amount break-words">{formatCurrency(p.amount)}</div>
+          <div key={`${p.method}-${i}`} className="flex justify-between gap-2">
+            <span className="thermal-label">{getPaymentMethodLabel(p.method)}</span>
+            <span className="thermal-amount">{formatCurrency(p.amount)}</span>
           </div>
         ))}
       </div>
@@ -208,7 +210,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
 
       {/* Footer */}
       <div>
-        <div className="mb-1">¡Gracias por su compra!</div>
+        <div className="thermal-thanks mb-1">¡Gracias por su compra!</div>
         {isInvoice && sale.afipCae && sale.afipFechaVto && (
           <div className="mt-2 border-t border-dashed border-black pt-2">
             <div className="break-words"><strong>CAE:</strong> {sale.afipCae}</div>
@@ -217,8 +219,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         )}
         {!isInvoice && (
           <div className="mt-2 border-t border-dashed border-black pt-2">
-            <div className="font-black">COMPROBANTE NO VALIDO</div>
-            <div className="font-black">COMO FACTURA</div>
+            <div className="thermal-fineprint">COMPROBANTE NO VALIDO</div>
+            <div className="thermal-fineprint">COMO FACTURA</div>
           </div>
         )}
         <div className="mt-2">

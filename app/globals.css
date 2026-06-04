@@ -349,11 +349,11 @@
 
 /* Receipt and Print Styles */
 @media print {
-  /* Rollo térmico 58mm. El margen de 3mm mantiene el contenido (48mm) fuera
-     de la zona "muerta" derecha del cabezal (diseño tomado de sublimarte). */
+  /* Rollo térmico 58mm. margin 0 + contenido anclado a la izquierda (abajo)
+     para que NO se corra a la derecha; el ancho < zona imprimible evita el corte. */
   @page {
     size: 58mm auto;
-    margin: 3mm;
+    margin: 0;
   }
 
   html, body {
@@ -374,10 +374,14 @@
   }
 
   .receipt-thermal {
-    margin: 0 auto !important;
-    padding: 0 !important;
-    width: 48mm !important;
-    max-width: 48mm !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    margin: 0 !important;
+    /* der 3mm para que el monto right-aligned no toque la zona muerta del cabezal */
+    padding: 4px 3mm 4px 1mm !important;
+    width: 46mm !important;
+    max-width: 46mm !important;
     min-height: auto !important;
     box-sizing: border-box !important;
     overflow: hidden !important;

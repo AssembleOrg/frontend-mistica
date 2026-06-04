@@ -141,54 +141,54 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         {sale.items.map((item, index) => (
           <div key={index} className="mb-1">
             <div className="font-bold break-words">{item.productName}</div>
-            <div>{item.quantity} x {formatCurrency(item.unitPrice)}</div>
-            <div className="thermal-amount text-right font-bold">{formatCurrency(item.subtotal)}</div>
+            <div className="thermal-label">{item.quantity} x {formatCurrency(item.unitPrice)}</div>
+            <div className="thermal-amount break-words">{formatCurrency(item.subtotal)}</div>
           </div>
         ))}
       </div>
 
-      {/* Totals */}
+      {/* Totals - label arriba, monto debajo a la izquierda (nunca se corta) */}
       <div className="space-y-1 border-b border-dashed border-black pb-2 mb-2">
-        <div className="flex justify-between gap-2">
-          <span className="min-w-0 truncate">Subtotal:</span>
-          <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.subtotal)}</span>
+        <div>
+          <div className="thermal-label">Subtotal:</div>
+          <div className="thermal-amount break-words">{formatCurrency(sale.subtotal)}</div>
         </div>
         {sale.discount > 0 && (
-          <div className="flex justify-between gap-2">
-            <span className="min-w-0 truncate">Descuento:</span>
-            <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">-{formatCurrency(sale.discount)}</span>
+          <div>
+            <div className="thermal-label">Descuento:</div>
+            <div className="thermal-amount break-words">- {formatCurrency(sale.discount)}</div>
           </div>
         )}
         {sale.tax > 0 && (
-          <div className="flex justify-between gap-2">
-            <span className="min-w-0 truncate">IVA (21%):</span>
-            <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.tax)}</span>
+          <div>
+            <div className="thermal-label">IVA (21%):</div>
+            <div className="thermal-amount break-words">{formatCurrency(sale.tax)}</div>
           </div>
         )}
-        <div className="thermal-total flex justify-between gap-2 font-black border-t border-black pt-1" style={{ fontSize: '13px' }}>
-          <span className="min-w-0 truncate">TOTAL:</span>
-          <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.total)}</span>
+        <div className="border-t border-black pt-1 mt-1">
+          <div className="thermal-label font-black">TOTAL:</div>
+          <div className="thermal-total break-words">{formatCurrency(sale.total)}</div>
         </div>
         {hasBalance && (
           <>
-            <div className="flex justify-between gap-2">
-              <span className="min-w-0 truncate">Pagado:</span>
-              <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(montoPagado)}</span>
+            <div>
+              <div className="thermal-label">Pagado:</div>
+              <div className="thermal-amount break-words">{formatCurrency(montoPagado)}</div>
             </div>
-            <div className="flex justify-between gap-2 font-bold">
-              <span className="min-w-0 truncate">Saldo pendiente:</span>
-              <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(sale.balanceDue ?? 0)}</span>
+            <div>
+              <div className="thermal-label font-bold">Saldo pendiente:</div>
+              <div className="thermal-amount break-words">{formatCurrency(sale.balanceDue ?? 0)}</div>
             </div>
           </>
         )}
       </div>
 
-      {/* Payment breakdown */}
+      {/* Payment breakdown - label arriba, monto debajo a la izquierda */}
       <div className="border-b border-dashed border-black pb-2 mb-2">
         {(sale.payments ?? []).map((p, i) => (
-          <div key={`${p.method}-${i}`} className="flex justify-between gap-2">
-            <span className="min-w-0 truncate">{getPaymentMethodLabel(p.method)}</span>
-            <span className="thermal-amount flex-shrink-0 whitespace-nowrap text-right">{formatCurrency(p.amount)}</span>
+          <div key={`${p.method}-${i}`}>
+            <div className="thermal-label">{getPaymentMethodLabel(p.method)}</div>
+            <div className="thermal-amount break-words">{formatCurrency(p.amount)}</div>
           </div>
         ))}
       </div>

@@ -377,11 +377,11 @@
     left: 0;
     top: 0;
     margin: 0 !important;
-    /* La térmica de 58mm solo imprime ~48mm y tiene un borde derecho "muerto".
-       Damos margen derecho amplio (7mm) para que los montos no se recorten. */
-    padding: 4px 7mm 4px 2mm !important;
-    width: 56mm !important;
-    max-width: 56mm !important;
+    /* La térmica de 58mm solo imprime ~48mm (zona derecha "muerta").
+       Contenido a 48mm para que NADA caiga en la zona no imprimible. */
+    padding: 4px 2mm 4px 2mm !important;
+    width: 48mm !important;
+    max-width: 48mm !important;
     min-height: auto !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
@@ -409,10 +409,16 @@
     print-color-adjust: exact !important;
   }
 
-  /* Montos (derecha): un poco más chicos y algo menos pesados, ocupan menos ancho */
+  /* Montos: en su propia línea (no se cortan). Chicos y un poco grises, como recibo térmico. */
   .receipt-thermal .thermal-amount {
-    font-size: 11px !important;
-    font-weight: 700 !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    color: #444 !important;
+    -webkit-text-stroke: 0 !important;
+  }
+  /* Labels de los totales: un poco más chicos */
+  .receipt-thermal .thermal-label {
+    font-size: 10px !important;
   }
 
   /* QR: bordes nítidos (sin interpolación gris) y que el blanco no se descarte */
@@ -432,9 +438,11 @@
   .receipt-thermal .thermal-title * {
     font-size: 14px !important;
   }
-  .receipt-thermal .thermal-total,
-  .receipt-thermal .thermal-total * {
-    font-size: 14px !important;
+  /* Monto del TOTAL: negro pleno y un toque más grande que el resto, pero sin gritar */
+  .receipt-thermal .thermal-total {
+    font-size: 11px !important;
+    color: #000 !important;
+    font-weight: 800 !important;
   }
   .receipt-thermal .thermal-subtitle,
   .receipt-thermal .thermal-subtitle * {

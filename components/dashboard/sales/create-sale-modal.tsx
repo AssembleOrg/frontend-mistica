@@ -1183,10 +1183,22 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                             <span>-{formatCurrency(diff)}</span>
                           </div>
                         )}
+                        {/* Sobre-cobro: el total pasa a ser lo cobrado y la
+                            diferencia es un recargo automático (el backend lo
+                            registra con signo negativo en `discount`). */}
+                        {diff < -0.01 && (
+                          <div
+                            className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                            style={{ color: '#9d684e' }}
+                          >
+                            <span>Recargo automático:</span>
+                            <span>+{formatCurrency(Math.abs(diff))}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
                           <span>Total a cobrar:</span>
                           <span className="text-[#9d684e]">
-                            {formatCurrency(Math.min(total, cobradoAhora || total))}
+                            {formatCurrency(cobradoAhora || total)}
                           </span>
                         </div>
                       </div>

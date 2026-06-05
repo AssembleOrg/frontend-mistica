@@ -468,9 +468,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   useEffect(() => {
     if (payments.length === 0) {
       if (isPartial) {
-        setPayments([{ method: 'CASH', amount: 0 }]);
+        setPayments([{ method: 'TRANSFER', amount: 0 }]);
       } else if (total > 0) {
-        setPayments([{ method: 'CASH', amount: total }]);
+        setPayments([{ method: 'TRANSFER', amount: total }]);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1120,19 +1120,35 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
                     // Modo precio libre (pago parcial): la venta se salda con lo
                     // que se cobra ahora (total = cobradoAhora, sin saldo real).
-                    // A pedido del cliente, igual mostramos el faltante respecto
-                    // del precio de lista del carrito (informativo): el operador
-                    // ve cuánto resta sobre el valor de lista. NO afecta el total
-                    // de la venta ni genera saldo pendiente.
+                    // A pedido del cliente, mostramos el faltante respecto del
+                    // precio de lista YA AJUSTADO por el descuento/recargo cargado
+                    // (informativo): el operador ve cuánto resta sobre el valor de
+                    // lista con el ajuste aplicado. El descuento es solo visual en
+                    // este modo: NO afecta el total cobrado ni se guarda en el
+                    // backend (en parcial el backend fuerza discount = 0).
                     if (isPartial) {
                       const listSubtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
-                      const faltante = Math.max(0, Number((listSubtotal - cobradoAhora).toFixed(2)));
+                      // signedDiscount: positivo = descuento (baja el faltante),
+                      // negativo = recargo (lo sube).
+                      const listAfterAdjustment = Math.max(0, Number((listSubtotal - signedDiscount).toFixed(2)));
+                      const faltante = Math.max(0, Number((listAfterAdjustment - cobradoAhora).toFixed(2)));
                       return (
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs sm:text-sm">
                             <span>Subtotal (lista):</span>
                             <span>{formatCurrency(listSubtotal)}</span>
                           </div>
+                          {signedDiscount !== 0 && (
+                            <div
+                              className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                              style={{ color: signedDiscount > 0 ? 'var(--color-verde-profundo)' : '#9d684e' }}
+                            >
+                              <span>{signedDiscount > 0 ? 'Descuento' : 'Recargo'}:</span>
+                              <span>
+                                {signedDiscount > 0 ? '-' : '+'}{formatCurrency(Math.abs(signedDiscount))}
+                              </span>
+                            </div>
+                          )}
                           <div className="flex justify-between text-xs sm:text-sm">
                             <span>Seña (cobrado):</span>
                             <span>{formatCurrency(cobradoAhora)}</span>

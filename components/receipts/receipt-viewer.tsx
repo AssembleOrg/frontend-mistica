@@ -99,8 +99,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
 
   const companyInfo = {
     name: 'Mística Auténtica',
-    address: 'Dirección de la empresa',
-    phone: 'Teléfono de contacto',
+    address: 'Videla 57',
+    phone: '011-7988-3333',
     email: 'contacto@mistica.com',
   };
 

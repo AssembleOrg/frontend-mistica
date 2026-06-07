@@ -136,7 +136,8 @@ export default function FinancesPage() {
     return (
       opening +
       summary.byPaymentMethod.CASH +
-      summary.prepaids.byPaymentMethod.CASH -
+      summary.prepaids.byPaymentMethod.CASH +
+      summary.incomes.byPaymentMethod.CASH -
       summary.expenses.byPaymentMethod.CASH
     );
   }, [summary]);

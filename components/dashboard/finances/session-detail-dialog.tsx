@@ -137,7 +137,11 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     let salesCount = 0, salesTotal = 0;
     let egressCount = 0, egressTotal = 0;
     let incomeCount = 0, incomeTotal = 0;
-    let inflow = 0, outflow = 0;
+    // Saldo de caja = SOLO efectivo (CASH). Tarjeta/transferencia no mueven la
+    // caja física, así apertura + netBalance reconcilia con "Esperado al cierre".
+    // Usamos amountByMethod (no paymentMethod) para que las ventas MIXTO sumen
+    // su porción CASH exacta.
+    let cashInflow = 0, cashOutflow = 0;
     const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0 };
 
     for (const t of transactions) {
@@ -145,13 +149,14 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       else if (t.source === 'egress') { egressCount++; egressTotal += t.amount; }
       else if (t.source === 'income') { incomeCount++; incomeTotal += t.amount; }
 
+      const m = t.amountByMethod;
       if (t.type === 'ingreso') {
-        inflow += t.amount;
-        if (t.paymentMethod === 'CASH' || t.paymentMethod === 'CARD' || t.paymentMethod === 'TRANSFER') {
-          byMethod[t.paymentMethod] += t.amount;
-        }
+        byMethod.CASH += m.CASH;
+        byMethod.CARD += m.CARD;
+        byMethod.TRANSFER += m.TRANSFER;
+        cashInflow += m.CASH;
       } else {
-        outflow += t.amount;
+        cashOutflow += m.CASH;
       }
     }
 
@@ -159,7 +164,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       salesCount, salesTotal,
       egressCount, egressTotal,
       incomeCount, incomeTotal,
-      netBalance: Number((inflow - outflow).toFixed(2)),
+      netBalance: Number((cashInflow - cashOutflow).toFixed(2)),
       byMethod,
     };
   }, [transactions]);
@@ -287,7 +292,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                 >
                   {formatCurrency(kpis.netBalance)}
                 </p>
-                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>neto</p>
+                <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>neto efectivo</p>
               </div>
             </div>
 

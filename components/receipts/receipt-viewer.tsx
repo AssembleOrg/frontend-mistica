@@ -30,10 +30,8 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
     if (type === 'a4' || type === 'thermal') {
       const generateRandomQR = async () => {
         try {
-          // Generar número aleatorio entre 0 y 21 (22 arcanos total)
-          const randomArcano = Math.floor(Math.random() * 22);
-          // URL que apunta a la vista del arcano
-          const arcanoUrl = `${window.location.origin}/arcano?numero=${randomArcano}`;
+          // URL fija: el arcano se elige al azar en el momento del escaneo
+          const arcanoUrl = `${window.location.origin}/arcano/random`;
           // Generar el código QR
           const qrDataUrl = await QRCode.toDataURL(arcanoUrl, {
             width: 320,

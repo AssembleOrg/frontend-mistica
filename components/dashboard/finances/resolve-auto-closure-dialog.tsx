@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cashboxService, CashSession } from '@/services/cashbox.service';
+import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
 
 interface Props {
@@ -54,6 +55,16 @@ export function ResolveAutoClosureDialog({ session, onOpenChange, onResolved }: 
 
   const openedAt = new Date(session.openedAt).toLocaleString('es-AR');
 
+  // La sesión auto-cerrada ya trae el esperado calculado y guardado por el
+  // backend (autoClose). Lo mostramos para que el cajero sepa contra qué cuadra.
+  const expected: number | null = session.expectedClosingCash ?? null;
+  const countedNum =
+    countedCash !== '' && !isNaN(Number(countedCash)) ? Number(countedCash) : null;
+  const diff =
+    expected !== null && countedNum !== null
+      ? Number((countedNum - expected).toFixed(2))
+      : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]" style={{ borderColor: 'var(--color-gris-claro)' }}>
@@ -68,6 +79,22 @@ export function ResolveAutoClosureDialog({ session, onOpenChange, onResolved }: 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <div
+            className="rounded-md p-3 text-sm font-winter-solid space-y-1.5"
+            style={{ background: 'color-mix(in srgb, var(--color-verde-profundo) 5%, transparent)', border: '1px solid var(--color-gris-claro)' }}
+          >
+            <div className="flex items-center justify-between">
+              <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Apertura</span>
+              <span className="font-semibold">{formatCurrency(session.openingCash)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>Esperado al cierre</span>
+              <span className="font-semibold">
+                {expected !== null ? formatCurrency(expected) : '—'}
+              </span>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="countedCash" style={{ color: 'var(--color-verde-profundo)' }}>Efectivo contado en caja ($)</Label>
             <Input
@@ -82,6 +109,19 @@ export function ResolveAutoClosureDialog({ session, onOpenChange, onResolved }: 
               className="font-mono text-lg"
               autoFocus
             />
+            {diff !== null && diff !== 0 && (
+              <p
+                className="text-xs"
+                style={{ color: diff > 0 ? 'var(--color-naranja-medio)' : 'var(--color-terracota)' }}
+              >
+                {diff > 0 ? 'Sobrante' : 'Faltante'}: {formatCurrency(Math.abs(diff))} respecto a lo esperado.
+              </p>
+            )}
+            {diff === 0 && (
+              <p className="text-xs" style={{ color: 'var(--color-verde-profundo)' }}>
+                Coincide con lo esperado.
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

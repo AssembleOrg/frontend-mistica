@@ -13,6 +13,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { showToast } from '@/lib/toast';
@@ -20,6 +27,14 @@ import {
   cashboxService,
   type CreateCashExpenseRequest,
 } from '@/services/cashbox.service';
+
+type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER';
+
+const METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'CASH', label: 'Efectivo' },
+  { value: 'CARD', label: 'Tarjeta' },
+  { value: 'TRANSFER', label: 'Transferencia' },
+];
 
 interface CashEgressDialogProps {
   open: boolean;
@@ -29,9 +44,10 @@ interface CashEgressDialogProps {
 
 /**
  * Diálogo para registrar un egreso puntual desde la caja abierta (retiro, pago
- * a proveedor, gasto). El backend stampa createdAt=now y el egreso ya se
- * descuenta del esperado de cierre. Si la caja está cerrada el backend devuelve
- * 409 y mostramos el error. Espejo de CashIncomeDialog.
+ * a proveedor, gasto). El backend stampa createdAt=now; los egresos en EFECTIVO
+ * se descuentan del esperado de cierre (los de tarjeta/transferencia quedan
+ * registrados pero no afectan el arqueo de caja). Si la caja está cerrada el
+ * backend devuelve 409 y mostramos el error. Espejo de CashIncomeDialog.
  */
 export function CashEgressDialog({
   open,
@@ -40,6 +56,7 @@ export function CashEgressDialog({
 }: CashEgressDialogProps) {
   const [concept, setConcept] = useState('');
   const [amount, setAmount] = useState<number>(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,6 +64,7 @@ export function CashEgressDialog({
     if (open) {
       setConcept('');
       setAmount(0);
+      setPaymentMethod('CASH');
       setNotes('');
       setIsSubmitting(false);
     }
@@ -68,7 +86,7 @@ export function CashEgressDialog({
       const payload: CreateCashExpenseRequest = {
         concept: trimmedConcept,
         amount,
-        paymentMethod: 'CASH',
+        paymentMethod,
       };
       if (notes.trim()) payload.notes = notes.trim();
       await cashboxService.createExpense(payload);
@@ -100,12 +118,13 @@ export function CashEgressDialog({
           <div className="flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-[#9d684e]" />
             <DialogTitle className="text-base font-bold text-[#455a54] font-tan-nimbus">
-              Egreso de efectivo de la caja
+              Egreso de la caja
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs font-winter-solid text-[#455a54]/70 mt-1">
             Registra plata que sale de la caja sin ser una venta (retiro, pago a
-            proveedor, gasto).
+            proveedor, gasto). Solo los egresos en efectivo afectan el arqueo de
+            caja.
           </DialogDescription>
         </DialogHeader>
 
@@ -141,6 +160,28 @@ export function CashEgressDialog({
               onChange={setAmount}
               disabled={isSubmitting}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[#455a54] font-winter-solid">
+              Método de pago <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={paymentMethod}
+              onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {METHODS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

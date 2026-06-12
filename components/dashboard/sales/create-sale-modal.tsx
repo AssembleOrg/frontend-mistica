@@ -478,6 +478,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const resetForm = () => {
     setSelectedClient(null);
+    setSaleName('');
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
@@ -505,6 +506,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!saleName.trim()) {
+      showToast.error('El título de la venta es requerido');
+      return;
+    }
 
     if (!customerName.trim()) {
       showToast.error('El nombre del cliente es requerido');
@@ -560,7 +566,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       }
 
       const basePayload = {
-        name: saleName.trim() || undefined,
+        name: saleName.trim(),
         clientId: effectiveClientId || undefined,
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim() || undefined,
@@ -654,11 +660,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col h-full px-4 sm:px-6 pb-4 sm:pb-6 space-y-6">
-          {/* Nombre amigable de la venta (opcional). Para uso interno
+          {/* Nombre amigable de la venta (obligatorio). Para uso interno
               seguimos teniendo el N° de venta que genera el backend. */}
           <div className="space-y-1.5">
             <Label className="text-xs text-[#455a54] font-winter-solid">
-              Nombre de la venta <span className="text-[#455a54]/50">(opcional)</span>
+              Nombre de la venta <span className="text-red-500">*</span>
             </Label>
             <Input
               value={saleName}

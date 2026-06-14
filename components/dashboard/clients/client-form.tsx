@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -11,6 +10,8 @@ import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
 import type { PaymentMethodCode } from '@/services/sales.service';
+import { ClientNotesManager } from './client-notes-manager';
+import { ClientNote, parseNotes, serializeNotes } from '@/lib/client-notes';
 
 interface PrepaidItem {
   amount: number;
@@ -31,9 +32,9 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
     phone: '',
     email: '',
     cuit: '',
-    notes: '',
   });
 
+  const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
   const [prepaids, setPrepaids] = useState<PrepaidItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -44,8 +45,8 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
         phone: client.phone || '',
         email: client.email || '',
         cuit: client.cuit || '',
-        notes: client.notes || '',
       });
+      setClientNotes(parseNotes(client.notes));
       // Precargamos sólo las PENDING para que el usuario pueda editarlas
       // o sumar nuevas. Las CONSUMED quedan en el histórico de la DB y el
       // backend no las toca al actualizar.
@@ -63,8 +64,8 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
         phone: '',
         email: '',
         cuit: '',
-        notes: '',
       });
+      setClientNotes([]);
       setPrepaids([]);
     }
     setErrors({});
@@ -159,6 +160,7 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
       // sincronizar el estado: array vacío = borrar todas las PENDING.
       const clientData: CreateClientRequest | UpdateClientRequest = {
         ...formData,
+        notes: serializeNotes(clientNotes),
         prepaids,
       };
 
@@ -256,17 +258,7 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="text-[#455a54] font-winter-solid">Notas</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                placeholder="Información adicional sobre el cliente..."
-                rows={3}
-                className="border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20"
-              />
-            </div>
+            <ClientNotesManager notes={clientNotes} onChange={setClientNotes} />
           </div>
 
           {/* Prepaids Section */}

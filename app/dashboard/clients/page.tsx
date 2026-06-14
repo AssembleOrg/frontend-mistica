@@ -217,6 +217,7 @@ export default function ClientsPage() {
             onEditClient={handleEditClient}
             onDeleteClient={handleDeleteClient}
             onCreateClient={handleCreateClient}
+            onManageNotes={handleEditClient}
             searchValue={searchQuery}
             onSearchChange={handleSearch}
             currentPage={currentPage}

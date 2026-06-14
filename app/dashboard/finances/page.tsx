@@ -16,6 +16,7 @@ import {
   Pencil,
   LayoutList,
   LayoutGrid,
+  FileDown,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
 import { SessionDetailDialog } from '@/components/dashboard/finances/session-detail-dialog';
 import { ResolveAutoClosureDialog } from '@/components/dashboard/finances/resolve-auto-closure-dialog';
+import { MonthlyCloseDialog } from '@/components/dashboard/finances/monthly-close-dialog';
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -68,6 +70,7 @@ export default function FinancesPage() {
   const [labelDraft, setLabelDraft] = useState('');
   const [cashboxView, setCashboxView] = useState<'list' | 'grid'>('list');
   const cancelEditRef = useRef(false);
+  const [showMonthlyClose, setShowMonthlyClose] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,6 +176,16 @@ export default function FinancesPage() {
         </div>
         <div className="flex items-center gap-2">
           {loading && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: 'var(--color-terracota)' }} />}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMonthlyClose(true)}
+            className="font-winter-solid"
+            style={{ borderColor: 'var(--color-verde-profundo)', color: 'var(--color-verde-profundo)' }}
+          >
+            <FileDown className="h-4 w-4 mr-2" />
+            Cierre de Mes
+          </Button>
         </div>
       </div>
       <SessionDetailDialog
@@ -185,6 +198,7 @@ export default function FinancesPage() {
         onOpenChange={(open) => { if (!open) setSessionToResolve(null); }}
         onResolved={load}
       />
+      <MonthlyCloseDialog open={showMonthlyClose} onOpenChange={setShowMonthlyClose} />
 
       {/* Filtro de período */}
       <div

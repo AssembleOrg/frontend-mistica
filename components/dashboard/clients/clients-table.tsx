@@ -27,6 +27,8 @@ import {
 import { Client } from '@/services/clients.service';
 import { getWhatsAppLink } from '@/lib/utils/whatsapp';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { parseNotes } from '@/lib/client-notes';
+import { ClientNoteChips } from './client-note-chips';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -59,6 +61,7 @@ interface ClientsTableProps {
   onEditClient?: (client: Client) => void;
   onDeleteClient?: (client: Client) => void;
   onCreateClient?: () => void;
+  onManageNotes?: (client: Client) => void;
 }
 
 export function ClientsTable({
@@ -78,6 +81,7 @@ export function ClientsTable({
   onEditClient,
   onDeleteClient,
   onCreateClient,
+  onManageNotes,
 }: ClientsTableProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -156,6 +160,9 @@ export function ClientsTable({
                 <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
                   Contacto
                 </TableHead>
+                <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9 w-[180px]'>
+                  Etiquetas
+                </TableHead>
                 <TableHead className='text-[11px] uppercase tracking-wide text-[#455a54]/70 font-winter-solid h-9'>
                   Transacciones
                 </TableHead>
@@ -218,6 +225,12 @@ export function ClientsTable({
                         <span className='text-[#455a54]/35'>—</span>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell className='py-2.5 w-[180px]'>
+                    <ClientNoteChips
+                      notes={parseNotes(client.notes)}
+                      onManage={() => onManageNotes?.(client)}
+                    />
                   </TableCell>
                   <TableCell className='py-2.5'>
                     <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-winter-solid bg-[#9d684e]/10 text-[#9d684e]'>

@@ -26,11 +26,13 @@ import { useStock } from '@/hooks/useStock';
 import { useCategories } from '@/hooks/useCategories';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { Plus, Package, Download, Upload, AlertTriangle, Layers, ChevronDown, ArrowRight } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 import { exportProductsToExcel } from '@/lib/excel-utils';
 import Link from 'next/link';
 import type { Product } from '@/lib/types';
 
 export default function ProductsPage() {
+  const { canEdit, canDelete, canManageProducts, canViewCosts } = usePermissions();
   // Handle initial data loading
   const { isLoading, error } = useInitialProductsData();
 
@@ -146,30 +148,30 @@ export default function ProductsPage() {
         layout="horizontal"
         hideHeader
         actions={[
-          {
+          ...(canManageProducts ? [{
             id: 'new-product',
             title: 'Nuevo Producto',
             description: 'Agregar al catálogo',
             href: '/dashboard/products/add',
             icon: Plus,
-            color: 'primary',
-          },
-          {
+            color: 'primary' as const,
+          }] : []),
+          ...(canViewCosts ? [{
             id: 'export-excel',
             title: 'Exportar Excel',
             description: 'Descargar template editable',
             icon: Download,
-            color: 'secondary',
+            color: 'secondary' as const,
             onClick: () => exportProductsToExcel(products, categories),
-          },
-          {
+          }] : []),
+          ...(canManageProducts ? [{
             id: 'bulk-update',
             title: 'Actualizar desde Excel',
             description: 'Carga masiva por barcode',
             icon: Upload,
-            color: 'secondary',
+            color: 'secondary' as const,
             onClick: () => setShowBulkUpdate(true),
-          },
+          }] : []),
         ]}
       />
 
@@ -367,6 +369,8 @@ export default function ProductsPage() {
                   categoryFilter={categoryFilter}
                   onCategoryFilterChange={handleCategoryFilterChange}
                   onRefresh={handleRefresh}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                 />
               </div>
               <div className="sm:hidden">
@@ -380,6 +384,8 @@ export default function ProductsPage() {
                   onCategoryFilterChange={handleCategoryFilterChange}
                   onRefresh={() => window.location.reload()}
                   isLoading={isLoading}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
                 />
               </div>
             </>

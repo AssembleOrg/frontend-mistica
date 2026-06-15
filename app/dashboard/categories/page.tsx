@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import {
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { useCategories } from '@/hooks/useCategories';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ColorSwatchPicker } from '@/components/ui/color-swatch-picker';
 import { categoriesService } from '@/services/categories.service';
 import { showToast } from '@/lib/toast';
@@ -30,7 +32,15 @@ interface FormState {
 const EMPTY: FormState = { name: '', description: '', color: '' };
 
 export default function CategoriesPage() {
+  const router = useRouter();
+  const { canManageCategories } = usePermissions();
   const { categories, isLoading, refresh } = useCategories();
+
+  useEffect(() => {
+    if (!canManageCategories) router.replace('/dashboard');
+  }, [canManageCategories, router]);
+
+  if (!canManageCategories) return null;
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -99,13 +109,15 @@ export default function CategoriesPage() {
         title='Categorías'
         subtitle='Gestioná las categorías que usan los productos'
         actions={
-          <Button
-            onClick={openCreate}
-            className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid'
-          >
-            <Plus className='h-4 w-4 mr-2' />
-            Nueva categoría
-          </Button>
+          canManageCategories ? (
+            <Button
+              onClick={openCreate}
+              className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid'
+            >
+              <Plus className='h-4 w-4 mr-2' />
+              Nueva categoría
+            </Button>
+          ) : undefined
         }
       />
 
@@ -135,29 +147,31 @@ export default function CategoriesPage() {
                       )}
                     </div>
                   </div>
-                  <div className='flex items-center gap-1 shrink-0'>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => openEdit(cat)}
-                      className='text-[#455a54] hover:bg-[#9d684e]/10'
-                    >
-                      <Edit2 className='h-4 w-4' />
-                    </Button>
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => handleDelete(cat)}
-                      disabled={deletingId === cat.id}
-                      className='text-red-600 hover:bg-red-50 disabled:opacity-50'
-                    >
-                      {deletingId === cat.id ? (
-                        <Loader2 className='h-4 w-4 animate-spin' />
-                      ) : (
-                        <Trash2 className='h-4 w-4' />
-                      )}
-                    </Button>
-                  </div>
+                  {canManageCategories && (
+                    <div className='flex items-center gap-1 shrink-0'>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => openEdit(cat)}
+                        className='text-[#455a54] hover:bg-[#9d684e]/10'
+                      >
+                        <Edit2 className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => handleDelete(cat)}
+                        disabled={deletingId === cat.id}
+                        className='text-red-600 hover:bg-red-50 disabled:opacity-50'
+                      >
+                        {deletingId === cat.id ? (
+                          <Loader2 className='h-4 w-4 animate-spin' />
+                        ) : (
+                          <Trash2 className='h-4 w-4' />
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

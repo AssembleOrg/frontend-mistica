@@ -18,6 +18,7 @@ import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards'
 // import { SalesTransactionsTab } from '@/components/dashboard/sales/sales-transactions-tab';
 import { SaleDetailPanel } from '@/components/dashboard/sales/sale-detail-panel';
 import { KbdShortcuts } from '@/components/dashboard/sales/kbd-shortcuts';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const CreateSaleModal = dynamic(
   () => import('@/components/dashboard/sales/create-sale-modal').then(m => m.CreateSaleModal),
@@ -37,6 +38,7 @@ const CashEgressDialog = dynamic(
 );
 
 export default function SalesPage() {
+  const { canEdit, canDelete, canCancelSale } = usePermissions();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const submitCreateButtonRef = useRef<HTMLButtonElement | null>(null);
   const submitEditButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -295,8 +297,8 @@ export default function SalesPage() {
                 <SalesMobileView
                   sales={sales}
                   onView={handleSelectSale}
-                  onEdit={handleEditSale}
-                  onDelete={handleDeleteSale}
+                  onEdit={canEdit ? handleEditSale : undefined}
+                  onDelete={canDelete ? handleDeleteSale : undefined}
                   searchValue={searchValue}
                   onSearchChange={handleSearchChange}
                   dateRange={dateRange}
@@ -318,9 +320,9 @@ export default function SalesPage() {
                   selectedSaleId={selectedSale?.id}
                   isPanelOpen={!!selectedSale}
                   onViewSale={handleSelectSale}
-                  onEditSale={handleEditSale}
-                  onDeleteSale={handleDeleteSale}
-                  onCancelSale={handleCancelSale}
+                  onEditSale={canEdit ? handleEditSale : undefined}
+                  onDeleteSale={canDelete ? handleDeleteSale : undefined}
+                  onCancelSale={canCancelSale ? handleCancelSale : undefined}
                   onViewReceipt={handleViewReceipt}
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -377,13 +379,13 @@ export default function SalesPage() {
         onSaleCreated={handleSaleCreated}
         submitButtonRef={submitCreateButtonRef}
       />
-      <EditSaleModal
+      {canEdit && <EditSaleModal
         isOpen={showEditSaleModal}
         onClose={() => { setShowEditSaleModal(false); setSelectedSale(null); }}
         sale={selectedSale}
         onSave={handleUpdateSale}
         submitButtonRef={submitEditButtonRef}
-      />
+      />}
       <CashIncomeDialog
         open={showCashIncomeModal}
         onOpenChange={setShowCashIncomeModal}

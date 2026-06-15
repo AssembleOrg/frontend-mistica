@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProductForm } from '@/components/dashboard/product-form';
 import { ProductFormSkeleton } from '@/components/ui/loading-skeletons';
 import { Product } from '@/lib/types';
 import { notFound } from 'next/navigation';
 import { productsService } from '@/services/products.service';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface EditProductPageProps {
   params: Promise<{
@@ -14,8 +16,16 @@ interface EditProductPageProps {
 }
 
 export default function EditProductPage({ params }: EditProductPageProps) {
+  const router = useRouter();
+  const { canManageProducts } = usePermissions();
   const [isLoading, setIsLoading] = useState(true);
   const [product, setProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    if (!canManageProducts) {
+      router.replace('/dashboard/products');
+    }
+  }, [canManageProducts, router]);
 
   useEffect(() => {
     const loadProduct = async () => {

@@ -12,6 +12,7 @@ import {
   // CreditCard, // usado por la card de Señas (ocultada)
   DollarSign,
   Tag,
+  Activity,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -41,69 +42,20 @@ const SIDEBAR_STYLE = {
 } as React.CSSProperties;
 
 const navigationItems = [
-  {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: Home,
-    enabled: true,
-  },
-  {
-    title: 'Ventas',
-    url: '/dashboard/sales',
-    icon: ShoppingCart,
-    enabled: true,
-  },
-  {
-    title: 'Clientes',
-    url: '/dashboard/clients',
-    icon: UserCheck,
-    enabled: true,
-  },
+  { title: 'Dashboard',       url: '/dashboard',            icon: Home,         enabled: true,  adminOnly: false },
+  { title: 'Ventas',          url: '/dashboard/sales',      icon: ShoppingCart, enabled: true,  adminOnly: false },
+  { title: 'Clientes',        url: '/dashboard/clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
   // se siguen creando desde la venta y viéndose en el detalle del cliente;
   // sólo se quita el acceso directo a /dashboard/prepaids (la ruta queda).
-  // {
-  //   title: 'Señas',
-  //   url: '/dashboard/prepaids',
-  //   icon: CreditCard,
-  //   enabled: true,
-  // },
-  {
-    title: 'Caja y Finanzas',
-    url: '/dashboard/finances',
-    icon: DollarSign,
-    enabled: true,
-  },
-  {
-    title: 'Productos',
-    url: '/dashboard/products',
-    icon: Package,
-    enabled: true,
-  },
-  {
-    title: 'Categorías',
-    url: '/dashboard/categories',
-    icon: Tag,
-    enabled: true,
-  },
-  {
-    title: 'Stock',
-    url: '/dashboard/stock',
-    icon: Warehouse,
-    enabled: true,
-  },
-  {
-    title: 'Personal',
-    url: '/dashboard/staff',
-    icon: Users,
-    enabled: false,
-  },
-  // {
-  //   title: 'Configuración',
-  //   url: '/dashboard/settings',
-  //   icon: Settings,
-  //   enabled: true,
-  // },
+  // { title: 'Señas', url: '/dashboard/prepaids', icon: CreditCard, enabled: true, adminOnly: false },
+  { title: 'Caja y Finanzas', url: '/dashboard/finances',   icon: DollarSign,   enabled: true,  adminOnly: true  },
+  { title: 'Productos',       url: '/dashboard/products',   icon: Package,      enabled: true,  adminOnly: false },
+  { title: 'Categorías',      url: '/dashboard/categories', icon: Tag,          enabled: true,  adminOnly: true  },
+  { title: 'Stock',           url: '/dashboard/stock',      icon: Warehouse,    enabled: true,  adminOnly: true  },
+  { title: 'Actividad',      url: '/dashboard/activity',   icon: Activity,     enabled: true,  adminOnly: true  },
+  { title: 'Personal',        url: '/dashboard/staff',      icon: Users,        enabled: false, adminOnly: true  },
+  // { title: 'Configuración', url: '/dashboard/settings', icon: Settings, enabled: true, adminOnly: true },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -118,23 +70,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }
   };
 
-  // Filter navigation items based on user role
-  // Map backend roles to UI roles for navigation logic
-  const getUserRole = () => {
-    if (!user) return null;
-    // For now, map backend roles to UI expectations
-    // Backend: 'admin' | 'user'  ->  UI logic expects: 'admin' | 'gerente' | 'cajero'
-    return user.role === 'admin' ? 'admin' : 'gerente';
-  };
-
   const userRole = user?.role ?? null;
   const filteredNavItems = React.useMemo(() => {
     return navigationItems.filter((item) => {
-      // Items marcados como enabled:false se ocultan a todos los roles.
       if (item.enabled === false) return false;
-      if (!userRole) return true;
-      const uiRole = userRole === 'admin' ? 'admin' : 'gerente';
-      if (uiRole === 'gerente') return item.title !== 'Personal';
+      if (item.adminOnly && userRole !== 'admin') return false;
       return true;
     });
   }, [userRole]);

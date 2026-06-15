@@ -12,8 +12,10 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { KpiStrip } from '@/components/ui/kpi-strip';
 import { Plus } from 'lucide-react';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function ClientsPage() {
+  const { canEdit, canDelete } = usePermissions();
   const {
     isLoading,
     clients,
@@ -214,10 +216,10 @@ export default function ClientsPage() {
             data={clients}
             isLoading={isLoading}
             onViewClient={handleViewClient}
-            onEditClient={handleEditClient}
-            onDeleteClient={handleDeleteClient}
+            onEditClient={canEdit ? handleEditClient : undefined}
+            onDeleteClient={canDelete ? handleDeleteClient : undefined}
             onCreateClient={handleCreateClient}
-            onManageNotes={handleEditClient}
+            onManageNotes={canEdit ? handleEditClient : undefined}
             searchValue={searchQuery}
             onSearchChange={handleSearch}
             currentPage={currentPage}

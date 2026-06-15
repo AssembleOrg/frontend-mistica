@@ -14,6 +14,7 @@ export function ClientNoteChips({ notes, onManage, maxVisible = 2 }: ClientNoteC
   const overflow = notes.length - maxVisible;
 
   if (notes.length === 0) {
+    if (!onManage) return <span className='text-[11px] text-[#455a54]/30'>—</span>;
     return (
       <button
         type='button'
@@ -27,7 +28,14 @@ export function ClientNoteChips({ notes, onManage, maxVisible = 2 }: ClientNoteC
   }
 
   return (
-    <div className='flex flex-wrap items-center gap-1' onClick={onManage} role='button' tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onManage?.()} style={{ cursor: 'pointer' }}>
+    <div
+      className='flex flex-wrap items-center gap-1'
+      onClick={onManage}
+      role={onManage ? 'button' : undefined}
+      tabIndex={onManage ? 0 : undefined}
+      onKeyDown={onManage ? (e) => e.key === 'Enter' && onManage() : undefined}
+      style={{ cursor: onManage ? 'pointer' : 'default' }}
+    >
       {visible.map((note) => {
         const colors = NOTE_COLORS[note.color] ?? NOTE_COLORS.blue;
         return (

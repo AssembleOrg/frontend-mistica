@@ -128,7 +128,7 @@ export function DateRangePicker({
       </Button>
       
       {isOpen && (
-        <div className="absolute top-full mt-1 z-50 w-auto bg-white border border-[#9d684e]/20 rounded-md shadow-lg">
+        <div className="absolute top-full right-0 mt-1 z-50 w-auto bg-white border border-[#9d684e]/20 rounded-md shadow-lg">
           <div className="p-3">
             <div className="mb-2 text-sm text-[#455a54] font-winter-solid">
               {!selectedRange?.from 

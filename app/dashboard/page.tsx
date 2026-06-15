@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity } from 'lucide-react';
 import Link from 'next/link';
@@ -11,20 +12,21 @@ import { Footer } from '@/components/ui/footer';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
+  const { canEdit: isAdmin } = usePermissions();
 
   const primaryModules = [
-    { name: 'Ventas', description: 'Punto de venta', href: '/dashboard/sales', icon: ShoppingCart, iconBg: 'bg-[#9d684e]' },
-    { name: 'Caja y Finanzas', description: 'Apertura, cierre y reportes', href: '/dashboard/finances', icon: Landmark, iconBg: 'bg-[#455a54]' },
-  ];
+    { name: 'Ventas',          description: 'Punto de venta',           href: '/dashboard/sales',    icon: ShoppingCart, iconBg: 'bg-[#9d684e]',    adminOnly: false },
+    { name: 'Caja y Finanzas', description: 'Apertura, cierre y reportes', href: '/dashboard/finances', icon: Landmark,     iconBg: 'bg-[#455a54]',    adminOnly: true  },
+  ].filter(m => !m.adminOnly || isAdmin);
 
   const secondaryModules = [
-    { name: 'Productos',  description: 'Catálogo',        href: '/dashboard/products',  icon: Package,     iconBg: 'bg-[#cc844a]' },
-    { name: 'Stock',      description: 'Inventario',       href: '/dashboard/stock',     icon: Boxes,       iconBg: 'bg-[#cc844a]/80' },
-    { name: 'Clientes',   description: 'Base de clientes', href: '/dashboard/clients',   icon: UserCircle2, iconBg: 'bg-[#9d684e]/70' },
+    { name: 'Productos',  description: 'Catálogo',        href: '/dashboard/products',  icon: Package,     iconBg: 'bg-[#cc844a]',    adminOnly: false },
+    { name: 'Stock',      description: 'Inventario',       href: '/dashboard/stock',     icon: Boxes,       iconBg: 'bg-[#cc844a]/80', adminOnly: true  },
+    { name: 'Clientes',   description: 'Base de clientes', href: '/dashboard/clients',   icon: UserCircle2, iconBg: 'bg-[#9d684e]/70', adminOnly: false },
     // Card de Señas ocultada a pedido del cliente (la ruta /dashboard/prepaids queda).
-    // { name: 'Señas',      description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70' },
-    { name: 'Actividad',  description: 'Historial',        href: '/dashboard/activity',  icon: Activity,    iconBg: 'bg-[#455a54]/50' },
-  ];
+    // { name: 'Señas',   description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70', adminOnly: false },
+    { name: 'Actividad',  description: 'Historial',        href: '/dashboard/activity',  icon: Activity,    iconBg: 'bg-[#455a54]/50', adminOnly: true  },
+  ].filter(m => !m.adminOnly || isAdmin);
 
   if (!isAuthenticated) {
     return (

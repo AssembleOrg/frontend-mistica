@@ -21,6 +21,8 @@ interface ProductsMobileViewProps {
   products: Product[];
   onEdit?: (product: Product) => void;
   onDelete?: (productId: string) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
   // Filters props
   searchValue?: string;
   onSearchChange?: (value: string) => void;
@@ -32,10 +34,12 @@ interface ProductsMobileViewProps {
   isLoading?: boolean;
 }
 
-export function ProductsMobileView({ 
-  products, 
-  onEdit, 
+export function ProductsMobileView({
+  products,
+  onEdit,
   onDelete,
+  canEdit = true,
+  canDelete = true,
   searchValue,
   onSearchChange,
   dateRange,
@@ -145,17 +149,17 @@ export function ProductsMobileView({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit?.(product)}>
+                  {canEdit && <DropdownMenuItem onClick={() => onEdit?.(product)}>
                     <Edit className="mr-2 h-4 w-4" />
                     Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
+                  </DropdownMenuItem>}
+                  {canDelete && <DropdownMenuItem
                     onClick={() => onDelete?.(product.id)}
                     className="text-[#4e4247]"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     Eliminar
-                  </DropdownMenuItem>
+                  </DropdownMenuItem>}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

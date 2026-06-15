@@ -82,6 +82,8 @@ interface ProductsTableProps {
   categoryFilter?: string;
   onCategoryFilterChange?: (category: string) => void;
   onRefresh?: () => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 export function ProductsTable({ 
@@ -101,6 +103,8 @@ export function ProductsTable({
   categoryFilter = "",
   onCategoryFilterChange,
   onRefresh,
+  canEdit = true,
+  canDelete = true,
 }: ProductsTableProps) {
   const router = useRouter();
   const { deleteProduct } = useProducts();
@@ -492,23 +496,23 @@ export function ProductsTable({
               >
                 Copiar código de barras
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
+              {(canEdit || canDelete) && <DropdownMenuSeparator />}
+              {canEdit && <DropdownMenuItem
                 className='hover:bg-[#efcbb9]/30'
                 onClick={() => handleAction(product.id, 'edit')}
                 disabled={isActionLoading}
               >
                 <Edit className='mr-2 h-4 w-4' />
                 Editar producto
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              </DropdownMenuItem>}
+              {canDelete && <DropdownMenuItem
                 className='text-[#4e4247] hover:bg-[#4e4247]/8'
                 onClick={() => handleAction(product.id, 'delete')}
                 disabled={isActionLoading}
               >
                 <Trash2 className='mr-2 h-4 w-4' />
                 Eliminar
-              </DropdownMenuItem>
+              </DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
         );

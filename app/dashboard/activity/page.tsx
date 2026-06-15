@@ -1,130 +1,104 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { DateRange } from 'react-day-picker';
 import { ActivityTable } from '@/components/dashboard/activity-table';
-import { useActivityStore } from '@/stores/activity.store';
-import { useActivityLogger } from '@/hooks/useActivityLogger';
-import { Button } from '@/components/ui/button';
+import { usePermissions } from '@/hooks/usePermissions';
+import { auditService, type AuditLog } from '@/services/audit.service';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/ui/page-header';
 import { KpiStrip } from '@/components/ui/kpi-strip';
-import { Plus } from 'lucide-react';
-
-const isDev = process.env.NODE_ENV !== 'production';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 export default function ActivityPage() {
-  const { activities } = useActivityStore();
-  const {
-    logProductActivity,
-    logStockActivity,
-    logEmployeeActivity,
-    logFinancialActivity,
-    logSalesActivity,
-    logAuthActivity,
-  } = useActivityLogger();
+  const router = useRouter();
+  const { canEdit: isAdmin } = usePermissions();
+
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  useEffect(() => {
+    if (!isAdmin) router.replace('/dashboard');
+  }, [isAdmin, router]);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const from = dateRange?.from ? dateRange.from.toISOString().slice(0, 10) : undefined;
+      const to = dateRange?.to ? dateRange.to.toISOString().slice(0, 10) : undefined;
+      const res = await auditService.getAuditLogs(1, 200, { from, to });
+      setLogs(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setLogs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dateRange]);
+
+  useEffect(() => {
+    if (isAdmin) load();
+  }, [isAdmin, load]);
 
   const kpis = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayCount = activities.filter((a) => new Date(a.date) >= startOfDay).length;
-    const lastEvent = activities.length > 0 ? new Date(activities[0].date) : null;
+    const todayCount = logs.filter((l) => new Date(l.timestamp) >= startOfDay).length;
+    const lastTs = logs.length > 0 ? new Date(logs[0].timestamp) : null;
 
-    return {
-      total: activities.length,
-      today: todayCount,
-      lastEvent,
-    };
-  }, [activities]);
+    let lastLabel = '—';
+    if (lastTs) {
+      const diffMin = Math.floor((Date.now() - lastTs.getTime()) / 60000);
+      if (diffMin < 1) lastLabel = 'recién';
+      else if (diffMin < 60) lastLabel = `hace ${diffMin}m`;
+      else if (diffMin < 1440) lastLabel = `hace ${Math.floor(diffMin / 60)}h`;
+      else lastLabel = `hace ${Math.floor(diffMin / 1440)}d`;
+    }
 
-  const lastEventLabel = useMemo(() => {
-    if (!kpis.lastEvent) return '—';
-    const diffMs = Date.now() - kpis.lastEvent.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return 'recién';
-    if (diffMin < 60) return `hace ${diffMin}m`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `hace ${diffHr}h`;
-    const diffDay = Math.floor(diffHr / 24);
-    return `hace ${diffDay}d`;
-  }, [kpis.lastEvent]);
+    return { total: logs.length, today: todayCount, lastLabel };
+  }, [logs]);
 
-  const handleAddDemoActivity = () => {
-    const demoActions = [
-      () =>
-        logProductActivity('producto_creado', 'Cristal de Amatista Premium', {
-          productId: 'prod-123',
-          employeeName: 'María González',
-          amount: 8500,
-        }),
-      () =>
-        logStockActivity('ajuste_stock', 'Aceite Esencial de Lavanda', 15, {
-          productId: 'prod-456',
-          reason: 'Reconteo de inventario',
-          employeeName: 'Carlos Ruiz',
-          oldQuantity: 25,
-          newQuantity: 40,
-        }),
-      () =>
-        logEmployeeActivity('empleado_creado', 'Ana Martínez', {
-          employeeId: 'emp-789',
-          role: 'Cajero',
-          performedBy: 'Administrador',
-        }),
-      () =>
-        logFinancialActivity('ingreso', 'Venta servicio de lectura de tarot', 12000, {
-          paymentMethod: 'efectivo',
-          serviceId: 'srv-001',
-          employeeName: 'Luna Pérez',
-        }),
-      () =>
-        logSalesActivity('servicio_cerrado', 'Mesa 3 - Consulta completa', {
-          amount: 18500,
-          serviceId: 'mesa-3',
-          employeeName: 'Sofia Vega',
-          paymentMethod: 'tarjeta',
-          itemsCount: 4,
-        }),
-      () => logAuthActivity('login', 'Roberto Silva'),
-    ];
-
-    const randomAction = demoActions[Math.floor(Math.random() * demoActions.length)];
-    randomAction();
-  };
+  if (!isAdmin) return null;
 
   return (
     <div className='space-y-6'>
       <PageHeader
-        title='Historial de Actividades'
-        subtitle='Registro de movimientos y cambios en esta sesión'
+        title='Auditoría'
+        subtitle='Registro de acciones del equipo en tiempo real'
         actions={
-          isDev ? (
+          <div className='flex items-center gap-2'>
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={setDateRange}
+            />
             <Button
-              onClick={handleAddDemoActivity}
               variant='outline'
-              className='border-[#9d684e]/30 text-[#9d684e] hover:bg-[#9d684e]/10 font-winter-solid w-full sm:w-auto'
+              size='sm'
+              onClick={load}
+              className='border-[#9d684e]/30 text-[#9d684e] hover:bg-[#9d684e]/10 font-winter-solid'
             >
-              <Plus className='w-4 h-4 mr-2' />
-              Demo
+              <RefreshCw className='h-3.5 w-3.5' />
             </Button>
-          ) : null
+          </div>
         }
       />
 
       <KpiStrip
         items={[
-          { label: 'Total registradas', value: kpis.total, hint: 'eventos' },
+          { label: 'Total registros', value: kpis.total, hint: 'eventos' },
           { label: 'Hoy', value: kpis.today, accent: 'var(--color-terracota)' },
-          { label: 'Último evento', value: lastEventLabel, accent: 'var(--color-naranja-medio)' },
+          { label: 'Último evento', value: kpis.lastLabel, accent: 'var(--color-naranja-medio)' },
         ]}
       />
 
-      {/* Tabla con agrupado interno por fecha */}
       <Card className='border-[#9d684e]/20'>
         <CardContent className='pt-6'>
-          <ActivityTable data={activities} isLoading={false} compact={false} />
+          <ActivityTable data={logs} isLoading={isLoading} compact={false} />
         </CardContent>
       </Card>
     </div>
   );
 }
-

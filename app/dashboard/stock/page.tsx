@@ -23,6 +23,8 @@ import {
 import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { StockMovement, Product } from '@/lib/types';
 
@@ -144,6 +146,13 @@ const MOVEMENT_CONFIG = {
 };
 
 export default function StockDashboard() {
+  const router = useRouter();
+  const { canManageStock } = usePermissions();
+
+  useEffect(() => {
+    if (!canManageStock) router.replace('/dashboard');
+  }, [canManageStock, router]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [movementsToShow, setMovementsToShow] = useState(8);
   const [showLowStock, setShowLowStock] = useState(false);
@@ -166,6 +175,8 @@ export default function StockDashboard() {
       return () => clearTimeout(t);
     }
   }, [loadingProducts]);
+
+  if (!canManageStock) return null;
 
   if (isLoading) {
     return (
@@ -197,12 +208,12 @@ export default function StockDashboard() {
             Control y seguimiento de inventario
           </p>
         </div>
-        <Link href='/dashboard/stock/adjustments'>
+        {canManageStock && <Link href='/dashboard/stock/adjustments'>
           <Button className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white gap-2 flex-shrink-0 font-winter-solid'>
             <Plus className='h-4 w-4' />
             <span className='hidden sm:inline'>Ajustar Stock</span>
           </Button>
-        </Link>
+        </Link>}
       </div>
 
       {/* Stat Cards */}

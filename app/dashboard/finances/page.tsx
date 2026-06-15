@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import {
   Banknote,
@@ -28,6 +29,7 @@ import { cashboxService } from '@/services/cashbox.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { showToast } from '@/lib/toast';
 import { SessionDetailDialog } from '@/components/dashboard/finances/session-detail-dialog';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ResolveAutoClosureDialog } from '@/components/dashboard/finances/resolve-auto-closure-dialog';
 import { MonthlyCloseDialog } from '@/components/dashboard/finances/monthly-close-dialog';
 
@@ -57,6 +59,13 @@ function defaultSessionLabel(openedAt: string) {
 }
 
 export default function FinancesPage() {
+  const router = useRouter();
+  const { canEdit } = usePermissions();
+
+  useEffect(() => {
+    if (!canEdit) router.replace('/dashboard');
+  }, [canEdit, router]);
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(),
     to: new Date(),
@@ -160,6 +169,8 @@ export default function FinancesPage() {
   const pendingAutoSession = useMemo(() => {
     return summary?.cashSessions.find(s => s.closureType === 'AUTO');
   }, [summary]);
+
+  if (!canEdit) return null;
 
   return (
     <div className="space-y-5 mt-6">
@@ -359,7 +370,7 @@ export default function FinancesPage() {
                             <span className="font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
                               {s.label || defaultSessionLabel(s.openedAt)}
                             </span>
-                            <button
+                            {canEdit && <button
                               type="button"
                               title="Renombrar caja"
                               onClick={(e) => {
@@ -369,7 +380,7 @@ export default function FinancesPage() {
                               className="opacity-30 hover:opacity-100 transition-opacity"
                             >
                               <Pencil className="h-3.5 w-3.5" style={{ color: 'var(--color-ciruela-oscuro)' }} />
-                            </button>
+                            </button>}
                           </div>
                         )}
                       </div>

@@ -9,9 +9,9 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Save, X, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Client, CreateClientRequest, UpdateClientRequest } from '@/services/clients.service';
+import { ClientLabel } from '@/services/client-labels.service';
 import type { PaymentMethodCode } from '@/services/sales.service';
-import { ClientNotesManager } from './client-notes-manager';
-import { ClientNote, parseNotes, serializeNotes } from '@/lib/client-notes';
+import { Textarea } from '@/components/ui/textarea';
 
 interface PrepaidItem {
   amount: number;
@@ -24,17 +24,18 @@ interface ClientFormProps {
   onSave: (clientData: CreateClientRequest | UpdateClientRequest) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  allLabels?: ClientLabel[];
 }
 
-export function ClientForm({ client, onSave, onCancel, isLoading = false }: ClientFormProps) {
+export function ClientForm({ client, onSave, onCancel, isLoading = false, allLabels = [] }: ClientFormProps) {
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
     email: '',
     cuit: '',
+    notes: '',
   });
-
-  const [clientNotes, setClientNotes] = useState<ClientNote[]>([]);
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [prepaids, setPrepaids] = useState<PrepaidItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -45,8 +46,9 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
         phone: client.phone || '',
         email: client.email || '',
         cuit: client.cuit || '',
+        notes: client.notes ?? '',
       });
-      setClientNotes(parseNotes(client.notes));
+      setSelectedLabelIds(client.labels ?? []);
       // Precargamos sólo las PENDING para que el usuario pueda editarlas
       // o sumar nuevas. Las CONSUMED quedan en el histórico de la DB y el
       // backend no las toca al actualizar.
@@ -64,12 +66,19 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
         phone: '',
         email: '',
         cuit: '',
+        notes: '',
       });
-      setClientNotes([]);
+      setSelectedLabelIds([]);
       setPrepaids([]);
     }
     setErrors({});
   }, [client]);
+
+  const toggleLabel = (labelId: string) => {
+    setSelectedLabelIds((prev) =>
+      prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId]
+    );
+  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -160,7 +169,7 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
       // sincronizar el estado: array vacío = borrar todas las PENDING.
       const clientData: CreateClientRequest | UpdateClientRequest = {
         ...formData,
-        notes: serializeNotes(clientNotes),
+        labels: selectedLabelIds,
         prepaids,
       };
 
@@ -258,7 +267,46 @@ export function ClientForm({ client, onSave, onCancel, isLoading = false }: Clie
               </div>
             </div>
 
-            <ClientNotesManager notes={clientNotes} onChange={setClientNotes} />
+            <div className='space-y-1.5'>
+              <Label htmlFor='notes' className='text-[#455a54] font-winter-solid'>Notas</Label>
+              <Textarea
+                id='notes'
+                value={formData.notes}
+                onChange={(e) => handleInputChange('notes', e.target.value)}
+                placeholder='Observaciones sobre el cliente...'
+                className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 resize-none min-h-[80px]'
+              />
+            </div>
+
+            {allLabels.length > 0 && (
+              <div className='space-y-2'>
+                <Label className='text-[#455a54] font-winter-solid'>Etiquetas</Label>
+                <div className='flex flex-wrap gap-2'>
+                  {allLabels.map((label) => {
+                    const isSelected = selectedLabelIds.includes(label.id);
+                    return (
+                      <button
+                        key={label.id}
+                        type='button'
+                        onClick={() => toggleLabel(label.id)}
+                        className='inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-winter-solid transition-all border-2'
+                        style={{
+                          backgroundColor: isSelected ? (label.color ?? '#455a54') : 'transparent',
+                          borderColor: label.color ?? '#455a54',
+                          color: isSelected ? '#fff' : (label.color ?? '#455a54'),
+                        }}
+                      >
+                        <span
+                          className='w-1.5 h-1.5 rounded-full flex-shrink-0'
+                          style={{ backgroundColor: isSelected ? '#fff' : (label.color ?? '#455a54') }}
+                        />
+                        {label.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Prepaids Section */}

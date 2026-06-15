@@ -11,6 +11,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TableFilters } from '@/components/ui/table-filters';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ProductsTableSkeleton } from '@/components/ui/loading-skeletons';
@@ -25,10 +32,10 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { Client } from '@/services/clients.service';
+import { ClientLabel } from '@/services/client-labels.service';
 import { getWhatsAppLink } from '@/lib/utils/whatsapp';
 import { PaginationControls } from '@/components/ui/pagination-controls';
-import { parseNotes } from '@/lib/client-notes';
-import { ClientNoteChips } from './client-note-chips';
+import { ClientLabelChips } from './client-label-chips';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -56,12 +63,15 @@ interface ClientsTableProps {
   statusFilter?: string;
   onStatusFilterChange?: (status: string) => void;
   onRefresh?: () => void;
+  // Label filter props
+  allLabels?: ClientLabel[];
+  labelFilter?: string;
+  onLabelFilterChange?: (id: string) => void;
   // Action props
   onViewClient?: (client: Client) => void;
   onEditClient?: (client: Client) => void;
   onDeleteClient?: (client: Client) => void;
   onCreateClient?: () => void;
-  onManageNotes?: (client: Client) => void;
 }
 
 export function ClientsTable({
@@ -81,13 +91,16 @@ export function ClientsTable({
   onEditClient,
   onDeleteClient,
   onCreateClient,
-  onManageNotes,
+  allLabels = [],
+  labelFilter = '',
+  onLabelFilterChange,
 }: ClientsTableProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const handleClearFilters = () => {
     onSearchChange?.('');
     onDateRangeChange?.(undefined);
+    onLabelFilterChange?.('');
   };
 
   const formatDate = (dateString: string) => {
@@ -108,7 +121,7 @@ export function ClientsTable({
       .toUpperCase();
   };
 
-  const hasFilters = !!searchValue || !!dateRange;
+  const hasFilters = !!searchValue || !!dateRange || !!labelFilter;
 
   if (isLoading) {
     return <ProductsTableSkeleton />;
@@ -116,14 +129,44 @@ export function ClientsTable({
 
   return (
     <div className='space-y-4'>
-      <TableFilters
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        searchPlaceholder='Buscar clientes por nombre, teléfono o email...'
-        showDateFilter={false}
-        onClearFilters={handleClearFilters}
-        onRefresh={onRefresh || (() => window.location.reload())}
-      />
+      <div className='flex flex-col sm:flex-row gap-2'>
+        <div className='flex-1'>
+          <TableFilters
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+            searchPlaceholder='Buscar clientes por nombre, teléfono o email...'
+            showDateFilter={false}
+            onClearFilters={handleClearFilters}
+            onRefresh={onRefresh || (() => window.location.reload())}
+          />
+        </div>
+        {allLabels.length > 0 && (
+          <Select
+            value={labelFilter || 'all'}
+            onValueChange={(val) => onLabelFilterChange?.(val === 'all' ? '' : val)}
+          >
+            <SelectTrigger className='w-full sm:w-[200px] h-9 border-[#9d684e]/20 text-[#455a54] font-winter-solid text-sm'>
+              <SelectValue placeholder='Todas las etiquetas' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='all' className='font-winter-solid text-sm'>
+                Todas las etiquetas
+              </SelectItem>
+              {allLabels.map((label) => (
+                <SelectItem key={label.id} value={label.id} className='font-winter-solid text-sm'>
+                  <span className='flex items-center gap-2'>
+                    <span
+                      className='w-2 h-2 rounded-full flex-shrink-0'
+                      style={{ backgroundColor: label.color ?? '#455a54' }}
+                    />
+                    {label.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       {data.length === 0 ? (
         hasFilters ? (
@@ -227,9 +270,9 @@ export function ClientsTable({
                     </div>
                   </TableCell>
                   <TableCell className='py-2.5 w-[180px]'>
-                    <ClientNoteChips
-                      notes={parseNotes(client.notes)}
-                      onManage={() => onManageNotes?.(client)}
+                    <ClientLabelChips
+                      labelIds={client.labels ?? []}
+                      allLabels={allLabels}
                     />
                   </TableCell>
                   <TableCell className='py-2.5'>

@@ -115,7 +115,7 @@ export function ProductsTable({
     []
   );
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>({ costPrice: false, profitMargin: false });
   const [rowSelection, setRowSelection] = React.useState({});
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>(
     {}

@@ -25,10 +25,10 @@ export function useClientsAPI() {
     }
   }, []);
 
-  const getClients = useCallback(async (page = 1, limit = 10) => {
+  const getClients = useCallback(async (page = 1, limit = 10, labelId?: string) => {
     setIsLoading(true);
     try {
-      const response = await clientsService.getClients(page, limit);
+      const response = await clientsService.getClients(page, limit, labelId ? { labelId } : undefined);
       setClients(response.data.data);
       return response.data;
     } catch (error) {

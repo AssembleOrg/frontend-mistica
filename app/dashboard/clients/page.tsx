@@ -5,7 +5,9 @@ import { DateRange } from 'react-day-picker';
 import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { ClientsTable } from '@/components/dashboard/clients/clients-table';
 import { ClientForm } from '@/components/dashboard/clients/client-form';
+import { ClientLabelsManager } from '@/components/dashboard/clients/client-labels-manager';
 import { Client, CreateClientRequest, UpdateClientRequest, clientsService } from '@/services/clients.service';
+import { ClientLabel, clientLabelsService } from '@/services/client-labels.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +37,8 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [allLabels, setAllLabels] = useState<ClientLabel[]>([]);
+  const [labelFilter, setLabelFilter] = useState('');
 
   // Debounce search term
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function ClientsPage() {
       if (searchToUse.trim()) {
         response = await searchClients(searchToUse, page, size);
       } else {
-        response = await getClients(page, size);
+        response = await getClients(page, size, labelFilter || undefined);
       }
 
       setCurrentPage(response.meta.page);
@@ -70,11 +74,12 @@ export default function ClientsPage() {
     if (debouncedSearchTerm !== undefined) {
       loadClientsWithFilters(1);
     }
-  }, [debouncedSearchTerm, dateRange]);
+  }, [debouncedSearchTerm, dateRange, labelFilter]);
 
-  // Load clients on component mount
+  // Load clients and labels on component mount
   useEffect(() => {
     loadClientsWithFilters();
+    clientLabelsService.getLabels().then(setAllLabels).catch(() => {});
   }, []);
 
   const handleSearch = async (query: string) => {
@@ -180,6 +185,7 @@ export default function ClientsPage() {
           onSave={handleSaveClient}
           onCancel={handleCancelForm}
           isLoading={isLoading}
+          allLabels={allLabels}
         />
       </div>
     );
@@ -191,13 +197,16 @@ export default function ClientsPage() {
         title='Gestión de Clientes'
         subtitle='Administrá tu base de clientes y mantenela al día'
         actions={
-          <Button
-            onClick={handleCreateClient}
-            className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid w-full sm:w-auto'
-          >
-            <Plus className='h-4 w-4 mr-2' />
-            Nuevo cliente
-          </Button>
+          <div className='flex flex-col sm:flex-row gap-2 w-full sm:w-auto'>
+            <ClientLabelsManager labels={allLabels} onLabelsChange={setAllLabels} />
+            <Button
+              onClick={handleCreateClient}
+              className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid w-full sm:w-auto'
+            >
+              <Plus className='h-4 w-4 mr-2' />
+              Nuevo cliente
+            </Button>
+          </div>
         }
       />
 
@@ -219,7 +228,6 @@ export default function ClientsPage() {
             onEditClient={canEdit ? handleEditClient : undefined}
             onDeleteClient={canDelete ? handleDeleteClient : undefined}
             onCreateClient={handleCreateClient}
-            onManageNotes={canEdit ? handleEditClient : undefined}
             searchValue={searchQuery}
             onSearchChange={handleSearch}
             currentPage={currentPage}
@@ -228,6 +236,9 @@ export default function ClientsPage() {
             pageSize={pageSize}
             onPageSizeChange={handlePageSizeChange}
             totalItems={totalItems}
+            allLabels={allLabels}
+            labelFilter={labelFilter}
+            onLabelFilterChange={setLabelFilter}
           />
         </CardContent>
       </Card>

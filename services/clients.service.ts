@@ -17,6 +17,7 @@ export interface Client {
   // Sólo viene poblado cuando se obtiene el cliente individualmente
   // (GET /clients/:id). En la lista paginada llega `undefined`.
   prepaids?: Prepaid[];
+  labels?: string[]; // Array of label IDs
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -28,6 +29,7 @@ export interface CreateClientRequest {
   email?: string;
   notes?: string;
   cuit?: string;
+  labels?: string[];
   prepaids?: Array<{
     amount: number;
     paymentMethod: PaymentMethodCode;
@@ -41,6 +43,7 @@ export interface UpdateClientRequest {
   email?: string;
   notes?: string;
   cuit?: string;
+  labels?: string[];
   prepaids?: Array<{
     amount: number;
     paymentMethod: PaymentMethodCode;
@@ -67,9 +70,10 @@ export class ClientsService {
     search?: string;
     from?: string;
     to?: string;
+    labelId?: string;
   }): Promise<ApiResponse<PaginatedResponse<Client>>> {
     console.log('👥 CLIENTS SERVICE: Obteniendo clientes paginados:', { page, limit, filters });
-    
+
     // Construir parámetros de consulta
     const params = new URLSearchParams({
       page: page.toString(),
@@ -85,6 +89,9 @@ export class ClientsService {
       }
       if (filters.to) {
         params.append('to', filters.to);
+      }
+      if (filters.labelId) {
+        params.append('labelId', filters.labelId);
       }
     }
 

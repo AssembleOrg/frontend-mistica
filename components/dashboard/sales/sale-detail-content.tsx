@@ -157,10 +157,9 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
   const { recordSaleMovements } = useStock();
   const { products } = useProducts();
 
-  const isPending   = sale.status === 'PENDING';
+  const isPending   = sale.status === 'PENDING' || sale.status === 'PARTIAL';
   const isCompleted = sale.status === 'COMPLETED';
   const isCancelled = sale.status === 'CANCELLED';
-  // Venta pendiente con saldo por cobrar (ex-"seña"). Ya no es un estado propio.
   const hasBalance  = (sale.balanceDue ?? 0) > 0;
   // Una venta está "facturada" cuando AFIP devolvió CAE. Hasta entonces no
   // tiene sentido emitir nota de crédito (no hay factura que invalidar).

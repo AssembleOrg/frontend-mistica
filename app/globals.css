@@ -379,7 +379,8 @@
     top: 0;
     margin: 0 !important;
     /* izq 2mm, der 6mm — margen derecho generoso para que nada toque el borde */
-    padding: 4px 6mm 4px 2mm !important;
+    /* bottom 20mm: fuerza al driver a avanzar el papel antes del corte automático */
+    padding: 4px 6mm 20mm 2mm !important;
     width: 68mm !important;
     max-width: 68mm !important;
     min-height: auto !important;
@@ -459,7 +460,7 @@
   }
   /* "COMPROBANTE NO VALIDO COMO FACTURA" */
   .receipt-thermal .thermal-fineprint {
-    font-size: 8px !important;
+    font-size: 6px !important;
     font-weight: bold !important;
   }
   /* Encabezado seña/pago parcial */

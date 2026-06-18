@@ -220,8 +220,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         )}
         {!isInvoice && (
           <div className="mt-2 border-t border-dashed border-black pt-2">
-            <div className="thermal-fineprint">COMPROBANTE NO VALIDO</div>
-            <div className="thermal-fineprint">COMO FACTURA</div>
+            <div className="thermal-fineprint">COMPROBANTE NO VALIDO COMO FACTURA</div>
           </div>
         )}
         <div className="mt-2">

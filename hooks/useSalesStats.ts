@@ -73,9 +73,8 @@ export function useSalesStats() {
       return d >= todayStart && d <= todayEnd;
     });
 
-    const dailyAmount = todaySales.reduce((sum, s) => sum + s.total, 0);
-    const avgPerSale  = todaySales.length > 0 ? dailyAmount / todaySales.length : 0;
-
+    // Usar suma de pagos reales (no sale.total) para que ventas con saldo
+    // pendiente (PARTIAL) no inflen los ingresos del día con deuda no cobrada.
     let cashAmount = 0, cardAmount = 0, transferAmount = 0;
     let pendingCount = 0, completedCount = 0, cancelledCount = 0;
 
@@ -91,6 +90,8 @@ export function useSalesStats() {
     }
 
     const payTotal = cashAmount + cardAmount + transferAmount;
+    const dailyAmount = payTotal;
+    const avgPerSale  = todaySales.length > 0 ? dailyAmount / todaySales.length : 0;
     const pct = (n: number, d: number) => (d > 0 ? (n / d) * 100 : 0);
 
     // Top productos de hoy

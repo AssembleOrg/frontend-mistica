@@ -47,8 +47,8 @@ export function AddSalePaymentDialog({
   const [markCompleted, setMarkCompleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Solo abrir cuando hay venta PENDING con saldo pendiente por cobrar.
-  const open = !!sale && sale.status === 'PENDING' && (sale.balanceDue ?? 0) > 0;
+  // Abrir cuando hay venta PENDING o PARTIAL con saldo pendiente por cobrar.
+  const open = !!sale && (sale.status === 'PENDING' || sale.status === 'PARTIAL') && (sale.balanceDue ?? 0) > 0;
 
   const balanceDue = sale?.balanceDue ?? 0;
 

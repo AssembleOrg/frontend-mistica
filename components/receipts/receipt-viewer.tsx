@@ -103,7 +103,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
   };
 
   const ThermalReceipt = () => (
-    <div className="receipt-thermal bg-white text-black font-mono leading-tight p-2 break-words" style={{ fontSize: '11px', lineHeight: '1.3', width: '58mm', maxWidth: '58mm' }}>
+    <div className="receipt-thermal bg-white text-black font-mono leading-tight p-2 break-words" style={{ fontSize: '10px', lineHeight: '1.25', width: '80mm', maxWidth: '80mm' }}>
       {/* Header */}
       <div className="border-b border-dashed border-black pb-2 mb-2">
         <div className="thermal-title font-black uppercase break-words" style={{ fontSize: '13px' }}>{companyInfo.name}</div>
@@ -139,9 +139,9 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         {sale.items.map((item, index) => (
           <div key={index} className="mb-1">
             <div className="font-bold break-words">{item.productName}</div>
-            <div className="flex justify-between gap-2">
-              <span className="thermal-label">{item.quantity} x {formatCurrency(item.unitPrice)}</span>
-              <span className="thermal-amount">{formatCurrency(item.subtotal)}</span>
+            <div className="flex justify-between gap-1">
+              <span className="thermal-label flex-1 mr-1">{item.quantity} x {formatCurrency(item.unitPrice)}</span>
+              <span className="thermal-amount shrink-0">{formatCurrency(item.subtotal)}</span>
             </div>
           </div>
         ))}
@@ -149,35 +149,38 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
 
       {/* Totals - label izq, monto a la derecha (estilo sublimarte) */}
       <div className="space-y-1 border-b border-dashed border-black pb-2 mb-2">
-        <div className="flex justify-between gap-2">
-          <span className="thermal-label">Subtotal:</span>
-          <span className="thermal-amount">{formatCurrency(sale.subtotal)}</span>
+        <div className="flex justify-between gap-1">
+          <span className="thermal-label flex-1 mr-1">Subtotal:</span>
+          <span className="thermal-amount shrink-0">{formatCurrency(sale.subtotal)}</span>
         </div>
         {sale.discount > 0 && (
-          <div className="flex justify-between gap-2">
-            <span className="thermal-label">Descuento:</span>
-            <span className="thermal-amount">- {formatCurrency(sale.discount)}</span>
+          <div className="flex justify-between gap-1">
+            <span className="thermal-label flex-1 mr-1">Descuento:</span>
+            <span className="thermal-amount shrink-0">- {formatCurrency(sale.discount)}</span>
           </div>
         )}
         {sale.tax > 0 && (
-          <div className="flex justify-between gap-2">
-            <span className="thermal-label">IVA (21%):</span>
-            <span className="thermal-amount">{formatCurrency(sale.tax)}</span>
+          <div className="flex justify-between gap-1">
+            <span className="thermal-label flex-1 mr-1">IVA (21%):</span>
+            <span className="thermal-amount shrink-0">{formatCurrency(sale.tax)}</span>
           </div>
         )}
-        <div className="thermal-total flex justify-between gap-2 border-t border-black pt-1 mt-1">
-          <span>TOTAL:</span>
-          <span>{formatCurrency(sale.total)}</span>
+        <div className="thermal-total flex justify-between gap-1 border-t border-black pt-1 mt-1">
+          <span className="flex-1 mr-1">TOTAL:</span>
+          <span className="shrink-0">{formatCurrency(sale.total)}</span>
         </div>
         {hasBalance && (
           <>
-            <div className="flex justify-between gap-2">
-              <span className="thermal-label">Pagado:</span>
-              <span className="thermal-amount">{formatCurrency(montoPagado)}</span>
+            <div className="thermal-sena-header border-t border-black pt-1 mt-1 text-center">
+              SEÑA / PAGO PARCIAL
             </div>
-            <div className="flex justify-between gap-2">
-              <span className="thermal-label font-bold">Saldo pendiente:</span>
-              <span className="thermal-amount">{formatCurrency(sale.balanceDue ?? 0)}</span>
+            <div className="flex justify-between gap-1">
+              <span className="thermal-label flex-1 mr-1">Abonado:</span>
+              <span className="thermal-amount shrink-0">{formatCurrency(montoPagado)}</span>
+            </div>
+            <div className="thermal-resta flex justify-between gap-1">
+              <span className="flex-1 mr-1">RESTA ABONAR:</span>
+              <span className="shrink-0">{formatCurrency(sale.balanceDue ?? 0)}</span>
             </div>
           </>
         )}
@@ -186,9 +189,9 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       {/* Payment breakdown - label izq, monto a la derecha */}
       <div className="border-b border-dashed border-black pb-2 mb-2">
         {(sale.payments ?? []).map((p, i) => (
-          <div key={`${p.method}-${i}`} className="flex justify-between gap-2">
-            <span className="thermal-label">{getPaymentMethodLabel(p.method)}</span>
-            <span className="thermal-amount">{formatCurrency(p.amount)}</span>
+          <div key={`${p.method}-${i}`} className="flex justify-between gap-1">
+            <span className="thermal-label flex-1 mr-1">{getPaymentMethodLabel(p.method)}</span>
+            <span className="thermal-amount shrink-0">{formatCurrency(p.amount)}</span>
           </div>
         ))}
       </div>

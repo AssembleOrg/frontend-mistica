@@ -14,7 +14,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AsyncSelect } from '@/components/ui/async-select';
-import { Plus, Minus, Trash2, Save, X, Percent } from 'lucide-react';
+import { Plus, Minus, Trash2, Save, X, Percent, RotateCcw } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import {
@@ -88,6 +88,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // sección "Últimas transacciones". Se persiste con setSaleLinks tras crear /
   // actualizar la venta — NO afecta totales ni saldos.
   const [relatedSaleIds, setRelatedSaleIds] = useState<string[]>([]);
+  const [isConsumidorFinal, setIsConsumidorFinal] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
   // Track de si ya intentamos precargar "Cliente Mostrador" para esta apertura
@@ -200,12 +201,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // Backend hace regex case-insensitive — filtramos exacto para evitar
         // agarrar variantes como "Cliente Mostrador VIP" si existieran.
         const found = res.data?.data?.find(c => c.fullName.trim() === 'Cliente Mostrador');
-        if (cancelled || !found) {
-          if (!cancelled && !found) {
-            showToast.error('Creá el cliente "Cliente Mostrador" en /clients para venta rápida');
-          }
-          return;
-        }
+        if (cancelled || !found) return;
         setSelectedClient(found);
         setCustomerName(found.fullName);
         setCustomerEmail(found.email || '');
@@ -340,7 +336,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // (no tocamos el customerName porque puede estar tipeando uno nuevo).
   const handleClientChange = async (client: Client | null) => {
     setSelectedClient(client);
+    setRelatedSaleIds([]);
     if (!client) {
+      setRecentSales([]);
       setClientPrepaid(null);
       setUsePrepaid(false);
       return;
@@ -422,6 +420,37 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setCartItems([]);
   };
 
+  const handleLoadSale = (sale: Sale) => {
+    setCartItems(
+      sale.items.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: (item.quantity - (item.bonifiedQty ?? 0)) * item.unitPrice,
+        bonifiedQty: item.bonifiedQty ?? 0,
+      })),
+    );
+    setRelatedSaleIds((prev) => (prev.includes(sale.id) ? prev : [...prev, sale.id]));
+
+    if (sale.balanceDue && sale.balanceDue > 0) {
+      // Venta PARTIAL: el descuento = lo ya abonado (total - saldo pendiente).
+      // Así el Resto queda con total = balanceDue sin que el operador tipee nada.
+      const alreadyPaid = sale.total - sale.balanceDue;
+      setAdjustmentType('discount');
+      setAdjustmentAmount(alreadyPaid);
+      setShowAdjustmentInput(true);
+      showToast.success(`Resto cargado · descuento ${formatCurrency(alreadyPaid)} (seña previa)`);
+    } else if (sale.discount && sale.discount !== 0) {
+      setAdjustmentType(sale.discount > 0 ? 'discount' : 'surcharge');
+      setAdjustmentAmount(Math.abs(sale.discount));
+      setShowAdjustmentInput(true);
+      showToast.success(`Ítems de ${sale.saleNumber} cargados en el carrito`);
+    } else {
+      showToast.success(`Ítems de ${sale.saleNumber} cargados en el carrito`);
+    }
+  };
+
   // El backend recibe `discount` con signo: positivo = descuento (resta del
   // total), negativo = recargo (suma). `adjustmentAmount` es siempre el MONTO
   // (en pesos) que ingresa el usuario; el signo lo decide el toggle desc/rec.
@@ -496,6 +525,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setRecentSales([]);
     setRelatedSaleIds([]);
     setIsPartial(false);
+    setIsConsumidorFinal(false);
 
     if (barcodeProcessingTimeout) {
       clearTimeout(barcodeProcessingTimeout);
@@ -548,7 +578,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       // teléfono). Esto evita la fricción de salir a /dashboard/clients para
       // dar de alta un cliente desde el flujo de venta.
       let effectiveClientId = clientId;
-      if (!effectiveClientId && customerName.trim()) {
+      if (!effectiveClientId && customerName.trim() && !isConsumidorFinal) {
         try {
           const created = await clientsService.createClient({
             fullName: customerName.trim(),
@@ -640,7 +670,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { resetForm(); onClose(); } }}>
       <DialogContent
         className="max-w-[95vw] sm:max-w-[800px] max-h-[95vh] overflow-y-auto border-[#9d684e]/20 p-0"
         onOpenAutoFocus={(e) => {
@@ -683,7 +713,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
               {/* Selector de cliente: doble función como input de nombre.
                   Si se elige uno existente, hidrata email/teléfono/cuit.
-                  Si se tipea libre y no se elige, al confirmar venta se crea. */}
+                  Si se tipea libre y no se elige, al confirmar venta se crea
+                  (excepto si isConsumidorFinal está activo). */}
               <div className="space-y-1.5">
                 <Label className="text-xs text-[#455a54] font-winter-solid">
                   Cliente <span className="text-red-500">*</span> <span className="text-[#455a54]/50">(buscar o tipear nuevo)</span>
@@ -708,6 +739,32 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   onFreeTextChange={setCustomerName}
                 />
               </div>
+
+              {!selectedClient && (
+                <div className="flex items-start gap-2 rounded-md border border-[#9d684e]/20 bg-white p-2.5">
+                  <input
+                    type="checkbox"
+                    id="isConsumidorFinal"
+                    checked={isConsumidorFinal}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setIsConsumidorFinal(next);
+                      if (next) setCustomerName('Consumidor Final');
+                      else setCustomerName('');
+                    }}
+                    disabled={isSubmitting}
+                    className="mt-0.5 rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a]"
+                  />
+                  <label htmlFor="isConsumidorFinal" className="flex-1 cursor-pointer">
+                    <div className="text-sm font-medium text-[#455a54] font-winter-solid">
+                      Consumidor Final
+                    </div>
+                    <div className="text-xs text-[#455a54]/60 font-winter-solid">
+                      No se guarda como cliente registrado
+                    </div>
+                  </label>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -758,36 +815,41 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">
                   <h4 className="text-xs font-semibold text-[#455a54] uppercase tracking-wider">Últimas transacciones</h4>
                   <p className="text-[10px] text-[#455a54]/50 font-winter-solid -mt-1">
-                    Tildá para relacionar esta venta con otra (informativo).
+                    Repetí para cargar los ítems · tildá para relacionar (informativo).
                   </p>
                   <ul className="space-y-1.5">
                     {recentSales
-                      // No ofrecemos relacionar la venta consigo misma (modo edición).
                       .filter((sale) => sale.id !== editingSale?.id)
                       .map((sale) => {
                         const isLinked = relatedSaleIds.includes(sale.id);
                         return (
-                          <li key={sale.id}>
-                            <label className="text-xs flex items-center cursor-pointer text-[#455a54]/80 gap-2">
-                              <input
-                                type="checkbox"
-                                checked={isLinked}
-                                onChange={(e) => {
-                                  setRelatedSaleIds((prev) =>
-                                    e.target.checked
-                                      ? [...prev, sale.id]
-                                      : prev.filter((x) => x !== sale.id),
-                                  );
-                                }}
-                                className="rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a] shrink-0"
-                              />
-                              <span className="truncate flex-1" title={sale.items.map(i => i.productName).join(', ')}>
-                                {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
-                              </span>
-                              <span className="font-semibold text-[#455a54] whitespace-nowrap">
-                                {formatCurrency(sale.total)}
-                              </span>
-                            </label>
+                          <li key={sale.id} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isLinked}
+                              onChange={(e) => {
+                                setRelatedSaleIds((prev) =>
+                                  e.target.checked
+                                    ? [...prev, sale.id]
+                                    : prev.filter((x) => x !== sale.id),
+                                );
+                              }}
+                              className="rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a] shrink-0"
+                            />
+                            <span className="truncate flex-1 text-xs text-[#455a54]/80" title={sale.items.map(i => i.productName).join(', ')}>
+                              {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
+                            </span>
+                            <span className="text-xs font-semibold text-[#455a54] whitespace-nowrap">
+                              {formatCurrency(sale.total)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleLoadSale(sale)}
+                              title="Cargar ítems de esta venta"
+                              className="shrink-0 p-1 rounded hover:bg-[#9d684e]/10 text-[#9d684e] transition-colors"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
                           </li>
                         );
                       })}

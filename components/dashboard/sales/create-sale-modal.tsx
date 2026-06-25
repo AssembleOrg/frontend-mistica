@@ -467,23 +467,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // balanceDue de cada venta marcada (de recentSales). Suma al total (sin stock).
   const settledAmount = settleSel?.amount || 0;
 
-  // Cambia la venta/monto a abonar Y carga el faltante en el pago (para poder
-  // ejecutar el cobro sin retipear). Ajusta la 1ª línea de pago por el delta;
-  // si no hay pagos, crea uno. En venta parcial no aplica (el saldo no se cobra).
+  // Selecciona la venta/monto a abonar. El monto a cobrar lo sincroniza el
+  // efecto de pagos por delta (al cambiar `total`), así el faltante se carga y
+  // se puede ejecutar el cobro sin retipear.
   const applySettle = (next: { saleId: string; amount: number } | null) => {
-    const prevAmt = settleSel?.amount || 0;
-    const newAmt = next?.amount || 0;
-    const diff = Number((newAmt - prevAmt).toFixed(2));
     setSettleSel(next);
-    if (isPartial || Math.abs(diff) < 0.005) return;
-    setPayments((prev) => {
-      if (prev.length === 0) {
-        return newAmt > 0 ? [{ method: 'TRANSFER', amount: Number(newAmt.toFixed(2)) }] : prev;
-      }
-      const copy = [...prev];
-      copy[0] = { ...copy[0], amount: Math.max(0, Number(((copy[0].amount || 0) + diff).toFixed(2))) };
-      return copy;
-    });
   };
 
   const calculateTotals = () => {
@@ -524,19 +512,40 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const { subtotal, adjustmentApplied, prepaidAmount, total } = calculateTotals();
 
-  // Inicializar la línea CASH cuando no hay pagos cargados todavía. NO se
-  // re-balancea automáticamente al cambiar el total. En precio libre (isPartial)
-  // arrancamos una línea CASH en 0: lo que tipee el operador ES el total.
+  // Sincroniza el monto a cobrar con el total. Cuando el total cambia (agregar
+  // producto, seleccionar saldo a cobrar, cambiar cantidad), la 1ª línea de pago
+  // se ajusta por el DELTA, así "agregar producto" o "cobrar saldo" SUMA al monto
+  // en vez de quedar como un descuento automático. Si el operador bajó el pago a
+  // mano (cobro parcial intencional), ese descuento relativo se preserva.
+  // En precio libre (isPartial) el operador tipea lo que cobra: no sincronizamos.
+  // En edición la venta ya trae sus pagos: tampoco.
+  const prevTotalRef = useRef(0);
   useEffect(() => {
-    if (payments.length === 0) {
-      if (isPartial) {
-        setPayments([{ method: 'TRANSFER', amount: 0 }]);
-      } else if (total > 0) {
-        setPayments([{ method: 'TRANSFER', amount: total }]);
-      }
+    if (editingSale) {
+      prevTotalRef.current = total;
+      return;
     }
+    if (isPartial) {
+      setPayments((p) => (p.length === 0 ? [{ method: 'TRANSFER', amount: 0 }] : p));
+      prevTotalRef.current = total;
+      return;
+    }
+    const delta = Number((total - prevTotalRef.current).toFixed(2));
+    prevTotalRef.current = total;
+    setPayments((p) => {
+      if (p.length === 0) {
+        return total > 0 ? [{ method: 'TRANSFER', amount: Number(total.toFixed(2)) }] : p;
+      }
+      if (Math.abs(delta) < 0.005) return p;
+      const copy = [...p];
+      copy[0] = {
+        ...copy[0],
+        amount: Math.max(0, Number(((copy[0].amount || 0) + delta).toFixed(2))),
+      };
+      return copy;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total, isPartial]);
+  }, [total, isPartial, editingSale]);
 
   const resetForm = () => {
     setSelectedClient(null);

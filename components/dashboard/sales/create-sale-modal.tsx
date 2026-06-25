@@ -466,9 +466,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // Saldo de ventas anteriores que se cobra dentro de esta venta. Se toma el
   // balanceDue de cada venta marcada (de recentSales). Suma al total (sin stock).
   const settledAmount = settleSel?.amount || 0;
-  const settledSaleNumber = settleSel
-    ? recentSales.find((s) => s.id === settleSel.saleId)?.saleNumber
-    : undefined;
+  const settledSaleLabel = (() => {
+    if (!settleSel) return undefined;
+    const s = recentSales.find((x) => x.id === settleSel.saleId);
+    return s?.name?.trim() || s?.saleNumber;
+  })();
 
   // Selecciona la venta/monto a abonar. El monto a cobrar lo sincroniza el
   // efecto de pagos por delta (al cambiar `total`), así el faltante se carga y
@@ -1392,7 +1394,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                             className="flex justify-between text-xs sm:text-sm font-winter-solid"
                             style={{ color: 'var(--color-naranja-medio)' }}
                           >
-                            <span>Saldo pendiente{settledSaleNumber ? ` · ${settledSaleNumber}` : ''}:</span>
+                            <span>Saldo pendiente{settledSaleLabel ? ` · ${settledSaleLabel}` : ''}:</span>
                             <span>+{formatCurrency(settledAmount)}</span>
                           </div>
                         )}

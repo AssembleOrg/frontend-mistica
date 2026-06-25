@@ -153,7 +153,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         {/* Cobro de saldo de ventas anteriores: línea como si fuera un ítem. */}
         {(sale.settledLines || []).map((l, i) => (
           <div key={`settle-${i}`} className="mb-1">
-            <div className="font-bold break-words">Saldo pendiente {l.saleNumber}</div>
+            <div className="font-bold break-words">Saldo pendiente {l.saleName?.trim() || l.saleNumber}</div>
             <div className="flex justify-between gap-1">
               <span className="thermal-label flex-1 mr-1">Cobro de saldo</span>
               <span className="thermal-amount shrink-0">{formatCurrency(l.amount)}</span>
@@ -328,7 +328,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             {/* Cobro de saldo de ventas anteriores: fila como si fuera un ítem. */}
             {(sale.settledLines || []).map((l, i) => (
               <tr key={`settle-${i}`} className="border-b">
-                <td className="border border-gray-300 px-4 py-3">Saldo pendiente {l.saleNumber}</td>
+                <td className="border border-gray-300 px-4 py-3">Saldo pendiente {l.saleName?.trim() || l.saleNumber}</td>
                 <td className="border border-gray-300 px-4 py-3 text-center">1</td>
                 <td className="border border-gray-300 px-4 py-3 text-right">{formatCurrency(l.amount)}</td>
                 <td className="border border-gray-300 px-4 py-3 text-right font-medium">{formatCurrency(l.amount)}</td>

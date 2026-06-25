@@ -840,7 +840,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">
                   <h4 className="text-xs font-semibold text-[#455a54] uppercase tracking-wider">Últimas transacciones</h4>
                   <p className="text-[10px] text-[#455a54]/50 font-winter-solid -mt-1">
-                    Repetí para cargar los ítems · tildá para relacionar · si hay saldo, indicá cuánto abonar acá.
+                    Tocá una venta con saldo para cobrarlo acá · ícono ↺ repite los ítems · tildá para relacionar.
                   </p>
                   <ul className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {recentSales
@@ -849,9 +849,19 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         const isLinked = relatedSaleIds.includes(sale.id);
                         const saldo = sale.balanceDue || 0;
                         const hasSaldo = saldo > 0;
+                        const canSettle = hasSaldo && !isPartial;
                         const isSel = settleSel?.saleId === sale.id;
+                        // Al seleccionar una venta con saldo, se carga su faltante
+                        // automáticamente a cobrar. Click de nuevo deselecciona.
+                        const selectForSettle = () => {
+                          if (!canSettle) return;
+                          setSettleSel(isSel ? null : { saleId: sale.id, amount: Number(saldo.toFixed(2)) });
+                        };
                         return (
-                          <li key={sale.id} className="flex flex-col gap-1">
+                          <li
+                            key={sale.id}
+                            className={`flex flex-col gap-1 rounded-md ${isSel ? 'bg-[#cc844a]/10 ring-1 ring-[#cc844a]/40 px-1.5 py-1' : ''}`}
+                          >
                           <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -863,11 +873,23 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                                     : prev.filter((x) => x !== sale.id),
                                 );
                               }}
+                              title="Relacionar (informativo)"
                               className="rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a] shrink-0"
                             />
-                            <span className="truncate flex-1 text-xs text-[#455a54]/80" title={sale.items.map(i => i.productName).join(', ')}>
-                              {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
-                            </span>
+                            {canSettle ? (
+                              <button
+                                type="button"
+                                onClick={selectForSettle}
+                                title="Seleccionar para cobrar su saldo pendiente en esta venta"
+                                className="truncate flex-1 text-left text-xs text-[#455a54]/80 hover:text-[#9d684e] cursor-pointer"
+                              >
+                                {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
+                              </button>
+                            ) : (
+                              <span className="truncate flex-1 text-xs text-[#455a54]/80" title={sale.items.map(i => i.productName).join(', ')}>
+                                {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
+                              </span>
+                            )}
                             <span className="text-xs font-semibold text-[#455a54] whitespace-nowrap">
                               {formatCurrency(sale.total)}
                             </span>
@@ -880,42 +902,32 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          {hasSaldo && !isPartial && (
+                          {isSel && (
                             <div className="ml-6 flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-winter-solid" style={{ color: 'var(--color-naranja-medio)' }}>
+                                Saldo a cobrar
+                              </span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={saldo}
+                                step="0.01"
+                                value={settleSel?.amount || ''}
+                                onChange={(e) => {
+                                  const raw = parseFloat(e.target.value);
+                                  const clamped = isNaN(raw) ? 0 : Math.max(0, Math.min(raw, saldo));
+                                  setSettleSel({ saleId: sale.id, amount: Number(clamped.toFixed(2)) });
+                                }}
+                                className="w-24 h-6 text-[11px] px-1.5 rounded border border-[#cc844a]/40 focus:border-[#cc844a] focus:outline-none tabular-nums"
+                              />
+                              <span className="text-[10px] text-[#455a54]/50">de {formatCurrency(saldo)}</span>
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setSettleSel(
-                                    isSel ? null : { saleId: sale.id, amount: Number(saldo.toFixed(2)) },
-                                  )
-                                }
-                                title="Cobrar el faltante de esta venta dentro de la venta nueva"
-                                className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-                                  isSel
-                                    ? 'bg-[#cc844a] text-white border-[#cc844a]'
-                                    : 'bg-[#cc844a]/10 text-[#9d684e] border-[#cc844a]/30 hover:bg-[#cc844a]/20'
-                                }`}
+                                onClick={() => setSettleSel(null)}
+                                className="text-[10px] text-[#455a54]/50 hover:text-[#455a54]"
                               >
-                                {isSel ? '✓ ' : ''}Faltante {formatCurrency(saldo)}
+                                quitar
                               </button>
-                              {isSel && (
-                                <>
-                                  <span className="text-[10px] text-[#455a54]/60">cobrar ahora</span>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={saldo}
-                                    step="0.01"
-                                    value={settleSel?.amount || ''}
-                                    onChange={(e) => {
-                                      const raw = parseFloat(e.target.value);
-                                      const clamped = isNaN(raw) ? 0 : Math.max(0, Math.min(raw, saldo));
-                                      setSettleSel({ saleId: sale.id, amount: Number(clamped.toFixed(2)) });
-                                    }}
-                                    className="w-20 h-6 text-[11px] px-1.5 rounded border border-[#cc844a]/40 focus:border-[#cc844a] focus:outline-none tabular-nums"
-                                  />
-                                </>
-                              )}
                             </div>
                           )}
                           </li>

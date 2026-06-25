@@ -859,7 +859,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">
                   <h4 className="text-xs font-semibold text-[#455a54] uppercase tracking-wider">Últimas transacciones</h4>
                   <p className="text-[10px] text-[#455a54]/50 font-winter-solid -mt-1">
-                    Tocá una venta con saldo para cobrarlo acá · ícono ↺ repite los ítems · tildá para relacionar.
+                    "Cobrar saldo" suma el faltante a esta venta · ícono ↺ repite los ítems · tildá para relacionar.
                   </p>
                   <ul className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {recentSales
@@ -895,29 +895,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               title="Relacionar (informativo)"
                               className="rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a] shrink-0"
                             />
-                            {canSettle ? (
-                              <button
-                                type="button"
-                                onClick={selectForSettle}
-                                title="Seleccionar para cobrar su saldo pendiente en esta venta"
-                                className="truncate flex-1 text-left text-xs text-[#455a54]/80 hover:text-[#9d684e] cursor-pointer"
-                              >
-                                {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
-                              </button>
-                            ) : (
-                              <span className="truncate flex-1 text-xs text-[#455a54]/80" title={sale.items.map(i => i.productName).join(', ')}>
-                                {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
-                              </span>
-                            )}
-                            <span className="flex flex-col items-end leading-tight whitespace-nowrap">
-                              <span className="text-xs font-semibold text-[#455a54]">
-                                {formatCurrency(sale.total)}
-                              </span>
-                              {canSettle && (
-                                <span className="text-[10px] font-winter-solid" style={{ color: 'var(--color-naranja-medio)' }}>
-                                  debe {formatCurrency(saldo)}
-                                </span>
-                              )}
+                            <span className="truncate flex-1 text-xs text-[#455a54]/80" title={sale.items.map(i => i.productName).join(', ')}>
+                              {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
+                            </span>
+                            <span className="text-xs font-semibold text-[#455a54] whitespace-nowrap">
+                              {formatCurrency(sale.total)}
                             </span>
                             <button
                               type="button"
@@ -928,6 +910,21 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
                           </div>
+                          {canSettle && (
+                            <button
+                              type="button"
+                              onClick={selectForSettle}
+                              title="Cobrar el saldo pendiente de esta venta dentro de la venta nueva"
+                              className={`ml-6 self-start text-[11px] px-2 py-1 rounded border transition-colors ${
+                                isSel
+                                  ? 'bg-[#cc844a] text-white border-[#cc844a]'
+                                  : 'bg-[#cc844a]/10 text-[#9d684e] border-[#cc844a]/40 hover:bg-[#cc844a]/20'
+                              }`}
+                            >
+                              {isSel ? '✓ Cobrando saldo ' : 'Cobrar saldo '}
+                              {formatCurrency(saldo)}
+                            </button>
+                          )}
                           {isSel && (
                             <div className="ml-6 flex items-center gap-1.5 flex-wrap">
                               <span className="text-[10px] font-winter-solid" style={{ color: 'var(--color-naranja-medio)' }}>

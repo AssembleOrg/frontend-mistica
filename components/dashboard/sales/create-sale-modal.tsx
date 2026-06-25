@@ -890,8 +890,15 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                                 {new Date(sale.createdAt).toLocaleDateString('es-AR')} · <span className="text-[#455a54]">{sale.items.map(i => i.productName).join(', ') || sale.saleNumber}</span>
                               </span>
                             )}
-                            <span className="text-xs font-semibold text-[#455a54] whitespace-nowrap">
-                              {formatCurrency(sale.total)}
+                            <span className="flex flex-col items-end leading-tight whitespace-nowrap">
+                              <span className="text-xs font-semibold text-[#455a54]">
+                                {formatCurrency(sale.total)}
+                              </span>
+                              {canSettle && (
+                                <span className="text-[10px] font-winter-solid" style={{ color: 'var(--color-naranja-medio)' }}>
+                                  debe {formatCurrency(saldo)}
+                                </span>
+                              )}
                             </span>
                             <button
                               type="button"

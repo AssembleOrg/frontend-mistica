@@ -151,6 +151,9 @@ export interface Sale {
   afipFechaVto?: string;
   /** Saldo pendiente (sólo > 0 cuando status === 'PARTIAL'). */
   balanceDue?: number;
+  /** Cobros de saldo de ventas anteriores hechos en esta venta. Se muestran
+   *  como línea "Saldo pendiente V-XXX". El monto ya está incluido en `total`. */
+  settledLines?: { saleId?: string; saleNumber: string; amount: number }[];
   /** Ids de ventas relacionadas (vínculo mutuo, informativo). Viene en la lista
    *  y el detalle; sirve para mostrar el distintivo 🔗. */
   relatedSaleIds?: string[];

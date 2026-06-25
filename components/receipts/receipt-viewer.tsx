@@ -72,6 +72,11 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
   const hasBalance = (sale.balanceDue ?? 0) > 0;
   const montoPagado = sale.total - (sale.balanceDue ?? 0);
 
+  // Cobro de saldos de ventas anteriores listados como ítems: el subtotal
+  // mostrado los incluye para que las líneas cuadren con el Subtotal y el TOTAL.
+  const settledTotal = (sale.settledLines || []).reduce((acc, l) => acc + (l.amount || 0), 0);
+  const displaySubtotal = sale.subtotal + settledTotal;
+
   const handlePrint = () => {
     window.print();
   };
@@ -145,13 +150,23 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             </div>
           </div>
         ))}
+        {/* Cobro de saldo de ventas anteriores: línea como si fuera un ítem. */}
+        {(sale.settledLines || []).map((l, i) => (
+          <div key={`settle-${i}`} className="mb-1">
+            <div className="font-bold break-words">Saldo pendiente {l.saleNumber}</div>
+            <div className="flex justify-between gap-1">
+              <span className="thermal-label flex-1 mr-1">Cobro de saldo</span>
+              <span className="thermal-amount shrink-0">{formatCurrency(l.amount)}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Totals - label izq, monto a la derecha (estilo sublimarte) */}
       <div className="space-y-1 border-b border-dashed border-black pb-2 mb-2">
         <div className="flex justify-between gap-1">
           <span className="thermal-label flex-1 mr-1">Subtotal:</span>
-          <span className="thermal-amount shrink-0">{formatCurrency(sale.subtotal)}</span>
+          <span className="thermal-amount shrink-0">{formatCurrency(displaySubtotal)}</span>
         </div>
         {sale.discount > 0 && (
           <div className="flex justify-between gap-1">
@@ -310,6 +325,15 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
                 <td className="border border-gray-300 px-4 py-3 text-right font-medium">{formatCurrency(item.subtotal)}</td>
               </tr>
             ))}
+            {/* Cobro de saldo de ventas anteriores: fila como si fuera un ítem. */}
+            {(sale.settledLines || []).map((l, i) => (
+              <tr key={`settle-${i}`} className="border-b">
+                <td className="border border-gray-300 px-4 py-3">Saldo pendiente {l.saleNumber}</td>
+                <td className="border border-gray-300 px-4 py-3 text-center">1</td>
+                <td className="border border-gray-300 px-4 py-3 text-right">{formatCurrency(l.amount)}</td>
+                <td className="border border-gray-300 px-4 py-3 text-right font-medium">{formatCurrency(l.amount)}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -320,7 +344,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>{formatCurrency(sale.subtotal)}</span>
+              <span>{formatCurrency(displaySubtotal)}</span>
             </div>
             {sale.discount > 0 && (
               <div className="flex justify-between text-red-600">

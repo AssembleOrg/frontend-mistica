@@ -88,10 +88,6 @@ export function PrepaidsTable({
       minute: '2-digit',
     });
 
-  if (isLoading) {
-    return <ProductsTableSkeleton />;
-  }
-
   return (
     <div className='space-y-4'>
       <form onSubmit={handleSearch} className='flex gap-2'>
@@ -113,7 +109,11 @@ export function PrepaidsTable({
         </Button>
       </form>
 
-      {data.length === 0 ? (
+      {isLoading ? (
+        // El buscador (form de arriba) queda montado durante el fetch: si se
+        // desmontara, el input perdería foco y lo tipeado en cada recarga.
+        <ProductsTableSkeleton />
+      ) : data.length === 0 ? (
         <EmptyState
           icon={CreditCard}
           title='Todavía no hay señas'

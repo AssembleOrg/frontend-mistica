@@ -36,23 +36,15 @@ export default function ClientsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [allLabels, setAllLabels] = useState<ClientLabel[]>([]);
   const [labelFilter, setLabelFilter] = useState('');
 
-  // Debounce search term
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchQuery);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Unified function to load clients with all filters
-  const loadClientsWithFilters = async (page = 1, size = pageSize, immediate = false) => {
+  // El debounce de la búsqueda ya vive en el input (TableFilters): `searchQuery`
+  // sólo se actualiza cuando el usuario hace una pausa. No hace falta un segundo
+  // debounce acá (antes eran 2 en serie = 600ms de lag).
+  const loadClientsWithFilters = async (page = 1, size = pageSize) => {
     try {
-      const searchToUse = immediate ? searchQuery : debouncedSearchTerm;
+      const searchToUse = searchQuery;
       let response;
 
       if (searchToUse.trim()) {
@@ -71,10 +63,8 @@ export default function ClientsPage() {
 
   // Consolidated useEffect for all filter changes
   useEffect(() => {
-    if (debouncedSearchTerm !== undefined) {
-      loadClientsWithFilters(1);
-    }
-  }, [debouncedSearchTerm, dateRange, labelFilter]);
+    loadClientsWithFilters(1);
+  }, [searchQuery, dateRange, labelFilter]);
 
   // Load clients and labels on component mount
   useEffect(() => {
@@ -87,16 +77,16 @@ export default function ClientsPage() {
   };
 
   const handlePageChange = (page: number) => {
-    loadClientsWithFilters(page, pageSize, true);
+    loadClientsWithFilters(page, pageSize);
     setCurrentPage(page);
   };
 
   const handlePageSizeChange = (newPageSize: number) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
-    // Fetch manual: el useEffect de filtros solo depende de [debouncedSearchTerm, dateRange],
-    // por lo que un cambio de pageSize no dispara refetch automático. No es duplicado.
-    loadClientsWithFilters(1, newPageSize, true);
+    // Fetch manual: el useEffect de filtros solo depende de [searchQuery, dateRange,
+    // labelFilter], por lo que un cambio de pageSize no dispara refetch automático.
+    loadClientsWithFilters(1, newPageSize);
   };
 
   const handleCreateClient = () => {
@@ -133,7 +123,7 @@ export default function ClientsPage() {
     if (window.confirm(message)) {
       try {
         await deleteClient(client.id);
-        await loadClientsWithFilters(currentPage, pageSize, true);
+        await loadClientsWithFilters(currentPage, pageSize);
       } catch (error) {
         console.error('Error deleting client:', error);
       }
@@ -144,10 +134,10 @@ export default function ClientsPage() {
     try {
       if (editingClient) {
         await updateClient(editingClient.id, clientData as UpdateClientRequest);
-        await loadClientsWithFilters(currentPage, pageSize, true);
+        await loadClientsWithFilters(currentPage, pageSize);
       } else {
         await createClient(clientData as CreateClientRequest);
-        await loadClientsWithFilters(1, pageSize, true);
+        await loadClientsWithFilters(1, pageSize);
       }
 
       setShowForm(false);

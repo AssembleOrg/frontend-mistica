@@ -88,6 +88,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // sección "Últimas transacciones". Se persiste con setSaleLinks tras crear /
   // actualizar la venta — NO afecta totales ni saldos.
   const [relatedSaleIds, setRelatedSaleIds] = useState<string[]>([]);
+  // Ventas viejas PENDING/PARTIAL del cliente cuyo saldo (balanceDue) se cobra
+  // DENTRO de esta venta nueva. El monto se suma al total (sin stock) y el
+  // backend salda cada venta vieja sin sumarle pago. Sólo en venta no parcial.
+  const [settledSaleIds, setSettledSaleIds] = useState<string[]>([]);
   const [isConsumidorFinal, setIsConsumidorFinal] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
@@ -337,6 +341,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const handleClientChange = async (client: Client | null) => {
     setSelectedClient(client);
     setRelatedSaleIds([]);
+    setSettledSaleIds([]);
     if (!client) {
       setRecentSales([]);
       setClientPrepaid(null);
@@ -371,8 +376,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     }
 
     try {
-      // Fetch recent sales (1 page, 3 items)
-      const salesRes = await salesService.getSales(1, 3, { clientId: client.id });
+      // Fetch recent sales (1 page, 5 items)
+      const salesRes = await salesService.getSales(1, 5, { clientId: client.id });
       setRecentSales(salesRes.data?.data || []);
     } catch (error) {
       console.error('Error fetching recent sales:', error);
@@ -456,6 +461,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // (en pesos) que ingresa el usuario; el signo lo decide el toggle desc/rec.
   const signedDiscount = adjustmentType === 'discount' ? adjustmentAmount : -adjustmentAmount;
 
+  // Saldo de ventas anteriores que se cobra dentro de esta venta. Se toma el
+  // balanceDue de cada venta marcada (de recentSales). Suma al total (sin stock).
+  const settledAmount = recentSales
+    .filter((s) => settledSaleIds.includes(s.id))
+    .reduce((acc, s) => acc + (s.balanceDue || 0), 0);
+
   const calculateTotals = () => {
     // Pago parcial / precio libre: el TOTAL es lo que se cobra ahora (Σ pagos).
     // El precio de lista de los productos se ignora (el backend reescala los
@@ -473,8 +484,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     // Venta sin productos: el total ES el "monto a cobrar" (suma de pagos).
     // No aplican descuentos, impuestos ni señas; el subtotal queda alineado
-    // al total para que la vista lo muestre coherente.
-    if (cartItems.length === 0) {
+    // al total para que la vista lo muestre coherente. Excepción: si se está
+    // cobrando saldo de ventas anteriores, ese monto integra el total esperado.
+    if (cartItems.length === 0 && settledAmount === 0) {
       const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
       return { subtotal: paymentsSum, tax: 0, adjustmentApplied: 0, prepaidAmount: 0, total: paymentsSum };
     }
@@ -484,7 +496,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     const adjustmentApplied = signedDiscount;
     const subtotalAfterAdjustment = subtotal - adjustmentApplied;
     const prepaidAmount = usePrepaid && clientPrepaid ? Math.min(clientPrepaid.amount, subtotalAfterAdjustment) : 0;
-    const total = Math.max(0, subtotalAfterAdjustment + tax - prepaidAmount);
+    // El saldo anterior se suma al total a cobrar (no toca stock ni subtotal de
+    // productos; el backend lo registra como recargo y salda la venta vieja).
+    const total = Math.max(0, subtotalAfterAdjustment + tax - prepaidAmount + settledAmount);
 
     return { subtotal, tax, adjustmentApplied, prepaidAmount, total };
   };
@@ -524,6 +538,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setShowAdjustmentInput(false);
     setRecentSales([]);
     setRelatedSaleIds([]);
+    setSettledSaleIds([]);
     setIsPartial(false);
     setIsConsumidorFinal(false);
 
@@ -618,6 +633,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         prepaidId: !isPartial && usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: !isPartial && usePrepaid,
         isPartial: isPartial || undefined,
+        // Saldos de ventas anteriores que se cobran acá (sólo venta no parcial).
+        settlesSaleIds:
+          !isPartial && settledSaleIds.length > 0 ? settledSaleIds : undefined,
       } as const;
 
       if (editingSale) {
@@ -644,9 +662,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         const saleData: CreateSaleRequest = { ...basePayload };
         const createdSale = await createSale(saleData);
         // Persistir las relaciones marcadas en "Últimas transacciones" (mutuo).
-        if (relatedSaleIds.length > 0 && createdSale?.id) {
+        // Incluir los saldos cobrados: el backend ya los vinculó, pero setLinks
+        // reemplaza el set completo — si no los sumamos acá los desvincularía.
+        const linkIds = [...new Set([...relatedSaleIds, ...settledSaleIds])];
+        if (linkIds.length > 0 && createdSale?.id) {
           try {
-            await salesService.setSaleLinks(createdSale.id, relatedSaleIds);
+            await salesService.setSaleLinks(createdSale.id, linkIds);
           } catch (e) {
             console.error('No se pudieron vincular las ventas relacionadas', e);
             showToast.error('La venta se creó, pero no se pudo guardar el vínculo');
@@ -817,13 +838,17 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   <p className="text-[10px] text-[#455a54]/50 font-winter-solid -mt-1">
                     Repetí para cargar los ítems · tildá para relacionar (informativo).
                   </p>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {recentSales
                       .filter((sale) => sale.id !== editingSale?.id)
                       .map((sale) => {
                         const isLinked = relatedSaleIds.includes(sale.id);
+                        const saldo = sale.balanceDue || 0;
+                        const hasSaldo = saldo > 0;
+                        const isSettled = settledSaleIds.includes(sale.id);
                         return (
-                          <li key={sale.id} className="flex items-center gap-2">
+                          <li key={sale.id} className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               checked={isLinked}
@@ -850,10 +875,37 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
                             </button>
+                          </div>
+                          {hasSaldo && !isPartial && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettledSaleIds((prev) =>
+                                  isSettled
+                                    ? prev.filter((x) => x !== sale.id)
+                                    : [...prev, sale.id],
+                                );
+                              }}
+                              title="Cobrar el saldo pendiente de esta venta dentro de la venta nueva"
+                              className={`ml-6 self-start text-[10px] px-2 py-1 rounded border transition-colors ${
+                                isSettled
+                                  ? 'bg-[#cc844a] text-white border-[#cc844a]'
+                                  : 'bg-[#cc844a]/10 text-[#9d684e] border-[#cc844a]/30 hover:bg-[#cc844a]/20'
+                              }`}
+                            >
+                              {isSettled ? '✓ ' : '+ '}
+                              Saldo pendiente {formatCurrency(saldo)}
+                            </button>
+                          )}
                           </li>
                         );
                       })}
                   </ul>
+                  {settledAmount > 0 && (
+                    <p className="text-[10px] text-[#9d684e] font-winter-solid pt-1 border-t border-[#9d684e]/10">
+                      Se cobra {formatCurrency(settledAmount)} de saldo anterior en esta venta. La venta original queda saldada.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -871,6 +923,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                     // Al cambiar de modo limpiamos pagos para que el operador
                     // ingrese los montos del modo correcto sin arrastrar valores.
                     setPayments([]);
+                    // El cobro de saldo anterior no aplica a venta parcial.
+                    if (next) setSettledSaleIds([]);
                   }}
                   disabled={isSubmitting}
                   className="mt-0.5 rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a]"

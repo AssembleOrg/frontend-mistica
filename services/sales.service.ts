@@ -45,6 +45,11 @@ export interface CreateSaleRequest {
   /** Total de la venta cuando es PARTIAL y NO tiene items (servicio sin
    *  productos). Si hay items, el total se deriva normalmente. */
   partialTotal?: number;
+  /** Ids de ventas PENDING/PARTIAL del mismo cliente cuyo saldo (balanceDue)
+   *  se cobra DENTRO de esta venta nueva. El backend suma ese saldo al total
+   *  (como recargo, sin stock), salda cada venta vieja (COMPLETED, sin sumarle
+   *  pago) y vincula ambas. Sólo aplica a venta nueva NO parcial. */
+  settlesSaleIds?: string[];
 }
 
 /** Body para PATCH /sales/:id/payments — agrega pagos a una venta PARTIAL. */
@@ -195,6 +200,8 @@ export class SalesService {
     to?: string;
     clientId?: string;
     paymentMethod?: string;
+    /** Si true, la búsqueda matchea también N° de venta y nombre de producto. */
+    fullSearch?: boolean;
   }): Promise<ApiResponse<PaginatedResponse<Sale>>> {
     console.log('💰 SALES SERVICE: Obteniendo ventas paginadas:', { page, limit, filters });
     
@@ -222,6 +229,9 @@ export class SalesService {
       }
       if (filters.paymentMethod && filters.paymentMethod !== 'all') {
         params.append('paymentMethod', filters.paymentMethod);
+      }
+      if (filters.fullSearch) {
+        params.append('fullSearch', 'true');
       }
     }
 

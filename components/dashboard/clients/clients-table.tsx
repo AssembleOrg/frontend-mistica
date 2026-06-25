@@ -36,6 +36,7 @@ import { ClientLabel } from '@/services/client-labels.service';
 import { getWhatsAppLink } from '@/lib/utils/whatsapp';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { ClientLabelChips } from './client-label-chips';
+import { ClientSalesHistoryModal } from './client-sales-history-modal';
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -96,6 +97,8 @@ export function ClientsTable({
   onLabelFilterChange,
 }: ClientsTableProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  // Cliente cuyo historial de ventas se está mirando (modal). null = cerrado.
+  const [historyClient, setHistoryClient] = useState<Client | null>(null);
 
   const handleClearFilters = () => {
     onSearchChange?.('');
@@ -122,10 +125,6 @@ export function ClientsTable({
   };
 
   const hasFilters = !!searchValue || !!dateRange || !!labelFilter;
-
-  if (isLoading) {
-    return <ProductsTableSkeleton />;
-  }
 
   return (
     <div className='space-y-4'>
@@ -168,7 +167,12 @@ export function ClientsTable({
         )}
       </div>
 
-      {data.length === 0 ? (
+      {isLoading ? (
+        // Sólo el área de filas muestra el skeleton. El buscador (TableFilters)
+        // queda montado durante el fetch: si se desmontara, el input perdería
+        // foco y su estado local en cada búsqueda → tipear se sentía congelado.
+        <ProductsTableSkeleton />
+      ) : data.length === 0 ? (
         hasFilters ? (
           <EmptyState
             variant='compact'
@@ -276,9 +280,14 @@ export function ClientsTable({
                     />
                   </TableCell>
                   <TableCell className='py-2.5'>
-                    <span className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-winter-solid bg-[#9d684e]/10 text-[#9d684e]'>
+                    <button
+                      type='button'
+                      onClick={() => setHistoryClient(client)}
+                      title='Ver historial de ventas'
+                      className='inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-winter-solid bg-[#9d684e]/10 text-[#9d684e] hover:bg-[#9d684e]/20 transition-colors cursor-pointer'
+                    >
                       {client.transactionCount || 0} {client.transactionCount === 1 ? 'venta' : 'ventas'}
-                    </span>
+                    </button>
                   </TableCell>
                   <TableCell className='py-2.5'>
                     <span className='text-[13px] text-[#455a54]/80 font-winter-solid tabular-nums'>
@@ -325,6 +334,12 @@ export function ClientsTable({
           totalItems={totalItems}
         />
       )}
+
+      <ClientSalesHistoryModal
+        client={historyClient}
+        isOpen={!!historyClient}
+        onClose={() => setHistoryClient(null)}
+      />
     </div>
   );
 }

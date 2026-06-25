@@ -45,11 +45,12 @@ export interface CreateSaleRequest {
   /** Total de la venta cuando es PARTIAL y NO tiene items (servicio sin
    *  productos). Si hay items, el total se deriva normalmente. */
   partialTotal?: number;
-  /** Ids de ventas PENDING/PARTIAL del mismo cliente cuyo saldo (balanceDue)
-   *  se cobra DENTRO de esta venta nueva. El backend suma ese saldo al total
-   *  (como recargo, sin stock), salda cada venta vieja (COMPLETED, sin sumarle
-   *  pago) y vincula ambas. Sólo aplica a venta nueva NO parcial. */
-  settlesSaleIds?: string[];
+  /** Abonos a cuenta de ventas PENDING/PARTIAL del mismo cliente, cobrados
+   *  DENTRO de esta venta nueva. Por cada una se indica cuánto del saldo se
+   *  cobra ahora (parcial o total). El backend suma ese monto al total (como
+   *  recargo, sin stock), lo descuenta del balanceDue de la venta vieja (sin
+   *  sumarle pago) y vincula ambas. Sólo aplica a venta nueva NO parcial. */
+  settlements?: { saleId: string; amount: number }[];
 }
 
 /** Body para PATCH /sales/:id/payments — agrega pagos a una venta PARTIAL. */

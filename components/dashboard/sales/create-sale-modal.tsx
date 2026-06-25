@@ -88,11 +88,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // sección "Últimas transacciones". Se persiste con setSaleLinks tras crear /
   // actualizar la venta — NO afecta totales ni saldos.
   const [relatedSaleIds, setRelatedSaleIds] = useState<string[]>([]);
-  // Abonos a cuenta de ventas viejas PENDING/PARTIAL del cliente, cobrados
-  // DENTRO de esta venta nueva. Mapa saleId→monto a abonar ahora (parcial o
-  // total del saldo). El monto se suma al total (sin stock) y el backend lo
-  // descuenta del saldo de la venta vieja. Sólo en venta no parcial.
-  const [settlements, setSettlements] = useState<Record<string, number>>({});
+  // Abono a cuenta de UNA venta vieja PENDING/PARTIAL del cliente, cobrado
+  // DENTRO de esta venta nueva. Selección única: apretar una venta carga su
+  // faltante; apretar otra reemplaza (no se suman). `amount` arranca en el
+  // saldo completo y se puede bajar para abonar parcial. El monto se suma al
+  // total (sin stock) y el backend lo descuenta del saldo de la venta vieja.
+  const [settleSel, setSettleSel] = useState<{ saleId: string; amount: number } | null>(null);
   const [isConsumidorFinal, setIsConsumidorFinal] = useState(false);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
@@ -342,7 +343,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const handleClientChange = async (client: Client | null) => {
     setSelectedClient(client);
     setRelatedSaleIds([]);
-    setSettlements({});
+    setSettleSel(null);
     if (!client) {
       setRecentSales([]);
       setClientPrepaid(null);
@@ -464,7 +465,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   // Saldo de ventas anteriores que se cobra dentro de esta venta. Se toma el
   // balanceDue de cada venta marcada (de recentSales). Suma al total (sin stock).
-  const settledAmount = Object.values(settlements).reduce((acc, v) => acc + (v || 0), 0);
+  const settledAmount = settleSel?.amount || 0;
 
   const calculateTotals = () => {
     // Pago parcial / precio libre: el TOTAL es lo que se cobra ahora (Σ pagos).
@@ -537,7 +538,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setShowAdjustmentInput(false);
     setRecentSales([]);
     setRelatedSaleIds([]);
-    setSettlements({});
+    setSettleSel(null);
     setIsPartial(false);
     setIsConsumidorFinal(false);
 
@@ -632,15 +633,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         prepaidId: !isPartial && usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: !isPartial && usePrepaid,
         isPartial: isPartial || undefined,
-        // Abonos a cuenta de ventas anteriores cobrados acá (sólo venta no
-        // parcial). Mapa saleId→monto → array {saleId, amount}, sólo montos > 0.
-        settlements: (() => {
-          if (isPartial) return undefined;
-          const list = Object.entries(settlements)
-            .filter(([, amount]) => amount > 0)
-            .map(([saleId, amount]) => ({ saleId, amount }));
-          return list.length > 0 ? list : undefined;
-        })(),
+        // Abono a cuenta de la venta anterior seleccionada (sólo venta no
+        // parcial, monto > 0). Va como array de 1 elemento.
+        settlements:
+          !isPartial && settleSel && settleSel.amount > 0
+            ? [{ saleId: settleSel.saleId, amount: settleSel.amount }]
+            : undefined,
       } as const;
 
       if (editingSale) {
@@ -669,9 +667,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // Persistir las relaciones marcadas en "Últimas transacciones" (mutuo).
         // Incluir los saldos cobrados: el backend ya los vinculó, pero setLinks
         // reemplaza el set completo — si no los sumamos acá los desvincularía.
-        const settledIds = Object.entries(settlements)
-          .filter(([, amount]) => amount > 0)
-          .map(([saleId]) => saleId);
+        const settledIds = settleSel && settleSel.amount > 0 ? [settleSel.saleId] : [];
         const linkIds = [...new Set([...relatedSaleIds, ...settledIds])];
         if (linkIds.length > 0 && createdSale?.id) {
           try {
@@ -853,7 +849,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         const isLinked = relatedSaleIds.includes(sale.id);
                         const saldo = sale.balanceDue || 0;
                         const hasSaldo = saldo > 0;
-                        const abono = settlements[sale.id] || 0;
+                        const isSel = settleSel?.saleId === sale.id;
                         return (
                           <li key={sale.id} className="flex flex-col gap-1">
                           <div className="flex items-center gap-2">
@@ -886,52 +882,39 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                           </div>
                           {hasSaldo && !isPartial && (
                             <div className="ml-6 flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-winter-solid" style={{ color: 'var(--color-naranja-medio)' }}>
-                                Saldo {formatCurrency(saldo)} · abonar
-                              </span>
-                              <input
-                                type="number"
-                                min={0}
-                                max={saldo}
-                                step="0.01"
-                                value={abono || ''}
-                                onChange={(e) => {
-                                  const raw = parseFloat(e.target.value);
-                                  const clamped = isNaN(raw) ? 0 : Math.max(0, Math.min(raw, saldo));
-                                  setSettlements((prev) => {
-                                    const next = { ...prev };
-                                    if (clamped > 0) next[sale.id] = Number(clamped.toFixed(2));
-                                    else delete next[sale.id];
-                                    return next;
-                                  });
-                                }}
-                                placeholder="0"
-                                className="w-20 h-6 text-[11px] px-1.5 rounded border border-[#cc844a]/40 focus:border-[#cc844a] focus:outline-none tabular-nums"
-                              />
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setSettlements((prev) => ({ ...prev, [sale.id]: Number(saldo.toFixed(2)) }))
+                                  setSettleSel(
+                                    isSel ? null : { saleId: sale.id, amount: Number(saldo.toFixed(2)) },
+                                  )
                                 }
-                                title="Abonar el saldo completo"
-                                className="text-[10px] px-1.5 py-0.5 rounded border border-[#cc844a]/30 text-[#9d684e] hover:bg-[#cc844a]/10"
+                                title="Cobrar el faltante de esta venta dentro de la venta nueva"
+                                className={`text-[10px] px-2 py-1 rounded border transition-colors ${
+                                  isSel
+                                    ? 'bg-[#cc844a] text-white border-[#cc844a]'
+                                    : 'bg-[#cc844a]/10 text-[#9d684e] border-[#cc844a]/30 hover:bg-[#cc844a]/20'
+                                }`}
                               >
-                                Todo
+                                {isSel ? '✓ ' : ''}Faltante {formatCurrency(saldo)}
                               </button>
-                              {abono > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setSettlements((prev) => {
-                                      const next = { ...prev };
-                                      delete next[sale.id];
-                                      return next;
-                                    })
-                                  }
-                                  className="text-[10px] text-[#455a54]/50 hover:text-[#455a54]"
-                                >
-                                  quitar
-                                </button>
+                              {isSel && (
+                                <>
+                                  <span className="text-[10px] text-[#455a54]/60">cobrar ahora</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={saldo}
+                                    step="0.01"
+                                    value={settleSel?.amount || ''}
+                                    onChange={(e) => {
+                                      const raw = parseFloat(e.target.value);
+                                      const clamped = isNaN(raw) ? 0 : Math.max(0, Math.min(raw, saldo));
+                                      setSettleSel({ saleId: sale.id, amount: Number(clamped.toFixed(2)) });
+                                    }}
+                                    className="w-20 h-6 text-[11px] px-1.5 rounded border border-[#cc844a]/40 focus:border-[#cc844a] focus:outline-none tabular-nums"
+                                  />
+                                </>
                               )}
                             </div>
                           )}
@@ -941,7 +924,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   </ul>
                   {settledAmount > 0 && (
                     <p className="text-[10px] text-[#9d684e] font-winter-solid pt-1 border-t border-[#9d684e]/10">
-                      Se cobra {formatCurrency(settledAmount)} de saldo anterior en esta venta. El saldo restante (si lo hubiera) queda pendiente en la venta original.
+                      Se cobra {formatCurrency(settledAmount)} del faltante de la venta seleccionada en esta venta. El saldo restante (si lo hubiera) queda pendiente en la venta original.
                     </p>
                   )}
                 </div>
@@ -962,7 +945,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                     // ingrese los montos del modo correcto sin arrastrar valores.
                     setPayments([]);
                     // El cobro de saldo anterior no aplica a venta parcial.
-                    if (next) setSettlements({});
+                    if (next) setSettleSel(null);
                   }}
                   disabled={isSubmitting}
                   className="mt-0.5 rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a]"

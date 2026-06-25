@@ -467,6 +467,25 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // balanceDue de cada venta marcada (de recentSales). Suma al total (sin stock).
   const settledAmount = settleSel?.amount || 0;
 
+  // Cambia la venta/monto a abonar Y carga el faltante en el pago (para poder
+  // ejecutar el cobro sin retipear). Ajusta la 1ª línea de pago por el delta;
+  // si no hay pagos, crea uno. En venta parcial no aplica (el saldo no se cobra).
+  const applySettle = (next: { saleId: string; amount: number } | null) => {
+    const prevAmt = settleSel?.amount || 0;
+    const newAmt = next?.amount || 0;
+    const diff = Number((newAmt - prevAmt).toFixed(2));
+    setSettleSel(next);
+    if (isPartial || Math.abs(diff) < 0.005) return;
+    setPayments((prev) => {
+      if (prev.length === 0) {
+        return newAmt > 0 ? [{ method: 'TRANSFER', amount: Number(newAmt.toFixed(2)) }] : prev;
+      }
+      const copy = [...prev];
+      copy[0] = { ...copy[0], amount: Math.max(0, Number(((copy[0].amount || 0) + diff).toFixed(2))) };
+      return copy;
+    });
+  };
+
   const calculateTotals = () => {
     // Pago parcial / precio libre: el TOTAL es lo que se cobra ahora (Σ pagos).
     // El precio de lista de los productos se ignora (el backend reescala los
@@ -855,7 +874,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         // automáticamente a cobrar. Click de nuevo deselecciona.
                         const selectForSettle = () => {
                           if (!canSettle) return;
-                          setSettleSel(isSel ? null : { saleId: sale.id, amount: Number(saldo.toFixed(2)) });
+                          applySettle(isSel ? null : { saleId: sale.id, amount: Number(saldo.toFixed(2)) });
                         };
                         return (
                           <li
@@ -923,14 +942,14 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                                 onChange={(e) => {
                                   const raw = parseFloat(e.target.value);
                                   const clamped = isNaN(raw) ? 0 : Math.max(0, Math.min(raw, saldo));
-                                  setSettleSel({ saleId: sale.id, amount: Number(clamped.toFixed(2)) });
+                                  applySettle({ saleId: sale.id, amount: Number(clamped.toFixed(2)) });
                                 }}
                                 className="w-24 h-6 text-[11px] px-1.5 rounded border border-[#cc844a]/40 focus:border-[#cc844a] focus:outline-none tabular-nums"
                               />
                               <span className="text-[10px] text-[#455a54]/50">de {formatCurrency(saldo)}</span>
                               <button
                                 type="button"
-                                onClick={() => setSettleSel(null)}
+                                onClick={() => applySettle(null)}
                                 className="text-[10px] text-[#455a54]/50 hover:text-[#455a54]"
                               >
                                 quitar

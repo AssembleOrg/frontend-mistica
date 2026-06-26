@@ -535,6 +535,14 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       prevTotalRef.current = total;
       return;
     }
+    // Venta sin productos y sin cobro de saldo: el `total` se DERIVA de los
+    // pagos (Σ payments). Sincronizar payments desde el total acá sería
+    // circular (payments → total → payments) y dispara un loop infinito de
+    // setState (React #185). El monto tipeado ES el total: no tocamos payments.
+    if (cartItems.length === 0 && settledAmount === 0) {
+      prevTotalRef.current = total;
+      return;
+    }
     const delta = Number((total - prevTotalRef.current).toFixed(2));
     prevTotalRef.current = total;
     setPayments((p) => {

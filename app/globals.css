@@ -248,6 +248,11 @@
     font-family: var(--font-winter-solid);
   }
 
+  /* Display serif de la landing pública (Pencil usa Playfair Display). */
+  .font-playfair {
+    font-family: var(--font-playfair), 'Playfair Display', serif;
+  }
+
   /* Mobile card components */
   .mobile-card {
     @apply bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-sm;
@@ -296,6 +301,22 @@
   input[type="number"]:focus {
     outline: none;
   }
+}
+
+/* Marquee infinito de la landing (la fila se duplica y se desplaza -50%). */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee-x 32s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 
 @keyframes float {

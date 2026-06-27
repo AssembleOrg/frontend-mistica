@@ -79,7 +79,7 @@ function EstadoInner() {
   const waiting = polling || status === 'PENDING';
 
   return (
-    <main className='flex min-h-svh items-center justify-center bg-rosa-claro/40 px-6 py-16'>
+    <main className='flex min-h-svh items-center justify-center bg-[#F6EEE6] px-6 py-16'>
       <div className='w-full max-w-lg rounded-2xl border border-[#e6dbcd] bg-white p-8 text-center shadow-sm sm:p-12'>
         {/* Icono de estado */}
         <div className='mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-verde-profundo'>
@@ -103,7 +103,7 @@ function EstadoInner() {
 
         {ref && (
           <>
-            <h1 className='font-tan-nimbus text-3xl leading-tight text-ciruela-oscuro'>
+            <h1 className='font-playfair text-3xl leading-tight text-ciruela-oscuro'>
               {confirmed
                 ? '¡Tu lugar está reservado!'
                 : failed
@@ -211,7 +211,7 @@ function CodeLookup({
 
   return (
     <div>
-      <h1 className='font-tan-nimbus text-3xl text-ciruela-oscuro'>
+      <h1 className='font-playfair text-3xl text-ciruela-oscuro'>
         Buscá tu reserva
       </h1>
       <p className='mt-2 text-ciruela-oscuro/70'>
@@ -241,7 +241,7 @@ function CodeLookup({
           <p className='font-mono text-xs tracking-widest text-terracota'>
             {prettyCode(found.code)}
           </p>
-          <p className='mt-1 font-tan-nimbus text-xl text-ciruela-oscuro'>
+          <p className='mt-1 font-playfair text-xl text-ciruela-oscuro'>
             {found.experienceName}
           </p>
           <p className='text-sm text-ciruela-oscuro/65'>
@@ -258,7 +258,7 @@ export default function EstadoPage() {
   return (
     <Suspense
       fallback={
-        <main className='flex min-h-svh items-center justify-center bg-rosa-claro/40'>
+        <main className='flex min-h-svh items-center justify-center bg-[#F6EEE6]'>
           <Loader2 className='h-8 w-8 animate-spin text-terracota' />
         </main>
       }

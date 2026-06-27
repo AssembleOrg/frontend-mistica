@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, AtSign, Clock, ExternalLink, MapPin } from 'lucide-react';
+import {
+  ArrowRight,
+  AtSign,
+  Asterisk,
+  Clock3,
+  ExternalLink,
+  MapPin,
+} from 'lucide-react';
 import { ReservationForm } from '@/components/landing/reservation-form';
 import { ManageByCode } from '@/components/landing/manage-by-code';
 import {
@@ -15,6 +22,15 @@ import {
 const WA_PISTECH =
   'https://api.whatsapp.com/send/?phone=5491138207230&text=Hola+Pistech%2C+me+comunico+a+trav%C3%A9s+de+mistica+web.+Me+gustar%C3%ADa+saber+m%C3%A1s+sobre+sus+servicios+digitales.&type=phone_number&app_absent=0';
 const MAPS = 'https://www.google.com/maps/search/?api=1&query=Videla+57+Quilmes';
+
+const MARQUEE = [
+  'TALLERES DE CERÁMICA',
+  'CUMPLEAÑOS CON ARTE',
+  'EVENTOS PRIVADOS',
+  'BUFFET LIBRE + ARTE',
+  'TORNO Y MODELADO',
+  'REGALERÍA HOLÍSTICA',
+];
 
 function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-AR', {
@@ -41,7 +57,7 @@ export default function LandingPage() {
         setExperiences(exps);
         setSessions(sess);
       } catch {
-        /* la landing igual se muestra sin datos */
+        /* la landing se muestra igual sin datos */
       } finally {
         if (alive) setLoading(false);
       }
@@ -52,9 +68,9 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <main className='min-h-svh bg-rosa-claro/40'>
-      {/* ───────── Hero ───────── */}
-      <section className='relative isolate overflow-hidden'>
+    <main className='w-full overflow-x-hidden bg-[#F6EEE6] text-[#3D3338]'>
+      {/* ─────────────────────────── HERO ─────────────────────────── */}
+      <section className='relative isolate flex min-h-[640px] flex-col justify-between overflow-hidden px-6 py-8 sm:min-h-[760px] sm:px-10 lg:h-[920px] lg:px-16 lg:py-10'>
         <div className='absolute inset-0 -z-10'>
           <Image
             src='/foto-mistica-login-1.webp'
@@ -63,160 +79,237 @@ export default function LandingPage() {
             priority
             className='object-cover'
           />
-          <div className='absolute inset-0 bg-gradient-to-b from-[#2a1a12cc] via-[#2a1a1255] to-[#2a1a12f2]' />
+          <div className='absolute inset-0 [background-image:linear-gradient(0deg,_#2A1A12CC_0%,_#2A1A1233_45%,_#2A1A12E6_100%)]' />
         </div>
 
-        <nav className='mx-auto flex max-w-6xl items-center justify-between px-6 py-6'>
-          <span className='font-tan-nimbus text-2xl tracking-[3px] text-white'>
+        {/* Nav */}
+        <nav className='flex items-center justify-between'>
+          <span className='font-playfair text-2xl font-semibold tracking-[4px] text-[#F6EEE6]'>
             MÍSTICA
           </span>
-          <div className='flex items-center gap-4'>
+          <div className='flex items-center gap-6 sm:gap-10'>
+            {['Experiencias', 'Nosotros', 'Visitá'].map((l) => (
+              <a
+                key={l}
+                href='#experiencias'
+                className='hidden font-mono text-xs tracking-[1.5px] text-[#F6EEE6CC] hover:text-white sm:block'
+              >
+                {l.toUpperCase()}
+              </a>
+            ))}
             <a
               href='#reservar'
-              className='hidden rounded-lg bg-terracota px-5 py-2.5 font-mono text-xs tracking-wider text-white sm:inline-block'
+              className='rounded-[4px] bg-[#9D684E] px-5 py-2.5 font-mono text-xs tracking-[1.5px] text-[#F6EEE6]'
             >
               RESERVAR
             </a>
             <Link
               href='/login'
-              className='font-mono text-xs tracking-wider text-white/70 hover:text-white'
+              className='font-mono text-xs tracking-[1.5px] text-[#F6EEE6]/60 hover:text-white'
             >
               ACCESO
             </Link>
           </div>
         </nav>
 
-        <div className='mx-auto max-w-6xl px-6 pb-24 pt-16 sm:pt-24'>
+        {/* Centro */}
+        <div className='flex max-w-[980px] flex-col items-start gap-6 py-10'>
           <div className='flex items-center gap-3'>
-            <span className='h-px w-9 bg-durazno' />
-            <span className='font-mono text-xs tracking-[3px] text-durazno'>
+            <span className='h-px w-[34px] bg-[#E0A38D]' />
+            <span className='font-mono text-xs tracking-[3px] text-[#E0A38D]'>
               EXPERIENCIAS DE CERÁMICA · QUILMES
             </span>
           </div>
-          <h1 className='mt-6 max-w-3xl font-tan-nimbus text-5xl leading-[0.98] text-white sm:text-7xl'>
+          <h1 className='font-playfair text-5xl font-medium leading-[0.96] text-[#F6EEE6] sm:text-7xl lg:text-[96px] lg:leading-[94px]'>
             Creá con tus manos.
           </h1>
-          <p className='mt-5 max-w-lg text-lg leading-relaxed text-white/90'>
+          <p className='max-w-[560px] font-sans text-base leading-relaxed text-[#F6EEE6]/90 sm:text-[19px] sm:leading-[29px]'>
             Talleres, eventos y cumpleaños donde el barro, el arte y el café se
             encuentran. Reservá tu lugar en una tarde para crear algo tuyo.
           </p>
-          <div className='mt-8 flex flex-wrap gap-3'>
+          <div className='flex flex-wrap items-center gap-3.5'>
             <a
               href='#reservar'
-              className='flex items-center gap-2 rounded-lg bg-naranja-medio px-7 py-4 font-mono text-sm tracking-wider text-ciruela-oscuro transition hover:bg-naranja-medio-hover'
+              className='flex items-center gap-2.5 rounded-[4px] bg-[#CC844A] px-7 py-4 font-mono text-[13px] tracking-[1.5px] text-[#3D3338] transition hover:brightness-95'
             >
-              RESERVAR EXPERIENCIA <ArrowRight className='h-4 w-4' />
+              RESERVAR EXPERIENCIA <ArrowRight className='h-[18px] w-[18px]' />
             </a>
             <a
               href='#experiencias'
-              className='rounded-lg border border-white/50 px-7 py-4 font-mono text-sm tracking-wider text-white hover:bg-white/10'
+              className='rounded-[4px] border border-[#F6EEE6]/50 px-7 py-4 font-mono text-[13px] tracking-[1.5px] text-[#F6EEE6] hover:bg-white/10'
             >
               VER TALLERES
             </a>
           </div>
         </div>
+
+        {/* Labels inferiores */}
+        <div className='hidden items-end justify-between sm:flex'>
+          {[
+            ['BUFFET LIBRE + ARTE', 'Creá mientras disfrutás'],
+            ['@HECHOENMISTICA', 'Regalería & tienda holística'],
+            ['VIDELA 57', 'Quilmes, Bs. As.'],
+          ].map(([t, s]) => (
+            <div key={t} className='flex flex-col gap-1.5'>
+              <span className='font-mono text-xs tracking-[1.5px] text-[#F6EEE6]'>
+                {t}
+              </span>
+              <span className='font-sans text-[13px] text-[#F6EEE6]/70'>{s}</span>
+            </div>
+          ))}
+        </div>
       </section>
 
-      {/* ───────── Experiencias ───────── */}
-      <section id='experiencias' className='mx-auto max-w-6xl px-6 py-20'>
-        <div className='flex items-center gap-3'>
-          <span className='h-px w-9 bg-terracota' />
-          <span className='font-mono text-xs tracking-[3px] text-terracota'>
-            NUESTRAS EXPERIENCIAS
-          </span>
+      {/* ─────────────────────────── MARQUEE ─────────────────────────── */}
+      <section className='flex h-[60px] items-center overflow-hidden bg-[#455A54]'>
+        <div className='animate-marquee flex shrink-0 items-center gap-7 whitespace-nowrap pr-7'>
+          {[...MARQUEE, ...MARQUEE].map((w, i) => (
+            <span key={i} className='flex items-center gap-7'>
+              <span className='font-mono text-xs tracking-[2px] text-[#F6EEE6]'>
+                {w}
+              </span>
+              <Asterisk className='h-3.5 w-3.5 text-[#E0A38D]' />
+            </span>
+          ))}
         </div>
-        <h2 className='mt-4 max-w-xl font-tan-nimbus text-4xl leading-tight text-ciruela-oscuro'>
-          Elegí cómo querés pasar la tarde
-        </h2>
+      </section>
 
-        <div className='mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3'>
+      {/* ─────────────────────────── EXPERIENCIAS ─────────────────────────── */}
+      <section
+        id='experiencias'
+        className='mx-auto flex w-full max-w-[1440px] flex-col gap-14 bg-[#F6EEE6] px-6 pb-[90px] pt-20 sm:px-10 lg:px-16 lg:pt-[120px]'
+      >
+        <div className='flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end'>
+          <div className='flex max-w-[680px] flex-col gap-[18px]'>
+            <div className='flex items-center gap-3'>
+              <span className='h-px w-[34px] bg-[#9D684E]' />
+              <span className='font-mono text-xs tracking-[3px] text-[#9D684E]'>
+                NUESTRAS EXPERIENCIAS
+              </span>
+            </div>
+            <h2 className='font-playfair text-4xl font-medium leading-[1.05] text-[#3D3338] sm:text-5xl lg:text-[52px] lg:leading-[55px]'>
+              Elegí cómo querés pasar la tarde
+            </h2>
+          </div>
+          <p className='max-w-[380px] font-sans text-base leading-[26px] text-[#7A6E6F]'>
+            Cada experiencia incluye los materiales, la guía de nuestros artistas
+            y, claro, el café. Solo traé ganas de ensuciarte las manos.
+          </p>
+        </div>
+
+        <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-4'>
           {loading
-            ? Array.from({ length: 3 }).map((_, i) => (
+            ? Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={i}
-                  className='h-44 animate-pulse rounded-xl border border-[#e6dbcd] bg-white/60'
+                  className='h-80 animate-pulse rounded-[4px] border border-[#E6DBCD] bg-[#FBF5EF]'
                 />
               ))
             : experiences.map((e) => (
                 <div
                   key={e._id}
-                  className='flex flex-col gap-3 rounded-xl border border-[#e6dbcd] bg-white p-6'
+                  className='flex flex-col overflow-hidden rounded-[4px] border border-[#E6DBCD] bg-[#FBF5EF]'
                 >
-                  <h3 className='font-tan-nimbus text-xl text-ciruela-oscuro'>
-                    {e.name}
-                  </h3>
-                  {e.description && (
-                    <p className='text-sm leading-relaxed text-ciruela-oscuro/65'>
-                      {e.description}
-                    </p>
-                  )}
-                  <div className='mt-auto flex items-center gap-2 pt-2 font-mono text-xs text-terracota'>
-                    <Clock className='h-4 w-4' />
-                    {e.durationMinutes} min
-                    <span className='text-[#e6dbcd]'>/</span>
-                    desde {fmtPrice(e.basePrice)}
+                  <div className='h-[200px] w-full bg-[#E0A38D]'>
+                    {e.images?.[0] && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={e.images[0]}
+                        alt={e.name}
+                        className='h-full w-full object-cover'
+                      />
+                    )}
+                  </div>
+                  <div className='flex flex-col gap-3 p-[22px] pb-6'>
+                    <h3 className='font-playfair text-2xl font-medium leading-[26px] text-[#3D3338]'>
+                      {e.name}
+                    </h3>
+                    {e.description && (
+                      <p className='font-sans text-sm leading-[21px] text-[#7A6E6F]'>
+                        {e.description}
+                      </p>
+                    )}
+                    <div className='flex items-center gap-2 pt-2.5'>
+                      <Clock3 className='h-[15px] w-[15px] text-[#9D684E]' />
+                      <span className='font-mono text-xs tracking-[0.5px] text-[#3D3338]'>
+                        {e.durationMinutes} min
+                      </span>
+                      <span className='font-mono text-xs text-[#E6DBCD]'>/</span>
+                      <span className='font-mono text-xs tracking-[0.5px] text-[#9D684E]'>
+                        {fmtPrice(e.basePrice)}
+                      </span>
+                    </div>
+                    <a
+                      href='#reservar'
+                      className='flex items-center gap-2 pt-2 font-mono text-xs tracking-[1.5px] text-[#3D3338]'
+                    >
+                      RESERVAR <ArrowRight className='h-[15px] w-[15px]' />
+                    </a>
                   </div>
                 </div>
               ))}
           {!loading && experiences.length === 0 && (
-            <p className='text-ciruela-oscuro/60'>
-              Pronto publicamos nuevas experiencias.
-            </p>
+            <p className='text-[#7A6E6F]'>Pronto publicamos nuevas experiencias.</p>
           )}
         </div>
       </section>
 
-      {/* ───────── Reservá ───────── */}
-      <section id='reservar' className='bg-rosa-claro py-20'>
-        <div className='mx-auto max-w-6xl px-6'>
-          <div className='flex items-center gap-3'>
-            <span className='h-px w-9 bg-terracota' />
-            <span className='font-mono text-xs tracking-[3px] text-terracota'>
-              RESERVÁ ONLINE
-            </span>
+      {/* ─────────────────────────── RESERVÁ ─────────────────────────── */}
+      <section id='reservar' className='bg-[#EFCBB9] py-20 lg:py-[110px]'>
+        <div className='mx-auto w-full max-w-[1440px] px-6 sm:px-10 lg:px-16'>
+          <div className='mb-10 flex flex-col gap-3.5'>
+            <div className='flex items-center gap-3'>
+              <span className='h-px w-[34px] bg-[#9D684E]' />
+              <span className='font-mono text-xs tracking-[3px] text-[#9D684E]'>
+                RESERVÁ ONLINE
+              </span>
+            </div>
+            <h2 className='font-playfair text-4xl font-medium leading-[1.05] text-[#3D3338] lg:text-[44px]'>
+              Armá tu reserva en un minuto
+            </h2>
           </div>
-          <h2 className='mb-10 mt-4 font-tan-nimbus text-4xl text-ciruela-oscuro'>
-            Armá tu reserva en un minuto
-          </h2>
           {loading ? (
-            <div className='h-96 animate-pulse rounded-xl bg-white/50' />
+            <div className='h-96 animate-pulse rounded-[4px] bg-[#F6EEE6]/60' />
           ) : (
             <ReservationForm experiences={experiences} sessions={sessions} />
           )}
         </div>
       </section>
 
-      {/* ───────── Gestioná ───────── */}
-      <section className='bg-terracota py-20'>
-        <div className='mx-auto max-w-6xl px-6'>
+      {/* ─────────────────────────── GESTIONÁ ─────────────────────────── */}
+      <section className='bg-[#9D684E] py-20'>
+        <div className='mx-auto w-full max-w-[1440px] px-6 sm:px-10 lg:px-16'>
           <ManageByCode />
         </div>
       </section>
 
-      {/* ───────── Footer ───────── */}
-      <footer className='bg-verde-profundo px-6 py-14'>
-        <div className='mx-auto flex max-w-6xl flex-col gap-10'>
-          <div className='flex flex-wrap justify-between gap-8'>
-            <div className='max-w-xs'>
-              <p className='font-tan-nimbus text-3xl tracking-[3px] text-white'>
+      {/* ─────────────────────────── FOOTER ─────────────────────────── */}
+      <footer className='bg-[#455A54] px-6 py-14 sm:px-10 lg:px-16'>
+        <div className='mx-auto flex w-full max-w-[1440px] flex-col gap-12'>
+          <div className='flex flex-wrap justify-between gap-10'>
+            <div className='max-w-[340px]'>
+              <p className='font-playfair text-3xl font-semibold tracking-[3px] text-[#F6EEE6]'>
                 MÍSTICA
               </p>
-              <p className='mt-4 text-sm leading-relaxed text-white/70'>
+              <p className='mt-4 font-sans text-sm leading-relaxed text-[#F6EEE6]/70'>
                 Talleres, eventos y cumpleaños con arte. Buffet libre, cerámica y
                 tienda holística en el corazón de Quilmes.
               </p>
             </div>
-            <div className='flex flex-col gap-3 text-sm text-white/85'>
+            <div className='flex flex-col gap-3.5 font-sans text-sm text-[#F6EEE6]/85'>
+              <span className='font-mono text-[11px] tracking-[2px] text-[#F6EEE6]/50'>
+                VISITÁ
+              </span>
               <a
                 href={MAPS}
                 target='_blank'
                 rel='noopener noreferrer'
                 className='flex items-center gap-2 hover:text-white'
               >
-                <MapPin className='h-4 w-4 text-durazno' /> Videla 57, Quilmes
+                <MapPin className='h-4 w-4 text-[#E0A38D]' /> Videla 57, Quilmes
               </a>
               <span className='flex items-center gap-2'>
-                <Clock className='h-4 w-4 text-durazno' /> Mar a Dom · 10 a 20 hs
+                <Clock3 className='h-4 w-4 text-[#E0A38D]' /> Mar a Dom · 10 a 20 hs
               </span>
               <a
                 href='https://www.instagram.com/mistica.autentica/'
@@ -224,23 +317,23 @@ export default function LandingPage() {
                 rel='noopener noreferrer'
                 className='flex items-center gap-2 hover:text-white'
               >
-                <AtSign className='h-4 w-4 text-durazno' /> @mistica.autentica
+                <AtSign className='h-4 w-4 text-[#E0A38D]' /> @mistica.autentica
               </a>
             </div>
           </div>
-          <div className='h-px w-full bg-white/15' />
+          <div className='h-px w-full bg-[#F6EEE6]/15' />
           <div className='flex flex-wrap items-center justify-between gap-3'>
-            <span className='font-mono text-xs tracking-wider text-white/50'>
+            <span className='font-mono text-xs tracking-wider text-[#F6EEE6]/50'>
               © 2025 MÍSTICA AUTÉNTICA
             </span>
             <a
               href={WA_PISTECH}
               target='_blank'
               rel='noopener noreferrer'
-              className='flex items-center gap-1.5 font-mono text-xs tracking-wider text-white/50 hover:text-white'
+              className='flex items-center gap-1.5 font-mono text-xs tracking-wider text-[#F6EEE6]/50 hover:text-white'
             >
               DESARROLLADO POR{' '}
-              <span className='bg-gradient-to-b from-[#f2dd93] to-[#c99a3a] bg-clip-text font-bold text-transparent'>
+              <span className='bg-gradient-to-b from-[#F2DD93] to-[#C99A3A] bg-clip-text font-bold text-transparent'>
                 PISTECH
               </span>
               <ExternalLink className='h-3 w-3' />

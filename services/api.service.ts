@@ -204,14 +204,14 @@ export class ApiService {
   private handleUnauthorized(endpoint: string): void {
     if (typeof window === 'undefined') return;
     if (endpoint.startsWith('/auth/login')) return;
-    if (window.location.pathname === '/') return;
+    if (window.location.pathname === '/login') return;
 
     const persisted = window.localStorage.getItem('mistica-auth-storage');
     if (!persisted) return;
 
     window.localStorage.removeItem('mistica-auth-storage');
     const next = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.assign(`/?next=${next}`);
+    window.location.assign(`/login?next=${next}`);
   }
 
   // HTTP Methods

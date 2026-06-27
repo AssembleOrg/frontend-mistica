@@ -13,6 +13,7 @@ import {
   DollarSign,
   Tag,
   Activity,
+  Ticket,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -45,6 +46,7 @@ const navigationItems = [
   { title: 'Dashboard',       url: '/dashboard',            icon: Home,         enabled: true,  adminOnly: false },
   { title: 'Ventas',          url: '/dashboard/sales',      icon: ShoppingCart, enabled: true,  adminOnly: false },
   { title: 'Clientes',        url: '/dashboard/clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
+  { title: 'Reservas',        url: '/dashboard/reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
   // se siguen creando desde la venta y viéndose en el detalle del cliente;
   // sólo se quita el acceso directo a /dashboard/prepaids (la ruta queda).
@@ -65,7 +67,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const handleLogout = () => {
     if (confirm('¿Estás seguro que deseas cerrar sesión?')) {
       logout();
-      router.push('/');
+      router.push('/login');
       showToast.success('Sesión cerrada correctamente');
     }
   };

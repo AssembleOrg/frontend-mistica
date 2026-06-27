@@ -5,12 +5,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight,
-  AtSign,
+  ArrowUpRight,
   Asterisk,
+  AtSign,
   Clock3,
   ExternalLink,
   MapPin,
-} from 'lucide-react';
+} from 'lucide-react'; 
 import { ReservationForm } from '@/components/landing/reservation-form';
 import { ManageByCode } from '@/components/landing/manage-by-code';
 import {
@@ -22,6 +23,7 @@ import {
 const WA_PISTECH =
   'https://api.whatsapp.com/send/?phone=5491138207230&text=Hola+Pistech%2C+me+comunico+a+trav%C3%A9s+de+mistica+web.+Me+gustar%C3%ADa+saber+m%C3%A1s+sobre+sus+servicios+digitales.&type=phone_number&app_absent=0';
 const MAPS = 'https://www.google.com/maps/search/?api=1&query=Videla+57+Quilmes';
+const IG = 'https://www.instagram.com/mistica.autentica/';
 
 const MARQUEE = [
   'TALLERES DE CERÁMICA',
@@ -32,12 +34,42 @@ const MARQUEE = [
   'REGALERÍA HOLÍSTICA',
 ];
 
+const STEPS = [
+  ['01', 'Elegí tu experiencia', 'Mirá los talleres, fechas y horarios disponibles y sumá la cantidad de personas.'],
+  ['02', 'Confirmá y pagá', 'Cargás tus datos y reservás tu lugar al instante, sin llamadas ni esperas.'],
+  ['03', 'Guardá tu código', 'Recibís un código de 6 caracteres para modificar o cancelar cuando quieras.'],
+];
+
+const STATS = [
+  ['12.7K', 'Personas en la comunidad'],
+  ['+200', 'Talleres realizados'],
+  ['☕ + 🎨', 'Buffet libre & arte'],
+];
+
+const FALLBACK_IMG = [
+  '/landing/exp-1.webp',
+  '/landing/exp-2.webp',
+  '/landing/exp-3.webp',
+  '/landing/exp-4.webp',
+];
+
 function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
     currency: 'ARS',
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+function Eyebrow({ children, color = '#9D684E' }: { children: string; color?: string }) {
+  return (
+    <div className='flex items-center gap-3'>
+      <span className='h-px w-[34px]' style={{ backgroundColor: color }} />
+      <span className='font-mono text-xs tracking-[3px]' style={{ color }}>
+        {children}
+      </span>
+    </div>
+  );
 }
 
 export default function LandingPage() {
@@ -69,11 +101,11 @@ export default function LandingPage() {
 
   return (
     <main className='w-full overflow-x-hidden bg-[#F6EEE6] text-[#3D3338]'>
-      {/* ─────────────────────────── HERO ─────────────────────────── */}
+      {/* ─────────── HERO ─────────── */}
       <section className='relative isolate flex min-h-[640px] flex-col justify-between overflow-hidden px-6 py-8 sm:min-h-[760px] sm:px-10 lg:h-[920px] lg:px-16 lg:py-10'>
         <div className='absolute inset-0 -z-10'>
           <Image
-            src='/foto-mistica-login-1.webp'
+            src='/landing/hero.webp'
             alt='Experiencias de cerámica en Mística'
             fill
             priority
@@ -82,7 +114,6 @@ export default function LandingPage() {
           <div className='absolute inset-0 [background-image:linear-gradient(0deg,_#2A1A12CC_0%,_#2A1A1233_45%,_#2A1A12E6_100%)]' />
         </div>
 
-        {/* Nav */}
         <nav className='flex items-center justify-between'>
           <span className='font-playfair text-2xl font-semibold tracking-[4px] text-[#F6EEE6]'>
             MÍSTICA
@@ -112,14 +143,8 @@ export default function LandingPage() {
           </div>
         </nav>
 
-        {/* Centro */}
         <div className='flex max-w-[980px] flex-col items-start gap-6 py-10'>
-          <div className='flex items-center gap-3'>
-            <span className='h-px w-[34px] bg-[#E0A38D]' />
-            <span className='font-mono text-xs tracking-[3px] text-[#E0A38D]'>
-              EXPERIENCIAS DE CERÁMICA · QUILMES
-            </span>
-          </div>
+          <Eyebrow color='#E0A38D'>EXPERIENCIAS DE CERÁMICA · QUILMES</Eyebrow>
           <h1 className='font-playfair text-5xl font-medium leading-[0.96] text-[#F6EEE6] sm:text-7xl lg:text-[96px] lg:leading-[94px]'>
             Creá con tus manos.
           </h1>
@@ -143,7 +168,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Labels inferiores */}
         <div className='hidden items-end justify-between sm:flex'>
           {[
             ['BUFFET LIBRE + ARTE', 'Creá mientras disfrutás'],
@@ -160,7 +184,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─────────────────────────── MARQUEE ─────────────────────────── */}
+      {/* ─────────── MARQUEE ─────────── */}
       <section className='flex h-[60px] items-center overflow-hidden bg-[#455A54]'>
         <div className='animate-marquee flex shrink-0 items-center gap-7 whitespace-nowrap pr-7'>
           {[...MARQUEE, ...MARQUEE].map((w, i) => (
@@ -174,19 +198,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─────────────────────────── EXPERIENCIAS ─────────────────────────── */}
+      {/* ─────────── EXPERIENCIAS ─────────── */}
       <section
         id='experiencias'
         className='mx-auto flex w-full max-w-[1440px] flex-col gap-14 bg-[#F6EEE6] px-6 pb-[90px] pt-20 sm:px-10 lg:px-16 lg:pt-[120px]'
       >
         <div className='flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-end'>
           <div className='flex max-w-[680px] flex-col gap-[18px]'>
-            <div className='flex items-center gap-3'>
-              <span className='h-px w-[34px] bg-[#9D684E]' />
-              <span className='font-mono text-xs tracking-[3px] text-[#9D684E]'>
-                NUESTRAS EXPERIENCIAS
-              </span>
-            </div>
+            <Eyebrow>NUESTRAS EXPERIENCIAS</Eyebrow>
             <h2 className='font-playfair text-4xl font-medium leading-[1.05] text-[#3D3338] sm:text-5xl lg:text-[52px] lg:leading-[55px]'>
               Elegí cómo querés pasar la tarde
             </h2>
@@ -205,21 +224,17 @@ export default function LandingPage() {
                   className='h-80 animate-pulse rounded-[4px] border border-[#E6DBCD] bg-[#FBF5EF]'
                 />
               ))
-            : experiences.map((e) => (
+            : experiences.map((e, i) => (
                 <div
                   key={e._id}
                   className='flex flex-col overflow-hidden rounded-[4px] border border-[#E6DBCD] bg-[#FBF5EF]'
                 >
-                  <div className='h-[200px] w-full bg-[#E0A38D]'>
-                    {e.images?.[0] && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={e.images[0]}
-                        alt={e.name}
-                        className='h-full w-full object-cover'
-                      />
-                    )}
-                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={e.images?.[0] ?? FALLBACK_IMG[i % FALLBACK_IMG.length]}
+                    alt={e.name}
+                    className='h-[200px] w-full object-cover'
+                  />
                   <div className='flex flex-col gap-3 p-[22px] pb-6'>
                     <h3 className='font-playfair text-2xl font-medium leading-[26px] text-[#3D3338]'>
                       {e.name}
@@ -254,16 +269,43 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─────────────────────────── RESERVÁ ─────────────────────────── */}
+      {/* ─────────── CÓMO FUNCIONA ─────────── */}
+      <section className='flex flex-col items-center gap-[54px] bg-[#FBF5EF] px-6 py-24 sm:px-10 lg:px-16'>
+        <div className='flex max-w-[760px] flex-col items-center gap-4 text-center'>
+          <div className='flex items-center gap-3'>
+            <span className='h-px w-6 bg-[#9D684E]' />
+            <span className='font-mono text-xs tracking-[3px] text-[#9D684E]'>
+              RESERVAR ES SIMPLE
+            </span>
+            <span className='h-px w-6 bg-[#9D684E]' />
+          </div>
+          <h2 className='font-playfair text-4xl font-medium leading-[1.08] text-[#3D3338] lg:text-[46px] lg:leading-[50px]'>
+            Tu lugar reservado en tres pasos
+          </h2>
+        </div>
+        <div className='grid w-full max-w-[1312px] gap-10 md:grid-cols-3 md:gap-0'>
+          {STEPS.map(([n, t, d]) => (
+            <div key={n} className='flex flex-col gap-4 md:pr-10'>
+              <div className='flex items-center gap-3.5'>
+                <span className='font-playfair text-[60px] font-medium leading-none text-[#E0A38D]'>
+                  {n}
+                </span>
+                <span className='h-px flex-1 bg-[#E6DBCD]' />
+              </div>
+              <h3 className='font-playfair text-2xl font-medium leading-[26px] text-[#3D3338]'>
+                {t}
+              </h3>
+              <p className='font-sans text-[15px] leading-[23px] text-[#7A6E6F]'>{d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ─────────── RESERVÁ ─────────── */}
       <section id='reservar' className='bg-[#EFCBB9] py-20 lg:py-[110px]'>
         <div className='mx-auto w-full max-w-[1440px] px-6 sm:px-10 lg:px-16'>
           <div className='mb-10 flex flex-col gap-3.5'>
-            <div className='flex items-center gap-3'>
-              <span className='h-px w-[34px] bg-[#9D684E]' />
-              <span className='font-mono text-xs tracking-[3px] text-[#9D684E]'>
-                RESERVÁ ONLINE
-              </span>
-            </div>
+            <Eyebrow>RESERVÁ ONLINE</Eyebrow>
             <h2 className='font-playfair text-4xl font-medium leading-[1.05] text-[#3D3338] lg:text-[44px]'>
               Armá tu reserva en un minuto
             </h2>
@@ -276,14 +318,124 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─────────────────────────── GESTIONÁ ─────────────────────────── */}
+      {/* ─────────── GESTIONÁ ─────────── */}
       <section className='bg-[#9D684E] py-20'>
         <div className='mx-auto w-full max-w-[1440px] px-6 sm:px-10 lg:px-16'>
           <ManageByCode />
         </div>
       </section>
 
-      {/* ─────────────────────────── FOOTER ─────────────────────────── */}
+      {/* ─────────── TIENDA ─────────── */}
+      <section className='flex flex-col bg-[#F6EEE6] lg:h-[520px] lg:flex-row'>
+        <div className='relative h-[280px] w-full lg:h-full lg:flex-1'>
+          <Image
+            src='/landing/tienda.webp'
+            alt='Regalería y tienda holística'
+            fill
+            className='object-cover'
+          />
+        </div>
+        <div className='flex flex-1 flex-col justify-center gap-5 px-6 py-14 sm:px-10 lg:p-20'>
+          <Eyebrow>@HECHOENMISTICA</Eyebrow>
+          <h2 className='font-playfair text-4xl font-medium leading-[1.07] text-[#3D3338] lg:text-[42px]'>
+            Regalería & tienda holística
+          </h2>
+          <p className='max-w-[460px] font-sans text-base leading-[26px] text-[#7A6E6F]'>
+            Piezas hechas a mano, sahumerios, cristales y objetos con intención.
+            Llevate un pedacito de Mística o regalá algo único.
+          </p>
+          <a
+            href={IG}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='flex items-center gap-2.5 pt-1.5 font-mono text-[13px] tracking-[1.5px] text-[#9D684E]'
+          >
+            VER LA TIENDA <ArrowUpRight className='h-[17px] w-[17px]' />
+          </a>
+        </div>
+      </section>
+
+      {/* ─────────── NOSOTROS ─────────── */}
+      <section className='mx-auto flex w-full max-w-[1440px] flex-col items-center gap-12 bg-[#F6EEE6] px-6 py-24 sm:px-10 lg:flex-row lg:gap-16 lg:px-16 lg:py-[110px]'>
+        <div className='flex flex-1 flex-col gap-[22px]'>
+          <Eyebrow>EL ESPACIO</Eyebrow>
+          <h2 className='font-playfair text-4xl font-medium leading-[1.07] text-[#3D3338] lg:text-[46px] lg:leading-[49px]'>
+            Un lugar para crear, comer y respirar
+          </h2>
+          <p className='max-w-[560px] font-sans text-base leading-[26px] text-[#7A6E6F]'>
+            Mística Auténtica nació en Quilmes como un espacio donde el arte se
+            vive con las manos. Combinamos talleres de cerámica, buffet libre y una
+            tienda holística para que cada visita sea una pausa con sentido.
+          </p>
+          <div className='flex flex-wrap gap-12 pt-4'>
+            {STATS.map(([n, l]) => (
+              <div key={l} className='flex flex-col gap-1.5'>
+                <span className='font-playfair text-[34px] font-medium text-[#9D684E]'>
+                  {n}
+                </span>
+                <span className='max-w-[150px] font-sans text-[13px] leading-[18px] text-[#7A6E6F]'>
+                  {l}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className='relative h-[360px] w-full overflow-hidden rounded-[4px] lg:h-[560px] lg:w-[560px] lg:shrink-0'>
+          <Image
+            src='/landing/nosotros.webp'
+            alt='El espacio de Mística'
+            fill
+            className='object-cover'
+          />
+        </div>
+      </section>
+
+      {/* ─────────── UBICACIÓN ─────────── */}
+      <section className='flex flex-col bg-[#FBF5EF] lg:h-[460px] lg:flex-row'>
+        <a
+          href={MAPS}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='flex h-[220px] w-full items-center justify-center bg-[#E0A38D] lg:h-full lg:flex-1'
+        >
+          <span className='flex items-center gap-2 rounded-[30px] bg-[#455A54] px-5 py-3'>
+            <MapPin className='h-[18px] w-[18px] text-[#F6EEE6]' />
+            <span className='font-mono text-xs tracking-[1px] text-[#F6EEE6]'>
+              VIDELA 57 · QUILMES
+            </span>
+          </span>
+        </a>
+        <div className='flex flex-col justify-center gap-6 px-6 py-14 sm:px-10 lg:w-[520px] lg:shrink-0 lg:p-16'>
+          <Eyebrow>CÓMO LLEGAR</Eyebrow>
+          <h2 className='font-playfair text-3xl font-medium leading-[1.08] text-[#3D3338] lg:text-[38px]'>
+            Te esperamos en Quilmes
+          </h2>
+          <div className='flex flex-col gap-3.5'>
+            <a href={MAPS} target='_blank' rel='noopener noreferrer' className='flex items-center gap-3 text-[#3D3338] hover:text-[#9D684E]'>
+              <MapPin className='h-[18px] w-[18px] text-[#9D684E]' />
+              <span className='font-sans text-base'>Videla 57, Quilmes, Buenos Aires</span>
+            </a>
+            <span className='flex items-center gap-3'>
+              <Clock3 className='h-[18px] w-[18px] text-[#9D684E]' />
+              <span className='font-sans text-base text-[#3D3338]'>Mar a Dom · 10:00 a 20:00 hs</span>
+            </span>
+            <a href={IG} target='_blank' rel='noopener noreferrer' className='flex items-center gap-3 text-[#3D3338] hover:text-[#9D684E]'>
+              <AtSign className='h-[18px] w-[18px] text-[#9D684E]' />
+              <span className='font-sans text-base'>@mistica.autentica</span>
+            </a>
+          </div>
+          <a
+            href={MAPS}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='flex w-fit items-center gap-2.5 rounded-[4px] bg-[#455A54] px-[26px] py-[15px] font-mono text-[13px] tracking-[1.5px] text-[#F6EEE6]'
+          >
+            ABRIR EN MAPS <ArrowUpRight className='h-[17px] w-[17px]' />
+          </a>
+        </div>
+      </section>
+
+      {/* ─────────── FOOTER ─────────── */}
       <footer className='bg-[#455A54] px-6 py-14 sm:px-10 lg:px-16'>
         <div className='mx-auto flex w-full max-w-[1440px] flex-col gap-12'>
           <div className='flex flex-wrap justify-between gap-10'>
@@ -300,23 +452,13 @@ export default function LandingPage() {
               <span className='font-mono text-[11px] tracking-[2px] text-[#F6EEE6]/50'>
                 VISITÁ
               </span>
-              <a
-                href={MAPS}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='flex items-center gap-2 hover:text-white'
-              >
+              <a href={MAPS} target='_blank' rel='noopener noreferrer' className='flex items-center gap-2 hover:text-white'>
                 <MapPin className='h-4 w-4 text-[#E0A38D]' /> Videla 57, Quilmes
               </a>
               <span className='flex items-center gap-2'>
                 <Clock3 className='h-4 w-4 text-[#E0A38D]' /> Mar a Dom · 10 a 20 hs
               </span>
-              <a
-                href='https://www.instagram.com/mistica.autentica/'
-                target='_blank'
-                rel='noopener noreferrer'
-                className='flex items-center gap-2 hover:text-white'
-              >
+              <a href={IG} target='_blank' rel='noopener noreferrer' className='flex items-center gap-2 hover:text-white'>
                 <AtSign className='h-4 w-4 text-[#E0A38D]' /> @mistica.autentica
               </a>
             </div>

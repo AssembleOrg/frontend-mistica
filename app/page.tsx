@@ -392,19 +392,27 @@ export default function LandingPage() {
 
       {/* ─────────── UBICACIÓN ─────────── */}
       <section className='flex flex-col bg-[#FBF5EF] lg:h-[460px] lg:flex-row'>
-        <a
-          href={MAPS}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='flex h-[220px] w-full items-center justify-center bg-[#E0A38D] lg:h-full lg:flex-1'
-        >
-          <span className='flex items-center gap-2 rounded-[30px] bg-[#455A54] px-5 py-3'>
+        <div className='relative h-[220px] w-full overflow-hidden lg:h-full lg:flex-1'>
+          <iframe
+            title='Mapa Mística Auténtica — Videla 57, Quilmes'
+            src='https://maps.google.com/maps?q=Videla%2057%2C%20Quilmes%2C%20Buenos%20Aires&z=16&output=embed'
+            className='h-full w-full border-0 grayscale-[0.15]'
+            loading='lazy'
+            referrerPolicy='no-referrer-when-downgrade'
+            allowFullScreen
+          />
+          <a
+            href={MAPS}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='absolute bottom-4 left-4 flex items-center gap-2 rounded-[30px] bg-[#455A54] px-5 py-3 shadow-lg'
+          >
             <MapPin className='h-[18px] w-[18px] text-[#F6EEE6]' />
             <span className='font-mono text-xs tracking-[1px] text-[#F6EEE6]'>
               VIDELA 57 · QUILMES
             </span>
-          </span>
-        </a>
+          </a>
+        </div>
         <div className='flex flex-col justify-center gap-6 px-6 py-14 sm:px-10 lg:w-[520px] lg:shrink-0 lg:p-16'>
           <Eyebrow>CÓMO LLEGAR</Eyebrow>
           <h2 className='font-playfair text-3xl font-medium leading-[1.08] text-[#3D3338] lg:text-[38px]'>

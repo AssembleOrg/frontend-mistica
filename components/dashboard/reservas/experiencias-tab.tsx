@@ -126,7 +126,7 @@ export function ExperienciasTab() {
               className='grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-2 border-b border-[#e6dbcd] px-5 py-4 last:border-0'
             >
               <div>
-                <p className='font-tan-nimbus text-base text-[#3d3338]'>
+                <p className='font-playfair text-base text-[#3d3338]'>
                   {e.name}
                 </p>
                 {e.description && (
@@ -168,7 +168,7 @@ export function ExperienciasTab() {
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
           <div className='w-full max-w-md rounded-xl bg-white p-6'>
             <div className='mb-4 flex items-center justify-between'>
-              <h2 className='font-tan-nimbus text-xl text-[#3d3338]'>
+              <h2 className='font-playfair text-xl text-[#3d3338]'>
                 {editing ? 'Editar experiencia' : 'Nueva experiencia'}
               </h2>
               <button type='button' onClick={() => setForm(null)}>

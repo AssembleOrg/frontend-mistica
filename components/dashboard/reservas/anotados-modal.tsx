@@ -100,7 +100,7 @@ export function AnotadosModal({
             <p className='font-mono text-[11px] tracking-wider text-[#9d684e]'>
               ANOTADOS
             </p>
-            <h2 className='font-tan-nimbus text-xl text-[#3d3338]'>
+            <h2 className='font-playfair text-xl text-[#3d3338]'>
               {session
                 ? `${session.experienceName} · ${fmtDateTime(session.startAt)}`
                 : 'Turno'}
@@ -154,7 +154,7 @@ export function AnotadosModal({
           <div className='flex flex-col gap-3 rounded-lg border border-[#e6dbcd] p-4'>
             <div className='flex items-center gap-2'>
               <UserPlus className='h-4 w-4 text-[#9d684e]' />
-              <h3 className='font-tan-nimbus text-lg text-[#3d3338]'>
+              <h3 className='font-playfair text-lg text-[#3d3338]'>
                 Agregar reserva
               </h3>
             </div>
@@ -179,7 +179,7 @@ export function AnotadosModal({
                 >
                   <Minus className='h-4 w-4' />
                 </button>
-                <span className='w-10 text-center font-tan-nimbus text-lg text-[#3d3338]'>
+                <span className='w-10 text-center font-playfair text-lg text-[#3d3338]'>
                   {qty}
                 </span>
                 <button
@@ -217,7 +217,7 @@ export function AnotadosModal({
               <span className='text-sm text-[#7a6e6f]'>
                 {isCourtesy ? 'Sin cargo' : 'Total a cobrar'}
               </span>
-              <span className='font-tan-nimbus text-xl font-semibold text-[#9d684e]'>
+              <span className='font-playfair text-xl font-semibold text-[#9d684e]'>
                 {fmtPrice(total)}
               </span>
             </div>

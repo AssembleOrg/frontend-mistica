@@ -98,7 +98,7 @@ export function TurnosTab() {
       <div className='flex flex-col gap-4 rounded-xl border border-[#e6dbcd] bg-white p-5'>
         <div className='flex items-center gap-2'>
           <CopyPlus className='h-5 w-5 text-[#9d684e]' />
-          <h2 className='font-tan-nimbus text-lg text-[#3d3338]'>
+          <h2 className='font-playfair text-lg text-[#3d3338]'>
             Generar turnos rápido
           </h2>
           <span className='text-xs text-[#7a6e6f]'>

@@ -79,6 +79,9 @@ export function ReservationForm({
   const selected = sessions.find((s) => s.id === sessionId);
   const maxQty = selected ? Math.min(selected.seatsAvailable, 12) : 12;
   const total = selected ? selected.price * qty : 0;
+  const depositPct = selected?.depositPct ?? 50;
+  const senia = Math.round((total * depositPct) / 100);
+  const saldo = total - senia;
   const expName = experiences.find((e) => e._id === expId)?.name ?? 'Experiencia';
   const canSubmit = !!selected && qty >= 1 && name.trim().length > 1 && !submitting;
 
@@ -257,12 +260,26 @@ export function ReservationForm({
             </div>
           ))}
         </div>
+        <div className='flex items-center justify-between border-b border-[#E6DBCD] px-6 py-3.5'>
+          <span className='font-sans text-sm text-[#7A6E6F]'>Total experiencia</span>
+          <span className='font-sans text-[15px] font-medium text-[#3D3338]'>
+            {fmtPrice(total)}
+          </span>
+        </div>
         <div className='flex items-center justify-between bg-[#F6EEE6] px-6 py-5'>
           <span className='font-mono text-xs tracking-[1.5px] text-[#3D3338]'>
-            TOTAL
+            SEÑA ({depositPct}%) · PAGÁS AHORA
           </span>
           <span className='font-playfair text-[28px] font-semibold text-[#9D684E]'>
-            {fmtPrice(total)}
+            {fmtPrice(senia)}
+          </span>
+        </div>
+        <div className='flex items-center justify-between px-6 py-3'>
+          <span className='font-sans text-[13px] text-[#7A6E6F]'>
+            Saldo (en el local)
+          </span>
+          <span className='font-sans text-sm font-medium text-[#3D3338]'>
+            {fmtPrice(saldo)}
           </span>
         </div>
         {error && (
@@ -271,8 +288,8 @@ export function ReservationForm({
         <div className='flex items-start gap-2.5 px-6 pb-2 pt-4'>
           <ShieldCheck className='mt-0.5 h-[18px] w-[18px] shrink-0 text-[#9D684E]' />
           <p className='font-sans text-[13px] leading-[1.5] text-[#7A6E6F]'>
-            Al confirmar pagás con MercadoPago y recibís un código de 6 caracteres
-            para gestionar tu reserva.
+            Reservás abonando la seña con MercadoPago. El saldo lo completás en el
+            local. Recibís un código de 6 caracteres para gestionar tu reserva.
           </p>
         </div>
         <div className='p-4'>

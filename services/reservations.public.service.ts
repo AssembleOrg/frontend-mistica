@@ -12,6 +12,7 @@ export interface PublicExperience {
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;
+  depositPct?: number;
   images: string[];
   isActive: boolean;
 }
@@ -22,6 +23,7 @@ export interface PublicSession {
   experienceName: string;
   durationMinutes: number;
   price: number;
+  depositPct: number;
   startAt: string;
   endAt: string;
   capacity: number;
@@ -41,7 +43,10 @@ export interface HoldResponse {
   reservationId: string;
   code: string;
   status: ReservationStatus;
-  amount: number;
+  amount: number; // seña cobrada
+  depositAmount: number;
+  totalAmount: number;
+  balanceDue: number;
   quantity: number;
   expiresAt?: string;
   initPoint?: string;
@@ -57,6 +62,9 @@ export interface ReservationView {
   quantity: number;
   unitPrice: number;
   amount: number;
+  depositAmount: number;
+  totalAmount: number;
+  balanceDue: number;
   paymentMethod: string;
   source: string;
   customerName: string;

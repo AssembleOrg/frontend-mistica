@@ -113,9 +113,14 @@ export function ReservasTab() {
                   </p>
                 </div>
                 <span className='text-sm text-[#3d3338]'>{r.quantity}</span>
-                <span className='text-sm font-medium text-[#3d3338]'>
-                  {fmtPrice(r.amount)}
-                </span>
+                <div className='text-sm'>
+                  <p className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</p>
+                  {r.balanceDue != null && r.balanceDue > 0 && (
+                    <p className='text-[11px] text-[#7a6e6f]'>
+                      saldo {fmtPrice(r.balanceDue)}
+                    </p>
+                  )}
+                </div>
                 <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#3d3338]'>
                   {r.source === 'ADMIN' ? 'Admin' : 'Público'}
                 </span>

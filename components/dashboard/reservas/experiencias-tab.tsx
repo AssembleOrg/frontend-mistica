@@ -16,6 +16,7 @@ const EMPTY: CreateExperienceInput = {
   durationMinutes: 120,
   basePrice: 0,
   defaultCapacity: 8,
+  depositPct: 50,
   isActive: true,
 };
 
@@ -53,6 +54,7 @@ export function ExperienciasTab() {
       durationMinutes: e.durationMinutes,
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
+      depositPct: e.depositPct ?? 50,
       isActive: e.isActive,
     });
   }
@@ -231,6 +233,18 @@ export function ExperienciasTab() {
                   />
                 </Field>
               </div>
+              <Field label='Seña % (lo que se cobra al reservar)'>
+                <input
+                  type='number'
+                  min={0}
+                  max={100}
+                  value={form.depositPct ?? 50}
+                  onChange={(ev) =>
+                    setForm({ ...form, depositPct: Number(ev.target.value) })
+                  }
+                  className={inputCls}
+                />
+              </Field>
               <label className='flex items-center gap-2 text-sm text-[#3d3338]'>
                 <input
                   type='checkbox'

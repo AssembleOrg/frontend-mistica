@@ -28,6 +28,9 @@ export interface ReservationItem {
   startAt: string;
   quantity: number;
   amount: number;
+  depositAmount?: number;
+  totalAmount?: number;
+  balanceDue?: number;
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -50,6 +53,7 @@ export interface CreateExperienceInput {
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;
+  depositPct?: number;
   images?: string[];
   isActive?: boolean;
 }

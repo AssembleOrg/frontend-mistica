@@ -107,9 +107,9 @@ export interface SessionTransaction {
   type: 'ingreso' | 'egreso';
   amount: number;
   // Desglose del `amount` por método (exacto incluso para ventas MIXTO).
-  amountByMethod: { CASH: number; CARD: number; TRANSFER: number };
+  amountByMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
   description: string;
-  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO' | string;
+  paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'MERCADOPAGO' | 'MIXTO' | string;
   createdAt: string;
   reference?: string;
   afipCae?: string;

@@ -178,4 +178,32 @@ export const reservationsAdmin = {
       )
     ).data;
   },
+  cancelReservation: async (id: string) =>
+    (await apiService.post<ReservationItem>(`/admin/reservations/${id}/cancel`, {}))
+      .data,
+  resolveReservation: async (id: string, action: 'confirm' | 'cancel') =>
+    (
+      await apiService.post<ReservationItem>(`/admin/reservations/${id}/resolve`, {
+        action,
+      })
+    ).data,
+  updateReservation: async (
+    id: string,
+    input: {
+      customerName?: string;
+      customerEmail?: string;
+      customerPhone?: string;
+      notes?: string;
+    },
+  ) => (await apiService.patch<ReservationItem>(`/admin/reservations/${id}`, input)).data,
+  collectBalance: async (
+    id: string,
+    payments: { method: ReservationPaymentMethod; amount: number }[],
+  ) =>
+    (
+      await apiService.post<ReservationItem>(
+        `/admin/reservations/${id}/collect-balance`,
+        { payments, markCompleted: true },
+      )
+    ).data,
 };

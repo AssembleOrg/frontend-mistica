@@ -39,7 +39,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 export function MonthlyReportViewer({ summary, monthLabel }: Props) {
-  const paymentTotal = summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER;
+  const paymentTotal = summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER + (summary.byPaymentMethod.MERCADOPAGO ?? 0);
   const pct = (n: number) => paymentTotal > 0 ? Math.round((n / paymentTotal) * 100) : 0;
 
   const salesTotal = summary.byStatus.COMPLETED + summary.byStatus.PENDING + summary.byStatus.CANCELLED;
@@ -270,6 +270,7 @@ export function MonthlyReportViewer({ summary, monthLabel }: Props) {
                 { label: 'Efectivo', amount: summary.byPaymentMethod.CASH, p: pct(summary.byPaymentMethod.CASH) },
                 { label: 'Tarjeta', amount: summary.byPaymentMethod.CARD, p: pct(summary.byPaymentMethod.CARD) },
                 { label: 'Transferencia', amount: summary.byPaymentMethod.TRANSFER, p: pct(summary.byPaymentMethod.TRANSFER) },
+                { label: 'MercadoPago', amount: summary.byPaymentMethod.MERCADOPAGO ?? 0, p: pct(summary.byPaymentMethod.MERCADOPAGO ?? 0) },
               ].map(m => (
                 <div key={m.label} style={{ marginBottom: 9 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>

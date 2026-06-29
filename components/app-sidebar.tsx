@@ -14,6 +14,7 @@ import {
   Tag,
   Activity,
   Ticket,
+  Smartphone,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -47,6 +48,7 @@ const navigationItems = [
   { title: 'Ventas',          url: '/dashboard/sales',      icon: ShoppingCart, enabled: true,  adminOnly: false },
   { title: 'Clientes',        url: '/dashboard/clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
   { title: 'Reservas',        url: '/dashboard/reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
+  { title: 'Bot WhatsApp',    url: '/dashboard/bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
   // se siguen creando desde la venta y viéndose en el detalle del cliente;
   // sólo se quita el acceso directo a /dashboard/prepaids (la ruta queda).

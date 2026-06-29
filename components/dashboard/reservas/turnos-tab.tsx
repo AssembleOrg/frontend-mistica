@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CopyPlus, Plus, Sparkles, Users, X } from 'lucide-react';
+import { CopyPlus, Pencil, Plus, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import {
   fmtDateTime,
@@ -25,6 +25,7 @@ export function TurnosTab() {
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [anotados, setAnotados] = useState<string | null>(null);
+  const [editing, setEditing] = useState<AdminSession | null>(null);
 
   // Form de generación
   const [expId, setExpId] = useState('');
@@ -89,6 +90,22 @@ export function TurnosTab() {
       showToast.error(e instanceof Error ? e.message : 'No se pudo generar');
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function doDelete(s: AdminSession) {
+    if (
+      !confirm(
+        `¿Eliminar el turno de ${fmtDateTime(s.startAt)}? Si tiene reservas, cancelalo (estado Cancelado) en vez de eliminar.`,
+      )
+    )
+      return;
+    try {
+      await reservationsAdmin.deleteSession(s.id);
+      showToast.success('Turno eliminado');
+      await loadSessions();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
   }
 
@@ -262,13 +279,31 @@ export function TurnosTab() {
                 <span className='text-xs text-[#7a6e6f]'>
                   {SESSION_STATUS_LABEL[s.status] ?? s.status}
                 </span>
-                <button
-                  type='button'
-                  onClick={() => setAnotados(s.id)}
-                  className='flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2 font-mono text-xs text-[#3d3338]'
-                >
-                  <Users className='h-3.5 w-3.5' /> Anotados
-                </button>
+                <div className='flex items-center justify-end gap-1.5'>
+                  <button
+                    type='button'
+                    onClick={() => setAnotados(s.id)}
+                    className='flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2 font-mono text-xs text-[#3d3338]'
+                  >
+                    <Users className='h-3.5 w-3.5' /> Anotados
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setEditing(s)}
+                    title='Editar turno'
+                    className='rounded-lg border border-[#e6dbcd] p-2 text-[#7a6e6f] hover:text-[#3d3338]'
+                  >
+                    <Pencil className='h-3.5 w-3.5' />
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => doDelete(s)}
+                    title='Eliminar turno'
+                    className='rounded-lg border border-[#e6dbcd] p-2 text-[#7a6e6f] hover:text-[#b23b2e]'
+                  >
+                    <Trash2 className='h-3.5 w-3.5' />
+                  </button>
+                </div>
               </div>
             );
           })
@@ -282,6 +317,124 @@ export function TurnosTab() {
           onChanged={loadSessions}
         />
       )}
+
+      {editing && (
+        <SessionEditModal
+          session={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await loadSessions();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+const STATUS_OPTIONS: { v: string; l: string }[] = [
+  { v: 'OPEN', l: 'Abierto' },
+  { v: 'CLOSED', l: 'Cerrado' },
+  { v: 'DRAFT', l: 'Borrador' },
+  { v: 'CANCELLED', l: 'Cancelado' },
+];
+
+function SessionEditModal({
+  session,
+  onClose,
+  onSaved,
+}: {
+  session: AdminSession;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [price, setPrice] = useState(String(session.price));
+  const [capacity, setCapacity] = useState(String(session.capacity));
+  const [status, setStatus] = useState(session.status);
+  const [notes, setNotes] = useState(session.notes ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await reservationsAdmin.updateSession(session.id, {
+        price: Number(price),
+        capacity: Number(capacity),
+        status,
+        notes,
+      });
+      showToast.success('Turno actualizado');
+      await onSaved();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
+      <div className='w-full max-w-sm rounded-xl bg-white p-6'>
+        <div className='mb-4 flex items-center justify-between'>
+          <h2 className='font-playfair text-xl text-[#3d3338]'>Editar turno</h2>
+          <button type='button' onClick={onClose}>
+            <X className='h-5 w-5 text-[#7a6e6f]' />
+          </button>
+        </div>
+        <p className='mb-4 text-sm text-[#7a6e6f]'>
+          {session.experienceName} · {fmtDateTime(session.startAt)}
+        </p>
+        <div className='grid grid-cols-2 gap-3'>
+          <Field label='Precio p/p'>
+            <input
+              type='number'
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+          <Field label='Cupo'>
+            <input
+              type='number'
+              value={capacity}
+              onChange={(e) => setCapacity(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <div className='mt-3'>
+          <Field label='Estado'>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className={inputCls}
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.v} value={o.v}>
+                  {o.l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className='mt-3'>
+          <Field label='Notas'>
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className={inputCls}
+            />
+          </Field>
+        </div>
+        <button
+          type='button'
+          onClick={save}
+          disabled={saving}
+          className='mt-5 w-full rounded-lg bg-[#9d684e] px-4 py-3 font-mono text-xs tracking-wider text-white disabled:opacity-60'
+        >
+          {saving ? 'GUARDANDO…' : 'GUARDAR'}
+        </button>
+      </div>
     </div>
   );
 }

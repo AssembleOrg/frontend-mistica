@@ -18,7 +18,7 @@ export interface FinanceSummary {
   totalRevenue: number;
   averageTicket: number;
 
-  byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
+  byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
 
   byStatus: { PENDING: number; COMPLETED: number; CANCELLED: number };
 
@@ -37,7 +37,7 @@ export interface FinanceSummary {
   expenses: {
     count: number;
     total: number;
-    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
+    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
   };
 
   // Ingresos puntuales (correcciones de saldo, miscelánea) en el rango.
@@ -45,13 +45,13 @@ export interface FinanceSummary {
   incomes: {
     count: number;
     total: number;
-    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
+    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
   };
 
   prepaids: {
     count: number;
     total: number;
-    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number };
+    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
   };
 
   netBalance: number;

@@ -142,7 +142,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     // Usamos amountByMethod (no paymentMethod) para que las ventas MIXTO sumen
     // su porción CASH exacta.
     let cashInflow = 0, cashOutflow = 0;
-    const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0 };
+    const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0, MERCADOPAGO: 0 };
 
     for (const t of transactions) {
       if (t.source === 'sale') { salesCount++; salesTotal += t.amount; }
@@ -154,6 +154,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
         byMethod.CASH += m.CASH;
         byMethod.CARD += m.CARD;
         byMethod.TRANSFER += m.TRANSFER;
+        byMethod.MERCADOPAGO += m.MERCADOPAGO ?? 0;
         cashInflow += m.CASH;
       } else {
         cashOutflow += m.CASH;
@@ -176,7 +177,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     ? new Date(session.closedAt).toLocaleString('es-AR')
     : 'Abierta';
 
-  const payTotal = kpis.byMethod.CASH + kpis.byMethod.CARD + kpis.byMethod.TRANSFER;
+  const payTotal = kpis.byMethod.CASH + kpis.byMethod.CARD + kpis.byMethod.TRANSFER + kpis.byMethod.MERCADOPAGO;
   const pct = (n: number) => (payTotal > 0 ? Math.round((n / payTotal) * 100) : 0);
 
   return (
@@ -306,6 +307,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                   { icon: <Banknote className="h-3.5 w-3.5" />, label: 'Efectivo',      amount: kpis.byMethod.CASH },
                   { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'Tarjeta',     amount: kpis.byMethod.CARD },
                   { icon: <Send className="h-3.5 w-3.5" />,        label: 'Transferencia', amount: kpis.byMethod.TRANSFER },
+                  { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'MercadoPago',  amount: kpis.byMethod.MERCADOPAGO },
                 ] as const).map(({ icon, label, amount }) => (
                   <div key={label} className="flex items-center justify-between text-sm font-sans">
                     <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>

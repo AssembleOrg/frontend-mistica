@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { CalendarDays, MessageCircle, Palette, Ticket } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { ExperienciasTab } from '@/components/dashboard/reservas/experiencias-tab';
 import { TurnosTab } from '@/components/dashboard/reservas/turnos-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
@@ -28,23 +30,23 @@ export default function ReservasAdminPage() {
         </p>
       </div>
 
-      <div className='flex gap-2'>
+      <div className='flex flex-wrap gap-2'>
         {TABS.map(({ key, label, icon: Icon }) => {
           const on = key === tab;
           return (
-            <button
+            <Button
               key={key}
               type='button'
+              variant={on ? 'verde' : 'ghost'}
               onClick={() => setTab(key)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition ${
-                on
-                  ? 'bg-[#455a54] text-white'
-                  : 'bg-white text-[#3d3338] hover:bg-white/70'
-              }`}
+              className={cn(
+                'gap-2',
+                !on && 'bg-white text-[#3d3338] hover:bg-white/70',
+              )}
             >
               <Icon className='h-4 w-4' />
               {label}
-            </button>
+            </Button>
           );
         })}
       </div>

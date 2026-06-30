@@ -12,6 +12,26 @@ import {
   X,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   fmtDateTime,
   SESSION_STATUS_LABEL,
@@ -35,6 +55,11 @@ interface SlotRow {
   date: string;
   time: string;
 }
+
+const fieldCls =
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+const triggerCls =
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30 data-[placeholder]:text-[#7a6e6f]';
 
 export function TurnosTab() {
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
@@ -141,35 +166,35 @@ export function TurnosTab() {
 
         <div className='grid gap-3 sm:grid-cols-[2fr_1fr_1fr]'>
           <Field label='Experiencia'>
-            <select
-              value={expId}
-              onChange={(e) => setExpId(e.target.value)}
-              className={inputCls}
-            >
-              {experiences.length === 0 && <option value=''>—</option>}
-              {experiences.map((e) => (
-                <option key={e._id} value={e._id}>
-                  {e.name}
-                </option>
-              ))}
-            </select>
+            <Select value={expId || undefined} onValueChange={setExpId}>
+              <SelectTrigger className={`w-full ${triggerCls}`}>
+                <SelectValue placeholder='Elegí una experiencia' />
+              </SelectTrigger>
+              <SelectContent>
+                {experiences.map((e) => (
+                  <SelectItem key={e._id} value={e._id}>
+                    {e.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label='Cupo (opcional)'>
-            <input
+            <Input
               type='number'
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
               placeholder='default'
-              className={inputCls}
+              className={fieldCls}
             />
           </Field>
           <Field label='Precio p/p (opcional)'>
-            <input
+            <Input
               type='number'
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder='default'
-              className={inputCls}
+              className={fieldCls}
             />
           </Field>
         </div>
@@ -180,71 +205,74 @@ export function TurnosTab() {
           </span>
           {slots.map((s, i) => (
             <div key={i} className='flex items-center gap-2'>
-              <input
-                type='date'
+              <DatePicker
                 value={s.date}
-                onChange={(e) =>
+                onChange={(date) =>
                   setSlots((prev) =>
-                    prev.map((p, j) =>
-                      j === i ? { ...p, date: e.target.value } : p,
-                    ),
+                    prev.map((p, j) => (j === i ? { ...p, date } : p)),
                   )
                 }
-                className={inputCls + ' max-w-[180px]'}
+                className='max-w-[200px] flex-1'
               />
-              <input
-                type='time'
+              <TimePicker
                 value={s.time}
-                onChange={(e) =>
+                onChange={(time) =>
                   setSlots((prev) =>
-                    prev.map((p, j) =>
-                      j === i ? { ...p, time: e.target.value } : p,
-                    ),
+                    prev.map((p, j) => (j === i ? { ...p, time } : p)),
                   )
                 }
-                className={inputCls + ' max-w-[130px]'}
+                className='w-[120px]'
               />
               {slots.length > 1 && (
-                <button
+                <Button
                   type='button'
+                  variant='ghost'
+                  size='icon'
                   onClick={() =>
                     setSlots((prev) => prev.filter((_, j) => j !== i))
                   }
+                  className='size-9 text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#b23b2e]'
                 >
-                  <X className='h-4 w-4 text-[#7a6e6f]' />
-                </button>
+                  <X className='h-4 w-4' />
+                </Button>
               )}
             </div>
           ))}
-          <button
+          <Button
             type='button'
+            variant='outline'
+            size='sm'
             onClick={() => setSlots((prev) => [...prev, { date: '', time: '' }])}
-            className='flex w-fit items-center gap-1.5 rounded-lg border border-[#e6dbcd] px-3 py-2 text-xs text-[#7a6e6f]'
+            className='w-fit border-[#e6dbcd] text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
           >
             <Plus className='h-3.5 w-3.5' /> Agregar fecha
-          </button>
+          </Button>
         </div>
 
         <div className='flex items-center justify-between'>
-          <label className='flex items-center gap-2 text-sm text-[#3d3338]'>
-            <input
-              type='checkbox'
+          <div className='flex items-center gap-2.5'>
+            <Switch
+              id='publish'
               checked={publish}
-              onChange={(e) => setPublish(e.target.checked)}
+              onCheckedChange={setPublish}
+              className='data-[state=checked]:bg-[#455a54]'
             />
-            Publicar (visible al público)
-          </label>
-          <button
+            <Label htmlFor='publish' className='text-sm text-[#3d3338]'>
+              Publicar (visible al público)
+            </Label>
+          </div>
+          <Button
             type='button'
+            variant='terracota'
             onClick={generate}
             disabled={generating}
-            className='flex items-center gap-2 rounded-lg bg-[#9d684e] px-5 py-3 font-mono text-xs tracking-wider text-white disabled:opacity-60'
+            className='font-mono text-xs tracking-wider'
           >
             <Sparkles className='h-4 w-4' />
             {generating
               ? 'GENERANDO…'
               : `GENERAR ${validSlots.length || ''} TURNO${validSlots.length === 1 ? '' : 'S'}`}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -299,29 +327,35 @@ export function TurnosTab() {
                   {SESSION_STATUS_LABEL[s.status] ?? s.status}
                 </span>
                 <div className='flex items-center justify-end gap-1.5'>
-                  <button
+                  <Button
                     type='button'
+                    variant='outline'
+                    size='sm'
                     onClick={() => setAnotados(s.id)}
-                    className='flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2 font-mono text-xs text-[#3d3338]'
+                    className='border-[#e6dbcd] bg-[#fbf5ef] font-mono text-xs text-[#3d3338] hover:bg-[#f3e9df]'
                   >
                     <Users className='h-3.5 w-3.5' /> Anotados
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type='button'
+                    variant='outline'
+                    size='icon'
                     onClick={() => setEditing(s)}
                     title='Editar turno'
-                    className='rounded-lg border border-[#e6dbcd] p-2 text-[#7a6e6f] hover:text-[#3d3338]'
+                    className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
                   >
                     <Pencil className='h-3.5 w-3.5' />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type='button'
+                    variant='outline'
+                    size='icon'
                     onClick={() => doDelete(s)}
                     title='Eliminar turno'
-                    className='rounded-lg border border-[#e6dbcd] p-2 text-[#7a6e6f] hover:text-[#b23b2e]'
+                    className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
                   >
                     <Trash2 className='h-3.5 w-3.5' />
-                  </button>
+                  </Button>
                 </div>
               </div>
             );
@@ -392,69 +426,70 @@ function SessionEditModal({
   }
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
-      <div className='w-full max-w-sm rounded-xl bg-white p-6'>
-        <div className='mb-4 flex items-center justify-between'>
-          <h2 className='font-playfair text-xl text-[#3d3338]'>Editar turno</h2>
-          <button type='button' onClick={onClose}>
-            <X className='h-5 w-5 text-[#7a6e6f]' />
-          </button>
-        </div>
-        <p className='mb-4 text-sm text-[#7a6e6f]'>
-          {session.experienceName} · {fmtDateTime(session.startAt)}
-        </p>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-sm'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-playfair text-xl text-[#3d3338]'>
+            Editar turno
+          </DialogTitle>
+          <p className='text-sm text-[#7a6e6f]'>
+            {session.experienceName} · {fmtDateTime(session.startAt)}
+          </p>
+        </DialogHeader>
+
         <div className='grid grid-cols-2 gap-3'>
           <Field label='Precio p/p'>
-            <input
+            <Input
               type='number'
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className={inputCls}
+              className={fieldCls}
             />
           </Field>
           <Field label='Cupo'>
-            <input
+            <Input
               type='number'
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
-              className={inputCls}
+              className={fieldCls}
             />
           </Field>
         </div>
-        <div className='mt-3'>
-          <Field label='Estado'>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className={inputCls}
-            >
+        <Field label='Estado'>
+          <Select value={status} onValueChange={(v) => setStatus(v)}>
+            <SelectTrigger className={`w-full ${triggerCls}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {STATUS_OPTIONS.map((o) => (
-                <option key={o.v} value={o.v}>
+                <SelectItem key={o.v} value={o.v}>
                   {o.l}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </Field>
-        </div>
-        <div className='mt-3'>
-          <Field label='Notas'>
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-        </div>
-        <button
-          type='button'
-          onClick={save}
-          disabled={saving}
-          className='mt-5 w-full rounded-lg bg-[#9d684e] px-4 py-3 font-mono text-xs tracking-wider text-white disabled:opacity-60'
-        >
-          {saving ? 'GUARDANDO…' : 'GUARDAR'}
-        </button>
-      </div>
-    </div>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label='Notas'>
+          <Input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className={fieldCls}
+          />
+        </Field>
+
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='terracota'
+            onClick={save}
+            disabled={saving}
+            className='w-full font-mono text-xs tracking-wider'
+          >
+            {saving ? 'GUARDANDO…' : 'GUARDAR'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -541,64 +576,71 @@ function ClosedDatesPanel() {
       {/* Form */}
       <div className='grid items-end gap-3 sm:grid-cols-[1fr_2fr_1fr_auto]'>
         <Field label='Tipo'>
-          <select
+          <Select
             value={kind}
-            onChange={(e) => setKind(e.target.value as ClosedDateKind)}
-            className={inputCls}
+            onValueChange={(v) => setKind(v as ClosedDateKind)}
           >
-            <option value='DATE'>Fecha / rango</option>
-            <option value='WEEKLY'>Día de semana</option>
-          </select>
+            <SelectTrigger className={`w-full ${triggerCls}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='DATE'>Fecha / rango</SelectItem>
+              <SelectItem value='WEEKLY'>Día de semana</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
         {kind === 'DATE' ? (
           <Field label='Desde → Hasta (opcional)'>
             <div className='flex items-center gap-2'>
-              <input
-                type='date'
+              <DatePicker
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className={inputCls}
+                onChange={setFrom}
+                placeholder='Desde'
+                className='flex-1'
               />
               <span className='text-[#7a6e6f]'>→</span>
-              <input
-                type='date'
+              <DatePicker
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className={inputCls}
+                onChange={setTo}
+                placeholder='Hasta'
+                clearable
+                className='flex-1'
               />
             </div>
           </Field>
         ) : (
           <Field label='Día'>
-            <select
-              value={weekday}
-              onChange={(e) => setWeekday(e.target.value)}
-              className={inputCls}
-            >
-              {Object.entries(WEEKDAY_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
+            <Select value={weekday} onValueChange={setWeekday}>
+              <SelectTrigger className={`w-full ${triggerCls}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(WEEKDAY_LABELS).map(([v, l]) => (
+                  <SelectItem key={v} value={v}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         )}
         <Field label='Motivo (opcional)'>
-          <input
+          <Input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder='Feriado…'
-            className={inputCls}
+            className={fieldCls}
           />
         </Field>
-        <button
+        <Button
           type='button'
+          variant='terracota'
           onClick={add}
           disabled={saving}
-          className='flex items-center gap-1.5 rounded-lg bg-[#9d684e] px-4 py-2.5 font-mono text-xs tracking-wider text-white disabled:opacity-60'
+          className='font-mono text-xs tracking-wider'
         >
           <Plus className='h-4 w-4' /> {saving ? '…' : 'AGREGAR'}
-        </button>
+        </Button>
       </div>
 
       {/* Lista */}
@@ -631,9 +673,6 @@ function ClosedDatesPanel() {
   );
 }
 
-const inputCls =
-  'w-full rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2.5 text-sm text-[#3d3338] outline-none focus:border-[#9d684e]';
-
 function Field({
   label,
   children,
@@ -642,11 +681,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className='flex flex-col gap-1.5'>
+    <div className='flex flex-col gap-1.5'>
       <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
         {label.toUpperCase()}
       </span>
       {children}
-    </label>
+    </div>
   );
 }

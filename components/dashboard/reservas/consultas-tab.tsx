@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { showToast } from '@/lib/toast';
-import { fmtDateTime } from '@/lib/reservas-format';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   leadsAdmin,
   type LeadItem,
@@ -79,21 +80,21 @@ export function ConsultasTab() {
         {FILTERS.map((f) => {
           const on = f.key === status;
           return (
-            <button
+            <Button
               key={f.key || 'all'}
               type='button'
+              variant={on ? 'verde' : 'outline'}
               onClick={() => {
                 setStatus(f.key);
                 setPage(1);
               }}
-              className={`rounded-full px-4 py-2 text-sm transition ${
-                on
-                  ? 'bg-[#455a54] text-white'
-                  : 'border border-[#e6dbcd] bg-white text-[#7a6e6f]'
-              }`}
+              className={cn(
+                'rounded-full',
+                !on && 'border-[#e6dbcd] bg-white text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]',
+              )}
             >
               {f.label}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -148,22 +149,26 @@ export function ConsultasTab() {
                 </span>
                 <div className='flex justify-end gap-1.5'>
                   {l.status === 'NEW' && (
-                    <button
+                    <Button
                       type='button'
+                      variant='outline'
+                      size='sm'
                       onClick={() => setLeadStatus(l, 'CONTACTED')}
-                      className='rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-1.5 text-xs text-[#3d3338]'
+                      className='border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]'
                     >
                       Contactada
-                    </button>
+                    </Button>
                   )}
                   {l.status !== 'CLOSED' && (
-                    <button
+                    <Button
                       type='button'
+                      variant='ghost'
+                      size='sm'
                       onClick={() => setLeadStatus(l, 'CLOSED')}
-                      className='rounded-lg border border-[#e6dbcd] px-3 py-1.5 text-xs text-[#7a6e6f]'
+                      className='text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
                     >
                       Cerrar
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -174,25 +179,27 @@ export function ConsultasTab() {
 
       {totalPages > 1 && (
         <div className='flex items-center justify-center gap-3'>
-          <button
+          <Button
             type='button'
+            variant='outline'
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className='rounded-lg border border-[#e6dbcd] bg-white px-4 py-2 text-sm text-[#3d3338] disabled:opacity-40'
+            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
           >
             Anterior
-          </button>
+          </Button>
           <span className='text-sm text-[#7a6e6f]'>
             {page} / {totalPages}
           </span>
-          <button
+          <Button
             type='button'
+            variant='outline'
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className='rounded-lg border border-[#e6dbcd] bg-white px-4 py-2 text-sm text-[#3d3338] disabled:opacity-40'
+            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
           >
             Siguiente
-          </button>
+          </Button>
         </div>
       )}
 

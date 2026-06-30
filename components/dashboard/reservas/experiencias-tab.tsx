@@ -1,8 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { fmtPrice } from '@/lib/reservas-format';
 import {
   reservationsAdmin,
@@ -19,6 +31,9 @@ const EMPTY: CreateExperienceInput = {
   depositPct: 50,
   isActive: true,
 };
+
+const fieldCls =
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 export function ExperienciasTab() {
   const [items, setItems] = useState<AdminExperience[]>([]);
@@ -98,13 +113,14 @@ export function ExperienciasTab() {
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex justify-end'>
-        <button
+        <Button
           type='button'
+          variant='terracota'
           onClick={openNew}
-          className='flex items-center gap-2 rounded-lg bg-[#9d684e] px-4 py-2.5 font-mono text-xs tracking-wider text-white'
+          className='font-mono text-xs tracking-wider'
         >
           <Plus className='h-4 w-4' /> NUEVA EXPERIENCIA
-        </button>
+        </Button>
       </div>
 
       <div className='overflow-hidden rounded-xl border border-[#e6dbcd] bg-white'>
@@ -144,7 +160,7 @@ export function ExperienciasTab() {
                 {fmtPrice(e.basePrice)}
               </span>
               <span className='text-sm text-[#3d3338]'>{e.defaultCapacity}</span>
-              <div className='flex items-center justify-end gap-3'>
+              <div className='flex items-center justify-end gap-1.5'>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[11px] ${
                     e.isActive
@@ -154,50 +170,62 @@ export function ExperienciasTab() {
                 >
                   {e.isActive ? 'Activa' : 'Pausada'}
                 </span>
-                <button type='button' onClick={() => openEdit(e)}>
-                  <Pencil className='h-4 w-4 text-[#7a6e6f] hover:text-[#3d3338]' />
-                </button>
-                <button type='button' onClick={() => remove(e)}>
-                  <Trash2 className='h-4 w-4 text-[#7a6e6f] hover:text-[#b23b2e]' />
-                </button>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  onClick={() => openEdit(e)}
+                  title='Editar'
+                  className='size-8 text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+                >
+                  <Pencil className='h-4 w-4' />
+                </Button>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  onClick={() => remove(e)}
+                  title='Dar de baja'
+                  className='size-8 text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
+                >
+                  <Trash2 className='h-4 w-4' />
+                </Button>
               </div>
             </div>
           ))
         )}
       </div>
 
-      {form && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
-          <div className='w-full max-w-md rounded-xl bg-white p-6'>
-            <div className='mb-4 flex items-center justify-between'>
-              <h2 className='font-playfair text-xl text-[#3d3338]'>
+      <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
+        {form && (
+          <DialogContent className='sm:max-w-md'>
+            <DialogHeader className='text-left'>
+              <DialogTitle className='font-playfair text-xl text-[#3d3338]'>
                 {editing ? 'Editar experiencia' : 'Nueva experiencia'}
-              </h2>
-              <button type='button' onClick={() => setForm(null)}>
-                <X className='h-5 w-5 text-[#7a6e6f]' />
-              </button>
-            </div>
+              </DialogTitle>
+            </DialogHeader>
+
             <div className='flex flex-col gap-3'>
               <Field label='Nombre'>
-                <input
+                <Input
                   value={form.name}
                   onChange={(ev) => setForm({ ...form, name: ev.target.value })}
-                  className={inputCls}
+                  className={fieldCls}
                 />
               </Field>
               <Field label='Descripción'>
-                <textarea
+                <Textarea
                   value={form.description}
                   onChange={(ev) =>
                     setForm({ ...form, description: ev.target.value })
                   }
                   rows={2}
-                  className={inputCls}
+                  className={fieldCls}
                 />
               </Field>
               <div className='grid grid-cols-3 gap-3'>
                 <Field label='Duración (min)'>
-                  <input
+                  <Input
                     type='number'
                     value={form.durationMinutes}
                     onChange={(ev) =>
@@ -206,21 +234,21 @@ export function ExperienciasTab() {
                         durationMinutes: Number(ev.target.value),
                       })
                     }
-                    className={inputCls}
+                    className={fieldCls}
                   />
                 </Field>
                 <Field label='Precio p/p'>
-                  <input
+                  <Input
                     type='number'
                     value={form.basePrice}
                     onChange={(ev) =>
                       setForm({ ...form, basePrice: Number(ev.target.value) })
                     }
-                    className={inputCls}
+                    className={fieldCls}
                   />
                 </Field>
                 <Field label='Cupo def.'>
-                  <input
+                  <Input
                     type='number'
                     value={form.defaultCapacity}
                     onChange={(ev) =>
@@ -229,12 +257,12 @@ export function ExperienciasTab() {
                         defaultCapacity: Number(ev.target.value),
                       })
                     }
-                    className={inputCls}
+                    className={fieldCls}
                   />
                 </Field>
               </div>
               <Field label='Seña % (lo que se cobra al reservar)'>
-                <input
+                <Input
                   type='number'
                   min={0}
                   max={100}
@@ -242,46 +270,48 @@ export function ExperienciasTab() {
                   onChange={(ev) =>
                     setForm({ ...form, depositPct: Number(ev.target.value) })
                   }
-                  className={inputCls}
+                  className={fieldCls}
                 />
               </Field>
-              <label className='flex items-center gap-2 text-sm text-[#3d3338]'>
-                <input
-                  type='checkbox'
+              <div className='flex items-center gap-2.5'>
+                <Switch
+                  id='exp-active'
                   checked={form.isActive}
-                  onChange={(ev) =>
-                    setForm({ ...form, isActive: ev.target.checked })
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, isActive: checked })
                   }
+                  className='data-[state=checked]:bg-[#455a54]'
                 />
-                Activa (visible al público)
-              </label>
+                <Label htmlFor='exp-active' className='text-sm text-[#3d3338]'>
+                  Activa (visible al público)
+                </Label>
+              </div>
             </div>
-            <div className='mt-5 flex justify-end gap-2'>
-              <button
+
+            <DialogFooter>
+              <Button
                 type='button'
+                variant='outline'
                 onClick={() => setForm(null)}
-                className='rounded-lg border border-[#e6dbcd] px-4 py-2.5 text-sm text-[#3d3338]'
+                className='border-[#e6dbcd] text-[#3d3338] hover:bg-[#fbf5ef]'
               >
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
                 type='button'
+                variant='terracota'
                 onClick={save}
                 disabled={saving}
-                className='rounded-lg bg-[#9d684e] px-4 py-2.5 text-sm text-white disabled:opacity-60'
               >
                 {saving ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </div>
   );
 }
-
-const inputCls =
-  'w-full rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2.5 text-sm text-[#3d3338] outline-none focus:border-[#9d684e]';
 
 function Field({
   label,
@@ -291,11 +321,11 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className='flex flex-col gap-1.5'>
+    <div className='flex flex-col gap-1.5'>
       <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
         {label.toUpperCase()}
       </span>
       {children}
-    </label>
+    </div>
   );
 }

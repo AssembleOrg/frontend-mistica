@@ -1,8 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, CheckCircle2, Wallet, X } from 'lucide-react';
+import { Ban, CheckCircle2, Wallet } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import {
   fmtDateTime,
   fmtPrice,
@@ -93,21 +104,21 @@ export function ReservasTab() {
         {FILTERS.map((f) => {
           const on = f.key === status;
           return (
-            <button
+            <Button
               key={f.key || 'all'}
               type='button'
+              variant={on ? 'verde' : 'outline'}
               onClick={() => {
                 setStatus(f.key);
                 setPage(1);
               }}
-              className={`rounded-full px-4 py-2 text-sm transition ${
-                on
-                  ? 'bg-[#455a54] text-white'
-                  : 'border border-[#e6dbcd] bg-white text-[#7a6e6f]'
-              }`}
+              className={cn(
+                'rounded-full',
+                !on && 'border-[#e6dbcd] bg-white text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]',
+              )}
             >
               {f.label}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -170,37 +181,43 @@ export function ReservasTab() {
                 </span>
                 <div className='flex items-center justify-end gap-1.5'>
                   {r.status === 'NEEDS_REVIEW' && (
-                    <button
+                    <Button
                       type='button'
+                      variant='outline'
+                      size='icon'
                       disabled={busy === r._id}
                       onClick={() => doResolve(r, 'confirm')}
                       title='Confirmar'
-                      className='rounded-md border border-[#e6dbcd] p-1.5 text-[#455a54] hover:bg-[#E7F0EC]'
+                      className='size-8 border-[#e6dbcd] text-[#455a54] hover:bg-[#E7F0EC] hover:text-[#455a54]'
                     >
                       <CheckCircle2 className='h-4 w-4' />
-                    </button>
+                    </Button>
                   )}
                   {r.balanceDue != null && r.balanceDue > 0 && r.status === 'CONFIRMED' && (
-                    <button
+                    <Button
                       type='button'
+                      variant='outline'
+                      size='icon'
                       disabled={busy === r._id}
                       onClick={() => setCollect(r)}
                       title='Cobrar saldo'
-                      className='rounded-md border border-[#e6dbcd] p-1.5 text-[#9d684e] hover:bg-[#fbf5ef]'
+                      className='size-8 border-[#e6dbcd] text-[#9d684e] hover:bg-[#fbf5ef] hover:text-[#9d684e]'
                     >
                       <Wallet className='h-4 w-4' />
-                    </button>
+                    </Button>
                   )}
                   {['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status) && (
-                    <button
+                    <Button
                       type='button'
+                      variant='outline'
+                      size='icon'
                       disabled={busy === r._id}
                       onClick={() => doCancel(r)}
                       title='Cancelar'
-                      className='rounded-md border border-[#e6dbcd] p-1.5 text-[#b23b2e] hover:bg-red-50'
+                      className='size-8 border-[#e6dbcd] text-[#b23b2e] hover:bg-red-50 hover:text-[#b23b2e]'
                     >
                       <Ban className='h-4 w-4' />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -222,25 +239,27 @@ export function ReservasTab() {
 
       {totalPages > 1 && (
         <div className='flex items-center justify-center gap-3'>
-          <button
+          <Button
             type='button'
+            variant='outline'
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className='rounded-lg border border-[#e6dbcd] bg-white px-4 py-2 text-sm text-[#3d3338] disabled:opacity-40'
+            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
           >
             Anterior
-          </button>
+          </Button>
           <span className='text-sm text-[#7a6e6f]'>
             {page} / {totalPages}
           </span>
-          <button
+          <Button
             type='button'
+            variant='outline'
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className='rounded-lg border border-[#e6dbcd] bg-white px-4 py-2 text-sm text-[#3d3338] disabled:opacity-40'
+            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
           >
             Siguiente
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -282,49 +301,56 @@ function CollectBalanceModal({
   }
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
-      <div className='w-full max-w-sm rounded-xl bg-white p-6'>
-        <div className='mb-4 flex items-center justify-between'>
-          <h2 className='font-playfair text-xl text-[#3d3338]'>Cobrar saldo</h2>
-          <button type='button' onClick={onClose}>
-            <X className='h-5 w-5 text-[#7a6e6f]' />
-          </button>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-sm'>
+        <DialogHeader>
+          <DialogTitle>Cobrar saldo</DialogTitle>
+          <DialogDescription>
+            {reservation.experienceName} · {prettyCode(reservation.code)} · saldo{' '}
+            {fmtPrice(balance)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className='space-y-3'>
+          <div className='grid grid-cols-3 gap-2'>
+            {PAY_METHODS.map((m) => {
+              const on = m.key === method;
+              return (
+                <Button
+                  key={m.key}
+                  type='button'
+                  variant={on ? 'terracota' : 'outline'}
+                  size='sm'
+                  onClick={() => setMethod(m.key)}
+                  className={cn(
+                    !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]',
+                  )}
+                >
+                  {m.label}
+                </Button>
+              );
+            })}
+          </div>
+          <Input
+            type='number'
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+          />
         </div>
-        <p className='mb-3 text-sm text-[#7a6e6f]'>
-          {reservation.experienceName} · {prettyCode(reservation.code)} · saldo{' '}
-          {fmtPrice(balance)}
-        </p>
-        <div className='mb-3 grid grid-cols-3 gap-2'>
-          {PAY_METHODS.map((m) => (
-            <button
-              key={m.key}
-              type='button'
-              onClick={() => setMethod(m.key)}
-              className={`rounded-lg border px-2 py-2 text-xs font-medium ${
-                m.key === method
-                  ? 'border-[#9d684e] bg-[#9d684e] text-white'
-                  : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338]'
-              }`}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <input
-          type='number'
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          className='mb-4 w-full rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2.5 text-sm text-[#3d3338] outline-none focus:border-[#9d684e]'
-        />
-        <button
-          type='button'
-          onClick={submit}
-          disabled={saving}
-          className='w-full rounded-lg bg-[#9d684e] px-4 py-3 font-mono text-xs tracking-wider text-white disabled:opacity-60'
-        >
-          {saving ? 'COBRANDO…' : 'CONFIRMAR COBRO'}
-        </button>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='terracota'
+            onClick={submit}
+            disabled={saving}
+            className='w-full'
+          >
+            {saving ? 'COBRANDO…' : 'CONFIRMAR COBRO'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,8 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Minus, Plus, UserPlus, X } from 'lucide-react';
+import { Minus, Plus, UserPlus } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import {
   fmtDateTime,
   fmtPrice,
@@ -21,6 +30,9 @@ const METHODS: { key: ReservationPaymentMethod; label: string }[] = [
   { key: 'TRANSFER', label: 'Transfer.' },
   { key: 'COURTESY', label: 'Cortesía' },
 ];
+
+const fieldCls =
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 export function AnotadosModal({
   sessionId,
@@ -93,23 +105,18 @@ export function AnotadosModal({
   }
 
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'>
-      <div className='flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white'>
-        <div className='flex items-center justify-between border-b border-[#e6dbcd] px-6 py-4'>
-          <div>
-            <p className='font-mono text-[11px] tracking-wider text-[#9d684e]'>
-              ANOTADOS
-            </p>
-            <h2 className='font-playfair text-xl text-[#3d3338]'>
-              {session
-                ? `${session.experienceName} · ${fmtDateTime(session.startAt)}`
-                : 'Turno'}
-            </h2>
-          </div>
-          <button type='button' onClick={onClose}>
-            <X className='h-5 w-5 text-[#7a6e6f]' />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-3xl'>
+        <DialogHeader className='border-b border-[#e6dbcd] px-6 py-4 text-left'>
+          <p className='font-mono text-[11px] tracking-wider text-[#9d684e]'>
+            ANOTADOS
+          </p>
+          <DialogTitle className='font-playfair text-xl text-[#3d3338]'>
+            {session
+              ? `${session.experienceName} · ${fmtDateTime(session.startAt)}`
+              : 'Turno'}
+          </DialogTitle>
+        </DialogHeader>
 
         <div className='grid flex-1 gap-5 overflow-y-auto p-6 md:grid-cols-[1fr_300px]'>
           {/* Lista de anotados */}
@@ -158,37 +165,41 @@ export function AnotadosModal({
                 Agregar reserva
               </h3>
             </div>
-            <input
+            <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder='Nombre y apellido'
-              className={inputCls}
+              className={fieldCls}
             />
-            <input
+            <Input
               value={contact}
               onChange={(e) => setContact(e.target.value)}
               placeholder='Teléfono o email'
-              className={inputCls}
+              className={fieldCls}
             />
             <div className='flex items-center gap-3'>
               <div className='flex items-center overflow-hidden rounded-lg border border-[#e6dbcd]'>
-                <button
+                <Button
                   type='button'
+                  variant='ghost'
+                  size='icon'
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  className='flex h-10 w-10 items-center justify-center text-[#3d3338]'
+                  className='size-10 rounded-none text-[#3d3338] hover:bg-[#fbf5ef]'
                 >
                   <Minus className='h-4 w-4' />
-                </button>
+                </Button>
                 <span className='w-10 text-center font-playfair text-lg text-[#3d3338]'>
                   {qty}
                 </span>
-                <button
+                <Button
                   type='button'
+                  variant='terracota'
+                  size='icon'
                   onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
-                  className='flex h-10 w-10 items-center justify-center bg-[#9d684e] text-white'
+                  className='size-10 rounded-none'
                 >
                   <Plus className='h-4 w-4' />
-                </button>
+                </Button>
               </div>
               <span className='text-xs text-[#7a6e6f]'>
                 {session ? `${session.seatsAvailable} disp.` : ''}
@@ -198,18 +209,18 @@ export function AnotadosModal({
               {METHODS.map((m) => {
                 const on = m.key === method;
                 return (
-                  <button
+                  <Button
                     key={m.key}
                     type='button'
+                    variant={on ? 'terracota' : 'outline'}
+                    size='sm'
                     onClick={() => setMethod(m.key)}
-                    className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
-                      on
-                        ? 'border-[#9d684e] bg-[#9d684e] text-white'
-                        : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338]'
-                    }`}
+                    className={cn(
+                      !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]',
+                    )}
                   >
                     {m.label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -226,20 +237,18 @@ export function AnotadosModal({
                 Impacta caja (requiere caja abierta).
               </p>
             )}
-            <button
+            <Button
               type='button'
+              variant='naranja'
               onClick={create}
               disabled={saving}
-              className='rounded-lg bg-[#cc844a] px-4 py-3 font-mono text-xs tracking-wider text-[#3d3338] disabled:opacity-60'
+              className='font-mono text-xs tracking-wider'
             >
               {saving ? 'CREANDO…' : 'CONFIRMAR RESERVA'}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
-
-const inputCls =
-  'w-full rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2.5 text-sm text-[#3d3338] outline-none focus:border-[#9d684e]';

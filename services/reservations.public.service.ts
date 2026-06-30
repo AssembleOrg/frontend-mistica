@@ -30,6 +30,7 @@ export interface PublicSession {
   seatsTaken: number;
   seatsAvailable: number;
   status: string;
+  notes?: string;
 }
 
 export type ReservationStatus =

@@ -10,6 +10,7 @@ export default function BotControlPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -24,10 +25,25 @@ export default function BotControlPage() {
 
   useEffect(() => {
     load();
-    // Auto-refresca mientras no esté vinculado (para ver el QR aparecer/cambiar).
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
   }, [load]);
+
+  // Auto-refresca el estado/QR mientras NO esté vinculado y no esté pausado.
+  // A los 3 minutos se pausa solo (para no consultar eternamente) y aparece
+  // "Conectar" para reanudar.
+  useEffect(() => {
+    if (paused || status?.loggedIn) return;
+    const interval = setInterval(load, 5000);
+    const timeout = setTimeout(() => setPaused(true), 3 * 60 * 1000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [paused, status?.loggedIn, load]);
+
+  function resume() {
+    setPaused(false);
+    load();
+  }
 
   async function restart() {
     if (!confirm('¿Reiniciar el bot?')) return;
@@ -70,7 +86,7 @@ export default function BotControlPage() {
         </div>
         <button
           type='button'
-          onClick={load}
+          onClick={resume}
           className='flex items-center gap-2 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-sm text-[#3d3338]'
         >
           <RefreshCw className='h-4 w-4' /> Actualizar
@@ -124,6 +140,31 @@ export default function BotControlPage() {
             <p className='text-center text-sm text-[#455a54]'>
               ✅ Bot vinculado. No hace falta escanear nada.
             </p>
+          ) : paused ? (
+            // Pausado tras 3 min: QR difuminado + botón para reanudar.
+            <div className='relative flex h-56 w-56 items-center justify-center'>
+              {status?.qr && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`data:image/png;base64,${status.qr}`}
+                  alt=''
+                  aria-hidden
+                  className='h-56 w-56 select-none blur-md opacity-30'
+                />
+              )}
+              <div className='absolute inset-0 flex flex-col items-center justify-center gap-3'>
+                <p className='px-4 text-center text-xs text-[#7a6e6f]'>
+                  Pausamos la actualización. Tocá para volver a mostrar el QR.
+                </p>
+                <button
+                  type='button'
+                  onClick={resume}
+                  className='flex items-center gap-2 rounded-lg bg-[#9d684e] px-5 py-2.5 font-mono text-xs tracking-wider text-white'
+                >
+                  <RefreshCw className='h-4 w-4' /> Conectar
+                </button>
+              </div>
+            </div>
           ) : status?.qr ? (
             <>
               <p className='text-center text-sm text-[#7a6e6f]'>

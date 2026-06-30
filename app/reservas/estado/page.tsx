@@ -17,13 +17,20 @@ import {
 } from '@/services/reservations.public.service';
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleString('es-AR', {
+  const tz = 'America/Argentina/Buenos_Aires';
+  const date = new Date(iso).toLocaleDateString('es-AR', {
     weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: tz,
+  });
+  const time = new Date(iso).toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: tz,
   });
+  return `${date} · ${time}`;
 }
 
 function prettyCode(code: string) {

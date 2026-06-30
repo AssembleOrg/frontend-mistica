@@ -1,5 +1,9 @@
 // Helpers de formato compartidos por las vistas de reservas (admin y público).
 
+// Zona horaria del negocio. Fijamos timeZone en cada formateo de fecha para no
+// depender de la zona del navegador (un admin en otra TZ vería fechas corridas).
+export const AR_TZ = 'America/Argentina/Buenos_Aires';
+
 export function fmtPrice(n: number): string {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -8,18 +12,39 @@ export function fmtPrice(n: number): string {
   }).format(n);
 }
 
+// Fecha + hora: "mié 24/12/2026 · 18:00" (la fecha siempre DD/MM/YYYY).
 export function fmtDateTime(iso: string): string {
   const d = new Date(iso);
   const date = d.toLocaleDateString('es-AR', {
     weekday: 'short',
-    day: 'numeric',
-    month: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: AR_TZ,
   });
   const time = d.toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: AR_TZ,
   });
   return `${date} · ${time}`;
+}
+
+// Solo fecha: "24/12/2026".
+export function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: AR_TZ,
+  });
+}
+
+// 'YYYY-MM-DD' (string plano, sin hora) -> 'DD/MM/YYYY'. Se hace por string,
+// SIN new Date(), para no correr el día por interpretación UTC.
+export function fmtYmd(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : ymd;
 }
 
 export function prettyCode(code: string): string {

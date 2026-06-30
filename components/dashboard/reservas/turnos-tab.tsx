@@ -22,6 +22,7 @@ import {
   type AdminSession,
   type SessionSlotInput,
 } from '@/services/reservations.admin.service';
+import { fmtYmd } from '@/lib/reservas-format';
 import {
   closedDatesAdmin,
   WEEKDAY_LABELS,
@@ -522,8 +523,9 @@ function ClosedDatesPanel() {
   function describe(c: ClosedDate): string {
     if (c.kind === 'WEEKLY')
       return `Todos los ${(WEEKDAY_LABELS[c.weekday ?? 0] ?? '').toLowerCase()}`;
-    if (c.from && c.to && c.from !== c.to) return `${c.from} al ${c.to}`;
-    return c.from ?? '';
+    if (c.from && c.to && c.from !== c.to)
+      return `${fmtYmd(c.from)} al ${fmtYmd(c.to)}`;
+    return c.from ? fmtYmd(c.from) : '';
   }
 
   return (

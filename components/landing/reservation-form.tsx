@@ -18,13 +18,20 @@ function fmtPrice(n: number) {
 }
 
 function fmtDate(iso: string) {
+  const tz = 'America/Argentina/Buenos_Aires';
   const d = new Date(iso);
   const date = d.toLocaleDateString('es-AR', {
     weekday: 'short',
-    day: 'numeric',
-    month: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: tz,
   });
-  const time = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const time = d.toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: tz,
+  });
   return `${date} · ${time}`;
 }
 

@@ -1,7 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { CopyPlus, Pencil, Plus, Sparkles, Trash2, Users, X } from 'lucide-react';
+import {
+  CalendarOff,
+  CopyPlus,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import {
   fmtDateTime,
@@ -13,6 +22,12 @@ import {
   type AdminSession,
   type SessionSlotInput,
 } from '@/services/reservations.admin.service';
+import {
+  closedDatesAdmin,
+  WEEKDAY_LABELS,
+  type ClosedDate,
+  type ClosedDateKind,
+} from '@/services/closed-dates.admin.service';
 import { AnotadosModal } from './anotados-modal';
 
 interface SlotRow {
@@ -232,6 +247,9 @@ export function TurnosTab() {
         </div>
       </div>
 
+      {/* Días cerrados */}
+      <ClosedDatesPanel />
+
       {/* Lista de turnos */}
       <div className='overflow-hidden rounded-xl border border-[#e6dbcd] bg-white'>
         <div className='grid grid-cols-[1.5fr_2fr_2fr_1fr_auto] gap-2 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
@@ -435,6 +453,178 @@ function SessionEditModal({
           {saving ? 'GUARDANDO…' : 'GUARDAR'}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ClosedDatesPanel() {
+  const [items, setItems] = useState<ClosedDate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [kind, setKind] = useState<ClosedDateKind>('DATE');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [weekday, setWeekday] = useState('1');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setItems(await closedDatesAdmin.list());
+    } catch (e) {
+      showToast.error(
+        e instanceof Error ? e.message : 'Error al cargar días cerrados',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function add() {
+    if (kind === 'DATE' && !from) {
+      showToast.error('Elegí una fecha');
+      return;
+    }
+    setSaving(true);
+    try {
+      await closedDatesAdmin.create(
+        kind === 'DATE'
+          ? { kind, from, to: to || undefined, reason: reason || undefined }
+          : { kind, weekday: Number(weekday), reason: reason || undefined },
+      );
+      showToast.success('Día cerrado agregado');
+      setFrom('');
+      setTo('');
+      setReason('');
+      await load();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo agregar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id: string) {
+    if (!confirm('¿Quitar este día/regla de cierre?')) return;
+    try {
+      await closedDatesAdmin.remove(id);
+      showToast.success('Quitado');
+      await load();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar');
+    }
+  }
+
+  function describe(c: ClosedDate): string {
+    if (c.kind === 'WEEKLY')
+      return `Todos los ${(WEEKDAY_LABELS[c.weekday ?? 0] ?? '').toLowerCase()}`;
+    if (c.from && c.to && c.from !== c.to) return `${c.from} al ${c.to}`;
+    return c.from ?? '';
+  }
+
+  return (
+    <div className='flex flex-col gap-4 rounded-xl border border-[#e6dbcd] bg-white p-5'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <CalendarOff className='h-5 w-5 text-[#9d684e]' />
+        <h2 className='font-playfair text-lg text-[#3d3338]'>Días cerrados</h2>
+        <span className='text-xs text-[#7a6e6f]'>
+          · el local no abre · bloquea turnos y reservas, y el bot avisa
+        </span>
+      </div>
+
+      {/* Form */}
+      <div className='grid items-end gap-3 sm:grid-cols-[1fr_2fr_1fr_auto]'>
+        <Field label='Tipo'>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as ClosedDateKind)}
+            className={inputCls}
+          >
+            <option value='DATE'>Fecha / rango</option>
+            <option value='WEEKLY'>Día de semana</option>
+          </select>
+        </Field>
+        {kind === 'DATE' ? (
+          <Field label='Desde → Hasta (opcional)'>
+            <div className='flex items-center gap-2'>
+              <input
+                type='date'
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className={inputCls}
+              />
+              <span className='text-[#7a6e6f]'>→</span>
+              <input
+                type='date'
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          </Field>
+        ) : (
+          <Field label='Día'>
+            <select
+              value={weekday}
+              onChange={(e) => setWeekday(e.target.value)}
+              className={inputCls}
+            >
+              {Object.entries(WEEKDAY_LABELS).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
+        <Field label='Motivo (opcional)'>
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder='Feriado…'
+            className={inputCls}
+          />
+        </Field>
+        <button
+          type='button'
+          onClick={add}
+          disabled={saving}
+          className='flex items-center gap-1.5 rounded-lg bg-[#9d684e] px-4 py-2.5 font-mono text-xs tracking-wider text-white disabled:opacity-60'
+        >
+          <Plus className='h-4 w-4' /> {saving ? '…' : 'AGREGAR'}
+        </button>
+      </div>
+
+      {/* Lista */}
+      {loading ? (
+        <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
+      ) : items.length === 0 ? (
+        <p className='text-sm text-[#7a6e6f]'>No hay días cerrados cargados.</p>
+      ) : (
+        <div className='flex flex-wrap gap-2'>
+          {items.map((c) => (
+            <span
+              key={c.id}
+              className='flex items-center gap-2 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-1.5 text-xs text-[#3d3338]'
+            >
+              <span className='font-medium'>{describe(c)}</span>
+              {c.reason && <span className='text-[#7a6e6f]'>· {c.reason}</span>}
+              <button
+                type='button'
+                onClick={() => remove(c.id)}
+                title='Quitar'
+                className='text-[#7a6e6f] hover:text-[#b23b2e]'
+              >
+                <X className='h-3.5 w-3.5' />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

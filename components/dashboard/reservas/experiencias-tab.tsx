@@ -29,6 +29,7 @@ const EMPTY: CreateExperienceInput = {
   basePrice: 0,
   defaultCapacity: 8,
   depositPct: 50,
+  bookableOnline: true,
   isActive: true,
 };
 
@@ -70,6 +71,7 @@ export function ExperienciasTab() {
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
       depositPct: e.depositPct ?? 50,
+      bookableOnline: e.bookableOnline ?? true,
       isActive: e.isActive,
     });
   }
@@ -144,8 +146,13 @@ export function ExperienciasTab() {
               className='grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-2 border-b border-[#e6dbcd] px-5 py-4 last:border-0'
             >
               <div>
-                <p className='font-playfair text-base text-[#3d3338]'>
+                <p className='flex items-center gap-2 font-playfair text-base text-[#3d3338]'>
                   {e.name}
+                  {e.bookableOnline === false && (
+                    <span className='rounded-full bg-[#F6E9DC] px-2 py-0.5 font-mono text-[10px] tracking-wider text-[#cc844a]'>
+                      COORDINADA
+                    </span>
+                  )}
                 </p>
                 {e.description && (
                   <p className='line-clamp-1 text-xs text-[#7a6e6f]'>
@@ -273,6 +280,28 @@ export function ExperienciasTab() {
                   className={fieldCls}
                 />
               </Field>
+              <div className='flex flex-col gap-1'>
+                <div className='flex items-center gap-2.5'>
+                  <Switch
+                    id='exp-bookable'
+                    checked={form.bookableOnline ?? true}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, bookableOnline: checked })
+                    }
+                    className='data-[state=checked]:bg-[#455a54]'
+                  />
+                  <Label
+                    htmlFor='exp-bookable'
+                    className='text-sm text-[#3d3338]'
+                  >
+                    Se reserva online (genera turnos y seña)
+                  </Label>
+                </div>
+                <p className='pl-12 text-xs text-[#7a6e6f]'>
+                  Si lo apagás, es un servicio coordinado: el bot solo informa y
+                  toma la consulta (sin turnos ni pago online).
+                </p>
+              </div>
               <div className='flex items-center gap-2.5'>
                 <Switch
                   id='exp-active'

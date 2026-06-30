@@ -15,6 +15,8 @@ export interface PublicExperience {
   depositPct?: number;
   images: string[];
   isActive: boolean;
+  // false = servicio coordinado (no se reserva online; solo info + consulta).
+  bookableOnline?: boolean;
 }
 
 export interface PublicSession {

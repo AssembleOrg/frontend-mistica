@@ -118,13 +118,12 @@ export function ExperienciasTab() {
 
   function estadoBadge(e: AdminExperience) {
     return (
-      <span
-        className={`rounded-full px-2.5 py-1 text-[11px] ${
-          e.isActive
-            ? 'bg-[#E7F0EC] text-[#455a54]'
-            : 'bg-[#f1ede6] text-[#7a6e6f]'
-        }`}
-      >
+      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${
+            e.isActive ? 'bg-[#455a54]' : 'bg-[#a99]'
+          }`}
+        />
         {e.isActive ? 'Activa' : 'Pausada'}
       </span>
     );
@@ -196,8 +195,8 @@ export function ExperienciasTab() {
                   <p className='flex items-center gap-2 font-playfair text-base text-[#3d3338]'>
                     {e.name}
                     {e.bookableOnline === false && (
-                      <span className='rounded-full bg-[#F6E9DC] px-2 py-0.5 font-mono text-[10px] tracking-wider text-[#cc844a]'>
-                        COORDINADA
+                      <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
+                        Coordinada
                       </span>
                     )}
                   </p>
@@ -246,8 +245,8 @@ export function ExperienciasTab() {
                 <p className='flex flex-wrap items-center gap-2 font-playfair text-base text-[#3d3338]'>
                   {e.name}
                   {e.bookableOnline === false && (
-                    <span className='rounded-full bg-[#F6E9DC] px-2 py-0.5 font-mono text-[10px] tracking-wider text-[#cc844a]'>
-                      COORDINADA
+                    <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
+                      Coordinada
                     </span>
                   )}
                 </p>

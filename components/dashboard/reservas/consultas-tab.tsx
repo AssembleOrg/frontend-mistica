@@ -112,12 +112,14 @@ export function ConsultasTab() {
   }
 
   function leadBadge(l: LeadItem) {
-    const [bg, fg] = STATUS_COLOR[l.status] ?? ['#f1ede6', '#7a6e6f'];
+    // Estado como texto tipográfico (punto de color + label), sin pill.
+    const [, fg] = STATUS_COLOR[l.status] ?? ['#f1ede6', '#7a6e6f'];
     return (
-      <span
-        className='rounded-full px-2.5 py-1 font-mono text-[11px]'
-        style={{ backgroundColor: bg, color: fg }}
-      >
+      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+        <span
+          className='h-1.5 w-1.5 rounded-full'
+          style={{ backgroundColor: fg }}
+        />
         {STATUS_LABEL[l.status] ?? l.status}
       </span>
     );
@@ -125,25 +127,26 @@ export function ConsultasTab() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap gap-2'>
+      <div className='flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#e6dbcd] pb-1'>
         {FILTERS.map((f) => {
           const on = f.key === status;
           return (
-            <Button
+            <button
               key={f.key || 'all'}
               type='button'
-              variant={on ? 'verde' : 'outline'}
               onClick={() => {
                 setStatus(f.key);
                 setPage(1);
               }}
               className={cn(
-                'rounded-full',
-                !on && 'border-[#e6dbcd] bg-white text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]',
+                'relative -mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
+                on
+                  ? 'border-[#455a54] text-[#3d3338]'
+                  : 'border-transparent text-[#7a6e6f] hover:text-[#3d3338]',
               )}
             >
               {f.label}
-            </Button>
+            </button>
           );
         })}
       </div>

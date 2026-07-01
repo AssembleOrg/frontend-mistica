@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono, Playfair_Display } from 'next/font/google';
+import { Geist, Geist_Mono, Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -19,6 +19,12 @@ const playfair = Playfair_Display({
   variable: '--font-playfair',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+});
+
+// Sans de cuerpo/UI de la landing boutique (reemplaza Geist en lo público).
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
@@ -55,7 +61,7 @@ export default function RootLayout({
   return (
     <html lang='es-AR'>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${inter.variable} antialiased`}
       >
         <ErrorBoundary>{children}</ErrorBoundary>
         <Toaster />

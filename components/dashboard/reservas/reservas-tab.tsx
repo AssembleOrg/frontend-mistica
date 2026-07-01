@@ -169,28 +169,29 @@ export function ReservasTab() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap items-center gap-2'>
+      <div className='flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#e6dbcd]'>
         {FILTERS.map((f) => {
           const on = f.key === status;
           return (
-            <Button
+            <button
               key={f.key || 'all'}
               type='button'
-              variant={on ? 'verde' : 'outline'}
               onClick={() => {
                 setStatus(f.key);
                 setPage(1);
               }}
               className={cn(
-                'rounded-full',
-                !on && 'border-[#e6dbcd] bg-white text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]',
+                '-mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
+                on
+                  ? 'border-[#455a54] text-[#3d3338]'
+                  : 'border-transparent text-[#7a6e6f] hover:text-[#3d3338]',
               )}
             >
               {f.label}
-            </Button>
+            </button>
           );
         })}
-        <div className='relative w-full sm:ml-auto sm:w-72'>
+        <div className='relative mb-1 w-full sm:ml-auto sm:w-72'>
           <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
           <Input
             value={searchInput}
@@ -221,7 +222,7 @@ export function ReservasTab() {
           </div>
         ) : (
           items.map((r) => {
-            const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
+            const [, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
               '#f1ede6',
               '#7a6e6f',
             ];
@@ -254,10 +255,11 @@ export function ReservasTab() {
                 <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#3d3338]'>
                   {r.source === 'ADMIN' ? 'Admin' : 'Público'}
                 </span>
-                <span
-                  className='rounded-full px-2.5 py-1 font-mono text-[11px]'
-                  style={{ backgroundColor: bg, color: fg }}
-                >
+                <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+                  <span
+                    className='h-1.5 w-1.5 rounded-full'
+                    style={{ backgroundColor: fg }}
+                  />
                   {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                 </span>
                 {renderActions(r) ?? <span />}
@@ -280,7 +282,7 @@ export function ReservasTab() {
           </div>
         ) : (
           items.map((r) => {
-            const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
+            const [, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
               '#f1ede6',
               '#7a6e6f',
             ];
@@ -294,10 +296,11 @@ export function ReservasTab() {
                   <span className='font-mono text-sm font-semibold text-[#9d684e]'>
                     {prettyCode(r.code)}
                   </span>
-                  <span
-                    className='rounded-full px-2.5 py-1 font-mono text-[11px]'
-                    style={{ backgroundColor: bg, color: fg }}
-                  >
+                  <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+                    <span
+                      className='h-1.5 w-1.5 rounded-full'
+                      style={{ backgroundColor: fg }}
+                    />
                     {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                   </span>
                 </div>

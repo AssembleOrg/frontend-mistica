@@ -8,6 +8,7 @@ import {
   type PublicExperience,
   type PublicSession,
 } from '@/services/reservations.public.service';
+import { SectionLabel } from '@/components/landing/primitives';
 
 function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-AR', {
@@ -35,20 +36,19 @@ function fmtDate(iso: string) {
   return `${date} · ${time}`;
 }
 
-const chip = (on: boolean) =>
-  `rounded-[4px] border px-4 py-3 text-sm font-medium transition ${
+// Opción seleccionable (experiencia o turno). Sin "pill": borde fino + press.
+const option = (on: boolean) =>
+  `press border px-4 py-3 text-left text-sm transition ${
     on
-      ? 'border-[#9D684E] bg-[#9D684E] text-[#F6EEE6]'
-      : 'border-[#E6DBCD] bg-[#F6EEE6] text-[#3D3338] hover:border-[#9D684E]/50'
+      ? 'border-terracota bg-terracota text-arena'
+      : 'border-linea bg-arena text-ciruela-oscuro hover:border-terracota/50'
   }`;
 
-function GroupLabel({ n, children }: { n: string; children: string }) {
+function StepLabel({ n, children }: { n: string; children: string }) {
   return (
-    <div className='flex items-center gap-2.5'>
-      <span className='font-mono text-xs tracking-[1px] text-[#9D684E]'>{n}</span>
-      <span className='font-mono text-xs tracking-[1.5px] text-[#3D3338]'>
-        {children}
-      </span>
+    <div className='flex items-baseline gap-3'>
+      <span className='font-mono text-xs tabular-nums text-terracota'>{n}</span>
+      <SectionLabel>{children}</SectionLabel>
     </div>
   );
 }
@@ -56,11 +56,16 @@ function GroupLabel({ n, children }: { n: string; children: string }) {
 export function ReservationForm({
   experiences,
   sessions,
+  lockedExperienceId,
 }: {
   experiences: PublicExperience[];
   sessions: PublicSession[];
+  /** Si viene, la experiencia queda fija (flujo desde el índice/sheet). */
+  lockedExperienceId?: string;
 }) {
-  const [expId, setExpId] = useState(experiences[0]?._id ?? '');
+  const [expId, setExpId] = useState(
+    lockedExperienceId ?? experiences[0]?._id ?? '',
+  );
   const [sessionId, setSessionId] = useState('');
   const [qty, setQty] = useState(1);
   const [name, setName] = useState('');
@@ -91,6 +96,7 @@ export function ReservationForm({
   const saldo = total - senia;
   const expName = experiences.find((e) => e._id === expId)?.name ?? 'Experiencia';
   const canSubmit = !!selected && qty >= 1 && name.trim().length > 1 && !submitting;
+  const locked = !!lockedExperienceId;
 
   async function submit() {
     if (!selected) {
@@ -119,39 +125,47 @@ export function ReservationForm({
 
   if (experiences.length === 0) {
     return (
-      <div className='rounded-[4px] border border-[#E6DBCD] bg-[#F6EEE6] p-8 text-center text-[#7A6E6F]'>
+      <div className='border border-linea bg-arena p-8 text-center text-piedra'>
         Por ahora no hay experiencias disponibles. Volvé pronto.
       </div>
     );
   }
 
   return (
-    <div className='grid gap-10 lg:grid-cols-[1fr_400px]'>
+    <div
+      className={
+        locked
+          ? 'flex flex-col gap-8'
+          : 'grid gap-10 lg:grid-cols-[1fr_400px]'
+      }
+    >
       {/* Formulario */}
-      <div className='flex flex-col gap-10'>
-        {/* 01 Experiencia */}
-        <div className='flex flex-col gap-3.5'>
-          <GroupLabel n='01'>ELEGÍ LA EXPERIENCIA</GroupLabel>
-          <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-            {experiences.map((e) => (
-              <button
-                key={e._id}
-                type='button'
-                onClick={() => setExpId(e._id)}
-                className={chip(e._id === expId)}
-              >
-                {e.name}
-              </button>
-            ))}
+      <div className='flex flex-col gap-8'>
+        {/* Experiencia (oculta cuando viene bloqueada desde el índice) */}
+        {!locked && (
+          <div className='flex flex-col gap-3.5'>
+            <StepLabel n='01'>Elegí la experiencia</StepLabel>
+            <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+              {experiences.map((e) => (
+                <button
+                  key={e._id}
+                  type='button'
+                  onClick={() => setExpId(e._id)}
+                  className={option(e._id === expId)}
+                >
+                  {e.name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 02 Fecha y horario */}
+        {/* Fecha y horario */}
         <div className='flex flex-col gap-3.5'>
-          <GroupLabel n='02'>FECHA Y HORARIO</GroupLabel>
+          <StepLabel n={locked ? '01' : '02'}>Fecha y horario</StepLabel>
           {sessionsForExp.length === 0 ? (
-            <p className='flex items-center gap-2 rounded-[4px] border border-[#E6DBCD] bg-[#F6EEE6] px-4 py-3.5 text-sm text-[#7A6E6F]'>
-              <Calendar className='h-[18px] w-[18px] text-[#9D684E]' />
+            <p className='flex items-center gap-2 border border-linea bg-arena px-4 py-3.5 text-sm text-piedra'>
+              <Calendar className='h-[18px] w-[18px] text-terracota' />
               No hay turnos disponibles para esta experiencia.
             </p>
           ) : (
@@ -166,11 +180,11 @@ export function ReservationForm({
                       setSessionId(s.id);
                       setQty(1);
                     }}
-                    className={chip(on)}
+                    className={option(on)}
                   >
                     {fmtDate(s.startAt)}
                     <span
-                      className={`ml-2 text-xs ${on ? 'text-[#F6EEE6]/70' : 'text-[#3D3338]/50'}`}
+                      className={`ml-2 text-xs ${on ? 'text-arena/70' : 'text-ciruela-oscuro/50'}`}
                     >
                       {s.seatsAvailable} lug.
                     </span>
@@ -181,40 +195,40 @@ export function ReservationForm({
           )}
         </div>
 
-        {/* 03 Personas */}
+        {/* Personas */}
         <div className='flex flex-col gap-3.5'>
-          <GroupLabel n='03'>CANTIDAD DE PERSONAS</GroupLabel>
+          <StepLabel n={locked ? '02' : '03'}>Cantidad de personas</StepLabel>
           <div className='flex items-center gap-[18px]'>
-            <div className='flex items-center overflow-hidden rounded-[4px] border border-[#E6DBCD] bg-[#F6EEE6]'>
+            <div className='flex items-center border border-linea bg-arena'>
               <button
                 type='button'
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
                 disabled={qty <= 1}
-                className='flex h-[52px] w-[52px] items-center justify-center text-[#3D3338] disabled:opacity-30'
+                className='press flex h-[52px] w-[52px] items-center justify-center text-ciruela-oscuro disabled:opacity-30'
               >
                 <Minus className='h-[18px] w-[18px]' />
               </button>
-              <span className='flex h-[52px] w-16 items-center justify-center font-playfair text-[22px] font-medium text-[#3D3338]'>
+              <span className='flex h-[52px] w-16 items-center justify-center font-playfair text-[22px] font-medium text-ciruela-oscuro'>
                 {qty}
               </span>
               <button
                 type='button'
                 onClick={() => setQty((q) => Math.min(maxQty, q + 1))}
                 disabled={!selected || qty >= maxQty}
-                className='flex h-[52px] w-[52px] items-center justify-center bg-[#9D684E] text-[#F6EEE6] disabled:opacity-40'
+                className='press flex h-[52px] w-[52px] items-center justify-center bg-terracota text-arena disabled:opacity-40'
               >
                 <Plus className='h-[18px] w-[18px]' />
               </button>
             </div>
-            <span className='text-sm text-[#7A6E6F]'>
+            <span className='text-sm text-piedra'>
               {selected ? `Hasta ${maxQty} por este turno` : 'Elegí un turno primero'}
             </span>
           </div>
         </div>
 
-        {/* 04 Datos */}
+        {/* Datos */}
         <div className='flex flex-col gap-3.5'>
-          <GroupLabel n='04'>TUS DATOS</GroupLabel>
+          <StepLabel n={locked ? '03' : '04'}>Tus datos</StepLabel>
           <div className='grid gap-3 sm:grid-cols-2'>
             <input
               value={name}
@@ -239,12 +253,10 @@ export function ReservationForm({
       </div>
 
       {/* Resumen */}
-      <div className='h-fit overflow-hidden rounded-[4px] border border-[#E6DBCD] bg-[#FBF5EF]'>
-        <div className='bg-[#455A54] px-6 py-5'>
-          <p className='font-mono text-[11px] tracking-[2.5px] text-[#F6EEE6]/60'>
-            TU RESERVA
-          </p>
-          <p className='mt-1.5 font-playfair text-[26px] font-medium text-[#F6EEE6]'>
+      <div className='h-fit border border-linea bg-arena-2'>
+        <div className='bg-verde-profundo px-6 py-5'>
+          <SectionLabel tone='arena'>Tu reserva</SectionLabel>
+          <p className='mt-1.5 font-playfair text-[26px] font-medium text-arena'>
             {expName}
           </p>
         </div>
@@ -257,35 +269,33 @@ export function ReservationForm({
             <div
               key={k}
               className={`flex items-center justify-between py-4 ${
-                i < 2 ? 'border-b border-[#E6DBCD]' : ''
+                i < 2 ? 'border-b border-linea' : ''
               }`}
             >
-              <span className='font-sans text-sm text-[#7A6E6F]'>{k}</span>
-              <span className='font-sans text-[15px] font-medium text-[#3D3338]'>
+              <span className='text-sm text-piedra'>{k}</span>
+              <span className='text-[15px] font-medium text-ciruela-oscuro'>
                 {v}
               </span>
             </div>
           ))}
         </div>
-        <div className='flex items-center justify-between border-b border-[#E6DBCD] px-6 py-3.5'>
-          <span className='font-sans text-sm text-[#7A6E6F]'>Total experiencia</span>
-          <span className='font-sans text-[15px] font-medium text-[#3D3338]'>
+        <div className='flex items-center justify-between border-b border-linea px-6 py-3.5'>
+          <span className='text-sm text-piedra'>Total experiencia</span>
+          <span className='text-[15px] font-medium text-ciruela-oscuro'>
             {fmtPrice(total)}
           </span>
         </div>
-        <div className='flex items-center justify-between bg-[#F6EEE6] px-6 py-5'>
-          <span className='font-mono text-xs tracking-[1.5px] text-[#3D3338]'>
-            SEÑA ({depositPct}%) · PAGÁS AHORA
+        <div className='flex items-center justify-between bg-arena px-6 py-5'>
+          <span className='font-mono text-[11px] uppercase tracking-[0.14em] text-ciruela-oscuro'>
+            Seña ({depositPct}%) · pagás ahora
           </span>
-          <span className='font-playfair text-[28px] font-semibold text-[#9D684E]'>
+          <span className='font-playfair text-[28px] font-semibold text-terracota'>
             {fmtPrice(senia)}
           </span>
         </div>
         <div className='flex items-center justify-between px-6 py-3'>
-          <span className='font-sans text-[13px] text-[#7A6E6F]'>
-            Saldo (en el local)
-          </span>
-          <span className='font-sans text-sm font-medium text-[#3D3338]'>
+          <span className='text-[13px] text-piedra'>Saldo (en el local)</span>
+          <span className='text-sm font-medium text-ciruela-oscuro'>
             {fmtPrice(saldo)}
           </span>
         </div>
@@ -293,8 +303,8 @@ export function ReservationForm({
           <p className='px-6 pt-4 text-sm font-medium text-red-600'>{error}</p>
         )}
         <div className='flex items-start gap-2.5 px-6 pb-2 pt-4'>
-          <ShieldCheck className='mt-0.5 h-[18px] w-[18px] shrink-0 text-[#9D684E]' />
-          <p className='font-sans text-[13px] leading-[1.5] text-[#7A6E6F]'>
+          <ShieldCheck className='mt-0.5 h-[18px] w-[18px] shrink-0 text-terracota' />
+          <p className='text-[13px] leading-[1.5] text-piedra'>
             Reservás abonando la seña con MercadoPago. El saldo lo completás en el
             local. Recibís un código de 6 caracteres para gestionar tu reserva.
           </p>
@@ -304,9 +314,9 @@ export function ReservationForm({
             type='button'
             onClick={submit}
             disabled={!canSubmit}
-            className='flex w-full items-center justify-center gap-2.5 rounded-[4px] bg-[#CC844A] px-6 py-[19px] font-mono text-sm tracking-[1.5px] text-[#3D3338] transition hover:brightness-95 disabled:opacity-50'
+            className='press flex w-full items-center justify-center gap-2.5 bg-naranja-medio px-6 py-[19px] font-mono text-sm uppercase tracking-[0.14em] text-ciruela-oscuro transition hover:brightness-95 disabled:opacity-50'
           >
-            {submitting ? 'INICIANDO PAGO…' : 'CONFIRMAR RESERVA'}
+            {submitting ? 'Iniciando pago…' : 'Confirmar reserva'}
             {!submitting && <ArrowRight className='h-[18px] w-[18px]' />}
           </button>
         </div>
@@ -316,4 +326,4 @@ export function ReservationForm({
 }
 
 const inputCls =
-  'rounded-[4px] border border-[#E6DBCD] bg-[#F6EEE6] px-[18px] py-[15px] text-[15px] text-[#3D3338] outline-none transition focus:border-[#9D684E] placeholder:text-[#7A6E6F]';
+  'border border-linea bg-arena px-[18px] py-[15px] text-[15px] text-ciruela-oscuro outline-none transition focus:border-terracota placeholder:text-piedra';

@@ -22,6 +22,11 @@
   --color-naranja-medio: #cc844a;
   --color-durazno: #e0a38d;
   --color-rosa-claro: #efcbb9;
+  /* Landing boutique — tokens de superficie/texto (antes hardcodeados en la landing) */
+  --color-arena: #f6eee6;
+  --color-arena-2: #fbf5ef;
+  --color-piedra: #7a6e6f;
+  --color-linea: #e6dbcd;
   --color-blanco: #ffffff;
   --color-gris-claro: #d9dadb;
   --color-negro: #000000;
@@ -38,6 +43,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
+  --font-inter: var(--font-inter), sans-serif;
   --font-tan-nimbus: var(--font-geist-sans), sans-serif;
   --font-winter-solid: 'Winter Solid', 'Geist', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -152,6 +158,19 @@
   html {
     /* Prevent horizontal scroll on mobile */
     overflow-x: hidden;
+    /* Scroll suave al navegar por anclas de la landing */
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* Compensa el navbar fijo de la landing al saltar a una sección con #id */
+  section[id] {
+    scroll-margin-top: 84px;
   }
 
   body {
@@ -253,6 +272,45 @@
     font-family: var(--font-playfair), 'Playfair Display', serif;
   }
 
+  /* ── Landing boutique: utilidades de interacción "nativa" ──────────── */
+
+  /* Respuesta táctil al presionar (feeling de botón físico). */
+  .press {
+    transition: transform 150ms ease-out;
+  }
+  .press:active {
+    transform: scale(0.98);
+  }
+
+  /* Hitbox estirado sobre toda la card/fila (patrón stretched-link
+     accesible: un botón/enlace real con esta clase cubre el contenedor
+     `relative`). Los controles secundarios usan z-index mayor. */
+  .stretched {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  /* Padding inferior que respeta el home indicator de iOS. */
+  .safe-b {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  }
+
+  /* Contenido scrolleable de un sheet: que no arrastre la página de fondo. */
+  .sheet-scroll {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Respeta usuarios con movimiento reducido. */
+  @media (prefers-reduced-motion: reduce) {
+    .press,
+    .press:active {
+      transition: none;
+      transform: none;
+    }
+  }
+
   /* Mobile card components */
   .mobile-card {
     @apply bg-white border border-gray-200 rounded-lg p-4 space-y-3 shadow-sm;
@@ -319,6 +377,55 @@
   animation-play-state: paused;
 }
 
+/* ── Bottom-sheet <dialog> de la landing ──────────────────────────────
+   Sube desde abajo en mobile; aparece con fade en desktop. Usa
+   @starting-style + allow-discrete para animar display/backdrop sin JS. */
+dialog.sheet {
+  transition:
+    translate 0.35s ease,
+    opacity 0.35s ease,
+    overlay 0.35s allow-discrete,
+    display 0.35s allow-discrete;
+  translate: 0 0;
+  opacity: 1;
+}
+dialog.sheet:not([open]) {
+  translate: 0 100%;
+  opacity: 0;
+}
+@starting-style {
+  dialog.sheet[open] {
+    translate: 0 100%;
+    opacity: 0;
+  }
+}
+dialog.sheet::backdrop {
+  transition:
+    background-color 0.35s ease,
+    overlay 0.35s allow-discrete,
+    display 0.35s allow-discrete;
+}
+/* En desktop el sheet no viaja: solo fade. */
+@media (min-width: 640px) {
+  dialog.sheet:not([open]) {
+    translate: 0 0;
+  }
+  @starting-style {
+    dialog.sheet[open] {
+      translate: 0 0;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet {
+    transition: opacity 0.2s ease;
+    translate: 0 0;
+  }
+  dialog.sheet:not([open]) {
+    translate: 0 0;
+  }
+}
+
 @keyframes float {
   0%,
   100% {
@@ -332,6 +439,102 @@
   }
   75% {
     transform: translateY(-15px) rotate(-1deg);
+  }
+}
+
+/* ── Landing boutique: animaciones de entrada (todo CSS, performance-free) ── */
+
+/* Reveal escalonado del hero (fade + subida). El delay se pasa inline. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Elemento que entra al cargar (hero). Empieza invisible y anima solo. */
+.enter {
+  opacity: 0;
+  animation: fade-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Reveal-on-scroll: estado inicial y estado visible (lo togglea el observer). */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Banda de brillo que cruza el banner CTA (sutil, en loop lento). */
+@keyframes shine {
+  from {
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  to {
+    transform: translateX(220%) skewX(-12deg);
+  }
+}
+.shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(246, 238, 230, 0.14) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%) skewX(-12deg);
+  animation: shine 5.5s ease-in-out infinite;
+}
+
+/* Grano/textura sutil sobre fondos oscuros (SVG de ruido inline, sin request). */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Ken-Burns opcional para el hero (zoom lento). Activable con la clase. */
+@keyframes ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+.ken-burns {
+  animation: ken-burns 18s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter,
+  .reveal,
+  .ken-burns {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .shine::before {
+    animation: none;
+    opacity: 0;
   }
 }
 

@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock4,
-  Copy,
   Loader2,
   XCircle,
 } from 'lucide-react';
@@ -15,6 +14,7 @@ import {
   reservationsPublic,
   type ReservationView,
 } from '@/services/reservations.public.service';
+import { ReservationCode, StatusText } from '@/components/landing/primitives';
 
 function fmtDate(iso: string) {
   const tz = 'America/Argentina/Buenos_Aires';
@@ -86,8 +86,8 @@ function EstadoInner() {
   const waiting = polling || status === 'PENDING';
 
   return (
-    <main className='flex min-h-svh items-center justify-center bg-[#F6EEE6] px-6 py-16'>
-      <div className='w-full max-w-lg rounded-2xl border border-[#e6dbcd] bg-white p-8 text-center shadow-sm sm:p-12'>
+    <main className='flex min-h-[100dvh] items-center justify-center bg-arena px-6 py-16 font-inter'>
+      <div className='w-full max-w-lg border border-linea bg-white p-8 text-center sm:p-12'>
         {/* Icono de estado */}
         <div className='mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-verde-profundo'>
           {confirmed ? (
@@ -101,16 +101,17 @@ function EstadoInner() {
           )}
         </div>
 
-        {!ref && (
-          <CodeLookup
-            onFound={setReservation}
-            found={reservation}
-          />
-        )}
+        {!ref && <CodeLookup onFound={setReservation} found={reservation} />}
 
         {ref && (
           <>
-            <h1 className='font-playfair text-3xl leading-tight text-ciruela-oscuro'>
+            {status && (
+              <div className='mb-4 flex justify-center'>
+                <StatusText status={status} className='text-piedra' />
+              </div>
+            )}
+
+            <h1 className='font-playfair text-3xl font-medium leading-tight text-ciruela-oscuro'>
               {confirmed
                 ? '¡Tu lugar está reservado!'
                 : failed
@@ -120,7 +121,7 @@ function EstadoInner() {
                     : 'Confirmando tu pago…'}
             </h1>
 
-            <p className='mt-3 text-ciruela-oscuro/70'>
+            <p className='mt-3 text-piedra'>
               {confirmed && reservation
                 ? `${reservation.experienceName} · ${fmtDate(reservation.startAt)} · ${reservation.quantity} ${reservation.quantity > 1 ? 'personas' : 'persona'}.`
                 : failed
@@ -135,11 +136,16 @@ function EstadoInner() {
             )}
 
             {confirmed && reservation && (
-              <CodeBlock code={reservation.code} />
+              <div className='mt-7'>
+                <ReservationCode code={reservation.code} />
+                <p className='mt-3 text-xs text-piedra/70'>
+                  Guardalo para modificar o cancelar tu reserva.
+                </p>
+              </div>
             )}
 
             {waiting && (
-              <p className='mt-6 text-sm text-ciruela-oscuro/50'>
+              <p className='mt-6 text-sm text-piedra/60'>
                 Esto puede tardar unos segundos…
               </p>
             )}
@@ -147,44 +153,15 @@ function EstadoInner() {
             <div className='mt-8 flex justify-center'>
               <Link
                 href='/'
-                className='flex items-center gap-2 rounded-lg border border-[#e6dbcd] px-6 py-3 font-mono text-xs tracking-wider text-ciruela-oscuro hover:bg-[#fbf5ef]'
+                className='press flex items-center gap-2 border border-linea px-6 py-3 font-mono text-xs uppercase tracking-[0.12em] text-ciruela-oscuro hover:bg-arena-2'
               >
-                <ArrowLeft className='h-4 w-4' /> VOLVER AL INICIO
+                <ArrowLeft className='h-4 w-4' /> Volver al inicio
               </Link>
             </div>
           </>
         )}
       </div>
     </main>
-  );
-}
-
-function CodeBlock({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className='mt-7 flex flex-col items-center gap-3'>
-      <span className='font-mono text-xs tracking-[3px] text-terracota'>
-        TU CÓDIGO DE RESERVA
-      </span>
-      <div className='flex w-full items-center justify-center rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] py-5'>
-        <span className='font-mono text-4xl font-semibold tracking-[0.2em] text-ciruela-oscuro'>
-          {prettyCode(code)}
-        </span>
-      </div>
-      <button
-        type='button'
-        onClick={() => {
-          navigator.clipboard?.writeText(code);
-          setCopied(true);
-        }}
-        className='flex items-center gap-2 rounded-lg bg-terracota px-5 py-2.5 font-mono text-xs tracking-wider text-white'
-      >
-        <Copy className='h-4 w-4' /> {copied ? 'COPIADO' : 'COPIAR CÓDIGO'}
-      </button>
-      <p className='text-xs text-ciruela-oscuro/55'>
-        Guardalo para modificar o cancelar tu reserva.
-      </p>
-    </div>
   );
 }
 
@@ -218,10 +195,10 @@ function CodeLookup({
 
   return (
     <div>
-      <h1 className='font-playfair text-3xl text-ciruela-oscuro'>
+      <h1 className='font-playfair text-3xl font-medium text-ciruela-oscuro'>
         Buscá tu reserva
       </h1>
-      <p className='mt-2 text-ciruela-oscuro/70'>
+      <p className='mt-2 text-piedra'>
         Ingresá el código de 6 caracteres que te enviamos.
       </p>
       <div className='mt-6 flex gap-3'>
@@ -231,29 +208,32 @@ function CodeLookup({
           onKeyDown={(e) => e.key === 'Enter' && search()}
           placeholder='MIS-482'
           maxLength={7}
-          className='w-full rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-4 py-3 text-center font-mono tracking-widest text-ciruela-oscuro outline-none focus:border-terracota'
+          className='w-full border border-linea bg-arena-2 px-4 py-3 text-center font-mono tracking-[0.2em] text-ciruela-oscuro outline-none focus:border-terracota'
         />
         <button
           type='button'
           onClick={search}
           disabled={loading}
-          className='rounded-lg bg-terracota px-6 font-mono text-xs tracking-wider text-white disabled:opacity-60'
+          className='press bg-terracota px-6 font-mono text-xs uppercase tracking-[0.14em] text-white disabled:opacity-60'
         >
-          BUSCAR
+          Buscar
         </button>
       </div>
       {error && <p className='mt-3 text-sm font-medium text-red-600'>{error}</p>}
       {found && (
-        <div className='mt-6 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-5 text-left'>
-          <p className='font-mono text-xs tracking-widest text-terracota'>
-            {prettyCode(found.code)}
-          </p>
+        <div className='mt-6 border border-linea bg-arena-2 p-5 text-left'>
+          <div className='flex items-start justify-between gap-3'>
+            <p className='font-mono text-xs tracking-[0.2em] text-terracota'>
+              {prettyCode(found.code)}
+            </p>
+            <StatusText status={found.status} className='text-piedra' />
+          </div>
           <p className='mt-1 font-playfair text-xl text-ciruela-oscuro'>
             {found.experienceName}
           </p>
-          <p className='text-sm text-ciruela-oscuro/65'>
+          <p className='text-sm text-piedra'>
             {fmtDate(found.startAt)} · {found.quantity}{' '}
-            {found.quantity > 1 ? 'personas' : 'persona'} · {found.status}
+            {found.quantity > 1 ? 'personas' : 'persona'}
           </p>
         </div>
       )}
@@ -265,7 +245,7 @@ export default function EstadoPage() {
   return (
     <Suspense
       fallback={
-        <main className='flex min-h-svh items-center justify-center bg-[#F6EEE6]'>
+        <main className='flex min-h-[100dvh] items-center justify-center bg-arena'>
           <Loader2 className='h-8 w-8 animate-spin text-terracota' />
         </main>
       }

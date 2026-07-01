@@ -476,6 +476,30 @@ dialog.sheet::backdrop {
   transform: none;
 }
 
+/* Bloqueo de scroll de fondo cuando el overlay del menú está abierto. */
+html.menu-lock,
+html.menu-lock body {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Overlay del menú mobile: fade del fondo + entrada escalonada de los links. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.menu-overlay {
+  animation: overlay-in 0.25s ease forwards;
+}
+.menu-item {
+  opacity: 0;
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 /* Banda de brillo que cruza el banner CTA (sutil, en loop lento). */
 @keyframes shine {
   from {
@@ -526,7 +550,9 @@ dialog.sheet::backdrop {
 @media (prefers-reduced-motion: reduce) {
   .enter,
   .reveal,
-  .ken-burns {
+  .ken-burns,
+  .menu-overlay,
+  .menu-item {
     animation: none;
     transition: none;
     opacity: 1;

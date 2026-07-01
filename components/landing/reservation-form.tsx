@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Calendar, Minus, Plus, ShieldCheck } from 'lucide-react';
 import {
   newIdempotencyKey,
@@ -36,7 +36,34 @@ function fmtDate(iso: string) {
   return `${date} · ${time}`;
 }
 
-// Opción seleccionable (experiencia o turno). Sin "pill": borde fino + press.
+const TZ = 'America/Argentina/Buenos_Aires';
+
+// Encabezado de día para agrupar turnos, ej. "VIE 04·07".
+function fmtDayHeader(iso: string) {
+  const d = new Date(iso);
+  const wd = d.toLocaleDateString('es-AR', { weekday: 'short', timeZone: TZ });
+  const dm = d.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: TZ,
+  });
+  return `${wd.replace('.', '')} ${dm.replace('/', '·')}`.toUpperCase();
+}
+
+// Clave de día (YYYY-MM-DD en TZ AR) para agrupar.
+function dayKey(iso: string) {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ });
+}
+
+function fmtTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: TZ,
+  });
+}
+
+// Opción seleccionable (experiencia). Sin "pill": borde fino + press.
 const option = (on: boolean) =>
   `press border px-4 py-3 text-left text-sm transition ${
     on
@@ -83,7 +110,28 @@ export function ReservationForm({
     [sessions, expId],
   );
 
+  // Turnos agrupados por día (para la grilla): [{ key, header, slots }].
+  const sessionsByDay = useMemo(() => {
+    const groups = new Map<string, PublicSession[]>();
+    for (const s of sessionsForExp) {
+      const k = dayKey(s.startAt);
+      (groups.get(k) ?? groups.set(k, []).get(k)!).push(s);
+    }
+    return [...groups.entries()].map(([key, slots]) => ({
+      key,
+      header: fmtDayHeader(slots[0].startAt),
+      slots,
+    }));
+  }, [sessionsForExp]);
+
+  // Reset del turno al cambiar de experiencia — pero NO en el mount inicial
+  // (si no, el flujo del sheet limpia la selección recién hecha).
+  const firstRender = useRef(true);
   useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
     setSessionId('');
     setQty(1);
   }, [expId]);
@@ -169,28 +217,50 @@ export function ReservationForm({
               No hay turnos disponibles para esta experiencia.
             </p>
           ) : (
-            <div className='flex flex-wrap gap-3'>
-              {sessionsForExp.map((s) => {
-                const on = s.id === sessionId;
-                return (
-                  <button
-                    key={s.id}
-                    type='button'
-                    onClick={() => {
-                      setSessionId(s.id);
-                      setQty(1);
-                    }}
-                    className={option(on)}
-                  >
-                    {fmtDate(s.startAt)}
-                    <span
-                      className={`ml-2 text-xs ${on ? 'text-arena/70' : 'text-ciruela-oscuro/50'}`}
-                    >
-                      {s.seatsAvailable} lug.
-                    </span>
-                  </button>
-                );
-              })}
+            <div className='sheet-scroll flex max-h-[340px] flex-col gap-5 overflow-y-auto'>
+              {sessionsByDay.map((day) => (
+                <div key={day.key} className='flex flex-col gap-2.5'>
+                  <span className='font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ciruela-oscuro'>
+                    {day.header}
+                  </span>
+                  <div className='grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6'>
+                    {day.slots.map((s) => {
+                      const on = s.id === sessionId;
+                      const low = s.seatsAvailable <= 3;
+                      return (
+                        <button
+                          key={s.id}
+                          type='button'
+                          onClick={() => {
+                            setSessionId(s.id);
+                            setQty(1);
+                          }}
+                          className={`press flex flex-col items-center gap-1 border py-2.5 transition ${
+                            on
+                              ? 'border-terracota bg-terracota text-arena'
+                              : 'border-linea bg-arena text-ciruela-oscuro hover:border-terracota/50'
+                          }`}
+                        >
+                          <span className='font-playfair text-lg font-medium leading-none'>
+                            {fmtTime(s.startAt)}
+                          </span>
+                          <span
+                            className={`text-[11px] ${
+                              on
+                                ? 'text-arena/70'
+                                : low
+                                  ? 'font-medium text-terracota'
+                                  : 'text-piedra'
+                            }`}
+                          >
+                            {s.seatsAvailable} cup.
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

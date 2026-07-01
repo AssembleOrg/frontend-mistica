@@ -170,7 +170,7 @@ export default function LandingPage() {
       >
         <Reveal>
           <p className='font-playfair text-2xl font-medium leading-[1.4] text-ciruela-oscuro sm:text-[32px] sm:leading-[1.4]'>
-            Un espacio en Quilmes donde el arte se vive con las manos. Combinamos
+            Un espacio donde el arte se vive con las manos. Combinamos
             cerámica, <em className='text-terracota'>buffet libre</em> y una tienda
             holística para que cada visita sea una pausa con sentido.
           </p>
@@ -232,25 +232,37 @@ export default function LandingPage() {
       </section>
 
       {/* ─────────── CÓMO FUNCIONA ─────────── */}
-      <section id='como-funciona' className='flex flex-col items-center gap-[54px] bg-arena-2 px-6 py-24 sm:px-10 lg:px-16'>
+      <section id='como-funciona' className='flex flex-col items-center gap-10 bg-arena-2 px-6 py-16 sm:px-10 sm:py-24 lg:gap-[54px] lg:px-16'>
         <Reveal>
-          <h2 className='max-w-[760px] text-center font-playfair text-4xl font-medium leading-[1.08] tracking-tight text-ciruela-oscuro lg:text-[46px]'>
+          <h2 className='max-w-[760px] text-center font-playfair text-3xl font-medium leading-[1.08] tracking-tight text-ciruela-oscuro sm:text-4xl lg:text-[46px]'>
             Tu lugar reservado en tres pasos
           </h2>
         </Reveal>
-        <div className='grid w-full max-w-[1200px] gap-10 md:grid-cols-3 md:gap-0'>
+        <div className='grid w-full max-w-[1200px] md:grid-cols-3 md:gap-0'>
           {STEPS.map(([n, t, d], i) => (
-            <Reveal key={n} delay={i * 120} className='flex flex-col gap-4 md:pr-10'>
-              <div className='flex items-center gap-3.5'>
+            <Reveal
+              key={n}
+              delay={i * 120}
+              className='flex items-start gap-4 border-b border-linea py-5 last:border-b-0 md:flex-col md:gap-4 md:border-b-0 md:py-0 md:pr-10'
+            >
+              {/* Mobile: numeral chico en columna angosta. Desktop: numeral grande + línea. */}
+              <span className='w-8 shrink-0 font-playfair text-2xl font-medium leading-none text-durazno md:hidden'>
+                {n}
+              </span>
+              <div className='hidden items-center gap-3.5 md:flex'>
                 <span className='font-playfair text-[60px] font-medium leading-none text-durazno'>
                   {n}
                 </span>
                 <span className='h-px flex-1 bg-linea' />
               </div>
-              <h3 className='font-playfair text-2xl font-medium leading-tight text-ciruela-oscuro'>
-                {t}
-              </h3>
-              <p className='text-[15px] leading-relaxed text-piedra'>{d}</p>
+              <div className='flex flex-col gap-1 md:gap-4'>
+                <h3 className='font-playfair text-lg font-medium leading-tight text-ciruela-oscuro md:text-2xl'>
+                  {t}
+                </h3>
+                <p className='text-sm leading-relaxed text-piedra md:text-[15px]'>
+                  {d}
+                </p>
+              </div>
             </Reveal>
           ))}
         </div>
@@ -268,7 +280,7 @@ export default function LandingPage() {
         </span>
         <span className='h-4 w-px bg-arena/30' />
         <span className='font-playfair text-2xl font-medium leading-none sm:text-3xl'>
-          Tu tarde de barro te espera
+          Tu tarde Mistica te espera
         </span>
         <ArrowRight className='h-5 w-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1.5' />
       </button>
@@ -410,7 +422,7 @@ export default function LandingPage() {
         </div>
         <Reveal className='flex flex-col justify-center gap-6 px-6 py-14 sm:px-10 lg:w-[520px] lg:shrink-0 lg:p-16'>
           <h2 className='font-playfair text-3xl font-medium leading-tight tracking-tight text-ciruela-oscuro lg:text-[38px]'>
-            Te esperamos en Quilmes
+            Te esperamos
           </h2>
           <div className='flex flex-col gap-3.5'>
             <a

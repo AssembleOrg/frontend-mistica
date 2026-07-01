@@ -63,6 +63,29 @@ function fmtTime(iso: string) {
   });
 }
 
+// ── Validación de "Tus datos" (estándar; email/tel opcionales) ──────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Deja solo dígitos y un '+' inicial opcional.
+function normalizePhone(raw: string) {
+  const trimmed = raw.trim();
+  const plus = trimmed.startsWith('+') ? '+' : '';
+  return plus + trimmed.replace(/[^\d]/g, '');
+}
+
+function validateName(v: string) {
+  return v.trim().length > 2 ? null : 'Ingresá tu nombre.';
+}
+function validateEmail(v: string) {
+  if (!v.trim()) return null; // opcional
+  return EMAIL_RE.test(v.trim()) ? null : 'Email inválido.';
+}
+function validatePhone(v: string) {
+  if (!v.trim()) return null; // opcional
+  const digits = normalizePhone(v).replace('+', '');
+  return digits.length >= 8 ? null : 'Teléfono inválido.';
+}
+
 // Opción seleccionable (experiencia). Sin "pill": borde fino + press.
 const option = (on: boolean) =>
   `press border px-4 py-3 text-left text-sm transition ${
@@ -101,6 +124,8 @@ export function ReservationForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idemKey] = useState(() => newIdempotencyKey());
+  // Marca qué campos ya fueron tocados para no mostrar error antes de tiempo.
+  const [touched, setTouched] = useState({ name: false, email: false, phone: false });
 
   const sessionsForExp = useMemo(
     () =>
@@ -143,23 +168,34 @@ export function ReservationForm({
   const senia = Math.round((total * depositPct) / 100);
   const saldo = total - senia;
   const expName = experiences.find((e) => e._id === expId)?.name ?? 'Experiencia';
-  const canSubmit = !!selected && qty >= 1 && name.trim().length > 1 && !submitting;
   const locked = !!lockedExperienceId;
+
+  // Errores de formato de "Tus datos".
+  const nameError = validateName(name);
+  const emailError = validateEmail(email);
+  const phoneError = validatePhone(phone);
+  const dataValid = !nameError && !emailError && !phoneError;
+  const canSubmit = !!selected && qty >= 1 && dataValid && !submitting;
 
   async function submit() {
     if (!selected) {
       setError('Elegí un turno disponible.');
       return;
     }
+    if (!dataValid) {
+      setTouched({ name: true, email: true, phone: true });
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
+      const normalizedPhone = normalizePhone(phone);
       const hold = await reservationsPublic.createHold({
         sessionId: selected.id,
         quantity: qty,
         customerName: name.trim(),
         customerEmail: email.trim() || undefined,
-        customerPhone: phone.trim() || undefined,
+        customerPhone: normalizedPhone || undefined,
         idempotencyKey: idemKey,
       });
       window.location.href = hold.initPoint
@@ -183,7 +219,7 @@ export function ReservationForm({
     <div
       className={
         locked
-          ? 'flex flex-col gap-8'
+          ? 'grid gap-8 lg:grid-cols-[1fr_360px] lg:gap-10'
           : 'grid gap-10 lg:grid-cols-[1fr_400px]'
       }
     >
@@ -217,13 +253,13 @@ export function ReservationForm({
               No hay turnos disponibles para esta experiencia.
             </p>
           ) : (
-            <div className='sheet-scroll flex max-h-[340px] flex-col gap-5 overflow-y-auto'>
+            <div className='sheet-scroll flex max-h-[340px] flex-col gap-5 overflow-y-auto lg:max-h-[420px]'>
               {sessionsByDay.map((day) => (
                 <div key={day.key} className='flex flex-col gap-2.5'>
                   <span className='font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ciruela-oscuro'>
                     {day.header}
                   </span>
-                  <div className='grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6'>
+                  <div className='flex flex-wrap gap-2'>
                     {day.slots.map((s) => {
                       const on = s.id === sessionId;
                       const low = s.seatsAvailable <= 3;
@@ -235,7 +271,7 @@ export function ReservationForm({
                             setSessionId(s.id);
                             setQty(1);
                           }}
-                          className={`press flex flex-col items-center gap-1 border py-2.5 transition ${
+                          className={`press flex w-28 flex-col items-center gap-1 border py-2.5 transition ${
                             on
                               ? 'border-terracota bg-terracota text-arena'
                               : 'border-linea bg-arena text-ciruela-oscuro hover:border-terracota/50'
@@ -300,30 +336,44 @@ export function ReservationForm({
         <div className='flex flex-col gap-3.5'>
           <StepLabel n={locked ? '03' : '04'}>Tus datos</StepLabel>
           <div className='grid gap-3 sm:grid-cols-2'>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder='Nombre y apellido'
-              className={inputCls}
-            />
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder='Teléfono / WhatsApp'
-              className={inputCls}
-            />
+            <div className='flex flex-col gap-1'>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                placeholder='Nombre y apellido'
+                className={inputCls(touched.name && !!nameError)}
+              />
+              {touched.name && nameError && <FieldError>{nameError}</FieldError>}
+            </div>
+            <div className='flex flex-col gap-1'>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+                placeholder='Teléfono / WhatsApp'
+                inputMode='tel'
+                className={inputCls(touched.phone && !!phoneError)}
+              />
+              {touched.phone && phoneError && <FieldError>{phoneError}</FieldError>}
+            </div>
           </div>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder='Email'
-            className={inputCls}
-          />
+          <div className='flex flex-col gap-1'>
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+              placeholder='Email'
+              inputMode='email'
+              className={inputCls(touched.email && !!emailError)}
+            />
+            {touched.email && emailError && <FieldError>{emailError}</FieldError>}
+          </div>
         </div>
       </div>
 
       {/* Resumen */}
-      <div className='h-fit border border-linea bg-arena-2'>
+      <div className='h-fit border border-linea bg-arena-2 lg:sticky lg:top-4 lg:self-start'>
         <div className='bg-verde-profundo px-6 py-5'>
           <SectionLabel tone='arena'>Tu reserva</SectionLabel>
           <p className='mt-1.5 font-playfair text-[26px] font-medium text-arena'>
@@ -395,5 +445,13 @@ export function ReservationForm({
   );
 }
 
-const inputCls =
-  'border border-linea bg-arena px-[18px] py-[15px] text-[15px] text-ciruela-oscuro outline-none transition focus:border-terracota placeholder:text-piedra';
+const inputCls = (hasError = false) =>
+  `border bg-arena px-[18px] py-[15px] text-[15px] text-ciruela-oscuro outline-none transition placeholder:text-piedra ${
+    hasError
+      ? 'border-red-500 focus:border-red-500'
+      : 'border-linea focus:border-terracota'
+  }`;
+
+function FieldError({ children }: { children: string }) {
+  return <span className='text-xs font-medium text-red-600'>{children}</span>;
+}

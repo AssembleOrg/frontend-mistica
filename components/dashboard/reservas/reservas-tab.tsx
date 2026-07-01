@@ -183,8 +183,8 @@ export function ReservasTab() {
               className={cn(
                 '-mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
                 on
-                  ? 'border-[#455a54] text-[#3d3338]'
-                  : 'border-transparent text-[#7a6e6f] hover:text-[#3d3338]',
+                  ? 'border-[#455a54] text-[#455a54]'
+                  : 'border-transparent text-[#455a54]/60 hover:text-[#455a54]',
               )}
             >
               {f.label}
@@ -197,14 +197,14 @@ export function ReservasTab() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder='Buscar por código, nombre o teléfono'
-            className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#3d3338] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+            className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
           />
         </div>
       </div>
 
       <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
         <div className='min-w-[52rem]'>
-        <div className={cn(COLS, 'border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]')}>
+        <div className={cn(COLS, 'border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60')}>
           <span>CÓDIGO</span>
           <span>CLIENTE</span>
           <span>EXPERIENCIA / TURNO</span>
@@ -215,9 +215,9 @@ export function ReservasTab() {
           <span className='text-right'>ACCIONES</span>
         </div>
         {loading ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+          <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
         ) : items.length === 0 ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>
+          <div className='p-6 text-sm text-[#455a54]/60'>
             {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
           </div>
         ) : (
@@ -234,28 +234,28 @@ export function ReservasTab() {
                 <span className='font-mono text-sm font-semibold text-[#9d684e]'>
                   {prettyCode(r.code)}
                 </span>
-                <span className='text-sm font-medium text-[#3d3338]'>
+                <span className='text-sm font-medium text-[#455a54]'>
                   {r.customerName}
                 </span>
                 <div>
-                  <p className='text-sm text-[#3d3338]'>{r.experienceName}</p>
-                  <p className='font-mono text-xs text-[#7a6e6f]'>
+                  <p className='text-sm text-[#455a54]'>{r.experienceName}</p>
+                  <p className='font-mono text-xs text-[#455a54]/60'>
                     {fmtDateTime(r.startAt)}
                   </p>
                 </div>
-                <span className='text-sm text-[#3d3338]'>{r.quantity}</span>
+                <span className='text-sm text-[#455a54]'>{r.quantity}</span>
                 <div className='text-sm'>
-                  <p className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</p>
+                  <p className='font-medium text-[#455a54]'>{fmtPrice(r.amount)}</p>
                   {r.balanceDue != null && r.balanceDue > 0 && (
-                    <p className='text-[11px] text-[#7a6e6f]'>
+                    <p className='text-[11px] text-[#455a54]/60'>
                       saldo {fmtPrice(r.balanceDue)}
                     </p>
                   )}
                 </div>
-                <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#3d3338]'>
+                <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#455a54]'>
                   {r.source === 'ADMIN' ? 'Admin' : 'Público'}
                 </span>
-                <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+                <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
                   <span
                     className='h-1.5 w-1.5 rounded-full'
                     style={{ backgroundColor: fg }}
@@ -273,11 +273,11 @@ export function ReservasTab() {
       {/* Mobile: tarjetas (la tabla no entra en pantallas chicas) */}
       <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             Cargando…
           </div>
         ) : items.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
           </div>
         ) : (
@@ -296,7 +296,7 @@ export function ReservasTab() {
                   <span className='font-mono text-sm font-semibold text-[#9d684e]'>
                     {prettyCode(r.code)}
                   </span>
-                  <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+                  <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
                     <span
                       className='h-1.5 w-1.5 rounded-full'
                       style={{ backgroundColor: fg }}
@@ -304,24 +304,24 @@ export function ReservasTab() {
                     {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                   </span>
                 </div>
-                <p className='mt-1.5 text-sm font-medium text-[#3d3338]'>
+                <p className='mt-1.5 text-sm font-medium text-[#455a54]'>
                   {r.customerName}
                 </p>
-                <p className='mt-2 text-sm text-[#3d3338]'>{r.experienceName}</p>
-                <p className='font-mono text-xs text-[#7a6e6f]'>
+                <p className='mt-2 text-sm text-[#455a54]'>{r.experienceName}</p>
+                <p className='font-mono text-xs text-[#455a54]/60'>
                   {fmtDateTime(r.startAt)}
                 </p>
                 <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
-                  <span className='text-[#3d3338]'>{r.quantity} pers.</span>
-                  <span className='font-medium text-[#3d3338]'>
+                  <span className='text-[#455a54]'>{r.quantity} pers.</span>
+                  <span className='font-medium text-[#455a54]'>
                     {fmtPrice(r.amount)}
                   </span>
                   {r.balanceDue != null && r.balanceDue > 0 && (
-                    <span className='text-[11px] text-[#7a6e6f]'>
+                    <span className='text-[11px] text-[#455a54]/60'>
                       saldo {fmtPrice(r.balanceDue)}
                     </span>
                   )}
-                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#3d3338]'>
+                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#455a54]'>
                     {r.source === 'ADMIN' ? 'Admin' : 'Público'}
                   </span>
                 </div>
@@ -350,11 +350,11 @@ export function ReservasTab() {
             variant='outline'
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
+            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
           >
             Anterior
           </Button>
-          <span className='text-sm text-[#7a6e6f]'>
+          <span className='text-sm text-[#455a54]/60'>
             {page} / {totalPages}
           </span>
           <Button
@@ -362,7 +362,7 @@ export function ReservasTab() {
             variant='outline'
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
+            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
           >
             Siguiente
           </Button>
@@ -429,7 +429,7 @@ function CollectBalanceModal({
                   size='sm'
                   onClick={() => setMethod(m.key)}
                   className={cn(
-                    !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]',
+                    !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
                   )}
                 >
                   {m.label}
@@ -441,7 +441,7 @@ function CollectBalanceModal({
             type='number'
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
           />
         </div>
 

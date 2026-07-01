@@ -70,7 +70,7 @@ export function ManageByCode() {
     <div className='grid items-center gap-12 lg:grid-cols-2'>
       <div className='flex flex-col gap-4'>
         <h2 className='font-playfair text-4xl font-medium leading-tight tracking-tight text-arena lg:text-[42px]'>
-          ¿Ya reservaste? Modificá o cancelá al toque
+          ¿Ya reservaste? Cancelá al toque
         </h2>
         <p className='max-w-md text-base leading-relaxed text-arena/80'>
           Ingresá el código de 6 caracteres (3 letras + 3 números) que te enviamos

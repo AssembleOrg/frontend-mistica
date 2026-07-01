@@ -34,7 +34,7 @@ const EMPTY: CreateExperienceInput = {
 };
 
 const fieldCls =
-  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 // Columnas explícitas (sin `auto`) para que header y filas —grids separados—
 // alineen. Sólo desktop; en mobile se usan tarjetas.
@@ -118,7 +118,7 @@ export function ExperienciasTab() {
 
   function estadoBadge(e: AdminExperience) {
     return (
-      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
         <span
           className={`h-1.5 w-1.5 rounded-full ${
             e.isActive ? 'bg-[#455a54]' : 'bg-[#a99]'
@@ -138,7 +138,7 @@ export function ExperienciasTab() {
           size='icon'
           onClick={() => openEdit(e)}
           title='Editar'
-          className='size-8 text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+          className='size-8 text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#455a54]'
         >
           <Pencil className='h-4 w-4' />
         </Button>
@@ -148,7 +148,7 @@ export function ExperienciasTab() {
           size='icon'
           onClick={() => remove(e)}
           title='Dar de baja'
-          className='size-8 text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
+          className='size-8 text-[#455a54]/60 hover:bg-red-50 hover:text-[#b23b2e]'
         >
           <Trash2 className='h-4 w-4' />
         </Button>
@@ -172,7 +172,7 @@ export function ExperienciasTab() {
       {/* Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
         <div className='min-w-[44rem]'>
-          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60`}>
             <span>EXPERIENCIA</span>
             <span>DURACIÓN</span>
             <span>PRECIO</span>
@@ -180,9 +180,9 @@ export function ExperienciasTab() {
             <span className='text-right'>ESTADO</span>
           </div>
           {loading ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+            <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
           ) : items.length === 0 ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>
+            <div className='p-6 text-sm text-[#455a54]/60'>
               No hay experiencias. Creá la primera.
             </div>
           ) : (
@@ -192,7 +192,7 @@ export function ExperienciasTab() {
                 className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
               >
                 <div>
-                  <p className='flex items-center gap-2 font-playfair text-base text-[#3d3338]'>
+                  <p className='flex items-center gap-2 font-tan-nimbus text-base font-bold text-[#455a54]'>
                     {e.name}
                     {e.bookableOnline === false && (
                       <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
@@ -201,18 +201,18 @@ export function ExperienciasTab() {
                     )}
                   </p>
                   {e.description && (
-                    <p className='line-clamp-1 text-xs text-[#7a6e6f]'>
+                    <p className='line-clamp-1 text-xs text-[#455a54]/60'>
                       {e.description}
                     </p>
                   )}
                 </div>
-                <span className='text-sm text-[#3d3338]'>
+                <span className='text-sm text-[#455a54]'>
                   {e.durationMinutes} min
                 </span>
-                <span className='text-sm text-[#3d3338]'>
+                <span className='text-sm text-[#455a54]'>
                   {fmtPrice(e.basePrice)}
                 </span>
-                <span className='text-sm text-[#3d3338]'>
+                <span className='text-sm text-[#455a54]'>
                   {e.defaultCapacity}
                 </span>
                 <div className='flex items-center justify-end gap-1.5'>
@@ -228,11 +228,11 @@ export function ExperienciasTab() {
       {/* Mobile: tarjetas */}
       <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             Cargando…
           </div>
         ) : items.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             No hay experiencias. Creá la primera.
           </div>
         ) : (
@@ -242,7 +242,7 @@ export function ExperienciasTab() {
               className='rounded-xl border border-[#e6dbcd] bg-white p-4'
             >
               <div className='flex items-start justify-between gap-2'>
-                <p className='flex flex-wrap items-center gap-2 font-playfair text-base text-[#3d3338]'>
+                <p className='flex flex-wrap items-center gap-2 font-tan-nimbus text-base font-bold text-[#455a54]'>
                   {e.name}
                   {e.bookableOnline === false && (
                     <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
@@ -253,12 +253,12 @@ export function ExperienciasTab() {
                 {estadoBadge(e)}
               </div>
               {e.description && (
-                <p className='mt-1 text-xs text-[#7a6e6f]'>{e.description}</p>
+                <p className='mt-1 text-xs text-[#455a54]/60'>{e.description}</p>
               )}
-              <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#3d3338]'>
+              <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#455a54]'>
                 <span>{e.durationMinutes} min</span>
                 <span className='font-medium'>{fmtPrice(e.basePrice)}</span>
-                <span className='text-[#7a6e6f]'>cupo {e.defaultCapacity}</span>
+                <span className='text-[#455a54]/60'>cupo {e.defaultCapacity}</span>
               </div>
               <div className='mt-3 flex justify-end gap-1.5'>
                 {editDelete(e)}
@@ -272,7 +272,7 @@ export function ExperienciasTab() {
         {form && (
           <DialogContent className='sm:max-w-md'>
             <DialogHeader className='text-left'>
-              <DialogTitle className='font-playfair text-xl text-[#3d3338]'>
+              <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
                 {editing ? 'Editar experiencia' : 'Nueva experiencia'}
               </DialogTitle>
             </DialogHeader>
@@ -357,12 +357,12 @@ export function ExperienciasTab() {
                   />
                   <Label
                     htmlFor='exp-bookable'
-                    className='text-sm text-[#3d3338]'
+                    className='text-sm text-[#455a54]'
                   >
                     Se reserva online (genera turnos y seña)
                   </Label>
                 </div>
-                <p className='pl-12 text-xs text-[#7a6e6f]'>
+                <p className='pl-12 text-xs text-[#455a54]/60'>
                   Si lo apagás, es un servicio coordinado: el bot solo informa y
                   toma la consulta (sin turnos ni pago online).
                 </p>
@@ -376,7 +376,7 @@ export function ExperienciasTab() {
                   }
                   className='data-[state=checked]:bg-[#455a54]'
                 />
-                <Label htmlFor='exp-active' className='text-sm text-[#3d3338]'>
+                <Label htmlFor='exp-active' className='text-sm text-[#455a54]'>
                   Activa (visible al público)
                 </Label>
               </div>
@@ -387,7 +387,7 @@ export function ExperienciasTab() {
                 type='button'
                 variant='outline'
                 onClick={() => setForm(null)}
-                className='border-[#e6dbcd] text-[#3d3338] hover:bg-[#fbf5ef]'
+                className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
               >
                 Cancelar
               </Button>
@@ -416,7 +416,7 @@ function Field({
 }) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+      <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
         {label.toUpperCase()}
       </span>
       {children}

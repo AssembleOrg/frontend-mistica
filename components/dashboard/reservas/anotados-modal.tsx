@@ -32,7 +32,7 @@ const METHODS: { key: ReservationPaymentMethod; label: string }[] = [
 ];
 
 const fieldCls =
-  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 export function AnotadosModal({
   sessionId,
@@ -111,7 +111,7 @@ export function AnotadosModal({
           <p className='font-mono text-[11px] tracking-wider text-[#9d684e]'>
             ANOTADOS
           </p>
-          <DialogTitle className='font-playfair text-xl text-[#3d3338]'>
+          <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
             {session
               ? `${session.experienceName} · ${fmtDateTime(session.startAt)}`
               : 'Turno'}
@@ -121,16 +121,16 @@ export function AnotadosModal({
         <div className='grid flex-1 gap-5 overflow-y-auto p-6 md:grid-cols-[1fr_300px]'>
           {/* Lista de anotados */}
           <div className='overflow-hidden rounded-lg border border-[#e6dbcd]'>
-            <div className='grid grid-cols-[auto_1fr_auto_auto] gap-2 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+            <div className='grid grid-cols-[auto_1fr_auto_auto] gap-2 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#455a54]/60'>
               <span>CÓDIGO</span>
               <span>CLIENTE</span>
               <span>PERS.</span>
               <span>ESTADO</span>
             </div>
             {loading ? (
-              <div className='p-4 text-sm text-[#7a6e6f]'>Cargando…</div>
+              <div className='p-4 text-sm text-[#455a54]/60'>Cargando…</div>
             ) : reservations.length === 0 ? (
-              <div className='p-4 text-sm text-[#7a6e6f]'>Sin anotados aún.</div>
+              <div className='p-4 text-sm text-[#455a54]/60'>Sin anotados aún.</div>
             ) : (
               reservations.map((r) => (
                 <div
@@ -141,15 +141,15 @@ export function AnotadosModal({
                     {prettyCode(r.code)}
                   </span>
                   <div>
-                    <p className='text-sm font-medium text-[#3d3338]'>
+                    <p className='text-sm font-medium text-[#455a54]'>
                       {r.customerName}
                     </p>
-                    <p className='text-xs text-[#7a6e6f]'>
+                    <p className='text-xs text-[#455a54]/60'>
                       {r.customerEmail ?? r.customerPhone ?? '—'}
                     </p>
                   </div>
-                  <span className='text-sm text-[#3d3338]'>{r.quantity}</span>
-                  <span className='text-xs text-[#7a6e6f]'>
+                  <span className='text-sm text-[#455a54]'>{r.quantity}</span>
+                  <span className='text-xs text-[#455a54]/60'>
                     {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                   </span>
                 </div>
@@ -161,7 +161,7 @@ export function AnotadosModal({
           <div className='flex flex-col gap-3 rounded-lg border border-[#e6dbcd] p-4'>
             <div className='flex items-center gap-2'>
               <UserPlus className='h-4 w-4 text-[#9d684e]' />
-              <h3 className='font-playfair text-lg text-[#3d3338]'>
+              <h3 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>
                 Agregar reserva
               </h3>
             </div>
@@ -184,11 +184,11 @@ export function AnotadosModal({
                   variant='ghost'
                   size='icon'
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  className='size-10 rounded-none text-[#3d3338] hover:bg-[#fbf5ef]'
+                  className='size-10 rounded-none text-[#455a54] hover:bg-[#fbf5ef]'
                 >
                   <Minus className='h-4 w-4' />
                 </Button>
-                <span className='w-10 text-center font-playfair text-lg text-[#3d3338]'>
+                <span className='w-10 text-center font-tan-nimbus text-lg text-[#455a54]'>
                   {qty}
                 </span>
                 <Button
@@ -201,7 +201,7 @@ export function AnotadosModal({
                   <Plus className='h-4 w-4' />
                 </Button>
               </div>
-              <span className='text-xs text-[#7a6e6f]'>
+              <span className='text-xs text-[#455a54]/60'>
                 {session ? `${session.seatsAvailable} disp.` : ''}
               </span>
             </div>
@@ -216,7 +216,7 @@ export function AnotadosModal({
                     size='sm'
                     onClick={() => setMethod(m.key)}
                     className={cn(
-                      !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]',
+                      !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
                     )}
                   >
                     {m.label}
@@ -225,15 +225,15 @@ export function AnotadosModal({
               })}
             </div>
             <div className='flex items-center justify-between border-t border-[#e6dbcd] pt-3'>
-              <span className='text-sm text-[#7a6e6f]'>
+              <span className='text-sm text-[#455a54]/60'>
                 {isCourtesy ? 'Sin cargo' : 'Total a cobrar'}
               </span>
-              <span className='font-playfair text-xl font-semibold text-[#9d684e]'>
+              <span className='font-tan-nimbus text-xl font-semibold text-[#9d684e]'>
                 {fmtPrice(total)}
               </span>
             </div>
             {!isCourtesy && (
-              <p className='text-[11px] text-[#7a6e6f]'>
+              <p className='text-[11px] text-[#455a54]/60'>
                 Impacta caja (requiere caja abierta).
               </p>
             )}

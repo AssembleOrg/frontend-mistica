@@ -35,7 +35,7 @@ export function BottomSheet({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className='sheet m-0 w-full max-w-full bg-transparent p-0 backdrop:bg-ciruela-oscuro/50 sm:mx-auto sm:my-auto sm:max-w-lg'
+      className='sheet m-0 w-full max-w-full bg-transparent p-0 backdrop:bg-ciruela-oscuro/50 sm:mx-auto sm:my-auto sm:max-w-3xl lg:max-w-4xl'
     >
       <div className='sheet-scroll flex max-h-[92dvh] flex-col overflow-y-auto bg-arena sm:rounded-[4px]'>
         {/* Grab-handle (afordancia de gesto) */}

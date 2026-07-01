@@ -91,7 +91,7 @@ export function ConsultasTab() {
             variant='outline'
             size='sm'
             onClick={() => setLeadStatus(l, 'CONTACTED')}
-            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]'
+            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]'
           >
             Contactada
           </Button>
@@ -102,7 +102,7 @@ export function ConsultasTab() {
             variant='ghost'
             size='sm'
             onClick={() => setLeadStatus(l, 'CLOSED')}
-            className='text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+            className='text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#455a54]'
           >
             Cerrar
           </Button>
@@ -115,7 +115,7 @@ export function ConsultasTab() {
     // Estado como texto tipográfico (punto de color + label), sin pill.
     const [, fg] = STATUS_COLOR[l.status] ?? ['#f1ede6', '#7a6e6f'];
     return (
-      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#3d3338]'>
+      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
         <span
           className='h-1.5 w-1.5 rounded-full'
           style={{ backgroundColor: fg }}
@@ -141,8 +141,8 @@ export function ConsultasTab() {
               className={cn(
                 'relative -mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
                 on
-                  ? 'border-[#455a54] text-[#3d3338]'
-                  : 'border-transparent text-[#7a6e6f] hover:text-[#3d3338]',
+                  ? 'border-[#455a54] text-[#455a54]'
+                  : 'border-transparent text-[#455a54]/60 hover:text-[#455a54]',
               )}
             >
               {f.label}
@@ -154,7 +154,7 @@ export function ConsultasTab() {
       {/* Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
         <div className='min-w-[48rem]'>
-          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60`}>
             <span>SERVICIO</span>
             <span>CLIENTE</span>
             <span>FECHA / PERS.</span>
@@ -163,9 +163,9 @@ export function ConsultasTab() {
             <span className='text-right'>ACCIÓN</span>
           </div>
           {loading ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+            <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
           ) : items.length === 0 ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>Sin consultas.</div>
+            <div className='p-6 text-sm text-[#455a54]/60'>Sin consultas.</div>
           ) : (
             items.map((l) => (
               <div
@@ -173,24 +173,24 @@ export function ConsultasTab() {
                 className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`}
               >
                 <div>
-                  <p className='text-sm font-medium text-[#3d3338]'>{l.service}</p>
+                  <p className='text-sm font-medium text-[#455a54]'>{l.service}</p>
                   {l.notes && (
-                    <p className='line-clamp-1 text-xs text-[#7a6e6f]'>{l.notes}</p>
+                    <p className='line-clamp-1 text-xs text-[#455a54]/60'>{l.notes}</p>
                   )}
                 </div>
                 <div>
-                  <p className='text-sm text-[#3d3338]'>{l.customerName}</p>
-                  <p className='font-mono text-xs text-[#7a6e6f]'>
+                  <p className='text-sm text-[#455a54]'>{l.customerName}</p>
+                  <p className='font-mono text-xs text-[#455a54]/60'>
                     {l.customerPhone ?? l.customerEmail ?? '—'}
                   </p>
                 </div>
-                <div className='text-xs text-[#3d3338]'>
+                <div className='text-xs text-[#455a54]'>
                   <p>{l.preferredDate ?? '—'}</p>
-                  <p className='text-[#7a6e6f]'>
+                  <p className='text-[#455a54]/60'>
                     {l.quantity ? `${l.quantity} pers.` : ''}
                   </p>
                 </div>
-                <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#3d3338]'>
+                <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#455a54]'>
                   {SOURCE_LABEL[l.source] ?? l.source}
                 </span>
                 {leadBadge(l)}
@@ -204,11 +204,11 @@ export function ConsultasTab() {
       {/* Mobile: tarjetas */}
       <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             Cargando…
           </div>
         ) : items.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             Sin consultas.
           </div>
         ) : (
@@ -220,22 +220,22 @@ export function ConsultasTab() {
                 className='rounded-xl border border-[#e6dbcd] bg-white p-4'
               >
                 <div className='flex items-start justify-between gap-2'>
-                  <p className='text-sm font-medium text-[#3d3338]'>{l.service}</p>
+                  <p className='text-sm font-medium text-[#455a54]'>{l.service}</p>
                   {leadBadge(l)}
                 </div>
                 {l.notes && (
-                  <p className='mt-1 line-clamp-2 text-xs text-[#7a6e6f]'>
+                  <p className='mt-1 line-clamp-2 text-xs text-[#455a54]/60'>
                     {l.notes}
                   </p>
                 )}
-                <p className='mt-2 text-sm text-[#3d3338]'>{l.customerName}</p>
-                <p className='font-mono text-xs text-[#7a6e6f]'>
+                <p className='mt-2 text-sm text-[#455a54]'>{l.customerName}</p>
+                <p className='font-mono text-xs text-[#455a54]/60'>
                   {l.customerPhone ?? l.customerEmail ?? '—'}
                 </p>
-                <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7a6e6f]'>
+                <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#455a54]/60'>
                   <span>{l.preferredDate ?? 'Sin fecha'}</span>
                   {l.quantity ? <span>{l.quantity} pers.</span> : null}
-                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[#3d3338]'>
+                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[#455a54]'>
                     {SOURCE_LABEL[l.source] ?? l.source}
                   </span>
                 </div>
@@ -253,11 +253,11 @@ export function ConsultasTab() {
             variant='outline'
             disabled={page <= 1}
             onClick={() => setPage((p) => p - 1)}
-            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
+            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
           >
             Anterior
           </Button>
-          <span className='text-sm text-[#7a6e6f]'>
+          <span className='text-sm text-[#455a54]/60'>
             {page} / {totalPages}
           </span>
           <Button
@@ -265,14 +265,14 @@ export function ConsultasTab() {
             variant='outline'
             disabled={page >= totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className='border-[#e6dbcd] bg-white text-[#3d3338] hover:bg-[#fbf5ef]'
+            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
           >
             Siguiente
           </Button>
         </div>
       )}
 
-      <p className='flex items-center gap-2 text-xs text-[#7a6e6f]'>
+      <p className='flex items-center gap-2 text-xs text-[#455a54]/60'>
         <MessageCircle className='h-3.5 w-3.5 text-[#9d684e]' />
         Consultas de servicios que se coordinan (cumpleaños, talleres, escuelita,
         facilitadores). El bot y la web las cargan acá.

@@ -24,8 +24,8 @@ export default function ReservasAdminPage() {
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex flex-col gap-1'>
-        <h1 className='font-playfair text-2xl text-[#3d3338]'>Reservas</h1>
-        <p className='text-sm text-[#7a6e6f]'>
+        <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>Reservas</h1>
+        <p className='text-sm text-[#455a54]/60 font-winter-solid mt-0.5'>
           Experiencias, turnos y reservas de la landing pública.
         </p>
       </div>

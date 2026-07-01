@@ -57,9 +57,9 @@ interface SlotRow {
 }
 
 const fieldCls =
-  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 const triggerCls =
-  'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30 data-[placeholder]:text-[#7a6e6f]';
+  'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30 data-[placeholder]:text-[#455a54]/60';
 
 // Columnas explícitas (sin `auto`) para alinear header y filas. Sólo desktop;
 // en mobile se usan tarjetas.
@@ -162,7 +162,7 @@ export function TurnosTab() {
           variant='outline'
           size='sm'
           onClick={() => setAnotados(s.id)}
-          className='border-[#e6dbcd] bg-[#fbf5ef] font-mono text-xs text-[#3d3338] hover:bg-[#f3e9df]'
+          className='border-[#e6dbcd] bg-[#fbf5ef] font-mono text-xs text-[#455a54] hover:bg-[#f3e9df]'
         >
           <Users className='h-3.5 w-3.5' /> Anotados
         </Button>
@@ -172,7 +172,7 @@ export function TurnosTab() {
           size='icon'
           onClick={() => setEditing(s)}
           title='Editar turno'
-          className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+          className='size-8 border-[#e6dbcd] text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#455a54]'
         >
           <Pencil className='h-3.5 w-3.5' />
         </Button>
@@ -182,7 +182,7 @@ export function TurnosTab() {
           size='icon'
           onClick={() => doDelete(s)}
           title='Eliminar turno'
-          className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
+          className='size-8 border-[#e6dbcd] text-[#455a54]/60 hover:bg-red-50 hover:text-[#b23b2e]'
         >
           <Trash2 className='h-3.5 w-3.5' />
         </Button>
@@ -195,7 +195,7 @@ export function TurnosTab() {
     const full = s.seatsTaken >= s.capacity;
     return (
       <div className='flex flex-col gap-1.5'>
-        <span className='text-xs text-[#3d3338]'>
+        <span className='text-xs text-[#455a54]'>
           {s.seatsTaken} / {s.capacity} personas
         </span>
         <div className='h-1.5 w-32 max-w-full overflow-hidden rounded-full bg-[#e6dbcd]'>
@@ -217,10 +217,10 @@ export function TurnosTab() {
       <div className='flex flex-col gap-4 rounded-xl border border-[#e6dbcd] bg-white p-5'>
         <div className='flex items-center gap-2'>
           <CopyPlus className='h-5 w-5 text-[#9d684e]' />
-          <h2 className='font-playfair text-lg text-[#3d3338]'>
+          <h2 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>
             Generar turnos rápido
           </h2>
-          <span className='text-xs text-[#7a6e6f]'>
+          <span className='text-xs text-[#455a54]/60'>
             · repetí la experiencia en varias fechas
           </span>
         </div>
@@ -261,7 +261,7 @@ export function TurnosTab() {
         </div>
 
         <div className='flex flex-col gap-2'>
-          <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+          <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
             FECHAS Y HORARIOS
           </span>
           {slots.map((s, i) => (
@@ -292,7 +292,7 @@ export function TurnosTab() {
                   onClick={() =>
                     setSlots((prev) => prev.filter((_, j) => j !== i))
                   }
-                  className='size-9 text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#b23b2e]'
+                  className='size-9 text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#b23b2e]'
                 >
                   <X className='h-4 w-4' />
                 </Button>
@@ -304,7 +304,7 @@ export function TurnosTab() {
             variant='outline'
             size='sm'
             onClick={() => setSlots((prev) => [...prev, { date: '', time: '' }])}
-            className='w-fit border-[#e6dbcd] text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+            className='w-fit border-[#e6dbcd] text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#455a54]'
           >
             <Plus className='h-3.5 w-3.5' /> Agregar fecha
           </Button>
@@ -318,7 +318,7 @@ export function TurnosTab() {
               onCheckedChange={setPublish}
               className='data-[state=checked]:bg-[#455a54]'
             />
-            <Label htmlFor='publish' className='text-sm text-[#3d3338]'>
+            <Label htmlFor='publish' className='text-sm text-[#455a54]'>
               Publicar (visible al público)
             </Label>
           </div>
@@ -343,7 +343,7 @@ export function TurnosTab() {
       {/* Lista de turnos — Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
         <div className='min-w-[52rem]'>
-          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60`}>
             <span>FECHA</span>
             <span>EXPERIENCIA</span>
             <span>CUPO</span>
@@ -351,9 +351,9 @@ export function TurnosTab() {
             <span></span>
           </div>
           {loading ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+            <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
           ) : sessions.length === 0 ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>
+            <div className='p-6 text-sm text-[#455a54]/60'>
               No hay turnos futuros. Generá arriba.
             </div>
           ) : (
@@ -362,14 +362,14 @@ export function TurnosTab() {
                 key={s.id}
                 className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
               >
-                <span className='text-sm font-medium text-[#3d3338]'>
+                <span className='text-sm font-medium text-[#455a54]'>
                   {fmtDateTime(s.startAt)}
                 </span>
-                <span className='text-sm text-[#3d3338]'>
+                <span className='text-sm text-[#455a54]'>
                   {s.experienceName}
                 </span>
                 {cupoBar(s)}
-                <span className='text-xs text-[#7a6e6f]'>
+                <span className='text-xs text-[#455a54]/60'>
                   {SESSION_STATUS_LABEL[s.status] ?? s.status}
                 </span>
                 {renderTurnoActions(s)}
@@ -382,11 +382,11 @@ export function TurnosTab() {
       {/* Lista de turnos — Mobile: tarjetas */}
       <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             Cargando…
           </div>
         ) : sessions.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
             No hay turnos futuros. Generá arriba.
           </div>
         ) : (
@@ -396,14 +396,14 @@ export function TurnosTab() {
               className='rounded-xl border border-[#e6dbcd] bg-white p-4'
             >
               <div className='flex items-start justify-between gap-2'>
-                <span className='text-sm font-medium text-[#3d3338]'>
+                <span className='text-sm font-medium text-[#455a54]'>
                   {fmtDateTime(s.startAt)}
                 </span>
-                <span className='shrink-0 text-xs text-[#7a6e6f]'>
+                <span className='shrink-0 text-xs text-[#455a54]/60'>
                   {SESSION_STATUS_LABEL[s.status] ?? s.status}
                 </span>
               </div>
-              <p className='mt-1 text-sm text-[#3d3338]'>{s.experienceName}</p>
+              <p className='mt-1 text-sm text-[#455a54]'>{s.experienceName}</p>
               <div className='mt-2'>{cupoBar(s)}</div>
               <div className='mt-3'>{renderTurnoActions(s)}</div>
             </div>
@@ -477,10 +477,10 @@ function SessionEditModal({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='sm:max-w-sm'>
         <DialogHeader className='text-left'>
-          <DialogTitle className='font-playfair text-xl text-[#3d3338]'>
+          <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
             Editar turno
           </DialogTitle>
-          <p className='text-sm text-[#7a6e6f]'>
+          <p className='text-sm text-[#455a54]/60'>
             {session.experienceName} · {fmtDateTime(session.startAt)}
           </p>
         </DialogHeader>
@@ -615,8 +615,8 @@ function ClosedDatesPanel() {
     <div className='flex flex-col gap-4 rounded-xl border border-[#e6dbcd] bg-white p-5'>
       <div className='flex flex-wrap items-center gap-2'>
         <CalendarOff className='h-5 w-5 text-[#9d684e]' />
-        <h2 className='font-playfair text-lg text-[#3d3338]'>Días cerrados</h2>
-        <span className='text-xs text-[#7a6e6f]'>
+        <h2 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>Días cerrados</h2>
+        <span className='text-xs text-[#455a54]/60'>
           · el local no abre · bloquea turnos y reservas, y el bot avisa
         </span>
       </div>
@@ -646,7 +646,7 @@ function ClosedDatesPanel() {
                 placeholder='Desde'
                 className='flex-1'
               />
-              <span className='text-[#7a6e6f]'>→</span>
+              <span className='text-[#455a54]/60'>→</span>
               <DatePicker
                 value={to}
                 onChange={setTo}
@@ -693,23 +693,23 @@ function ClosedDatesPanel() {
 
       {/* Lista */}
       {loading ? (
-        <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
+        <p className='text-sm text-[#455a54]/60'>Cargando…</p>
       ) : items.length === 0 ? (
-        <p className='text-sm text-[#7a6e6f]'>No hay días cerrados cargados.</p>
+        <p className='text-sm text-[#455a54]/60'>No hay días cerrados cargados.</p>
       ) : (
         <div className='flex flex-wrap gap-2'>
           {items.map((c) => (
             <span
               key={c.id}
-              className='flex items-center gap-2 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-1.5 text-xs text-[#3d3338]'
+              className='flex items-center gap-2 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-1.5 text-xs text-[#455a54]'
             >
               <span className='font-medium'>{describe(c)}</span>
-              {c.reason && <span className='text-[#7a6e6f]'>· {c.reason}</span>}
+              {c.reason && <span className='text-[#455a54]/60'>· {c.reason}</span>}
               <button
                 type='button'
                 onClick={() => remove(c.id)}
                 title='Quitar'
-                className='text-[#7a6e6f] hover:text-[#b23b2e]'
+                className='text-[#455a54]/60 hover:text-[#b23b2e]'
               >
                 <X className='h-3.5 w-3.5' />
               </button>
@@ -730,7 +730,7 @@ function Field({
 }) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+      <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
         {label.toUpperCase()}
       </span>
       {children}

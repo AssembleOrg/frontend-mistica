@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { LogOut, RefreshCw, RotateCw, Smartphone } from 'lucide-react';
+import { CheckCircle2, LogOut, RefreshCw, RotateCw, Smartphone } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { botAdmin, type BotStatus } from '@/services/bot.admin.service';
 
@@ -79,15 +79,15 @@ export default function BotControlPage() {
     <div className='flex flex-col gap-5'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='font-playfair text-2xl text-[#3d3338]'>Bot de WhatsApp</h1>
-          <p className='text-sm text-[#7a6e6f]'>
+          <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>Bot de WhatsApp</h1>
+          <p className='text-sm text-[#455a54]/60 font-winter-solid mt-0.5'>
             Estado del bot, vinculación por QR y reconexión.
           </p>
         </div>
         <button
           type='button'
           onClick={resume}
-          className='flex items-center gap-2 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-sm text-[#3d3338]'
+          className='flex items-center gap-2 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-sm text-[#455a54]'
         >
           <RefreshCw className='h-4 w-4' /> Actualizar
         </button>
@@ -104,10 +104,10 @@ export default function BotControlPage() {
         <div className='flex flex-col gap-4 rounded-xl border border-[#e6dbcd] bg-white p-5'>
           <div className='flex items-center gap-2'>
             <Smartphone className='h-5 w-5 text-[#9d684e]' />
-            <h2 className='font-playfair text-lg text-[#3d3338]'>Estado</h2>
+            <h2 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>Estado</h2>
           </div>
           {loading ? (
-            <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
+            <p className='text-sm text-[#455a54]/60'>Cargando…</p>
           ) : (
             <div className='flex flex-col gap-2 text-sm'>
               <Row label='Conexión' on={!!connected} onTxt='Conectado' offTxt='Desconectado' />
@@ -119,7 +119,7 @@ export default function BotControlPage() {
               type='button'
               onClick={restart}
               disabled={acting}
-              className='flex items-center gap-2 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-sm text-[#3d3338] disabled:opacity-60'
+              className='flex items-center gap-2 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-sm text-[#455a54] disabled:opacity-60'
             >
               <RotateCw className='h-4 w-4' /> Reiniciar
             </button>
@@ -137,8 +137,9 @@ export default function BotControlPage() {
         {/* QR */}
         <div className='flex flex-col items-center justify-center gap-3 rounded-xl border border-[#e6dbcd] bg-white p-5'>
           {loggedIn ? (
-            <p className='text-center text-sm text-[#455a54]'>
-              ✅ Bot vinculado. No hace falta escanear nada.
+            <p className='flex items-center justify-center gap-2 text-center text-sm text-[#455a54]'>
+              <CheckCircle2 className='h-4 w-4 text-[#455a54]' /> Bot vinculado. No hace falta escanear
+              nada.
             </p>
           ) : paused ? (
             // Pausado tras 3 min: QR difuminado + botón para reanudar.
@@ -153,7 +154,7 @@ export default function BotControlPage() {
                 />
               )}
               <div className='absolute inset-0 flex flex-col items-center justify-center gap-3'>
-                <p className='px-4 text-center text-xs text-[#7a6e6f]'>
+                <p className='px-4 text-center text-xs text-[#455a54]/60'>
                   Pausamos la actualización. Tocá para volver a mostrar el QR.
                 </p>
                 <button
@@ -167,7 +168,7 @@ export default function BotControlPage() {
             </div>
           ) : status?.qr ? (
             <>
-              <p className='text-center text-sm text-[#7a6e6f]'>
+              <p className='text-center text-sm text-[#455a54]/60'>
                 Escaneá desde WhatsApp → Dispositivos vinculados
               </p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -178,7 +179,7 @@ export default function BotControlPage() {
               />
             </>
           ) : (
-            <p className='text-center text-sm text-[#7a6e6f]'>
+            <p className='text-center text-sm text-[#455a54]/60'>
               Esperando el QR… (si no aparece, reiniciá el bot)
             </p>
           )}
@@ -201,7 +202,7 @@ function Row({
 }) {
   return (
     <div className='flex items-center justify-between'>
-      <span className='text-[#7a6e6f]'>{label}</span>
+      <span className='text-[#455a54]/60'>{label}</span>
       <span
         className='rounded-full px-2.5 py-1 text-xs font-medium'
         style={{

@@ -165,6 +165,7 @@ export const reservationsAdmin = {
     status?: string;
     sessionId?: string;
     experienceId?: string;
+    search?: string;
     page?: number;
     limit?: number;
   }) => {
@@ -172,6 +173,7 @@ export const reservationsAdmin = {
     if (params?.status) q.set('status', params.status);
     if (params?.sessionId) q.set('sessionId', params.sessionId);
     if (params?.experienceId) q.set('experienceId', params.experienceId);
+    if (params?.search?.trim()) q.set('search', params.search.trim());
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));
     return (

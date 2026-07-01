@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, CheckCircle2, Wallet } from 'lucide-react';
+import { Ban, CheckCircle2, Search, Wallet } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,20 +41,38 @@ const FILTERS: { key: string; label: string }[] = [
   { key: 'NEEDS_REVIEW', label: 'Revisión' },
 ];
 
+// Mismas columnas para el encabezado y las filas: al ser grids independientes,
+// necesitan un template EXPLÍCITO (sin `auto`) para alinear. El contenedor con
+// min-w garantiza que el `fr` resuelva igual en ambos.
+const COLS =
+  'grid grid-cols-[6.5rem_1.3fr_2fr_3.5rem_7rem_5.5rem_6rem_7rem] gap-3';
+
 export function ReservasTab() {
   const [items, setItems] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
   const [collect, setCollect] = useState<ReservationItem | null>(null);
+
+  // Debounce del buscador: espera 350 ms tras la última tecla y vuelve a página 1.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await reservationsAdmin.listReservations({
         status: status || undefined,
+        search: search || undefined,
         page,
         limit: 20,
       });
@@ -65,7 +83,7 @@ export function ReservasTab() {
     } finally {
       setLoading(false);
     }
-  }, [status, page]);
+  }, [status, search, page]);
 
   useEffect(() => {
     load();
@@ -100,7 +118,7 @@ export function ReservasTab() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
         {FILTERS.map((f) => {
           const on = f.key === status;
           return (
@@ -121,10 +139,20 @@ export function ReservasTab() {
             </Button>
           );
         })}
+        <div className='relative w-full sm:ml-auto sm:w-72'>
+          <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
+          <Input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder='Buscar por código, nombre o teléfono'
+            className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#3d3338] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+          />
+        </div>
       </div>
 
-      <div className='overflow-hidden rounded-xl border border-[#e6dbcd] bg-white'>
-        <div className='grid grid-cols-[auto_1.4fr_2fr_auto_1fr_auto_auto_auto] gap-2 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+      <div className='overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white'>
+        <div className='min-w-[60rem]'>
+        <div className={cn(COLS, 'border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]')}>
           <span>CÓDIGO</span>
           <span>CLIENTE</span>
           <span>EXPERIENCIA / TURNO</span>
@@ -137,7 +165,9 @@ export function ReservasTab() {
         {loading ? (
           <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
         ) : items.length === 0 ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>Sin reservas.</div>
+          <div className='p-6 text-sm text-[#7a6e6f]'>
+            {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
+          </div>
         ) : (
           items.map((r) => {
             const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
@@ -147,7 +177,7 @@ export function ReservasTab() {
             return (
               <div
                 key={r._id}
-                className='grid grid-cols-[auto_1.4fr_2fr_auto_1fr_auto_auto_auto] items-center gap-2 border-b border-[#e6dbcd] px-5 py-3.5 last:border-0'
+                className={cn(COLS, 'items-center border-b border-[#e6dbcd] px-5 py-3.5 last:border-0')}
               >
                 <span className='font-mono text-sm font-semibold text-[#9d684e]'>
                   {prettyCode(r.code)}
@@ -224,6 +254,7 @@ export function ReservasTab() {
             );
           })
         )}
+        </div>
       </div>
 
       {collect && (

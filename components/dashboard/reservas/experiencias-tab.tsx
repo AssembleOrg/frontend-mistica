@@ -36,6 +36,10 @@ const EMPTY: CreateExperienceInput = {
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
+// Columnas explícitas (sin `auto`) para que header y filas —grids separados—
+// alineen. Sólo desktop; en mobile se usan tarjetas.
+const COLS = 'grid grid-cols-[2fr_6rem_7rem_5rem_11rem] gap-3';
+
 export function ExperienciasTab() {
   const [items, setItems] = useState<AdminExperience[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +116,47 @@ export function ExperienciasTab() {
     }
   }
 
+  function estadoBadge(e: AdminExperience) {
+    return (
+      <span
+        className={`rounded-full px-2.5 py-1 text-[11px] ${
+          e.isActive
+            ? 'bg-[#E7F0EC] text-[#455a54]'
+            : 'bg-[#f1ede6] text-[#7a6e6f]'
+        }`}
+      >
+        {e.isActive ? 'Activa' : 'Pausada'}
+      </span>
+    );
+  }
+
+  function editDelete(e: AdminExperience) {
+    return (
+      <>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          onClick={() => openEdit(e)}
+          title='Editar'
+          className='size-8 text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+        >
+          <Pencil className='h-4 w-4' />
+        </Button>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon'
+          onClick={() => remove(e)}
+          title='Dar de baja'
+          className='size-8 text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
+        >
+          <Trash2 className='h-4 w-4' />
+        </Button>
+      </>
+    );
+  }
+
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex justify-end'>
@@ -125,28 +170,80 @@ export function ExperienciasTab() {
         </Button>
       </div>
 
-      <div className='overflow-hidden rounded-xl border border-[#e6dbcd] bg-white'>
-        <div className='grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-2 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-          <span>EXPERIENCIA</span>
-          <span>DURACIÓN</span>
-          <span>PRECIO</span>
-          <span>CUPO DEF.</span>
-          <span className='text-right'>ESTADO</span>
+      {/* Desktop: tabla */}
+      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
+        <div className='min-w-[44rem]'>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
+            <span>EXPERIENCIA</span>
+            <span>DURACIÓN</span>
+            <span>PRECIO</span>
+            <span>CUPO DEF.</span>
+            <span className='text-right'>ESTADO</span>
+          </div>
+          {loading ? (
+            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+          ) : items.length === 0 ? (
+            <div className='p-6 text-sm text-[#7a6e6f]'>
+              No hay experiencias. Creá la primera.
+            </div>
+          ) : (
+            items.map((e) => (
+              <div
+                key={e._id}
+                className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
+              >
+                <div>
+                  <p className='flex items-center gap-2 font-playfair text-base text-[#3d3338]'>
+                    {e.name}
+                    {e.bookableOnline === false && (
+                      <span className='rounded-full bg-[#F6E9DC] px-2 py-0.5 font-mono text-[10px] tracking-wider text-[#cc844a]'>
+                        COORDINADA
+                      </span>
+                    )}
+                  </p>
+                  {e.description && (
+                    <p className='line-clamp-1 text-xs text-[#7a6e6f]'>
+                      {e.description}
+                    </p>
+                  )}
+                </div>
+                <span className='text-sm text-[#3d3338]'>
+                  {e.durationMinutes} min
+                </span>
+                <span className='text-sm text-[#3d3338]'>
+                  {fmtPrice(e.basePrice)}
+                </span>
+                <span className='text-sm text-[#3d3338]'>
+                  {e.defaultCapacity}
+                </span>
+                <div className='flex items-center justify-end gap-1.5'>
+                  {estadoBadge(e)}
+                  {editDelete(e)}
+                </div>
+              </div>
+            ))
+          )}
         </div>
+      </div>
+
+      {/* Mobile: tarjetas */}
+      <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            Cargando…
+          </div>
         ) : items.length === 0 ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             No hay experiencias. Creá la primera.
           </div>
         ) : (
           items.map((e) => (
             <div
               key={e._id}
-              className='grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-2 border-b border-[#e6dbcd] px-5 py-4 last:border-0'
+              className='rounded-xl border border-[#e6dbcd] bg-white p-4'
             >
-              <div>
-                <p className='flex items-center gap-2 font-playfair text-base text-[#3d3338]'>
+              <div className='flex items-start justify-between gap-2'>
+                <p className='flex flex-wrap items-center gap-2 font-playfair text-base text-[#3d3338]'>
                   {e.name}
                   {e.bookableOnline === false && (
                     <span className='rounded-full bg-[#F6E9DC] px-2 py-0.5 font-mono text-[10px] tracking-wider text-[#cc844a]'>
@@ -154,49 +251,18 @@ export function ExperienciasTab() {
                     </span>
                   )}
                 </p>
-                {e.description && (
-                  <p className='line-clamp-1 text-xs text-[#7a6e6f]'>
-                    {e.description}
-                  </p>
-                )}
+                {estadoBadge(e)}
               </div>
-              <span className='text-sm text-[#3d3338]'>
-                {e.durationMinutes} min
-              </span>
-              <span className='text-sm text-[#3d3338]'>
-                {fmtPrice(e.basePrice)}
-              </span>
-              <span className='text-sm text-[#3d3338]'>{e.defaultCapacity}</span>
-              <div className='flex items-center justify-end gap-1.5'>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] ${
-                    e.isActive
-                      ? 'bg-[#E7F0EC] text-[#455a54]'
-                      : 'bg-[#f1ede6] text-[#7a6e6f]'
-                  }`}
-                >
-                  {e.isActive ? 'Activa' : 'Pausada'}
-                </span>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  onClick={() => openEdit(e)}
-                  title='Editar'
-                  className='size-8 text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
-                >
-                  <Pencil className='h-4 w-4' />
-                </Button>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  onClick={() => remove(e)}
-                  title='Dar de baja'
-                  className='size-8 text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
-                >
-                  <Trash2 className='h-4 w-4' />
-                </Button>
+              {e.description && (
+                <p className='mt-1 text-xs text-[#7a6e6f]'>{e.description}</p>
+              )}
+              <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#3d3338]'>
+                <span>{e.durationMinutes} min</span>
+                <span className='font-medium'>{fmtPrice(e.basePrice)}</span>
+                <span className='text-[#7a6e6f]'>cupo {e.defaultCapacity}</span>
+              </div>
+              <div className='mt-3 flex justify-end gap-1.5'>
+                {editDelete(e)}
               </div>
             </div>
           ))

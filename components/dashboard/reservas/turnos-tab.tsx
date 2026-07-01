@@ -61,6 +61,10 @@ const fieldCls =
 const triggerCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30 data-[placeholder]:text-[#7a6e6f]';
 
+// Columnas explícitas (sin `auto`) para alinear header y filas. Sólo desktop;
+// en mobile se usan tarjetas.
+const COLS = 'grid grid-cols-[1.4fr_1.6fr_1.4fr_5rem_14rem] gap-3';
+
 export function TurnosTab() {
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
   const [sessions, setSessions] = useState<AdminSession[]>([]);
@@ -148,6 +152,63 @@ export function TurnosTab() {
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
     }
+  }
+
+  function renderTurnoActions(s: AdminSession) {
+    return (
+      <div className='flex items-center justify-end gap-1.5'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={() => setAnotados(s.id)}
+          className='border-[#e6dbcd] bg-[#fbf5ef] font-mono text-xs text-[#3d3338] hover:bg-[#f3e9df]'
+        >
+          <Users className='h-3.5 w-3.5' /> Anotados
+        </Button>
+        <Button
+          type='button'
+          variant='outline'
+          size='icon'
+          onClick={() => setEditing(s)}
+          title='Editar turno'
+          className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+        >
+          <Pencil className='h-3.5 w-3.5' />
+        </Button>
+        <Button
+          type='button'
+          variant='outline'
+          size='icon'
+          onClick={() => doDelete(s)}
+          title='Eliminar turno'
+          className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
+        >
+          <Trash2 className='h-3.5 w-3.5' />
+        </Button>
+      </div>
+    );
+  }
+
+  function cupoBar(s: AdminSession) {
+    const pct = Math.round((s.seatsTaken / s.capacity) * 100);
+    const full = s.seatsTaken >= s.capacity;
+    return (
+      <div className='flex flex-col gap-1.5'>
+        <span className='text-xs text-[#3d3338]'>
+          {s.seatsTaken} / {s.capacity} personas
+        </span>
+        <div className='h-1.5 w-32 max-w-full overflow-hidden rounded-full bg-[#e6dbcd]'>
+          <div
+            className='h-full rounded-full'
+            style={{
+              width: `${pct}%`,
+              backgroundColor: full ? '#9d684e' : '#455a54',
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -279,29 +340,27 @@ export function TurnosTab() {
       {/* Días cerrados */}
       <ClosedDatesPanel />
 
-      {/* Lista de turnos */}
-      <div className='overflow-hidden rounded-xl border border-[#e6dbcd] bg-white'>
-        <div className='grid grid-cols-[1.5fr_2fr_2fr_1fr_auto] gap-2 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-          <span>FECHA</span>
-          <span>EXPERIENCIA</span>
-          <span>CUPO</span>
-          <span>ESTADO</span>
-          <span></span>
-        </div>
-        {loading ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
-        ) : sessions.length === 0 ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>
-            No hay turnos futuros. Generá arriba.
+      {/* Lista de turnos — Desktop: tabla */}
+      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
+        <div className='min-w-[52rem]'>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
+            <span>FECHA</span>
+            <span>EXPERIENCIA</span>
+            <span>CUPO</span>
+            <span>ESTADO</span>
+            <span></span>
           </div>
-        ) : (
-          sessions.map((s) => {
-            const pct = Math.round((s.seatsTaken / s.capacity) * 100);
-            const full = s.seatsTaken >= s.capacity;
-            return (
+          {loading ? (
+            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+          ) : sessions.length === 0 ? (
+            <div className='p-6 text-sm text-[#7a6e6f]'>
+              No hay turnos futuros. Generá arriba.
+            </div>
+          ) : (
+            sessions.map((s) => (
               <div
                 key={s.id}
-                className='grid grid-cols-[1.5fr_2fr_2fr_1fr_auto] items-center gap-2 border-b border-[#e6dbcd] px-5 py-4 last:border-0'
+                className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
               >
                 <span className='text-sm font-medium text-[#3d3338]'>
                   {fmtDateTime(s.startAt)}
@@ -309,57 +368,46 @@ export function TurnosTab() {
                 <span className='text-sm text-[#3d3338]'>
                   {s.experienceName}
                 </span>
-                <div className='flex flex-col gap-1.5'>
-                  <span className='text-xs text-[#3d3338]'>
-                    {s.seatsTaken} / {s.capacity} personas
-                  </span>
-                  <div className='h-1.5 w-32 overflow-hidden rounded-full bg-[#e6dbcd]'>
-                    <div
-                      className='h-full rounded-full'
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: full ? '#9d684e' : '#455a54',
-                      }}
-                    />
-                  </div>
-                </div>
+                {cupoBar(s)}
                 <span className='text-xs text-[#7a6e6f]'>
                   {SESSION_STATUS_LABEL[s.status] ?? s.status}
                 </span>
-                <div className='flex items-center justify-end gap-1.5'>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    onClick={() => setAnotados(s.id)}
-                    className='border-[#e6dbcd] bg-[#fbf5ef] font-mono text-xs text-[#3d3338] hover:bg-[#f3e9df]'
-                  >
-                    <Users className='h-3.5 w-3.5' /> Anotados
-                  </Button>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    onClick={() => setEditing(s)}
-                    title='Editar turno'
-                    className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
-                  >
-                    <Pencil className='h-3.5 w-3.5' />
-                  </Button>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='icon'
-                    onClick={() => doDelete(s)}
-                    title='Eliminar turno'
-                    className='size-8 border-[#e6dbcd] text-[#7a6e6f] hover:bg-red-50 hover:text-[#b23b2e]'
-                  >
-                    <Trash2 className='h-3.5 w-3.5' />
-                  </Button>
-                </div>
+                {renderTurnoActions(s)}
               </div>
-            );
-          })
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Lista de turnos — Mobile: tarjetas */}
+      <div className='flex flex-col gap-3 md:hidden'>
+        {loading ? (
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            Cargando…
+          </div>
+        ) : sessions.length === 0 ? (
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            No hay turnos futuros. Generá arriba.
+          </div>
+        ) : (
+          sessions.map((s) => (
+            <div
+              key={s.id}
+              className='rounded-xl border border-[#e6dbcd] bg-white p-4'
+            >
+              <div className='flex items-start justify-between gap-2'>
+                <span className='text-sm font-medium text-[#3d3338]'>
+                  {fmtDateTime(s.startAt)}
+                </span>
+                <span className='shrink-0 text-xs text-[#7a6e6f]'>
+                  {SESSION_STATUS_LABEL[s.status] ?? s.status}
+                </span>
+              </div>
+              <p className='mt-1 text-sm text-[#3d3338]'>{s.experienceName}</p>
+              <div className='mt-2'>{cupoBar(s)}</div>
+              <div className='mt-3'>{renderTurnoActions(s)}</div>
+            </div>
+          ))
         )}
       </div>
 

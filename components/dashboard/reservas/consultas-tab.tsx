@@ -36,6 +36,11 @@ const SOURCE_LABEL: Record<string, string> = {
   ADMIN: 'Admin',
 };
 
+// Columnas explícitas (sin `auto`) para alinear header y filas. Sólo desktop;
+// en mobile se usan tarjetas.
+const COLS =
+  'grid grid-cols-[1.6fr_1.6fr_1.4fr_5.5rem_6rem_12rem] gap-3';
+
 export function ConsultasTab() {
   const [items, setItems] = useState<LeadItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +79,50 @@ export function ConsultasTab() {
     }
   }
 
+  function renderLeadActions(l: LeadItem) {
+    const canContact = l.status === 'NEW';
+    const canClose = l.status !== 'CLOSED';
+    if (!canContact && !canClose) return null;
+    return (
+      <div className='flex justify-end gap-1.5'>
+        {canContact && (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={() => setLeadStatus(l, 'CONTACTED')}
+            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]'
+          >
+            Contactada
+          </Button>
+        )}
+        {canClose && (
+          <Button
+            type='button'
+            variant='ghost'
+            size='sm'
+            onClick={() => setLeadStatus(l, 'CLOSED')}
+            className='text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
+          >
+            Cerrar
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  function leadBadge(l: LeadItem) {
+    const [bg, fg] = STATUS_COLOR[l.status] ?? ['#f1ede6', '#7a6e6f'];
+    return (
+      <span
+        className='rounded-full px-2.5 py-1 font-mono text-[11px]'
+        style={{ backgroundColor: bg, color: fg }}
+      >
+        {STATUS_LABEL[l.status] ?? l.status}
+      </span>
+    );
+  }
+
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex flex-wrap gap-2'>
@@ -99,26 +148,26 @@ export function ConsultasTab() {
         })}
       </div>
 
-      <div className='overflow-hidden rounded-xl border border-[#e6dbcd] bg-white'>
-        <div className='grid grid-cols-[1.6fr_1.6fr_1.4fr_auto_auto_auto] gap-2 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-          <span>SERVICIO</span>
-          <span>CLIENTE</span>
-          <span>FECHA / PERS.</span>
-          <span>ORIGEN</span>
-          <span>ESTADO</span>
-          <span className='text-right'>ACCIÓN</span>
-        </div>
-        {loading ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
-        ) : items.length === 0 ? (
-          <div className='p-6 text-sm text-[#7a6e6f]'>Sin consultas.</div>
-        ) : (
-          items.map((l) => {
-            const [bg, fg] = STATUS_COLOR[l.status] ?? ['#f1ede6', '#7a6e6f'];
-            return (
+      {/* Desktop: tabla */}
+      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
+        <div className='min-w-[48rem]'>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
+            <span>SERVICIO</span>
+            <span>CLIENTE</span>
+            <span>FECHA / PERS.</span>
+            <span>ORIGEN</span>
+            <span>ESTADO</span>
+            <span className='text-right'>ACCIÓN</span>
+          </div>
+          {loading ? (
+            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+          ) : items.length === 0 ? (
+            <div className='p-6 text-sm text-[#7a6e6f]'>Sin consultas.</div>
+          ) : (
+            items.map((l) => (
               <div
                 key={l._id}
-                className='grid grid-cols-[1.6fr_1.6fr_1.4fr_auto_auto_auto] items-center gap-2 border-b border-[#e6dbcd] px-5 py-3.5 last:border-0'
+                className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`}
               >
                 <div>
                   <p className='text-sm font-medium text-[#3d3338]'>{l.service}</p>
@@ -141,36 +190,53 @@ export function ConsultasTab() {
                 <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#3d3338]'>
                   {SOURCE_LABEL[l.source] ?? l.source}
                 </span>
-                <span
-                  className='rounded-full px-2.5 py-1 font-mono text-[11px]'
-                  style={{ backgroundColor: bg, color: fg }}
-                >
-                  {STATUS_LABEL[l.status] ?? l.status}
-                </span>
-                <div className='flex justify-end gap-1.5'>
-                  {l.status === 'NEW' && (
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setLeadStatus(l, 'CONTACTED')}
-                      className='border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:bg-[#f3e9df]'
-                    >
-                      Contactada
-                    </Button>
-                  )}
-                  {l.status !== 'CLOSED' && (
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => setLeadStatus(l, 'CLOSED')}
-                      className='text-[#7a6e6f] hover:bg-[#fbf5ef] hover:text-[#3d3338]'
-                    >
-                      Cerrar
-                    </Button>
-                  )}
+                {leadBadge(l)}
+                {renderLeadActions(l) ?? <span />}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Mobile: tarjetas */}
+      <div className='flex flex-col gap-3 md:hidden'>
+        {loading ? (
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            Cargando…
+          </div>
+        ) : items.length === 0 ? (
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            Sin consultas.
+          </div>
+        ) : (
+          items.map((l) => {
+            const actions = renderLeadActions(l);
+            return (
+              <div
+                key={l._id}
+                className='rounded-xl border border-[#e6dbcd] bg-white p-4'
+              >
+                <div className='flex items-start justify-between gap-2'>
+                  <p className='text-sm font-medium text-[#3d3338]'>{l.service}</p>
+                  {leadBadge(l)}
                 </div>
+                {l.notes && (
+                  <p className='mt-1 line-clamp-2 text-xs text-[#7a6e6f]'>
+                    {l.notes}
+                  </p>
+                )}
+                <p className='mt-2 text-sm text-[#3d3338]'>{l.customerName}</p>
+                <p className='font-mono text-xs text-[#7a6e6f]'>
+                  {l.customerPhone ?? l.customerEmail ?? '—'}
+                </p>
+                <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7a6e6f]'>
+                  <span>{l.preferredDate ?? 'Sin fecha'}</span>
+                  {l.quantity ? <span>{l.quantity} pers.</span> : null}
+                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[#3d3338]'>
+                    {SOURCE_LABEL[l.source] ?? l.source}
+                  </span>
+                </div>
+                {actions && <div className='mt-3'>{actions}</div>}
               </div>
             );
           })

@@ -116,6 +116,57 @@ export function ReservasTab() {
     }
   }
 
+  function renderActions(r: ReservationItem) {
+    const canConfirm = r.status === 'NEEDS_REVIEW';
+    const canCollect =
+      r.balanceDue != null && r.balanceDue > 0 && r.status === 'CONFIRMED';
+    const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
+    if (!canConfirm && !canCollect && !canCancel) return null;
+    return (
+      <div className='flex items-center justify-end gap-1.5'>
+        {canConfirm && (
+          <Button
+            type='button'
+            variant='outline'
+            size='icon'
+            disabled={busy === r._id}
+            onClick={() => doResolve(r, 'confirm')}
+            title='Confirmar'
+            className='size-8 border-[#e6dbcd] text-[#455a54] hover:bg-[#E7F0EC] hover:text-[#455a54]'
+          >
+            <CheckCircle2 className='h-4 w-4' />
+          </Button>
+        )}
+        {canCollect && (
+          <Button
+            type='button'
+            variant='outline'
+            size='icon'
+            disabled={busy === r._id}
+            onClick={() => setCollect(r)}
+            title='Cobrar saldo'
+            className='size-8 border-[#e6dbcd] text-[#9d684e] hover:bg-[#fbf5ef] hover:text-[#9d684e]'
+          >
+            <Wallet className='h-4 w-4' />
+          </Button>
+        )}
+        {canCancel && (
+          <Button
+            type='button'
+            variant='outline'
+            size='icon'
+            disabled={busy === r._id}
+            onClick={() => doCancel(r)}
+            title='Cancelar'
+            className='size-8 border-[#e6dbcd] text-[#b23b2e] hover:bg-red-50 hover:text-[#b23b2e]'
+          >
+            <Ban className='h-4 w-4' />
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex flex-wrap items-center gap-2'>
@@ -150,8 +201,8 @@ export function ReservasTab() {
         </div>
       </div>
 
-      <div className='overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white'>
-        <div className='min-w-[60rem]'>
+      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
+        <div className='min-w-[52rem]'>
         <div className={cn(COLS, 'border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]')}>
           <span>CÓDIGO</span>
           <span>CLIENTE</span>
@@ -209,52 +260,73 @@ export function ReservasTab() {
                 >
                   {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                 </span>
-                <div className='flex items-center justify-end gap-1.5'>
-                  {r.status === 'NEEDS_REVIEW' && (
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      disabled={busy === r._id}
-                      onClick={() => doResolve(r, 'confirm')}
-                      title='Confirmar'
-                      className='size-8 border-[#e6dbcd] text-[#455a54] hover:bg-[#E7F0EC] hover:text-[#455a54]'
-                    >
-                      <CheckCircle2 className='h-4 w-4' />
-                    </Button>
-                  )}
-                  {r.balanceDue != null && r.balanceDue > 0 && r.status === 'CONFIRMED' && (
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      disabled={busy === r._id}
-                      onClick={() => setCollect(r)}
-                      title='Cobrar saldo'
-                      className='size-8 border-[#e6dbcd] text-[#9d684e] hover:bg-[#fbf5ef] hover:text-[#9d684e]'
-                    >
-                      <Wallet className='h-4 w-4' />
-                    </Button>
-                  )}
-                  {['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status) && (
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      disabled={busy === r._id}
-                      onClick={() => doCancel(r)}
-                      title='Cancelar'
-                      className='size-8 border-[#e6dbcd] text-[#b23b2e] hover:bg-red-50 hover:text-[#b23b2e]'
-                    >
-                      <Ban className='h-4 w-4' />
-                    </Button>
-                  )}
-                </div>
+                {renderActions(r) ?? <span />}
               </div>
             );
           })
         )}
         </div>
+      </div>
+
+      {/* Mobile: tarjetas (la tabla no entra en pantallas chicas) */}
+      <div className='flex flex-col gap-3 md:hidden'>
+        {loading ? (
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            Cargando…
+          </div>
+        ) : items.length === 0 ? (
+          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+            {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
+          </div>
+        ) : (
+          items.map((r) => {
+            const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
+              '#f1ede6',
+              '#7a6e6f',
+            ];
+            const actions = renderActions(r);
+            return (
+              <div
+                key={r._id}
+                className='rounded-xl border border-[#e6dbcd] bg-white p-4'
+              >
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='font-mono text-sm font-semibold text-[#9d684e]'>
+                    {prettyCode(r.code)}
+                  </span>
+                  <span
+                    className='rounded-full px-2.5 py-1 font-mono text-[11px]'
+                    style={{ backgroundColor: bg, color: fg }}
+                  >
+                    {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
+                  </span>
+                </div>
+                <p className='mt-1.5 text-sm font-medium text-[#3d3338]'>
+                  {r.customerName}
+                </p>
+                <p className='mt-2 text-sm text-[#3d3338]'>{r.experienceName}</p>
+                <p className='font-mono text-xs text-[#7a6e6f]'>
+                  {fmtDateTime(r.startAt)}
+                </p>
+                <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
+                  <span className='text-[#3d3338]'>{r.quantity} pers.</span>
+                  <span className='font-medium text-[#3d3338]'>
+                    {fmtPrice(r.amount)}
+                  </span>
+                  {r.balanceDue != null && r.balanceDue > 0 && (
+                    <span className='text-[11px] text-[#7a6e6f]'>
+                      saldo {fmtPrice(r.balanceDue)}
+                    </span>
+                  )}
+                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#3d3338]'>
+                    {r.source === 'ADMIN' ? 'Admin' : 'Público'}
+                  </span>
+                </div>
+                {actions && <div className='mt-3'>{actions}</div>}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {collect && (

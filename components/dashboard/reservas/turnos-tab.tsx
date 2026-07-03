@@ -50,6 +50,7 @@ import {
   type ClosedDateKind,
 } from '@/services/closed-dates.admin.service';
 import { AnotadosModal } from './anotados-modal';
+import { SpaceBlocksPanel } from './space-blocks-panel';
 
 interface SlotRow {
   date: string;
@@ -339,6 +340,9 @@ export function TurnosTab() {
 
       {/* Días cerrados */}
       <ClosedDatesPanel />
+
+      {/* Bloqueos de espacio (talleres/eventos) */}
+      <SpaceBlocksPanel />
 
       {/* Lista de turnos — Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>

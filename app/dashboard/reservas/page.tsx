@@ -1,21 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarDays, MessageCircle, Palette, Ticket } from 'lucide-react';
+import { CalendarDays, MessageCircle, Palette, Ticket, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExperienciasTab } from '@/components/dashboard/reservas/experiencias-tab';
 import { TurnosTab } from '@/components/dashboard/reservas/turnos-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
 import { ConsultasTab } from '@/components/dashboard/reservas/consultas-tab';
+import { PiezasTab } from '@/components/dashboard/reservas/piezas-tab';
 
-type Tab = 'experiencias' | 'turnos' | 'reservas' | 'consultas';
+type Tab = 'experiencias' | 'turnos' | 'reservas' | 'consultas' | 'piezas';
 
 const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
   { key: 'experiencias', label: 'Experiencias', icon: Palette },
   { key: 'turnos', label: 'Turnos', icon: CalendarDays },
   { key: 'reservas', label: 'Reservas', icon: Ticket },
   { key: 'consultas', label: 'Consultas', icon: MessageCircle },
+  { key: 'piezas', label: 'Piezas', icon: Flame },
 ];
 
 export default function ReservasAdminPage() {
@@ -55,6 +57,7 @@ export default function ReservasAdminPage() {
       {tab === 'turnos' && <TurnosTab />}
       {tab === 'reservas' && <ReservasTab />}
       {tab === 'consultas' && <ConsultasTab />}
+      {tab === 'piezas' && <PiezasTab />}
     </div>
   );
 }

@@ -183,8 +183,8 @@ export function ReservasTab() {
               className={cn(
                 '-mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
                 on
-                  ? 'border-[#455a54] text-[#455a54]'
-                  : 'border-transparent text-[#455a54]/60 hover:text-[#455a54]',
+                  ? 'border-[#455a54] font-semibold text-[#455a54]'
+                  : 'border-transparent text-[#455a54]/75 hover:text-[#455a54]',
               )}
             >
               {f.label}

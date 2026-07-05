@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,11 @@ import {
   type PieceStatus,
   type CreatePieceInput,
 } from '@/services/pieces.admin.service';
+import {
+  reservationsAdmin,
+  type AdminExperience,
+} from '@/services/reservations.admin.service';
+import { normalizePhoneAR, phoneCoreAR } from '@/lib/utils/whatsapp';
 
 const FILTERS: { key: string; label: string }[] = [
   { key: '', label: 'Todas' },
@@ -152,8 +157,8 @@ export function PiezasTab() {
               className={cn(
                 'relative -mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
                 on
-                  ? 'border-[#455a54] text-[#455a54]'
-                  : 'border-transparent text-[#455a54]/60 hover:text-[#455a54]',
+                  ? 'border-[#455a54] font-semibold text-[#455a54]'
+                  : 'border-transparent text-[#455a54]/75 hover:text-[#455a54]',
               )}
             >
               {f.label}
@@ -335,16 +340,53 @@ function NewPieceModal({
     quantity: 1,
     status: 'SECADO',
   });
+  const [qtyInput, setQtyInput] = useState('1');
+  const [experiences, setExperiences] = useState<AdminExperience[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setExperiences(await reservationsAdmin.listExperiences(false));
+      } catch {
+        /* si falla, el select queda vacío y se avisa en submit */
+      }
+    })();
+  }, []);
+
+  // Núcleo del teléfono (sin país/prefijos) para validar y previsualizar el
+  // formato canónico que se guarda y con el que el bot busca la pieza.
+  const phoneCore = useMemo(
+    () => phoneCoreAR(form.customerPhone),
+    [form.customerPhone],
+  );
+  const phoneValid = phoneCore.length >= 6;
 
   async function submit() {
     if (!form.customerPhone.trim()) {
       showToast.error('El teléfono es obligatorio');
       return;
     }
+    if (!phoneValid) {
+      showToast.error('Teléfono inválido: revisá el número (área + abonado)');
+      return;
+    }
+    if (!form.experienceName?.trim()) {
+      showToast.error('Elegí una experiencia');
+      return;
+    }
+    const quantity = Math.trunc(Number(qtyInput));
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      showToast.error('La cantidad debe ser 1 o más');
+      return;
+    }
     setSaving(true);
     try {
-      await piecesAdmin.create(form);
+      await piecesAdmin.create({
+        ...form,
+        customerPhone: normalizePhoneAR(form.customerPhone),
+        quantity,
+      });
       showToast.success('Pieza cargada');
       await onDone();
     } catch (e) {
@@ -368,9 +410,19 @@ function NewPieceModal({
             <Input
               value={form.customerPhone}
               onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
-              placeholder='549113...'
+              placeholder='11 3456-7890'
               className={fieldCls}
             />
+            {form.customerPhone.trim() &&
+              (phoneValid ? (
+                <span className='font-mono text-[11px] text-[#455a54]/60'>
+                  Se guarda como {normalizePhoneAR(form.customerPhone)}
+                </span>
+              ) : (
+                <span className='text-[11px] text-[#b23b2e]'>
+                  Número incompleto — revisá área + abonado.
+                </span>
+              ))}
           </Field>
           <Field label='Nombre'>
             <Input
@@ -380,24 +432,34 @@ function NewPieceModal({
             />
           </Field>
           <Field label='Experiencia'>
-            <Input
-              value={form.experienceName}
-              onChange={(e) =>
-                setForm({ ...form, experienceName: e.target.value })
-              }
-              placeholder='Arte & Degustación'
-              className={fieldCls}
-            />
+            <Select
+              value={form.experienceName || undefined}
+              onValueChange={(v) => setForm({ ...form, experienceName: v })}
+            >
+              <SelectTrigger className={fieldCls}>
+                <SelectValue placeholder='Elegí una experiencia' />
+              </SelectTrigger>
+              <SelectContent>
+                {experiences.map((exp) => (
+                  <SelectItem key={exp._id} value={exp.name}>
+                    {exp.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <div className='grid grid-cols-2 gap-3'>
             <Field label='Cantidad'>
               <Input
                 type='number'
                 min={1}
-                value={form.quantity}
-                onChange={(e) =>
-                  setForm({ ...form, quantity: Number(e.target.value) })
-                }
+                step={1}
+                value={qtyInput}
+                onChange={(e) => setQtyInput(e.target.value)}
+                onBlur={() => {
+                  const n = Math.trunc(Number(qtyInput));
+                  setQtyInput(Number.isFinite(n) && n >= 1 ? String(n) : '1');
+                }}
                 className={fieldCls}
               />
             </Field>
@@ -421,6 +483,10 @@ function NewPieceModal({
               </Select>
             </Field>
           </div>
+          <p className='text-[11px] text-[#455a54]/60'>
+            El estado es la etapa actual de la pieza — es lo que el cliente ve
+            cuando la consulta por WhatsApp.
+          </p>
         </div>
 
         <DialogFooter>

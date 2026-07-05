@@ -574,7 +574,11 @@ function ClosedDatesPanel() {
 
   async function add() {
     if (kind === 'DATE' && !from) {
-      showToast.error('Elegí una fecha');
+      showToast.error('Elegí una fecha de inicio (Desde)');
+      return;
+    }
+    if (kind === 'DATE' && to && to < from) {
+      showToast.error('La fecha "Hasta" no puede ser anterior a "Desde"');
       return;
     }
     setSaving(true);
@@ -642,12 +646,13 @@ function ClosedDatesPanel() {
           </Select>
         </Field>
         {kind === 'DATE' ? (
-          <Field label='Desde → Hasta (opcional)'>
+          <Field label='Desde (Hasta es opcional)'>
             <div className='flex items-center gap-2'>
               <DatePicker
                 value={from}
                 onChange={setFrom}
                 placeholder='Desde'
+                disablePast
                 className='flex-1'
               />
               <span className='text-[#455a54]/60'>→</span>
@@ -656,12 +661,13 @@ function ClosedDatesPanel() {
                 onChange={setTo}
                 placeholder='Hasta'
                 clearable
+                disablePast
                 className='flex-1'
               />
             </div>
           </Field>
         ) : (
-          <Field label='Día'>
+          <Field label='Día (todas las semanas)'>
             <Select value={weekday} onValueChange={setWeekday}>
               <SelectTrigger className={`w-full ${triggerCls}`}>
                 <SelectValue />

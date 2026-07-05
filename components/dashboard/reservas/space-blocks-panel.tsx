@@ -58,8 +58,17 @@ export function SpaceBlocksPanel() {
       showToast.error('Elegí una fecha');
       return;
     }
-    if (!start || !end || Number(seats) < 1) {
-      showToast.error('Completá horario y lugares');
+    if (!start || !end) {
+      showToast.error('Completá el horario');
+      return;
+    }
+    if (start >= end) {
+      showToast.error('El horario de fin debe ser posterior al de inicio');
+      return;
+    }
+    const seatsNum = Math.trunc(Number(seats));
+    if (!Number.isFinite(seatsNum) || seatsNum < 1) {
+      showToast.error('Los lugares deben ser 1 o más');
       return;
     }
     setSaving(true);
@@ -70,7 +79,7 @@ export function SpaceBlocksPanel() {
         date: kind === 'ONE_OFF' ? date : undefined,
         start,
         end,
-        seats: Number(seats),
+        seats: seatsNum,
         label: label || undefined,
       });
       showToast.success('Bloqueo agregado');
@@ -133,7 +142,7 @@ export function SpaceBlocksPanel() {
         </Field>
 
         {kind === 'WEEKLY' ? (
-          <Field label='Día'>
+          <Field label='Día (todas las semanas)'>
             <Select value={weekday} onValueChange={setWeekday}>
               <SelectTrigger className={triggerCls}>
                 <SelectValue />
@@ -149,7 +158,12 @@ export function SpaceBlocksPanel() {
           </Field>
         ) : (
           <Field label='Fecha'>
-            <DatePicker value={date} onChange={setDate} placeholder='Fecha' />
+            <DatePicker
+              value={date}
+              onChange={setDate}
+              placeholder='Fecha'
+              disablePast
+            />
           </Field>
         )}
 
@@ -161,12 +175,17 @@ export function SpaceBlocksPanel() {
           </div>
         </Field>
 
-        <Field label='Lugares'>
+        <Field label='Lugares que ocupa'>
           <Input
             type='number'
             min={1}
+            step={1}
             value={seats}
             onChange={(e) => setSeats(e.target.value)}
+            onBlur={() => {
+              const n = Math.trunc(Number(seats));
+              setSeats(Number.isFinite(n) && n >= 1 ? String(n) : '1');
+            }}
             className={fieldCls}
           />
         </Field>

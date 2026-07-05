@@ -18,6 +18,8 @@ export interface DatePickerProps {
   /** Muestra una X para limpiar la fecha. */
   clearable?: boolean;
   disabled?: boolean;
+  /** Deshabilita fechas anteriores a hoy (no se pueden elegir días pasados). */
+  disablePast?: boolean;
 }
 
 // Parseamos 'yyyy-MM-dd' como fecha LOCAL a medianoche (sin new Date(iso) para
@@ -35,10 +37,18 @@ export function DatePicker({
   className,
   clearable = false,
   disabled = false,
+  disablePast = false,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const selected = parseYmd(value);
+
+  // Hoy a medianoche local para deshabilitar días previos sin cortar el de hoy.
+  const today = React.useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   React.useEffect(() => {
     if (!open) return;
@@ -87,6 +97,7 @@ export function DatePicker({
             locale={es}
             defaultMonth={selected ?? new Date()}
             selected={selected}
+            disabled={disablePast ? { before: today } : undefined}
             onSelect={(d) => {
               if (d) {
                 onChange(format(d, 'yyyy-MM-dd'));

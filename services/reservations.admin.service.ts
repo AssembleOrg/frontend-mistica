@@ -27,6 +27,7 @@ export interface ReservationItem {
   experienceName: string;
   startAt: string;
   quantity: number;
+  unitPrice: number;
   amount: number;
   depositAmount?: number;
   totalAmount?: number;
@@ -60,6 +61,8 @@ export interface CreateExperienceInput {
   isActive?: boolean;
   // false = servicio coordinado (no se reserva online; solo info + consulta).
   bookableOnline?: boolean;
+  // Lugares fijos del salón que ocupa un turno abierto (mesa de taller = 10).
+  venueSeats?: number;
 }
 
 export interface SessionSlotInput {
@@ -192,6 +195,15 @@ export const reservationsAdmin = {
       await apiService.post<ReservationItem>(`/admin/reservations/${id}/resolve`, {
         action,
       })
+    ).data,
+  // Reprogramar a otro turno. Política: hasta 48 hs antes del turno original;
+  // `force` la saltea (override admin).
+  rescheduleReservation: async (id: string, sessionId: string, force?: boolean) =>
+    (
+      await apiService.post<ReservationItem>(
+        `/admin/reservations/${id}/reschedule`,
+        { sessionId, ...(force ? { force: true } : {}) },
+      )
     ).data,
   updateReservation: async (
     id: string,

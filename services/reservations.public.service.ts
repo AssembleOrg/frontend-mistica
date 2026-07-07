@@ -20,6 +20,9 @@ export interface PublicExperience {
   isActive: boolean;
   // false = servicio coordinado (no se reserva online; solo info + consulta).
   bookableOnline?: boolean;
+  // Lugares FIJOS del salón que ocupa un turno abierto (ej. mesa de taller = 10).
+  // 0/ausente = el control del salón usa los anotados.
+  venueSeats?: number;
 }
 
 export interface PublicSession {

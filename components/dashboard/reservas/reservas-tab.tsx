@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, CheckCircle2, Search, Wallet } from 'lucide-react';
+import { Ban, CalendarClock, CheckCircle2, Search, Wallet } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +23,13 @@ import {
 } from '@/lib/reservas-format';
 import {
   reservationsAdmin,
+  type AdminSession,
   type ReservationItem,
   type ReservationPaymentMethod,
 } from '@/services/reservations.admin.service';
+
+// Política del local: las modificaciones se aceptan hasta 48 hs antes del turno.
+const RESCHEDULE_MIN_HOURS = 48;
 
 const PAY_METHODS: { key: ReservationPaymentMethod; label: string }[] = [
   { key: 'CASH', label: 'Efectivo' },
@@ -57,6 +61,7 @@ export function ReservasTab() {
   const [totalPages, setTotalPages] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
   const [collect, setCollect] = useState<ReservationItem | null>(null);
+  const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
 
   // Debounce del buscador: espera 350 ms tras la última tecla y vuelve a página 1.
   useEffect(() => {
@@ -120,10 +125,24 @@ export function ReservasTab() {
     const canConfirm = r.status === 'NEEDS_REVIEW';
     const canCollect =
       r.balanceDue != null && r.balanceDue > 0 && r.status === 'CONFIRMED';
+    const canReschedule = r.status === 'CONFIRMED';
     const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
-    if (!canConfirm && !canCollect && !canCancel) return null;
+    if (!canConfirm && !canCollect && !canReschedule && !canCancel) return null;
     return (
       <div className='flex items-center justify-end gap-1.5'>
+        {canReschedule && (
+          <Button
+            type='button'
+            variant='outline'
+            size='icon'
+            disabled={busy === r._id}
+            onClick={() => setReschedule(r)}
+            title='Reprogramar'
+            className='size-8 border-[#e6dbcd] text-[#455a54] hover:bg-[#E7F0EC] hover:text-[#455a54]'
+          >
+            <CalendarClock className='h-4 w-4' />
+          </Button>
+        )}
         {canConfirm && (
           <Button
             type='button'
@@ -343,6 +362,17 @@ export function ReservasTab() {
         />
       )}
 
+      {reschedule && (
+        <RescheduleModal
+          reservation={reschedule}
+          onClose={() => setReschedule(null)}
+          onDone={async () => {
+            setReschedule(null);
+            await load();
+          }}
+        />
+      )}
+
       {totalPages > 1 && (
         <div className='flex items-center justify-center gap-3'>
           <Button
@@ -369,6 +399,145 @@ export function ReservasTab() {
         </div>
       )}
     </div>
+  );
+}
+
+function RescheduleModal({
+  reservation,
+  onClose,
+  onDone,
+}: {
+  reservation: ReservationItem;
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}) {
+  const [sessions, setSessions] = useState<AdminSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+
+  // ¿El turno original está a menos de 48 hs? La política dice que no se
+  // aceptan modificaciones; el admin puede forzar igual (override).
+  const insideWindow =
+    new Date(reservation.startAt).getTime() - Date.now() <
+    RESCHEDULE_MIN_HOURS * 3600_000;
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const all = await reservationsAdmin.listSessions({
+          experienceId: reservation.experienceId,
+        });
+        setSessions(all.filter((s) => s.id !== reservation.sessionId));
+      } catch (e) {
+        showToast.error(e instanceof Error ? e.message : 'Error al cargar turnos');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [reservation]);
+
+  async function submit() {
+    if (!selected) {
+      showToast.error('Elegí el nuevo turno');
+      return;
+    }
+    if (
+      insideWindow &&
+      !confirm(
+        `Faltan menos de ${RESCHEDULE_MIN_HOURS} hs para el turno original. ` +
+          '¿Reprogramar igual (override admin)?',
+      )
+    )
+      return;
+    setSaving(true);
+    try {
+      await reservationsAdmin.rescheduleReservation(
+        reservation._id,
+        selected,
+        insideWindow,
+      );
+      showToast.success('Reserva reprogramada; se avisó al cliente');
+      await onDone();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo reprogramar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle>Reprogramar reserva</DialogTitle>
+          <DialogDescription>
+            {reservation.experienceName} · {prettyCode(reservation.code)} ·{' '}
+            {reservation.quantity} pers. · actual: {fmtDateTime(reservation.startAt)}
+          </DialogDescription>
+        </DialogHeader>
+
+        {insideWindow && (
+          <p className='rounded-lg border border-[#e0b98a] bg-[#fdf6ec] px-3 py-2 text-xs text-[#8a5a2a]'>
+            Faltan menos de {RESCHEDULE_MIN_HOURS} hs para el turno: por política
+            no se aceptan modificaciones. Podés forzarla como admin.
+          </p>
+        )}
+
+        <div className='max-h-72 space-y-1.5 overflow-y-auto'>
+          {loading ? (
+            <p className='p-3 text-sm text-[#455a54]/60'>Cargando turnos…</p>
+          ) : sessions.length === 0 ? (
+            <p className='p-3 text-sm text-[#455a54]/60'>
+              No hay otros turnos de esta experiencia.
+            </p>
+          ) : (
+            sessions.map((s) => {
+              const noSeats = s.seatsAvailable < reservation.quantity;
+              const otherPrice = s.price !== reservation.unitPrice;
+              const disabled = noSeats || otherPrice;
+              const on = selected === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type='button'
+                  disabled={disabled}
+                  onClick={() => setSelected(s.id)}
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                    on
+                      ? 'border-[#455a54] bg-[#E7F0EC] text-[#455a54]'
+                      : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
+                    disabled && 'cursor-not-allowed opacity-50',
+                  )}
+                >
+                  <span className='font-mono text-xs'>{fmtDateTime(s.startAt)}</span>
+                  <span className='text-xs text-[#455a54]/70'>
+                    {noSeats
+                      ? 'sin cupo'
+                      : otherPrice
+                        ? 'otro precio'
+                        : `${s.seatsAvailable} lugares`}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='terracota'
+            onClick={submit}
+            disabled={saving || !selected}
+            className='w-full'
+          >
+            {saving ? 'REPROGRAMANDO…' : 'REPROGRAMAR'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

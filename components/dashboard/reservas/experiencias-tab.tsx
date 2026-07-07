@@ -36,6 +36,7 @@ const EMPTY: CreateExperienceInput = {
   depositPct: 50,
   color: DEFAULT_EXPERIENCE_COLOR,
   bookableOnline: true,
+  venueSeats: 0,
   isActive: true,
 };
 
@@ -83,6 +84,7 @@ export function ExperienciasTab() {
       depositPct: e.depositPct ?? 50,
       color: e.color ?? DEFAULT_EXPERIENCE_COLOR,
       bookableOnline: e.bookableOnline ?? true,
+      venueSeats: e.venueSeats ?? 0,
       isActive: e.isActive,
     });
   }
@@ -369,6 +371,22 @@ export function ExperienciasTab() {
                   }
                   className={fieldCls}
                 />
+              </Field>
+              <Field label='Lugares fijos en el salón (mesa)'>
+                <Input
+                  type='number'
+                  min={0}
+                  value={form.venueSeats ?? 0}
+                  onChange={(ev) =>
+                    setForm({ ...form, venueSeats: Number(ev.target.value) })
+                  }
+                  className={fieldCls}
+                />
+                <p className='mt-1 text-xs text-[#455a54]/60'>
+                  Lugares del salón que un turno abierto ocupa sí o sí aunque
+                  haya menos anotados (ej. la mesa del taller = 10). 0 = usa los
+                  anotados.
+                </p>
               </Field>
               <Field label='Color en la agenda'>
                 <div className='flex flex-wrap items-center gap-2'>

@@ -13,6 +13,9 @@ export interface PublicExperience {
   basePrice: number;
   defaultCapacity: number;
   depositPct?: number;
+  // Color hex (#RRGGBB) para la agenda. Obligatorio al crear/editar; puede
+  // faltar en docs viejos sin backfillear.
+  color?: string;
   images: string[];
   isActive: boolean;
   // false = servicio coordinado (no se reserva online; solo info + consulta).
@@ -23,6 +26,8 @@ export interface PublicSession {
   id: string;
   experienceId: string;
   experienceName: string;
+  // Color actual de la experiencia (join dinámico del backend).
+  experienceColor?: string;
   durationMinutes: number;
   price: number;
   depositPct: number;

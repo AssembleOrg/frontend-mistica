@@ -43,6 +43,7 @@ import {
   type SessionSlotInput,
 } from '@/services/reservations.admin.service';
 import { fmtYmd } from '@/lib/reservas-format';
+import { DEFAULT_EXPERIENCE_COLOR } from '@/lib/experience-colors';
 import {
   closedDatesAdmin,
   WEEKDAY_LABELS,
@@ -65,6 +66,9 @@ const triggerCls =
 // Columnas explícitas (sin `auto`) para alinear header y filas. Sólo desktop;
 // en mobile se usan tarjetas.
 const COLS = 'grid grid-cols-[1.4fr_1.6fr_1.4fr_5rem_14rem] gap-3';
+
+const expColor = (s: AdminSession) =>
+  s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
 
 export function TurnosTab() {
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
@@ -235,6 +239,12 @@ export function TurnosTab() {
               <SelectContent>
                 {experiences.map((e) => (
                   <SelectItem key={e._id} value={e._id}>
+                    <span
+                      className='h-2.5 w-2.5 shrink-0 rounded-full'
+                      style={{
+                        backgroundColor: e.color ?? DEFAULT_EXPERIENCE_COLOR,
+                      }}
+                    />
                     {e.name}
                   </SelectItem>
                 ))}
@@ -365,11 +375,16 @@ export function TurnosTab() {
               <div
                 key={s.id}
                 className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
+                style={{ boxShadow: `inset 4px 0 0 ${expColor(s)}` }}
               >
                 <span className='text-sm font-medium text-[#455a54]'>
                   {fmtDateTime(s.startAt)}
                 </span>
-                <span className='text-sm text-[#455a54]'>
+                <span className='flex items-center gap-2 text-sm text-[#455a54]'>
+                  <span
+                    className='h-2.5 w-2.5 shrink-0 rounded-full'
+                    style={{ backgroundColor: expColor(s) }}
+                  />
                   {s.experienceName}
                 </span>
                 {cupoBar(s)}
@@ -398,6 +413,7 @@ export function TurnosTab() {
             <div
               key={s.id}
               className='rounded-xl border border-[#e6dbcd] bg-white p-4'
+              style={{ borderLeft: `4px solid ${expColor(s)}` }}
             >
               <div className='flex items-start justify-between gap-2'>
                 <span className='text-sm font-medium text-[#455a54]'>

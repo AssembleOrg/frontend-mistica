@@ -54,6 +54,8 @@ export interface CreateExperienceInput {
   basePrice: number;
   defaultCapacity: number;
   depositPct?: number;
+  // Color hex (#RRGGBB) para la agenda. Obligatorio.
+  color: string;
   images?: string[];
   isActive?: boolean;
   // false = servicio coordinado (no se reserva online; solo info + consulta).

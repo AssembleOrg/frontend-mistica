@@ -17,6 +17,11 @@ import {
 } from '@/components/ui/dialog';
 import { fmtPrice } from '@/lib/reservas-format';
 import {
+  DEFAULT_EXPERIENCE_COLOR,
+  EXPERIENCE_COLOR_PALETTE,
+  HEX_COLOR_RE,
+} from '@/lib/experience-colors';
+import {
   reservationsAdmin,
   type AdminExperience,
   type CreateExperienceInput,
@@ -29,6 +34,7 @@ const EMPTY: CreateExperienceInput = {
   basePrice: 0,
   defaultCapacity: 8,
   depositPct: 50,
+  color: DEFAULT_EXPERIENCE_COLOR,
   bookableOnline: true,
   isActive: true,
 };
@@ -75,6 +81,7 @@ export function ExperienciasTab() {
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
       depositPct: e.depositPct ?? 50,
+      color: e.color ?? DEFAULT_EXPERIENCE_COLOR,
       bookableOnline: e.bookableOnline ?? true,
       isActive: e.isActive,
     });
@@ -84,6 +91,10 @@ export function ExperienciasTab() {
     if (!form) return;
     if (!form.name.trim()) {
       showToast.error('El nombre es obligatorio');
+      return;
+    }
+    if (!HEX_COLOR_RE.test(form.color)) {
+      showToast.error('Elegí un color para la agenda');
       return;
     }
     setSaving(true);
@@ -193,6 +204,13 @@ export function ExperienciasTab() {
               >
                 <div>
                   <p className='flex items-center gap-2 font-tan-nimbus text-base font-bold text-[#455a54]'>
+                    <span
+                      className='h-2.5 w-2.5 shrink-0 rounded-full'
+                      title='Color en la agenda'
+                      style={{
+                        backgroundColor: e.color ?? DEFAULT_EXPERIENCE_COLOR,
+                      }}
+                    />
                     {e.name}
                     {e.bookableOnline === false && (
                       <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
@@ -243,6 +261,13 @@ export function ExperienciasTab() {
             >
               <div className='flex items-start justify-between gap-2'>
                 <p className='flex flex-wrap items-center gap-2 font-tan-nimbus text-base font-bold text-[#455a54]'>
+                  <span
+                    className='h-2.5 w-2.5 shrink-0 rounded-full'
+                    title='Color en la agenda'
+                    style={{
+                      backgroundColor: e.color ?? DEFAULT_EXPERIENCE_COLOR,
+                    }}
+                  />
                   {e.name}
                   {e.bookableOnline === false && (
                     <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
@@ -344,6 +369,40 @@ export function ExperienciasTab() {
                   }
                   className={fieldCls}
                 />
+              </Field>
+              <Field label='Color en la agenda'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  {EXPERIENCE_COLOR_PALETTE.map((c) => (
+                    <button
+                      key={c.hex}
+                      type='button'
+                      title={c.label}
+                      onClick={() => setForm({ ...form, color: c.hex })}
+                      className={`h-7 w-7 rounded-full border-2 transition ${
+                        form.color.toLowerCase() === c.hex
+                          ? 'scale-110 border-[#455a54]'
+                          : 'border-transparent hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                    />
+                  ))}
+                  {/* Cualquier otro color, con el picker nativo */}
+                  <label className='relative ml-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 font-mono text-[11px] text-[#455a54]'>
+                    <span
+                      className='h-3.5 w-3.5 rounded-full border border-[#e6dbcd]'
+                      style={{ backgroundColor: form.color }}
+                    />
+                    {form.color.toUpperCase()}
+                    <input
+                      type='color'
+                      value={form.color}
+                      onChange={(ev) =>
+                        setForm({ ...form, color: ev.target.value })
+                      }
+                      className='absolute inset-0 h-full w-full cursor-pointer opacity-0'
+                    />
+                  </label>
+                </div>
               </Field>
               <div className='flex flex-col gap-1'>
                 <div className='flex items-center gap-2.5'>

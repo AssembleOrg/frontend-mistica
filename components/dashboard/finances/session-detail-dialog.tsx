@@ -15,7 +15,9 @@ import {
   type CashSessionEditEntry,
   type SessionTransaction,
 } from '@/services/cashbox.service';
+import { egressesService } from '@/services/egresses.service';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { showToast } from '@/lib/toast';
 import { EditSessionDialog } from './edit-session-dialog';
 
 interface CashSession {
@@ -64,6 +66,12 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     discrepancy: number | null;
   } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  // Egreso que se está anulando (su id) — bloquea el botón mientras viaja.
+  const [cancellingEgressId, setCancellingEgressId] = useState<string | null>(null);
+  // Egreso en estado "confirmar anulación": la fila muestra Anular/Cancelar
+  // inline en vez de la X. Evitamos window.confirm (algunos navegadores lo
+  // suprimen y el usuario no ve nada).
+  const [confirmingEgressId, setConfirmingEgressId] = useState<string | null>(null);
 
   const loadAll = useCallback(() => {
     if (!session) return;
@@ -102,6 +110,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       setFresh(null);
       setSourceFilter('all');
       setMethodFilter('all');
+      setConfirmingEgressId(null);
       return;
     }
     loadAll();
@@ -114,6 +123,34 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     const hours = (Date.now() - new Date(session.closedAt).getTime()) / 3_600_000;
     return hours < 72;
   }, [session]);
+
+  // Anular egresos SÓLO con la caja abierta. Con la sesión cerrada el
+  // `expectedClosingCash` ya quedó persistido en el cierre y anular no lo
+  // recalcula: el arqueo histórico quedaría desactualizado. Para corregir algo
+  // de una sesión cerrada está "Cargar egresos / ingresos" (retroactivo, 72hs),
+  // que sí recalcula y deja registro en editHistory.
+  const canCancelEgress = session?.status === 'OPEN';
+
+  const handleCancelEgress = async (egressId: string) => {
+    setConfirmingEgressId(null);
+    setCancellingEgressId(egressId);
+    try {
+      await egressesService.cancelEgress(egressId);
+      showToast.success('Egreso anulado');
+      // Refresca movimientos + headline (el esperado se recalcula solo) y
+      // avisa al padre para que actualice la lista Estado de caja.
+      loadAll();
+      onChanged?.();
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message || 'No se pudo anular el egreso';
+      showToast.error(msg);
+    } finally {
+      setCancellingEgressId(null);
+    }
+  };
 
   const filteredTx = useMemo(() => {
     return transactions.filter(t => {
@@ -474,6 +511,48 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                           {isIncome ? '+' : '-'}
                           {formatCurrency(t.amount)}
                         </span>
+                        {canCancelEgress && t.source === 'egress' && (
+                          confirmingEgressId === t.id ? (
+                            // Confirmación inline (no usamos window.confirm: el
+                            // navegador puede suprimirlo).
+                            <span className="flex items-center gap-1 shrink-0">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCancelEgress(t.id)}
+                                disabled={cancellingEgressId === t.id}
+                                className="h-6 px-2 text-[10px] font-winter-solid text-white bg-red-600 hover:bg-red-700"
+                                aria-label={`Confirmar anulación de ${t.description}`}
+                              >
+                                {cancellingEgressId === t.id ? '…' : 'Anular'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmingEgressId(null)}
+                                disabled={cancellingEgressId === t.id}
+                                className="h-6 px-2 text-[10px] font-winter-solid text-[#455a54]/70 hover:text-[#455a54]"
+                                aria-label="Cancelar"
+                              >
+                                Cancelar
+                              </Button>
+                            </span>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setConfirmingEgressId(t.id)}
+                              className="h-6 px-1.5 shrink-0 text-[10px] font-winter-solid text-[#455a54]/60 hover:text-red-600"
+                              aria-label={`Anular egreso ${t.description}`}
+                              title="Anular egreso"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          )
+                        )}
                       </div>
                     );
                   })}

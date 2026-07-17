@@ -173,18 +173,19 @@ export class ProductsService {
     return apiService.delete<{ message: string }>(`/products/${id}`);
   }
 
-  // Add stock to product
-  async addStock(id: string, quantity: number): Promise<ApiResponse<Product>> {
+  // Add stock to product. `reason` (opcional) queda registrado en la auditoría.
+  async addStock(id: string, quantity: number, reason?: string): Promise<ApiResponse<Product>> {
     console.log('🏭 PRODUCTS SERVICE: Agregando stock:', quantity, 'al producto:', id);
-    const response = await apiService.patch<Product>(`/products/${id}/stock/add`, { quantity });
+    const response = await apiService.patch<Product>(`/products/${id}/stock/add`, { quantity, reason });
     console.log('🏭 PRODUCTS SERVICE: Stock actualizado:', response.data.stock);
     return response;
   }
 
-  // Subtract stock from product
-  async subtractStock(id: string, quantity: number): Promise<ApiResponse<Product>> {
+  // Subtract stock from product. `reason` (opcional) queda registrado en la
+  // auditoría — lo usa el consumo interno ("Taller — Mel").
+  async subtractStock(id: string, quantity: number, reason?: string): Promise<ApiResponse<Product>> {
     console.log('🏭 PRODUCTS SERVICE: Restando stock:', quantity, 'del producto:', id);
-    const response = await apiService.patch<Product>(`/products/${id}/stock/subtract`, { quantity });
+    const response = await apiService.patch<Product>(`/products/${id}/stock/subtract`, { quantity, reason });
     console.log('🏭 PRODUCTS SERVICE: Stock actualizado:', response.data.stock);
     return response;
   }

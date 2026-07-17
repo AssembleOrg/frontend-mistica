@@ -61,6 +61,7 @@ const EVENT_CONFIG: Partial<Record<EventKey, EventConfig>> = {
   'Cashbox:INCOME':  { label: 'Ingreso a caja',     icon: Wallet,       color: '#455a54', bg: 'rgba(69,90,84,0.12)'   },
   'Cashbox:EXPENSE': { label: 'Egreso de caja',     icon: TrendingDown, color: '#4e4247', bg: 'rgba(78,66,71,0.12)'   },
   'Egress:CREATE':   { label: 'Egreso registrado',  icon: TrendingDown, color: '#4e4247', bg: 'rgba(78,66,71,0.12)'   },
+  'Egress:CANCEL':   { label: 'Egreso anulado',     icon: Trash2,       color: '#4e4247', bg: 'rgba(78,66,71,0.12)'   },
   'Product:CREATE':  { label: 'Producto creado',    icon: Package,      color: '#cc844a', bg: 'rgba(204,132,74,0.12)' },
   'Product:UPDATE':  { label: 'Producto editado',   icon: Edit2,        color: '#cc844a', bg: 'rgba(204,132,74,0.12)' },
   'Product:BULK_UPDATE': { label: 'Actualiz. masiva', icon: Package,    color: '#cc844a', bg: 'rgba(204,132,74,0.12)' },
@@ -109,6 +110,7 @@ function getInlineDetail(log: AuditLog): string | null {
     case 'Cashbox:INCOME':
     case 'Cashbox:EXPENSE':
     case 'Egress:CREATE':
+    case 'Egress:CANCEL':
       return v.amount != null ? `${fmt(v.amount)}${v.concept ? ` · ${v.concept}` : ''}` : null;
     case 'Sale:CREATE': {
       const sale = v.data ?? v;
@@ -120,6 +122,12 @@ function getInlineDetail(log: AuditLog): string | null {
       const client = v.data ?? v;
       return client.fullName ?? null;
     }
+    case 'Product:UPDATE_STOCK':
+      // El consumo interno manda el motivo en stockChangeReason. Los ajustes
+      // manuales no lo mandan → fallback al nombre + stock resultante.
+      return v.stockChangeReason
+        ? String(v.stockChangeReason)
+        : (v.name ? `Stock: ${v.name} → ${v.stock ?? '?'}` : null);
     default:
       return null;
   }

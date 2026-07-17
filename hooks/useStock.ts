@@ -96,6 +96,8 @@ export function useStock() {
       : `Cancelación venta #${sale.saleNumber}`;
 
     sale.items.forEach(item => {
+      // Ítems libres (sin productId) no tienen stock que mover: se saltean.
+      if (!item.productId) return;
       const product = currentProducts.find(p => p.id === item.productId);
       // product.stock is already the POST-backend value.
       // Reconstruct the PRE value: for salida backend subtracted, for entrada backend added.

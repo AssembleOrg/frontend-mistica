@@ -99,13 +99,15 @@ export function useSalesStats() {
     for (const s of todaySales) {
       if (s.status === 'CANCELLED') continue;
       for (const item of s.items ?? []) {
-        const existing = productMap.get(item.productId);
+        // Ítems libres (sin productId) se agrupan por nombre.
+        const key = item.productId ?? `free:${item.productName}`;
+        const existing = productMap.get(key);
         if (existing) {
           existing.quantity += item.quantity;
           existing.revenue  += item.subtotal;
         } else {
-          productMap.set(item.productId, {
-            productId:   item.productId,
+          productMap.set(key, {
+            productId:   item.productId ?? key,
             productName: item.productName,
             quantity:    item.quantity,
             revenue:     item.subtotal,

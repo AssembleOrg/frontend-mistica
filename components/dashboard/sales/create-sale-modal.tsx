@@ -14,6 +14,13 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AsyncSelect } from '@/components/ui/async-select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Plus, Minus, Trash2, Save, X, Percent, RotateCcw } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
@@ -35,9 +42,17 @@ import { formatCurrency } from '@/lib/sales-calculations';
 import { formatPhoneAR } from '@/lib/utils/whatsapp';
 import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import { salesService } from '@/services/sales.service';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { Product } from '@/lib/types';
 
 type AdjustmentType = 'discount' | 'surcharge';
+
+// Vendedores frecuentes. El backend recibe `seller` como string libre, así que
+// esta lista es sólo un atajo de carga: "Otro" habilita el input de texto para
+// cualquier otro nombre (y es el que reciben las ventas viejas o las que llegan
+// desde Reservas, cuyo vendedor no está en la lista).
+const SELLERS = ['Agus', 'Agos', 'Mel'] as const;
+const SELLER_OTHER = 'Otro';
 
 interface CreateSaleModalProps {
   isOpen: boolean;
@@ -63,6 +78,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const [payments, setPayments] = useState<SalePayment[]>([]);
   const [notes, setNotes] = useState('');
   const [sellerName, setSellerName] = useState('');
+  // Modo "Otro": el select no matchea ninguno de SELLERS y se escribe a mano.
+  // `sellerName` sigue siendo la única fuente de verdad de lo que se envía.
+  const [sellerIsOther, setSellerIsOther] = useState(false);
   const [cartItems, setCartItems] = useState<SaleItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [clientPrepaid, setClientPrepaid] = useState<{ id: string, amount: number } | null>(null);
@@ -95,6 +113,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // total (sin stock) y el backend lo descuenta del saldo de la venta vieja.
   const [settleSel, setSettleSel] = useState<{ saleId: string; amount: number } | null>(null);
   const [isConsumidorFinal, setIsConsumidorFinal] = useState(false);
+  // Ítem libre (promo/producto fuera de catálogo): sólo admin. Se agrega al
+  // carrito con un id sintético `free-…` como identidad local; ese id se quita
+  // al enviar (el backend recibe la línea sin productId + productName).
+  const [showFreeItemForm, setShowFreeItemForm] = useState(false);
+  const [freeItemName, setFreeItemName] = useState('');
+  const [freeItemPrice, setFreeItemPrice] = useState(0);
 
   const barcodeScannerRef = useRef<BarcodeScannerRef>(null);
   // Track de si ya intentamos precargar "Cliente Mostrador" para esta apertura
@@ -106,6 +130,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const { createSale, updateSale } = useSalesAPI();
   const { getPrepaidsByClient, getPrepaidById } = usePrepaidsAPI();
+  const { canManageProducts } = usePermissions();
 
   const clientId = selectedClient?.id ?? '';
 
@@ -152,7 +177,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       );
       {
         const parsed = parseNotesAndSeller(editingSale.notes);
-        setSellerName(editingSale.seller || parsed.seller);
+        const seller = editingSale.seller || parsed.seller;
+        setSellerName(seller);
+        // Ventas viejas (o de Reservas) pueden traer un vendedor que no está en
+        // SELLERS: caen en "Otro" con el valor cargado, en vez de perderse.
+        setSellerIsOther(!!seller && !SELLERS.includes(seller as typeof SELLERS[number]));
         setNotes(parsed.notes);
       }
 
@@ -160,7 +189,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       const cartItems = editingSale.items.map(item => {
         const bonif = item.bonifiedQty ?? 0;
         return {
-          productId: item.productId,
+          // Ítems libres vienen sin productId: identidad local `free-…`.
+          productId: item.productId ?? `free-${crypto.randomUUID()}`,
           productName: item.productName,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -281,6 +311,37 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     });
 
     showToast.success(`${product.name} agregado al carrito`);
+  };
+
+  // Agrega un ítem libre al carrito. Identidad local = id sintético `free-…`
+  // (así funcionan quantity/bonif/remove que pivotan sobre productId). Ese id se
+  // quita al enviar: el backend recibe productId undefined + productName.
+  const addFreeItemToCart = () => {
+    const name = freeItemName.trim();
+    if (!name) {
+      showToast.error('Ingresá un nombre para el ítem');
+      return;
+    }
+    if (!(freeItemPrice > 0)) {
+      showToast.error('El precio del ítem debe ser mayor a 0');
+      return;
+    }
+    const localId = `free-${crypto.randomUUID()}`;
+    setCartItems(prev => [
+      ...prev,
+      {
+        productId: localId,
+        productName: name,
+        quantity: 1,
+        unitPrice: freeItemPrice,
+        subtotal: freeItemPrice,
+        bonifiedQty: 0,
+      },
+    ]);
+    setFreeItemName('');
+    setFreeItemPrice(0);
+    setShowFreeItemForm(false);
+    showToast.success(`"${name}" agregado`);
   };
 
   const handleConfirmPrepaidAmount = (amount: number) => {
@@ -430,7 +491,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const handleLoadSale = (sale: Sale) => {
     setCartItems(
       sale.items.map((item) => ({
-        productId: item.productId,
+        // Ítems libres vienen sin productId: les damos identidad local `free-…`.
+        productId: item.productId ?? `free-${crypto.randomUUID()}`,
         productName: item.productName,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -570,6 +632,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setPayments([]);
     setNotes('');
     setSellerName('');
+    setSellerIsOther(false);
+    setShowFreeItemForm(false);
+    setFreeItemName('');
+    setFreeItemPrice(0);
     setCartItems([]);
     setClientPrepaid(null);
     setUsePrepaid(false);
@@ -657,12 +723,18 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim() || undefined,
         customerPhone: customerPhone.trim() || undefined,
-        items: cartItems.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          bonifiedQty: item.bonifiedQty ?? 0,
-        })),
+        items: cartItems.map(item => {
+          // Ítem libre: el id sintético `free-…` es sólo identidad local. Al
+          // backend va sin productId y con el nombre en el payload.
+          const isFree = item.productId?.startsWith('free-');
+          return {
+            productId: isFree ? undefined : item.productId,
+            productName: isFree ? item.productName : undefined,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            bonifiedQty: item.bonifiedQty ?? 0,
+          };
+        }),
         // En PARTIAL no aplicamos descuento/recargo: el saldo pendiente NO
         // es un descuento (es deuda viva). Para el backend mandamos 0.
         discount: isPartial ? 0 : signedDiscount,
@@ -1028,13 +1100,43 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 <Label htmlFor="sellerName" className="text-xs text-[#455a54] font-winter-solid">
                   Vendedor <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id="sellerName"
-                  value={sellerName}
-                  onChange={(e) => setSellerName(e.target.value.replace(/[\]\n\r]/g, ''))}
-                  placeholder=""
-                  className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
-                />
+                <Select
+                  value={sellerIsOther ? SELLER_OTHER : sellerName}
+                  onValueChange={(v) => {
+                    const isOther = v === SELLER_OTHER;
+                    setSellerIsOther(isOther);
+                    // Al pasar a "Otro" limpiamos para que el operador escriba;
+                    // al elegir un nombre de la lista, ese ES el vendedor.
+                    setSellerName(isOther ? '' : v);
+                  }}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger
+                    id="sellerName"
+                    className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
+                  >
+                    <SelectValue placeholder="Seleccioná un vendedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SELLERS.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={SELLER_OTHER}>{SELLER_OTHER}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {sellerIsOther && (
+                  <Input
+                    id="sellerNameOther"
+                    value={sellerName}
+                    onChange={(e) => setSellerName(e.target.value.replace(/[\]\n\r]/g, ''))}
+                    placeholder="Nombre del vendedor"
+                    disabled={isSubmitting}
+                    className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
+                    autoFocus
+                  />
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1140,6 +1242,70 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 />
               </div>
 
+              {/* Ítem libre (promo / producto fuera de catálogo) — sólo admin.
+                  No descuenta stock; suma al subtotal como una línea más. */}
+              {canManageProducts && (
+                <div className="space-y-2">
+                  {!showFreeItemForm ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFreeItemForm(true)}
+                      className="w-full border-dashed border-[#9d684e]/40 text-[#9d684e] hover:bg-[#efcbb9]/30 h-8 text-xs font-winter-solid"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1.5" />
+                      Agregar ítem libre
+                    </Button>
+                  ) : (
+                    <div className="rounded-md border border-[#9d684e]/30 p-3 space-y-2 bg-[#efcbb9]/10">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-[#455a54] font-winter-solid">
+                          Ítem libre (sin stock)
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowFreeItemForm(false);
+                            setFreeItemName('');
+                            setFreeItemPrice(0);
+                          }}
+                          className="text-[#455a54]/60 hover:text-red-600"
+                          aria-label="Cancelar ítem libre"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <Input
+                        value={freeItemName}
+                        onChange={(e) => setFreeItemName(e.target.value)}
+                        placeholder="Nombre (ej. Promo, envío)"
+                        className="h-9 border-[#9d684e]/20 focus:border-[#9d684e]"
+                        maxLength={100}
+                      />
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <CurrencyInput
+                            value={freeItemPrice}
+                            onChange={setFreeItemPrice}
+                            placeholder="Precio"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={addFreeItemToCart}
+                          disabled={!freeItemName.trim() || !(freeItemPrice > 0)}
+                          className="h-9 bg-[#9d684e] hover:bg-[#9d684e]/90 text-white text-xs font-winter-solid"
+                        >
+                          Agregar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Cart Items */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -1168,8 +1334,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   ) : (
                     cartItems.map((item) => {
                       const bonif = item.bonifiedQty ?? 0;
+                      // En el carrito todo ítem tiene id (real o sintético `free-…`):
+                      // es la identidad local de la línea, nunca undefined acá.
+                      const cartId = item.productId as string;
                       return (
-                      <div key={item.productId} className="p-2 sm:p-3 border-b border-gray-100 last:border-b-0">
+                      <div key={cartId} className="p-2 sm:p-3 border-b border-gray-100 last:border-b-0">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                           <div className="flex-1">
                             <p className="font-medium text-[#455a54] text-sm sm:text-base">{item.productName}</p>
@@ -1180,7 +1349,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                              onClick={() => updateQuantity(cartId, item.quantity - 1)}
                               className="h-8 w-8 p-0 touch-target"
                             >
                               <Minus className="h-4 w-4" />
@@ -1190,7 +1359,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                              onClick={() => updateQuantity(cartId, item.quantity + 1)}
                               className="h-8 w-8 p-0 touch-target"
                             >
                               <Plus className="h-4 w-4" />
@@ -1209,7 +1378,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                                 value={bonif}
                                 onChange={(e) => {
                                   const v = parseInt(e.target.value, 10);
-                                  updateBonifiedQty(item.productId, Number.isFinite(v) ? v : 0);
+                                  updateBonifiedQty(cartId, Number.isFinite(v) ? v : 0);
                                 }}
                                 className="h-8 w-12 px-1 text-center text-xs"
                               />
@@ -1218,7 +1387,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => removeFromCart(item.productId)}
+                              onClick={() => removeFromCart(cartId)}
                               className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 touch-target"
                             >
                               <X className="h-4 w-4" />

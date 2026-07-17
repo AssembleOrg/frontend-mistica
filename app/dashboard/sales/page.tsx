@@ -10,7 +10,7 @@ import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { Sale, UpdateSaleRequest } from '@/services/sales.service';
-import { Plus, BarChart3, ShoppingCart, Wallet, TrendingDown } from 'lucide-react';
+import { Plus, BarChart3, ShoppingCart, Wallet, TrendingDown, PackageMinus } from 'lucide-react';
 
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
@@ -36,9 +36,13 @@ const CashEgressDialog = dynamic(
   () => import('@/components/dashboard/sales/cash-egress-dialog').then(m => m.CashEgressDialog),
   { ssr: false }
 );
+const StockConsumptionDialog = dynamic(
+  () => import('@/components/dashboard/sales/stock-consumption-dialog').then(m => m.StockConsumptionDialog),
+  { ssr: false }
+);
 
 export default function SalesPage() {
-  const { canEdit, canDelete, canCancelSale } = usePermissions();
+  const { canEdit, canDelete, canCancelSale, canManageStock } = usePermissions();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const submitCreateButtonRef = useRef<HTMLButtonElement | null>(null);
   const submitEditButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -47,6 +51,7 @@ export default function SalesPage() {
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
   const [showCashIncomeModal, setShowCashIncomeModal] = useState(false);
   const [showCashEgressModal, setShowCashEgressModal] = useState(false);
+  const [showConsumptionModal, setShowConsumptionModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
@@ -273,6 +278,18 @@ export default function SalesPage() {
               <Wallet className="h-3.5 w-3.5 sm:mr-1.5" />
               <span className="hidden sm:inline">Ingreso a caja</span>
             </Button>
+            {canManageStock && (
+              <Button
+                onClick={() => setShowConsumptionModal(true)}
+                aria-label="Consumo interno de stock"
+                title="Consumo interno (descuenta stock sin venta)"
+                variant="outline"
+                className="border-[#9d684e]/40 text-[#9d684e] hover:bg-[#efcbb9]/40 h-8 text-sm font-winter-solid px-2 sm:px-3"
+              >
+                <PackageMinus className="h-3.5 w-3.5 sm:mr-1.5" />
+                <span className="hidden sm:inline">Consumo</span>
+              </Button>
+            )}
             <Button
               onClick={() => setShowCreateSaleModal(true)}
               aria-label="Nueva venta"
@@ -396,6 +413,12 @@ export default function SalesPage() {
         onOpenChange={setShowCashEgressModal}
         onSuccess={() => { getDailySales(); }}
       />
+      {canManageStock && (
+        <StockConsumptionDialog
+          open={showConsumptionModal}
+          onOpenChange={setShowConsumptionModal}
+        />
+      )}
       <KbdShortcuts
         sales={sales}
         selectedSale={selectedSale}

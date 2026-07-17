@@ -24,7 +24,10 @@ export interface CreateSaleRequest {
   customerEmail?: string;
   customerPhone?: string;
   items: {
-    productId: string;
+    /** Ausente en ítems libres; en ese caso `productName` es obligatorio. */
+    productId?: string;
+    /** Nombre del ítem libre (promo/producto fuera de catálogo). */
+    productName?: string;
     quantity: number;
     unitPrice: number;
     /** Cantidad bonificada inline (regalada). Subtotal de línea =
@@ -70,7 +73,9 @@ export interface UpdateSaleRequest {
   customerEmail?: string;
   customerPhone?: string;
   items?: {
-    productId: string;
+    /** Ausente en ítems libres; en ese caso `productName` es obligatorio. */
+    productId?: string;
+    productName?: string;
     quantity: number;
     unitPrice: number;
     bonifiedQty?: number;
@@ -102,7 +107,8 @@ export interface AfipContributor {
 
 // Sale interfaces
 export interface SaleItem {
-  productId: string;
+  /** Ausente en ítems libres (promo/producto fuera de catálogo, sin stock). */
+  productId?: string;
   productName: string;
   quantity: number;
   unitPrice: number;
@@ -498,9 +504,10 @@ export class SalesService {
     // Items opcional: una venta puede no tener productos (el total se toma
     // del "monto a cobrar" en los pagos). Si vienen items, los validamos.
     if (saleData.items) {
-      saleData.items.forEach((item: { productId: string; quantity: number; unitPrice: number }, index: number) => {
-        if (!item.productId) {
-          errors.push(`El producto ${index + 1} debe tener un ID válido`);
+      saleData.items.forEach((item: { productId?: string; productName?: string; quantity: number; unitPrice: number }, index: number) => {
+        // Ítem libre: sin productId, pero necesita nombre. Ítem normal: al revés.
+        if (!item.productId && !item.productName?.trim()) {
+          errors.push(`El producto ${index + 1} debe tener un producto o un nombre`);
         }
         if (!item.quantity || item.quantity <= 0) {
           errors.push(`El producto ${index + 1} debe tener una cantidad válida`);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Timer, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import {
   type AdminExperience,
   type CreateExperienceInput,
 } from '@/services/reservations.admin.service';
+import { FilterChip, IconBtn, StatusBadge } from './_shared';
 
 const EMPTY: CreateExperienceInput = {
   name: '',
@@ -43,9 +44,15 @@ const EMPTY: CreateExperienceInput = {
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
-// Columnas explícitas (sin `auto`) para que header y filas —grids separados—
-// alineen. Sólo desktop; en mobile se usan tarjetas.
-const COLS = 'grid grid-cols-[2fr_6rem_7rem_5rem_11rem] gap-3';
+// Duración en minutos -> "2 h" (exacta) o "2:30 h" (con resto). Ej.: 120 -> "2 h",
+// 150 -> "2:30 h".
+function fmtDuration(min: number): string {
+  const h = Math.floor(min / 60);
+  const rem = min % 60;
+  return rem === 0 ? `${h} h` : `${h}:${String(rem).padStart(2, '0')} h`;
+}
+
+type ExpFilter = 'all' | 'online' | 'coordinada';
 
 export function ExperienciasTab() {
   const [items, setItems] = useState<AdminExperience[]>([]);
@@ -53,6 +60,8 @@ export function ExperienciasTab() {
   const [editing, setEditing] = useState<AdminExperience | null>(null);
   const [form, setForm] = useState<CreateExperienceInput | null>(null);
   const [saving, setSaving] = useState(false);
+  // Filtro de presentación sobre la lista ya cargada (no toca el fetch).
+  const [filter, setFilter] = useState<ExpFilter>('all');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,83 +138,80 @@ export function ExperienciasTab() {
     }
   }
 
-  function estadoBadge(e: AdminExperience) {
-    return (
-      <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            e.isActive ? 'bg-[#455a54]' : 'bg-[#a99]'
-          }`}
-        />
-        {e.isActive ? 'Activa' : 'Pausada'}
-      </span>
-    );
-  }
-
-  function editDelete(e: AdminExperience) {
-    return (
-      <>
-        <Button
-          type='button'
-          variant='ghost'
-          size='icon'
-          onClick={() => openEdit(e)}
-          title='Editar'
-          className='size-8 text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#455a54]'
-        >
-          <Pencil className='h-4 w-4' />
-        </Button>
-        <Button
-          type='button'
-          variant='ghost'
-          size='icon'
-          onClick={() => remove(e)}
-          title='Dar de baja'
-          className='size-8 text-[#455a54]/60 hover:bg-red-50 hover:text-[#b23b2e]'
-        >
-          <Trash2 className='h-4 w-4' />
-        </Button>
-      </>
-    );
-  }
+  const onlineCount = items.filter((e) => e.bookableOnline !== false).length;
+  const coordinadaCount = items.length - onlineCount;
+  const visible = items.filter((e) =>
+    filter === 'online'
+      ? e.bookableOnline !== false
+      : filter === 'coordinada'
+        ? e.bookableOnline === false
+        : true,
+  );
 
   return (
     <div className='flex flex-col gap-4'>
-      <div className='flex justify-end'>
+      {/* Toolbar: filtros + nueva experiencia */}
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <FilterChip
+            label='Todas'
+            count={items.length}
+            active={filter === 'all'}
+            color='#455a54'
+            tint='#E7F0EC'
+            onClick={() => setFilter('all')}
+          />
+          <FilterChip
+            label='Reservables online'
+            count={onlineCount}
+            active={filter === 'online'}
+            color='#455a54'
+            tint='#E7F0EC'
+            onClick={() => setFilter('online')}
+          />
+          <FilterChip
+            label='Coordinadas'
+            count={coordinadaCount}
+            active={filter === 'coordinada'}
+            color='#9d684e'
+            tint='#f3e7db'
+            onClick={() => setFilter('coordinada')}
+          />
+        </div>
         <Button
           type='button'
-          variant='terracota'
+          variant='verde'
           onClick={openNew}
-          className='font-mono text-xs tracking-wider'
+          className='gap-2'
         >
-          <Plus className='h-4 w-4' /> NUEVA EXPERIENCIA
+          <Plus className='h-4 w-4' />
+          Nueva experiencia
         </Button>
       </div>
 
-      {/* Desktop: tabla */}
-      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
-        <div className='min-w-[44rem]'>
-          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60`}>
-            <span>EXPERIENCIA</span>
-            <span>DURACIÓN</span>
-            <span>PRECIO</span>
-            <span>CUPO DEF.</span>
-            <span className='text-right'>ESTADO</span>
-          </div>
-          {loading ? (
-            <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
-          ) : items.length === 0 ? (
-            <div className='p-6 text-sm text-[#455a54]/60'>
-              No hay experiencias. Creá la primera.
-            </div>
-          ) : (
-            items.map((e) => (
+      {/* Grilla de tarjetas */}
+      {loading ? (
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          Cargando…
+        </div>
+      ) : visible.length === 0 ? (
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          {items.length === 0
+            ? 'No hay experiencias. Creá la primera.'
+            : 'No hay experiencias para este filtro.'}
+        </div>
+      ) : (
+        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+          {visible.map((e) => {
+            const online = e.bookableOnline !== false;
+            return (
               <div
                 key={e._id}
-                className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
+                className='flex flex-col gap-3 rounded-2xl border border-[#e6dbcd] bg-white p-[18px]'
               >
-                <div>
-                  <p className='flex items-center gap-2 font-tan-nimbus text-base font-bold text-[#455a54]'>
+                {/* Nombre + estado de reserva */}
+                <div className='flex items-start justify-between gap-2'>
+                  <h3 className='flex min-w-0 flex-1 items-center gap-2 font-tan-nimbus text-[17px] font-semibold text-[#3d3338]'>
                     <span
                       className='h-2.5 w-2.5 shrink-0 rounded-full'
                       title='Color en la agenda'
@@ -213,87 +219,69 @@ export function ExperienciasTab() {
                         backgroundColor: e.color ?? DEFAULT_EXPERIENCE_COLOR,
                       }}
                     />
-                    {e.name}
-                    {e.bookableOnline === false && (
-                      <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
-                        Coordinada
-                      </span>
-                    )}
-                  </p>
-                  {e.description && (
-                    <p className='line-clamp-1 text-xs text-[#455a54]/60'>
-                      {e.description}
-                    </p>
+                    <span className='truncate'>{e.name}</span>
+                  </h3>
+                  {online ? (
+                    <StatusBadge label='Online' bg='#E7F0EC' fg='#455a54' />
+                  ) : (
+                    <StatusBadge label='Coordinada' bg='#f3e7db' fg='#9d684e' />
                   )}
                 </div>
-                <span className='text-sm text-[#455a54]'>
-                  {e.durationMinutes} min
-                </span>
-                <span className='text-sm text-[#455a54]'>
-                  {fmtPrice(e.basePrice)}
-                </span>
-                <span className='text-sm text-[#455a54]'>
-                  {e.defaultCapacity}
-                </span>
-                <div className='flex items-center justify-end gap-1.5'>
-                  {estadoBadge(e)}
-                  {editDelete(e)}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
 
-      {/* Mobile: tarjetas */}
-      <div className='flex flex-col gap-3 md:hidden'>
-        {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
-            Cargando…
-          </div>
-        ) : items.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
-            No hay experiencias. Creá la primera.
-          </div>
-        ) : (
-          items.map((e) => (
-            <div
-              key={e._id}
-              className='rounded-xl border border-[#e6dbcd] bg-white p-4'
-            >
-              <div className='flex items-start justify-between gap-2'>
-                <p className='flex flex-wrap items-center gap-2 font-tan-nimbus text-base font-bold text-[#455a54]'>
-                  <span
-                    className='h-2.5 w-2.5 shrink-0 rounded-full'
-                    title='Color en la agenda'
-                    style={{
-                      backgroundColor: e.color ?? DEFAULT_EXPERIENCE_COLOR,
-                    }}
-                  />
-                  {e.name}
-                  {e.bookableOnline === false && (
-                    <span className='font-mono text-[10px] uppercase tracking-[0.14em] text-[#cc844a]'>
-                      Coordinada
+                {e.description && (
+                  <p className='line-clamp-2 text-[13px] leading-relaxed text-[#7a6e6f]'>
+                    {e.description}
+                  </p>
+                )}
+
+                <div className='h-px w-full bg-[#e6dbcd]' />
+
+                {/* Precio + duración */}
+                <div className='flex items-center justify-between gap-2'>
+                  <div className='flex items-baseline gap-1'>
+                    <span className='text-[19px] font-bold text-[#9d684e]'>
+                      {fmtPrice(e.basePrice)}
                     </span>
-                  )}
-                </p>
-                {estadoBadge(e)}
+                    <span className='text-xs text-[#7a6e6f]'>/persona</span>
+                  </div>
+                  <span className='inline-flex items-center gap-1.5 rounded-[7px] border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
+                    <Timer className='h-3.5 w-3.5 text-[#7a6e6f]' />
+                    <span className='font-mono text-xs text-[#3d3338]'>
+                      {online ? fmtDuration(e.durationMinutes) : 'Coordinada'}
+                    </span>
+                  </span>
+                </div>
+
+                {/* Estado activo + acciones */}
+                <div className='flex items-center justify-between gap-2'>
+                  <span className='inline-flex items-center gap-2 text-xs text-[#7a6e6f]'>
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        e.isActive ? 'bg-[#455a54]' : 'bg-[#7a6e6f]'
+                      }`}
+                    />
+                    {e.isActive ? 'Activa' : 'Inactiva'}
+                  </span>
+                  <div className='flex items-center gap-1.5'>
+                    <IconBtn
+                      icon={Pencil}
+                      title='Editar'
+                      tone='verde'
+                      onClick={() => openEdit(e)}
+                    />
+                    <IconBtn
+                      icon={Trash2}
+                      title='Dar de baja'
+                      tone='rojo'
+                      onClick={() => remove(e)}
+                    />
+                  </div>
+                </div>
               </div>
-              {e.description && (
-                <p className='mt-1 text-xs text-[#455a54]/60'>{e.description}</p>
-              )}
-              <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#455a54]'>
-                <span>{e.durationMinutes} min</span>
-                <span className='font-medium'>{fmtPrice(e.basePrice)}</span>
-                <span className='text-[#455a54]/60'>cupo {e.defaultCapacity}</span>
-              </div>
-              <div className='mt-3 flex justify-end gap-1.5'>
-                {editDelete(e)}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
         {form && (

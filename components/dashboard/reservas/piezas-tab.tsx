@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { fmtDate } from '@/lib/reservas-format';
 import {
   piecesAdmin,
   PIECE_STATUS_LABEL,
@@ -33,19 +34,73 @@ import {
   type AdminExperience,
 } from '@/services/reservations.admin.service';
 import { normalizePhoneAR, phoneCoreAR } from '@/lib/utils/whatsapp';
+import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 
-const FILTERS: { key: string; label: string }[] = [
-  { key: '', label: 'Todas' },
-  ...PIECE_STATUS_ORDER.map((s) => ({ key: s, label: PIECE_STATUS_LABEL[s] })),
+const LIMIT = 20;
+
+// Etapas "en proceso" (previas a estar lista). El resto son estados finales.
+const IN_PROCESS: PieceStatus[] = [
+  'SECADO',
+  'PRIMERA_HORNEADA',
+  'ESMALTADO',
+  'SEGUNDA_HORNEADA',
 ];
 
-// Verde para lista/retirada, terracota para las etapas en proceso.
-const DONE: PieceStatus[] = ['LISTA', 'RETIRADA'];
-const dotColor = (s: PieceStatus) => (DONE.includes(s) ? '#455a54' : '#cc844a');
+// Color del badge/chip por estado: en proceso → terracota suave, lista → verde,
+// retirada → piedra.
+function statusColors(s: PieceStatus): { bg: string; fg: string } {
+  if (s === 'LISTA') return { bg: '#E7F0EC', fg: '#455a54' };
+  if (s === 'RETIRADA') return { bg: '#f1ede6', fg: '#7a6e6f' };
+  return { bg: '#F6E9DC', fg: '#cc844a' };
+}
 
-const COLS = 'grid grid-cols-[1.6fr_1.6fr_4rem_13rem_5rem] gap-3';
+// Filtros: "Todas" + uno por estado, con el acento/tinte de cada estado.
+const FILTERS: { key: string; label: string; color: string; tint: string }[] = [
+  { key: '', label: 'Todas', color: '#455a54', tint: '#E7F0EC' },
+  ...PIECE_STATUS_ORDER.map((s) => {
+    const { bg, fg } = statusColors(s);
+    return { key: s, label: PIECE_STATUS_LABEL[s], color: fg, tint: bg };
+  }),
+];
+
+const COLS =
+  'grid grid-cols-[9rem_9rem_1fr_9.5rem_9rem_7rem_11.5rem] items-center gap-3';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+// Barra de progreso de 6 segmentos según la etapa de la pieza.
+function ProgressStepper({ status }: Readonly<{ status: PieceStatus }>) {
+  const stage = PIECE_STATUS_ORDER.indexOf(status) + 1; // 1..6
+  const fill =
+    status === 'RETIRADA' ? '#7a6e6f' : stage >= 5 ? '#455a54' : '#9d684e';
+  return (
+    <div className='flex items-center gap-1'>
+      {Array.from({ length: 6 }, (_, i) => (
+        <span
+          key={i}
+          className='h-1.5 flex-1 rounded-full'
+          style={{ backgroundColor: i + 1 <= stage ? fill : '#e6dbcd' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Texto de la columna "Retiro".
+function retiroNode(p: PieceItem) {
+  if (p.status === 'RETIRADA') {
+    return (
+      <span className='text-xs text-[#7a6e6f]'>
+        Retirada
+        {p.pickedUpAt ? ` · ${fmtDate(p.pickedUpAt)}` : ''}
+      </span>
+    );
+  }
+  if (p.status === 'LISTA') {
+    return <span className='text-xs text-[#455a54]'>Lista para retirar</span>;
+  }
+  return <span className='text-xs text-[#7a6e6f]'>—</span>;
+}
 
 export function PiezasTab() {
   const [items, setItems] = useState<PieceItem[]>([]);
@@ -55,6 +110,7 @@ export function PiezasTab() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -73,10 +129,11 @@ export function PiezasTab() {
         status: status || undefined,
         search: search || undefined,
         page,
-        limit: 20,
+        limit: LIMIT,
       });
       setItems(res.items);
       setTotalPages(res.totalPages);
+      setTotal(res.total);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar');
     } finally {
@@ -127,7 +184,7 @@ export function PiezasTab() {
         onValueChange={(v) => changeStatus(p, v as PieceStatus)}
         disabled={busy === p._id}
       >
-        <SelectTrigger className={cn('h-8', fieldCls)}>
+        <SelectTrigger className={cn('h-8 w-full text-xs', fieldCls)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -141,104 +198,115 @@ export function PiezasTab() {
     );
   }
 
+  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
+  const to = (page - 1) * LIMIT + items.length;
+
   return (
-    <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#e6dbcd] pb-1'>
-        {FILTERS.map((f) => {
-          const on = f.key === status;
-          return (
-            <button
+    <div className='flex flex-col gap-5'>
+      {/* Filtros de estado + búsqueda + nueva pieza */}
+      <div className='flex flex-wrap items-center gap-x-3 gap-y-2.5'>
+        <div className='flex flex-wrap items-center gap-2'>
+          {FILTERS.map((f) => (
+            <FilterChip
               key={f.key || 'all'}
-              type='button'
+              label={f.label}
+              active={f.key === status}
+              color={f.color}
+              tint={f.tint}
               onClick={() => {
                 setStatus(f.key);
                 setPage(1);
               }}
-              className={cn(
-                'relative -mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
-                on
-                  ? 'border-[#455a54] font-semibold text-[#455a54]'
-                  : 'border-transparent text-[#455a54]/75 hover:text-[#455a54]',
-              )}
-            >
-              {f.label}
-            </button>
-          );
-        })}
-        <div className='flex w-full items-center gap-2 sm:ml-auto sm:w-auto'>
-          <Input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder='Buscar por nombre, teléfono o experiencia'
-            className={cn('h-9 w-full rounded-full sm:w-72', fieldCls)}
-          />
+            />
+          ))}
+        </div>
+        <div className='flex w-full items-center gap-2.5 sm:ml-auto sm:w-auto'>
+          <div className='relative w-full sm:w-72'>
+            <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder='Buscar por nombre, teléfono o experiencia'
+              className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+            />
+          </div>
           <Button
             type='button'
-            variant='terracota'
+            variant='verde'
             onClick={() => setCreating(true)}
-            className='shrink-0 font-mono text-xs tracking-wider'
+            className='shrink-0 gap-2'
           >
-            <Plus className='h-4 w-4' /> NUEVA
+            <Plus className='h-4 w-4' />
+            Nueva pieza
           </Button>
         </div>
       </div>
 
       {/* Desktop: tabla */}
-      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
-        <div className='min-w-[48rem]'>
-          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60`}>
+      <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
+        <div className='min-w-[60rem]'>
+          <div
+            className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}
+          >
             <span>CLIENTE</span>
             <span>EXPERIENCIA</span>
-            <span>CANT.</span>
+            <span>PIEZA</span>
+            <span>PROGRESO</span>
             <span>ESTADO</span>
-            <span className='text-right'>ACCIÓN</span>
+            <span>RETIRO</span>
+            <span />
           </div>
           {loading ? (
-            <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
+            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
           ) : items.length === 0 ? (
-            <div className='p-6 text-sm text-[#455a54]/60'>
+            <div className='p-6 text-sm text-[#7a6e6f]'>
               {search ? `Sin resultados para “${search}”.` : 'Sin piezas cargadas.'}
             </div>
           ) : (
-            items.map((p) => (
-              <div
-                key={p._id}
-                className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`}
-              >
-                <div>
-                  <p className='text-sm font-medium text-[#455a54]'>
-                    {p.customerName || 'Sin nombre'}
-                  </p>
-                  <p className='font-mono text-xs text-[#455a54]/60'>
-                    {p.customerPhone}
-                  </p>
+            items.map((p) => {
+              const { bg, fg } = statusColors(p.status);
+              return (
+                <div
+                  key={p._id}
+                  className={cn(
+                    `${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`,
+                    p.status === 'RETIRADA' && 'opacity-60',
+                  )}
+                >
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-medium text-[#3d3338]'>
+                      {p.customerName || p.customerPhone}
+                    </p>
+                    {p.customerName && (
+                      <p className='truncate font-mono text-xs text-[#7a6e6f]'>
+                        {p.customerPhone}
+                      </p>
+                    )}
+                  </div>
+                  <span className='truncate text-sm text-[#7a6e6f]'>
+                    {p.experienceName || '—'}
+                  </span>
+                  <span className='truncate text-sm text-[#3d3338]'>
+                    {p.notes || `${p.quantity} pieza(s)`}
+                  </span>
+                  <ProgressStepper status={p.status} />
+                  <div>
+                    <StatusBadge label={PIECE_STATUS_LABEL[p.status]} bg={bg} fg={fg} />
+                  </div>
+                  <div>{retiroNode(p)}</div>
+                  <div className='flex items-center justify-end gap-2'>
+                    <div className='w-[8rem]'>{statusSelect(p)}</div>
+                    <IconBtn
+                      icon={Trash2}
+                      title='Eliminar'
+                      tone='rojo'
+                      disabled={busy === p._id}
+                      onClick={() => remove(p)}
+                    />
+                  </div>
                 </div>
-                <span className='text-sm text-[#455a54]'>
-                  {p.experienceName || '—'}
-                </span>
-                <span className='text-sm text-[#455a54]'>{p.quantity}</span>
-                <div className='flex items-center gap-2'>
-                  <span
-                    className='h-1.5 w-1.5 shrink-0 rounded-full'
-                    style={{ backgroundColor: dotColor(p.status) }}
-                  />
-                  {statusSelect(p)}
-                </div>
-                <div className='flex justify-end'>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon'
-                    disabled={busy === p._id}
-                    onClick={() => remove(p)}
-                    title='Eliminar'
-                    className='size-8 text-[#455a54]/60 hover:bg-red-50 hover:text-[#b23b2e]'
-                  >
-                    <Trash2 className='h-4 w-4' />
-                  </Button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -246,75 +314,71 @@ export function PiezasTab() {
       {/* Mobile: tarjetas */}
       <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
+          <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             Cargando…
           </div>
         ) : items.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
+          <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             {search ? `Sin resultados para “${search}”.` : 'Sin piezas cargadas.'}
           </div>
         ) : (
-          items.map((p) => (
-            <div
-              key={p._id}
-              className='rounded-xl border border-[#e6dbcd] bg-white p-4'
-            >
-              <div className='flex items-start justify-between gap-2'>
-                <div>
-                  <p className='text-sm font-medium text-[#455a54]'>
-                    {p.customerName || 'Sin nombre'}
-                  </p>
-                  <p className='font-mono text-xs text-[#455a54]/60'>
-                    {p.customerPhone}
-                  </p>
+          items.map((p) => {
+            const { bg, fg } = statusColors(p.status);
+            return (
+              <div
+                key={p._id}
+                className={cn(
+                  'rounded-2xl border border-[#e6dbcd] bg-white p-4',
+                  p.status === 'RETIRADA' && 'opacity-60',
+                )}
+              >
+                <div className='flex items-start justify-between gap-2'>
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-medium text-[#3d3338]'>
+                      {p.customerName || p.customerPhone}
+                    </p>
+                    {p.customerName && (
+                      <p className='truncate font-mono text-xs text-[#7a6e6f]'>
+                        {p.customerPhone}
+                      </p>
+                    )}
+                  </div>
+                  <StatusBadge label={PIECE_STATUS_LABEL[p.status]} bg={bg} fg={fg} />
                 </div>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  disabled={busy === p._id}
-                  onClick={() => remove(p)}
-                  title='Eliminar'
-                  className='size-8 text-[#455a54]/60 hover:bg-red-50 hover:text-[#b23b2e]'
-                >
-                  <Trash2 className='h-4 w-4' />
-                </Button>
+                <p className='mt-2 text-sm text-[#3d3338]'>
+                  {p.notes || `${p.quantity} pieza(s)`}
+                </p>
+                <p className='text-xs text-[#7a6e6f]'>{p.experienceName || '—'}</p>
+                <div className='mt-3'>
+                  <ProgressStepper status={p.status} />
+                </div>
+                <div className='mt-3 flex items-center justify-between gap-2'>
+                  {retiroNode(p)}
+                  <div className='flex items-center gap-2'>
+                    <div className='w-[9rem]'>{statusSelect(p)}</div>
+                    <IconBtn
+                      icon={Trash2}
+                      title='Eliminar'
+                      tone='rojo'
+                      disabled={busy === p._id}
+                      onClick={() => remove(p)}
+                    />
+                  </div>
+                </div>
               </div>
-              <p className='mt-1 text-sm text-[#455a54]'>
-                {p.experienceName || '—'}{' '}
-                <span className='text-[#455a54]/60'>· {p.quantity} pieza(s)</span>
-              </p>
-              <div className='mt-3'>{statusSelect(p)}</div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className='flex items-center justify-center gap-3'>
-          <Button
-            type='button'
-            variant='outline'
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Anterior
-          </Button>
-          <span className='text-sm text-[#455a54]/60'>
-            {page} / {totalPages}
-          </span>
-          <Button
-            type='button'
-            variant='outline'
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Siguiente
-          </Button>
-        </div>
-      )}
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        from={from}
+        to={to}
+        onPage={setPage}
+      />
 
       {creating && (
         <NewPieceModal
@@ -415,7 +479,7 @@ function NewPieceModal({
             />
             {form.customerPhone.trim() &&
               (phoneValid ? (
-                <span className='font-mono text-[11px] text-[#455a54]/60'>
+                <span className='font-mono text-[11px] text-[#7a6e6f]'>
                   Se guarda como {normalizePhoneAR(form.customerPhone)}
                 </span>
               ) : (
@@ -483,7 +547,7 @@ function NewPieceModal({
               </Select>
             </Field>
           </div>
-          <p className='text-[11px] text-[#455a54]/60'>
+          <p className='text-[11px] text-[#7a6e6f]'>
             El estado es la etapa actual de la pieza — es lo que el cliente ve
             cuando la consulta por WhatsApp.
           </p>
@@ -518,7 +582,7 @@ function Field({
 }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
+      <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
         {label.toUpperCase()}
       </span>
       {children}

@@ -1,7 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, CalendarClock, CheckCircle2, Search, Wallet } from 'lucide-react';
+import {
+  Ban,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  List,
+  Plus,
+  Search,
+  Wallet,
+} from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,10 +32,16 @@ import {
 } from '@/lib/reservas-format';
 import {
   reservationsAdmin,
+  type AdminExperience,
   type AdminSession,
   type ReservationItem,
   type ReservationPaymentMethod,
 } from '@/services/reservations.admin.service';
+import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
+import { ReservasCalendar } from './reservas-calendar';
+import { ReservationDetailPanel } from './reservation-detail-panel';
+
+const LIMIT = 20;
 
 // Política del local: las modificaciones se aceptan hasta 48 hs antes del turno.
 const RESCHEDULE_MIN_HOURS = 48;
@@ -37,21 +52,19 @@ const PAY_METHODS: { key: ReservationPaymentMethod; label: string }[] = [
   { key: 'CARD', label: 'Tarjeta' },
 ];
 
-const FILTERS: { key: string; label: string }[] = [
-  { key: '', label: 'Todas' },
-  { key: 'CONFIRMED', label: 'Confirmadas' },
-  { key: 'PENDING', label: 'Pendientes' },
-  { key: 'CANCELLED', label: 'Canceladas' },
-  { key: 'NEEDS_REVIEW', label: 'Revisión' },
+// Filtros de estado con su acento (color) y tinte (fondo suave) del .pen.
+const FILTERS: { key: string; label: string; color: string; tint: string }[] = [
+  { key: '', label: 'Todas', color: '#455a54', tint: '#E7F0EC' },
+  { key: 'CONFIRMED', label: 'Confirmadas', color: '#455a54', tint: '#E7F0EC' },
+  { key: 'PENDING', label: 'Pendientes', color: '#cc844a', tint: '#F6E9DC' },
+  { key: 'NEEDS_REVIEW', label: 'Revisión', color: '#b23b2e', tint: '#F6E0DA' },
+  { key: 'CANCELLED', label: 'Canceladas', color: '#7a6e6f', tint: '#f1ede6' },
 ];
 
-// Mismas columnas para el encabezado y las filas: al ser grids independientes,
-// necesitan un template EXPLÍCITO (sin `auto`) para alinear. El contenedor con
-// min-w garantiza que el `fr` resuelva igual en ambos.
-const COLS =
-  'grid grid-cols-[6.5rem_1.3fr_2fr_3.5rem_7rem_5.5rem_6rem_7rem] gap-3';
+type View = 'list' | 'calendar';
 
 export function ReservasTab() {
+  const [view, setView] = useState<View>('list');
   const [items, setItems] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
@@ -59,9 +72,18 @@ export function ReservasTab() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [collect, setCollect] = useState<ReservationItem | null>(null);
   const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
+  const [detail, setDetail] = useState<ReservationItem | null>(null);
+  const [newOpen, setNewOpen] = useState(false);
+  const [experiences, setExperiences] = useState<AdminExperience[]>([]);
+  const [expFilter, setExpFilter] = useState('');
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [tick, setTick] = useState(0);
+
+  const refresh = () => setTick((t) => t + 1);
 
   // Debounce del buscador: espera 350 ms tras la última tecla y vuelve a página 1.
   useEffect(() => {
@@ -72,35 +94,76 @@ export function ReservasTab() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
+  // Experiencias para el filtro (una vez).
+  useEffect(() => {
+    reservationsAdmin
+      .listExperiences(false)
+      .then(setExperiences)
+      .catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await reservationsAdmin.listReservations({
         status: status || undefined,
         search: search || undefined,
+        experienceId: expFilter || undefined,
         page,
-        limit: 20,
+        limit: LIMIT,
       });
       setItems(res.items);
       setTotalPages(res.totalPages);
+      setTotal(res.total);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar');
     } finally {
       setLoading(false);
     }
-  }, [status, search, page]);
+  }, [status, search, expFilter, page]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (view === 'list') load();
+  }, [load, view, tick]);
+
+  // Contadores por estado (para los chips). Respetan la búsqueda y la experiencia.
+  useEffect(() => {
+    let alive = true;
+    const keys = ['', 'CONFIRMED', 'PENDING', 'NEEDS_REVIEW', 'CANCELLED'];
+    Promise.all(
+      keys.map((k) =>
+        reservationsAdmin
+          .listReservations({
+            status: k || undefined,
+            search: search || undefined,
+            experienceId: expFilter || undefined,
+            page: 1,
+            limit: 1,
+          })
+          .then((r) => [k, r.total] as const)
+          .catch(() => [k, 0] as const),
+      ),
+    ).then((pairs) => {
+      if (alive) setCounts(Object.fromEntries(pairs));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [search, expFilter, tick]);
 
   async function doCancel(r: ReservationItem) {
-    if (!confirm(`¿Cancelar la reserva ${prettyCode(r.code)}? Libera el cupo y reembolsa si fue MercadoPago.`)) return;
+    if (
+      !confirm(
+        `¿Cancelar la reserva ${prettyCode(r.code)}? Libera el cupo y reembolsa si fue MercadoPago.`,
+      )
+    )
+      return;
     setBusy(r._id);
     try {
       await reservationsAdmin.cancelReservation(r._id);
       showToast.success('Reserva cancelada');
-      await load();
+      setDetail(null);
+      refresh();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
     } finally {
@@ -113,7 +176,8 @@ export function ReservasTab() {
     try {
       await reservationsAdmin.resolveReservation(r._id, action);
       showToast.success(action === 'confirm' ? 'Reserva confirmada' : 'Reserva cancelada');
-      await load();
+      setDetail(null);
+      refresh();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudo resolver');
     } finally {
@@ -127,237 +191,314 @@ export function ReservasTab() {
       r.balanceDue != null && r.balanceDue > 0 && r.status === 'CONFIRMED';
     const canReschedule = r.status === 'CONFIRMED';
     const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
-    if (!canConfirm && !canCollect && !canReschedule && !canCancel) return null;
+    if (!canConfirm && !canCollect && !canReschedule && !canCancel)
+      return <span className='text-sm text-[#7a6e6f]'>—</span>;
     return (
       <div className='flex items-center justify-end gap-1.5'>
         {canReschedule && (
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
+          <IconBtn
+            icon={CalendarClock}
+            title='Reprogramar'
             disabled={busy === r._id}
             onClick={() => setReschedule(r)}
-            title='Reprogramar'
-            className='size-8 border-[#e6dbcd] text-[#455a54] hover:bg-[#E7F0EC] hover:text-[#455a54]'
-          >
-            <CalendarClock className='h-4 w-4' />
-          </Button>
+          />
         )}
         {canConfirm && (
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
+          <IconBtn
+            icon={CheckCircle2}
+            title='Confirmar'
             disabled={busy === r._id}
             onClick={() => doResolve(r, 'confirm')}
-            title='Confirmar'
-            className='size-8 border-[#e6dbcd] text-[#455a54] hover:bg-[#E7F0EC] hover:text-[#455a54]'
-          >
-            <CheckCircle2 className='h-4 w-4' />
-          </Button>
+          />
         )}
         {canCollect && (
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
+          <IconBtn
+            icon={Wallet}
+            title='Cobrar saldo'
+            tone='terracota'
             disabled={busy === r._id}
             onClick={() => setCollect(r)}
-            title='Cobrar saldo'
-            className='size-8 border-[#e6dbcd] text-[#9d684e] hover:bg-[#fbf5ef] hover:text-[#9d684e]'
-          >
-            <Wallet className='h-4 w-4' />
-          </Button>
+          />
         )}
         {canCancel && (
-          <Button
-            type='button'
-            variant='outline'
-            size='icon'
+          <IconBtn
+            icon={Ban}
+            title='Cancelar'
+            tone='rojo'
             disabled={busy === r._id}
             onClick={() => doCancel(r)}
-            title='Cancelar'
-            className='size-8 border-[#e6dbcd] text-[#b23b2e] hover:bg-red-50 hover:text-[#b23b2e]'
-          >
-            <Ban className='h-4 w-4' />
-          </Button>
+          />
         )}
       </div>
     );
   }
 
+  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
+  const to = (page - 1) * LIMIT + items.length;
+
   return (
-    <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[#e6dbcd]'>
-        {FILTERS.map((f) => {
-          const on = f.key === status;
-          return (
-            <button
-              key={f.key || 'all'}
-              type='button'
-              onClick={() => {
-                setStatus(f.key);
-                setPage(1);
-              }}
-              className={cn(
-                '-mb-px border-b-2 pb-2 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors',
-                on
-                  ? 'border-[#455a54] font-semibold text-[#455a54]'
-                  : 'border-transparent text-[#455a54]/75 hover:text-[#455a54]',
+    <div className='flex flex-col gap-5'>
+      {/* Fila de controles: vista + experiencia + nueva reserva */}
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='inline-flex items-center rounded-[11px] border border-[#e6dbcd] bg-[#fbf5ef] p-1'>
+          {(
+            [
+              ['list', 'Lista', List],
+              ['calendar', 'Calendario', CalendarDays],
+            ] as const
+          ).map(([key, label, Icon]) => {
+            const on = view === key;
+            return (
+              <button
+                key={key}
+                type='button'
+                onClick={() => setView(key)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors',
+                  on ? 'bg-[#455a54] text-white' : 'text-[#7a6e6f] hover:text-[#455a54]',
+                )}
+              >
+                <Icon className='h-[15px] w-[15px]' />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className='flex flex-wrap items-center gap-2.5'>
+          <select
+            value={expFilter}
+            onChange={(e) => {
+              setExpFilter(e.target.value);
+              setPage(1);
+            }}
+            className='h-10 rounded-[10px] border border-[#e6dbcd] bg-white px-3 text-[13px] font-medium text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:outline-none sm:h-9'
+          >
+            <option value=''>Todas las experiencias</option>
+            {experiences.map((e) => (
+              <option key={e._id} value={e._id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+          <Button type='button' variant='verde' className='gap-2' onClick={() => setNewOpen(true)}>
+            <Plus className='h-4 w-4' />
+            Nueva reserva
+          </Button>
+        </div>
+      </div>
+
+      {view === 'calendar' ? (
+        <ReservasCalendar
+          experienceId={expFilter || undefined}
+          onOpen={setDetail}
+          refreshKey={tick}
+        />
+      ) : (
+        <>
+          {/* Filtros de estado con contador + búsqueda */}
+          <div className='flex flex-wrap items-center gap-x-3 gap-y-2.5'>
+            <div className='flex flex-wrap items-center gap-2'>
+              {FILTERS.map((f) => (
+                <FilterChip
+                  key={f.key || 'all'}
+                  label={f.label}
+                  count={counts[f.key]}
+                  active={f.key === status}
+                  color={f.color}
+                  tint={f.tint}
+                  onClick={() => {
+                    setStatus(f.key);
+                    setPage(1);
+                  }}
+                />
+              ))}
+            </div>
+            <div className='relative w-full sm:ml-auto sm:w-72'>
+              <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder='Buscar por código, nombre o teléfono'
+                className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+              />
+            </div>
+          </div>
+
+          {/* Desktop: tabla */}
+          <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
+            <div className='min-w-[56rem]'>
+              <div className='grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_8.5rem] items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+                <span>CÓDIGO</span>
+                <span>CLIENTE</span>
+                <span>EXPERIENCIA · TURNO</span>
+                <span className='text-center'>PERS.</span>
+                <span>MONTO</span>
+                <span>ORIGEN</span>
+                <span>ESTADO</span>
+                <span className='text-right'>ACCIONES</span>
+              </div>
+              {loading ? (
+                <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
+              ) : items.length === 0 ? (
+                <div className='p-6 text-sm text-[#7a6e6f]'>
+                  {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
+                </div>
+              ) : (
+                items.map((r) => {
+                  const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
+                    '#f1ede6',
+                    '#7a6e6f',
+                  ];
+                  return (
+                    <div
+                      key={r._id}
+                      className={cn(
+                        'grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_8.5rem] items-center gap-3 border-b border-[#e6dbcd] px-5 py-3.5 last:border-0 transition-colors hover:bg-[#fbf5ef]/50',
+                        r.status === 'CANCELLED' && 'opacity-55',
+                      )}
+                    >
+                      <button
+                        type='button'
+                        onClick={() => setDetail(r)}
+                        className='text-left font-mono text-sm font-semibold text-[#9d684e] hover:underline'
+                      >
+                        {prettyCode(r.code)}
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => setDetail(r)}
+                        className='truncate text-left text-sm font-medium text-[#455a54]'
+                      >
+                        {r.customerName}
+                      </button>
+                      <div className='min-w-0'>
+                        <p className='truncate text-sm text-[#3d3338]'>{r.experienceName}</p>
+                        <p className='font-mono text-xs text-[#7a6e6f]'>
+                          {fmtDateTime(r.startAt)}
+                        </p>
+                      </div>
+                      <span className='text-center text-sm text-[#455a54]'>{r.quantity}</span>
+                      <div className='text-sm'>
+                        <p className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</p>
+                        {r.balanceDue != null && r.balanceDue > 0 && (
+                          <p className='text-[11px] text-[#7a6e6f]'>
+                            saldo {fmtPrice(r.balanceDue)}
+                          </p>
+                        )}
+                      </div>
+                      <span className='inline-flex w-fit rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#7a6e6f]'>
+                        {r.source === 'ADMIN' ? 'Admin' : 'Público'}
+                      </span>
+                      <div>
+                        <StatusBadge
+                          label={RESERVATION_STATUS_LABEL[r.status] ?? r.status}
+                          bg={bg}
+                          fg={fg}
+                        />
+                      </div>
+                      {renderActions(r)}
+                    </div>
+                  );
+                })
               )}
-            >
-              {f.label}
-            </button>
-          );
-        })}
-        <div className='relative mb-1 w-full sm:ml-auto sm:w-72'>
-          <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
-          <Input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder='Buscar por código, nombre o teléfono'
-            className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
-          />
-        </div>
-      </div>
-
-      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
-        <div className='min-w-[52rem]'>
-        <div className={cn(COLS, 'border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60')}>
-          <span>CÓDIGO</span>
-          <span>CLIENTE</span>
-          <span>EXPERIENCIA / TURNO</span>
-          <span>PERS.</span>
-          <span>MONTO</span>
-          <span>ORIGEN</span>
-          <span>ESTADO</span>
-          <span className='text-right'>ACCIONES</span>
-        </div>
-        {loading ? (
-          <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
-        ) : items.length === 0 ? (
-          <div className='p-6 text-sm text-[#455a54]/60'>
-            {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
+            </div>
           </div>
-        ) : (
-          items.map((r) => {
-            const [, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
-              '#f1ede6',
-              '#7a6e6f',
-            ];
-            return (
-              <div
-                key={r._id}
-                className={cn(COLS, 'items-center border-b border-[#e6dbcd] px-5 py-3.5 last:border-0')}
-              >
-                <span className='font-mono text-sm font-semibold text-[#9d684e]'>
-                  {prettyCode(r.code)}
-                </span>
-                <span className='text-sm font-medium text-[#455a54]'>
-                  {r.customerName}
-                </span>
-                <div>
-                  <p className='text-sm text-[#455a54]'>{r.experienceName}</p>
-                  <p className='font-mono text-xs text-[#455a54]/60'>
-                    {fmtDateTime(r.startAt)}
-                  </p>
-                </div>
-                <span className='text-sm text-[#455a54]'>{r.quantity}</span>
-                <div className='text-sm'>
-                  <p className='font-medium text-[#455a54]'>{fmtPrice(r.amount)}</p>
-                  {r.balanceDue != null && r.balanceDue > 0 && (
-                    <p className='text-[11px] text-[#455a54]/60'>
-                      saldo {fmtPrice(r.balanceDue)}
+
+          {/* Mobile: tarjetas */}
+          <div className='flex flex-col gap-3 md:hidden'>
+            {loading ? (
+              <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+                Cargando…
+              </div>
+            ) : items.length === 0 ? (
+              <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+                {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
+              </div>
+            ) : (
+              items.map((r) => {
+                const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
+                  '#f1ede6',
+                  '#7a6e6f',
+                ];
+                const actions = renderActions(r);
+                return (
+                  <div
+                    key={r._id}
+                    className='rounded-2xl border border-[#e6dbcd] bg-white p-4'
+                    onClick={() => setDetail(r)}
+                  >
+                    <div className='flex items-center justify-between gap-2'>
+                      <span className='font-mono text-sm font-semibold text-[#9d684e]'>
+                        {prettyCode(r.code)}
+                      </span>
+                      <StatusBadge
+                        label={RESERVATION_STATUS_LABEL[r.status] ?? r.status}
+                        bg={bg}
+                        fg={fg}
+                      />
+                    </div>
+                    <p className='mt-1.5 text-sm font-semibold text-[#3d3338]'>
+                      {r.customerName}
                     </p>
-                  )}
-                </div>
-                <span className='rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#455a54]'>
-                  {r.source === 'ADMIN' ? 'Admin' : 'Público'}
-                </span>
-                <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
-                  <span
-                    className='h-1.5 w-1.5 rounded-full'
-                    style={{ backgroundColor: fg }}
-                  />
-                  {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
-                </span>
-                {renderActions(r) ?? <span />}
-              </div>
-            );
-          })
-        )}
-        </div>
-      </div>
+                    <p className='mt-2 text-sm text-[#3d3338]'>{r.experienceName}</p>
+                    <p className='font-mono text-xs text-[#7a6e6f]'>{fmtDateTime(r.startAt)}</p>
+                    <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
+                      <span className='text-[#455a54]'>{r.quantity} pers.</span>
+                      <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</span>
+                      {r.balanceDue != null && r.balanceDue > 0 && (
+                        <span className='text-[11px] text-[#7a6e6f]'>
+                          saldo {fmtPrice(r.balanceDue)}
+                        </span>
+                      )}
+                      <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#7a6e6f]'>
+                        {r.source === 'ADMIN' ? 'Admin' : 'Público'}
+                      </span>
+                    </div>
+                    {actions && (
+                      <div className='mt-3' onClick={(e) => e.stopPropagation()}>
+                        {actions}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-      {/* Mobile: tarjetas (la tabla no entra en pantallas chicas) */}
-      <div className='flex flex-col gap-3 md:hidden'>
-        {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
-            Cargando…
-          </div>
-        ) : items.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
-            {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
-          </div>
-        ) : (
-          items.map((r) => {
-            const [, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
-              '#f1ede6',
-              '#7a6e6f',
-            ];
-            const actions = renderActions(r);
-            return (
-              <div
-                key={r._id}
-                className='rounded-xl border border-[#e6dbcd] bg-white p-4'
-              >
-                <div className='flex items-center justify-between gap-2'>
-                  <span className='font-mono text-sm font-semibold text-[#9d684e]'>
-                    {prettyCode(r.code)}
-                  </span>
-                  <span className='inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#455a54]'>
-                    <span
-                      className='h-1.5 w-1.5 rounded-full'
-                      style={{ backgroundColor: fg }}
-                    />
-                    {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
-                  </span>
-                </div>
-                <p className='mt-1.5 text-sm font-medium text-[#455a54]'>
-                  {r.customerName}
-                </p>
-                <p className='mt-2 text-sm text-[#455a54]'>{r.experienceName}</p>
-                <p className='font-mono text-xs text-[#455a54]/60'>
-                  {fmtDateTime(r.startAt)}
-                </p>
-                <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
-                  <span className='text-[#455a54]'>{r.quantity} pers.</span>
-                  <span className='font-medium text-[#455a54]'>
-                    {fmtPrice(r.amount)}
-                  </span>
-                  {r.balanceDue != null && r.balanceDue > 0 && (
-                    <span className='text-[11px] text-[#455a54]/60'>
-                      saldo {fmtPrice(r.balanceDue)}
-                    </span>
-                  )}
-                  <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#455a54]'>
-                    {r.source === 'ADMIN' ? 'Admin' : 'Público'}
-                  </span>
-                </div>
-                {actions && <div className='mt-3'>{actions}</div>}
-              </div>
-            );
-          })
-        )}
-      </div>
+          <Pager
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            from={from}
+            to={to}
+            onPage={setPage}
+          />
+        </>
+      )}
+
+      <ReservationDetailPanel
+        reservation={detail}
+        onClose={() => setDetail(null)}
+        onCollect={(r) => {
+          setDetail(null);
+          setCollect(r);
+        }}
+        onReschedule={(r) => {
+          setDetail(null);
+          setReschedule(r);
+        }}
+        onConfirm={(r) => doResolve(r, 'confirm')}
+        onCancel={doCancel}
+        busy={busy != null}
+      />
 
       {collect && (
         <CollectBalanceModal
           reservation={collect}
           onClose={() => setCollect(null)}
-          onDone={async () => {
+          onDone={() => {
             setCollect(null);
-            await load();
+            refresh();
           }}
         />
       )}
@@ -366,41 +507,232 @@ export function ReservasTab() {
         <RescheduleModal
           reservation={reschedule}
           onClose={() => setReschedule(null)}
-          onDone={async () => {
+          onDone={() => {
             setReschedule(null);
-            await load();
+            refresh();
           }}
         />
       )}
 
-      {totalPages > 1 && (
-        <div className='flex items-center justify-center gap-3'>
-          <Button
-            type='button'
-            variant='outline'
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Anterior
-          </Button>
-          <span className='text-sm text-[#455a54]/60'>
-            {page} / {totalPages}
-          </span>
-          <Button
-            type='button'
-            variant='outline'
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-            className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Siguiente
-          </Button>
-        </div>
+      {newOpen && (
+        <NewReservationModal
+          experiences={experiences}
+          onClose={() => setNewOpen(false)}
+          onDone={() => {
+            setNewOpen(false);
+            refresh();
+          }}
+        />
       )}
     </div>
   );
 }
+
+// ─────────────────────────── Nueva reserva (admin) ───────────────────────────
+
+function NewReservationModal({
+  experiences,
+  onClose,
+  onDone,
+}: {
+  experiences: AdminExperience[];
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}) {
+  const [expId, setExpId] = useState('');
+  const [sessions, setSessions] = useState<AdminSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [sessionId, setSessionId] = useState('');
+  const [qty, setQty] = useState('1');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!expId) {
+      setSessions([]);
+      setSessionId('');
+      return;
+    }
+    setLoadingSessions(true);
+    reservationsAdmin
+      .listSessions({ experienceId: expId, status: 'OPEN' })
+      .then((all) => setSessions(all.filter((s) => s.seatsAvailable > 0)))
+      .catch(() => setSessions([]))
+      .finally(() => setLoadingSessions(false));
+  }, [expId]);
+
+  const session = sessions.find((s) => s.id === sessionId) ?? null;
+  const quantity = Math.max(1, Number(qty) || 1);
+  const total = session ? session.price * quantity : 0;
+
+  async function submit() {
+    if (!sessionId) return showToast.error('Elegí un turno');
+    if (name.trim().length < 2) return showToast.error('Ingresá el nombre del cliente');
+    if (session && quantity > session.seatsAvailable)
+      return showToast.error(`Solo quedan ${session.seatsAvailable} lugares`);
+    setSaving(true);
+    try {
+      await reservationsAdmin.createReservation({
+        sessionId,
+        quantity,
+        customerName: name.trim(),
+        customerPhone: phone.trim() || undefined,
+        paymentMethod: method,
+      });
+      showToast.success('Reserva creada');
+      await onDone();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo crear la reserva');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const field =
+    'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle>Nueva reserva</DialogTitle>
+          <DialogDescription>Cargá una reserva desde el panel.</DialogDescription>
+        </DialogHeader>
+
+        <div className='space-y-3.5'>
+          <div className='space-y-1.5'>
+            <label className='text-[13px] font-medium text-[#455a54]'>Experiencia</label>
+            <select
+              value={expId}
+              onChange={(e) => setExpId(e.target.value)}
+              className={cn('h-10 w-full rounded-md border px-3 text-sm sm:h-9', field)}
+            >
+              <option value=''>Elegí una experiencia…</option>
+              {experiences
+                .filter((e) => e.bookableOnline !== false)
+                .map((e) => (
+                  <option key={e._id} value={e._id}>
+                    {e.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {expId && (
+            <div className='space-y-1.5'>
+              <label className='text-[13px] font-medium text-[#455a54]'>Turno</label>
+              {loadingSessions ? (
+                <p className='text-sm text-[#7a6e6f]'>Cargando turnos…</p>
+              ) : sessions.length === 0 ? (
+                <p className='text-sm text-[#7a6e6f]'>No hay turnos con lugar para esta experiencia.</p>
+              ) : (
+                <div className='max-h-44 space-y-1.5 overflow-y-auto'>
+                  {sessions.map((s) => {
+                    const on = s.id === sessionId;
+                    return (
+                      <button
+                        key={s.id}
+                        type='button'
+                        onClick={() => setSessionId(s.id)}
+                        className={cn(
+                          'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                          on
+                            ? 'border-[#455a54] bg-[#E7F0EC] text-[#455a54]'
+                            : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
+                        )}
+                      >
+                        <span className='font-mono text-xs'>{fmtDateTime(s.startAt)}</span>
+                        <span className='text-xs text-[#7a6e6f]'>{s.seatsAvailable} lugares</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className='grid grid-cols-2 gap-3'>
+            <div className='space-y-1.5'>
+              <label className='text-[13px] font-medium text-[#455a54]'>Personas</label>
+              <Input
+                type='number'
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                className={field}
+              />
+            </div>
+            <div className='space-y-1.5'>
+              <label className='text-[13px] font-medium text-[#455a54]'>Teléfono</label>
+              <Input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder='Opcional'
+                className={field}
+              />
+            </div>
+          </div>
+
+          <div className='space-y-1.5'>
+            <label className='text-[13px] font-medium text-[#455a54]'>Nombre y apellido</label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={field}
+            />
+          </div>
+
+          <div className='space-y-1.5'>
+            <label className='text-[13px] font-medium text-[#455a54]'>Cómo abona</label>
+            <div className='grid grid-cols-3 gap-2'>
+              {PAY_METHODS.map((m) => {
+                const on = m.key === method;
+                return (
+                  <Button
+                    key={m.key}
+                    type='button'
+                    variant={on ? 'verde' : 'outline'}
+                    size='sm'
+                    onClick={() => setMethod(m.key)}
+                    className={cn(
+                      !on &&
+                        'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
+                    )}
+                  >
+                    {m.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {session && (
+            <div className='flex items-center justify-between rounded-lg bg-[#fbf5ef] px-3 py-2 text-sm'>
+              <span className='text-[#7a6e6f]'>Total</span>
+              <span className='font-semibold text-[#3d3338]'>{fmtPrice(total)}</span>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='verde'
+            onClick={submit}
+            disabled={saving || !sessionId}
+            className='w-full'
+          >
+            {saving ? 'CREANDO…' : 'CREAR RESERVA'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─────────────────────────── Reprogramar (sin cambios de lógica) ───────────────────────────
 
 function RescheduleModal({
   reservation,
@@ -416,8 +748,6 @@ function RescheduleModal({
   const [selected, setSelected] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
-  // ¿El turno original está a menos de 48 hs? La política dice que no se
-  // aceptan modificaciones; el admin puede forzar igual (override).
   const insideWindow =
     new Date(reservation.startAt).getTime() - Date.now() <
     RESCHEDULE_MIN_HOURS * 3600_000;
@@ -452,11 +782,7 @@ function RescheduleModal({
       return;
     setSaving(true);
     try {
-      await reservationsAdmin.rescheduleReservation(
-        reservation._id,
-        selected,
-        insideWindow,
-      );
+      await reservationsAdmin.rescheduleReservation(reservation._id, selected, insideWindow);
       showToast.success('Reserva reprogramada; se avisó al cliente');
       await onDone();
     } catch (e) {
@@ -479,16 +805,16 @@ function RescheduleModal({
 
         {insideWindow && (
           <p className='rounded-lg border border-[#e0b98a] bg-[#fdf6ec] px-3 py-2 text-xs text-[#8a5a2a]'>
-            Faltan menos de {RESCHEDULE_MIN_HOURS} hs para el turno: por política
-            no se aceptan modificaciones. Podés forzarla como admin.
+            Faltan menos de {RESCHEDULE_MIN_HOURS} hs para el turno: por política no se
+            aceptan modificaciones. Podés forzarla como admin.
           </p>
         )}
 
         <div className='max-h-72 space-y-1.5 overflow-y-auto'>
           {loading ? (
-            <p className='p-3 text-sm text-[#455a54]/60'>Cargando turnos…</p>
+            <p className='p-3 text-sm text-[#7a6e6f]'>Cargando turnos…</p>
           ) : sessions.length === 0 ? (
-            <p className='p-3 text-sm text-[#455a54]/60'>
+            <p className='p-3 text-sm text-[#7a6e6f]'>
               No hay otros turnos de esta experiencia.
             </p>
           ) : (
@@ -512,12 +838,8 @@ function RescheduleModal({
                   )}
                 >
                   <span className='font-mono text-xs'>{fmtDateTime(s.startAt)}</span>
-                  <span className='text-xs text-[#455a54]/70'>
-                    {noSeats
-                      ? 'sin cupo'
-                      : otherPrice
-                        ? 'otro precio'
-                        : `${s.seatsAvailable} lugares`}
+                  <span className='text-xs text-[#7a6e6f]'>
+                    {noSeats ? 'sin cupo' : otherPrice ? 'otro precio' : `${s.seatsAvailable} lugares`}
                   </span>
                 </button>
               );
@@ -541,6 +863,8 @@ function RescheduleModal({
   );
 }
 
+// ─────────────────────────── Cobrar saldo (sin cambios de lógica) ───────────────────────────
+
 function CollectBalanceModal({
   reservation,
   onClose,
@@ -563,9 +887,7 @@ function CollectBalanceModal({
     }
     setSaving(true);
     try {
-      await reservationsAdmin.collectBalance(reservation._id, [
-        { method, amount: value },
-      ]);
+      await reservationsAdmin.collectBalance(reservation._id, [{ method, amount: value }]);
       showToast.success('Saldo cobrado');
       await onDone();
     } catch (e) {
@@ -587,31 +909,38 @@ function CollectBalanceModal({
         </DialogHeader>
 
         <div className='space-y-3'>
-          <div className='grid grid-cols-3 gap-2'>
-            {PAY_METHODS.map((m) => {
-              const on = m.key === method;
-              return (
-                <Button
-                  key={m.key}
-                  type='button'
-                  variant={on ? 'terracota' : 'outline'}
-                  size='sm'
-                  onClick={() => setMethod(m.key)}
-                  className={cn(
-                    !on && 'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
-                  )}
-                >
-                  {m.label}
-                </Button>
-              );
-            })}
+          <div className='space-y-1.5'>
+            <label className='text-[13px] font-medium text-[#455a54]'>Medio de pago</label>
+            <div className='grid grid-cols-3 gap-2'>
+              {PAY_METHODS.map((m) => {
+                const on = m.key === method;
+                return (
+                  <Button
+                    key={m.key}
+                    type='button'
+                    variant={on ? 'terracota' : 'outline'}
+                    size='sm'
+                    onClick={() => setMethod(m.key)}
+                    className={cn(
+                      !on &&
+                        'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
+                    )}
+                  >
+                    {m.label}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
-          <Input
-            type='number'
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
-          />
+          <div className='space-y-1.5'>
+            <label className='text-[13px] font-medium text-[#455a54]'>Monto a cobrar</label>
+            <Input
+              type='number'
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+            />
+          </div>
         </div>
 
         <DialogFooter>

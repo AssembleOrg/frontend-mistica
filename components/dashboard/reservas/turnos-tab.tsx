@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   CalendarOff,
+  CalendarPlus,
   CopyPlus,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
   Users,
   X,
@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   fmtDateTime,
+  fmtPrice,
   SESSION_STATUS_LABEL,
 } from '@/lib/reservas-format';
 import {
@@ -52,6 +53,7 @@ import {
 } from '@/services/closed-dates.admin.service';
 import { AnotadosModal } from './anotados-modal';
 import { SpaceBlocksPanel } from './space-blocks-panel';
+import { IconBtn, StatusBadge } from './_shared';
 
 interface SlotRow {
   date: string;
@@ -64,11 +66,31 @@ const triggerCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30 data-[placeholder]:text-[#455a54]/60';
 
 // Columnas explícitas (sin `auto`) para alinear header y filas. Sólo desktop;
-// en mobile se usan tarjetas.
-const COLS = 'grid grid-cols-[1.4fr_1.6fr_1.4fr_5rem_14rem] gap-3';
+// en mobile se usan tarjetas. EXPERIENCIA = 1fr, el resto ancho fijo.
+const COLS =
+  'grid grid-cols-[1fr_12rem_9.5rem_7rem_7rem_8rem] items-center gap-3';
 
 const expColor = (s: AdminSession) =>
   s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
+
+// Mapea estado del turno a los tintes aprobados. OPEN lleno = "Completo" con los
+// colores de CLOSED.
+function sessionBadge(s: AdminSession): { bg: string; fg: string; label: string } {
+  const full = s.seatsTaken >= s.capacity;
+  const base = SESSION_STATUS_LABEL[s.status] ?? s.status;
+  switch (s.status) {
+    case 'OPEN':
+      return full
+        ? { bg: '#f1ede6', fg: '#7a6e6f', label: 'Completo' }
+        : { bg: '#E7F0EC', fg: '#455a54', label: base };
+    case 'DRAFT':
+      return { bg: '#F6E9DC', fg: '#cc844a', label: base };
+    case 'CLOSED':
+      return { bg: '#f1ede6', fg: '#7a6e6f', label: full ? 'Completo' : base };
+    default:
+      return { bg: '#f1ede6', fg: '#7a6e6f', label: base };
+  }
+}
 
 export function TurnosTab() {
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
@@ -162,53 +184,45 @@ export function TurnosTab() {
   function renderTurnoActions(s: AdminSession) {
     return (
       <div className='flex items-center justify-end gap-1.5'>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
+        <IconBtn
+          icon={Users}
+          title='Anotados'
           onClick={() => setAnotados(s.id)}
-          className='border-[#e6dbcd] bg-[#fbf5ef] font-mono text-xs text-[#455a54] hover:bg-[#f3e9df]'
-        >
-          <Users className='h-3.5 w-3.5' /> Anotados
-        </Button>
-        <Button
-          type='button'
-          variant='outline'
-          size='icon'
+        />
+        <IconBtn
+          icon={Pencil}
+          title='Editar'
           onClick={() => setEditing(s)}
-          title='Editar turno'
-          className='size-8 border-[#e6dbcd] text-[#455a54]/60 hover:bg-[#fbf5ef] hover:text-[#455a54]'
-        >
-          <Pencil className='h-3.5 w-3.5' />
-        </Button>
-        <Button
-          type='button'
-          variant='outline'
-          size='icon'
+        />
+        <IconBtn
+          icon={Trash2}
+          title='Eliminar'
+          tone='rojo'
           onClick={() => doDelete(s)}
-          title='Eliminar turno'
-          className='size-8 border-[#e6dbcd] text-[#455a54]/60 hover:bg-red-50 hover:text-[#b23b2e]'
-        >
-          <Trash2 className='h-3.5 w-3.5' />
-        </Button>
+        />
       </div>
     );
   }
 
-  function cupoBar(s: AdminSession) {
-    const pct = Math.round((s.seatsTaken / s.capacity) * 100);
+  function cupoBar(s: AdminSession, fullWidth = false) {
     const full = s.seatsTaken >= s.capacity;
+    const pct = Math.min(100, Math.round((s.seatsTaken / s.capacity) * 100));
     return (
       <div className='flex flex-col gap-1.5'>
-        <span className='text-xs text-[#455a54]'>
-          {s.seatsTaken} / {s.capacity} personas
+        <span
+          className='text-xs font-medium'
+          style={{ color: full ? '#b23b2e' : '#3d3338' }}
+        >
+          {s.seatsTaken} / {s.capacity} lugares
         </span>
-        <div className='h-1.5 w-32 max-w-full overflow-hidden rounded-full bg-[#e6dbcd]'>
+        <div
+          className={`h-1.5 overflow-hidden rounded-full bg-[#e6dbcd] ${fullWidth ? 'w-full' : 'w-[120px] max-w-full'}`}
+        >
           <div
             className='h-full rounded-full'
             style={{
-              width: `${pct}%`,
-              backgroundColor: full ? '#9d684e' : '#455a54',
+              width: s.seatsTaken > 0 ? `max(6px, ${pct}%)` : '0%',
+              backgroundColor: full ? '#b23b2e' : '#455a54',
             }}
           />
         </div>
@@ -219,7 +233,7 @@ export function TurnosTab() {
   return (
     <div className='flex flex-col gap-5'>
       {/* Panel generar */}
-      <div className='flex flex-col gap-4 rounded-xl border border-[#e6dbcd] bg-white p-5'>
+      <div className='flex flex-col gap-4 rounded-2xl border border-[#e6dbcd] bg-white p-5'>
         <div className='flex items-center gap-2'>
           <CopyPlus className='h-5 w-5 text-[#9d684e]' />
           <h2 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>
@@ -335,12 +349,12 @@ export function TurnosTab() {
           </div>
           <Button
             type='button'
-            variant='terracota'
+            variant='verde'
             onClick={generate}
             disabled={generating}
-            className='font-mono text-xs tracking-wider'
+            className='gap-2 font-mono text-xs tracking-wider'
           >
-            <Sparkles className='h-4 w-4' />
+            <CalendarPlus className='h-4 w-4' />
             {generating
               ? 'GENERANDO…'
               : `GENERAR ${validSlots.length || ''} TURNO${validSlots.length === 1 ? '' : 'S'}`}
@@ -355,45 +369,48 @@ export function TurnosTab() {
       <SpaceBlocksPanel />
 
       {/* Lista de turnos — Desktop: tabla */}
-      <div className='hidden overflow-x-auto rounded-xl border border-[#e6dbcd] bg-white md:block'>
+      <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
         <div className='min-w-[52rem]'>
-          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#455a54]/60`}>
-            <span>FECHA</span>
+          <div className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}>
             <span>EXPERIENCIA</span>
+            <span>FECHA Y HORA</span>
             <span>CUPO</span>
+            <span>PRECIO</span>
             <span>ESTADO</span>
-            <span></span>
+            <span className='text-right'>ACCIONES</span>
           </div>
           {loading ? (
-            <div className='p-6 text-sm text-[#455a54]/60'>Cargando…</div>
+            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
           ) : sessions.length === 0 ? (
-            <div className='p-6 text-sm text-[#455a54]/60'>
+            <div className='p-6 text-sm text-[#7a6e6f]'>
               No hay turnos futuros. Generá arriba.
             </div>
           ) : (
-            sessions.map((s) => (
-              <div
-                key={s.id}
-                className={`${COLS} items-center border-b border-[#e6dbcd] px-5 py-4 last:border-0`}
-                style={{ boxShadow: `inset 4px 0 0 ${expColor(s)}` }}
-              >
-                <span className='text-sm font-medium text-[#455a54]'>
-                  {fmtDateTime(s.startAt)}
-                </span>
-                <span className='flex items-center gap-2 text-sm text-[#455a54]'>
-                  <span
-                    className='h-2.5 w-2.5 shrink-0 rounded-full'
-                    style={{ backgroundColor: expColor(s) }}
-                  />
-                  {s.experienceName}
-                </span>
-                {cupoBar(s)}
-                <span className='text-xs text-[#455a54]/60'>
-                  {SESSION_STATUS_LABEL[s.status] ?? s.status}
-                </span>
-                {renderTurnoActions(s)}
-              </div>
-            ))
+            sessions.map((s) => {
+              const badge = sessionBadge(s);
+              return (
+                <div
+                  key={s.id}
+                  className={`${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`}
+                  style={{ boxShadow: `inset 4px 0 0 ${expColor(s)}` }}
+                >
+                  <span className='truncate text-sm font-medium text-[#3d3338]'>
+                    {s.experienceName}
+                  </span>
+                  <span className='font-mono text-[13px] text-[#7a6e6f]'>
+                    {fmtDateTime(s.startAt)}
+                  </span>
+                  {cupoBar(s)}
+                  <span className='text-sm font-medium text-[#3d3338]'>
+                    {fmtPrice(s.price)}
+                  </span>
+                  <div>
+                    <StatusBadge label={badge.label} bg={badge.bg} fg={badge.fg} />
+                  </div>
+                  {renderTurnoActions(s)}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
@@ -401,33 +418,41 @@ export function TurnosTab() {
       {/* Lista de turnos — Mobile: tarjetas */}
       <div className='flex flex-col gap-3 md:hidden'>
         {loading ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
+          <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             Cargando…
           </div>
         ) : sessions.length === 0 ? (
-          <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#455a54]/60'>
+          <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             No hay turnos futuros. Generá arriba.
           </div>
         ) : (
-          sessions.map((s) => (
-            <div
-              key={s.id}
-              className='rounded-xl border border-[#e6dbcd] bg-white p-4'
-              style={{ borderLeft: `4px solid ${expColor(s)}` }}
-            >
-              <div className='flex items-start justify-between gap-2'>
-                <span className='text-sm font-medium text-[#455a54]'>
+          sessions.map((s) => {
+            const badge = sessionBadge(s);
+            return (
+              <div
+                key={s.id}
+                className='rounded-2xl border border-[#e6dbcd] bg-white p-4'
+                style={{ borderLeft: `4px solid ${expColor(s)}` }}
+              >
+                <div className='flex items-start justify-between gap-2'>
+                  <span className='text-sm font-medium text-[#3d3338]'>
+                    {s.experienceName}
+                  </span>
+                  <StatusBadge label={badge.label} bg={badge.bg} fg={badge.fg} />
+                </div>
+                <p className='mt-1 font-mono text-[13px] text-[#7a6e6f]'>
                   {fmtDateTime(s.startAt)}
-                </span>
-                <span className='shrink-0 text-xs text-[#455a54]/60'>
-                  {SESSION_STATUS_LABEL[s.status] ?? s.status}
-                </span>
+                </p>
+                <div className='mt-2'>{cupoBar(s, true)}</div>
+                <div className='mt-3 flex items-center justify-between gap-2'>
+                  <span className='text-sm font-medium text-[#3d3338]'>
+                    {fmtPrice(s.price)}
+                  </span>
+                  {renderTurnoActions(s)}
+                </div>
               </div>
-              <p className='mt-1 text-sm text-[#455a54]'>{s.experienceName}</p>
-              <div className='mt-2'>{cupoBar(s)}</div>
-              <div className='mt-3'>{renderTurnoActions(s)}</div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

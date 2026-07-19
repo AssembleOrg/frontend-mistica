@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   CalendarOff,
   CalendarPlus,
+  ChevronDown,
   CopyPlus,
   Pencil,
   Plus,
+  SlidersHorizontal,
   Trash2,
   Users,
   X,
@@ -70,8 +72,32 @@ const triggerCls =
 const COLS =
   'grid grid-cols-[1fr_12rem_9.5rem_7rem_7rem_8rem] items-center gap-3';
 
-const expColor = (s: AdminSession) =>
-  s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
+// Filtros de estado del toolbar (incluye "Completos", pseudo-estado = lleno).
+const STATUS_FILTERS: { v: string; l: string }[] = [
+  { v: '', l: 'Todos los estados' },
+  { v: 'OPEN', l: 'Abiertos' },
+  { v: 'FULL', l: 'Completos' },
+  { v: 'DRAFT', l: 'Borradores' },
+  { v: 'CANCELLED', l: 'Cancelados' },
+];
+
+function matchStatus(s: AdminSession, f: string): boolean {
+  const full = s.seatsTaken >= s.capacity;
+  switch (f) {
+    case '':
+      return true;
+    case 'OPEN':
+      return s.status === 'OPEN' && !full;
+    case 'FULL':
+      return full && (s.status === 'OPEN' || s.status === 'CLOSED');
+    case 'DRAFT':
+      return s.status === 'DRAFT';
+    case 'CANCELLED':
+      return s.status === 'CANCELLED';
+    default:
+      return true;
+  }
+}
 
 // Mapea estado del turno a los tintes aprobados. OPEN lleno = "Completo" con los
 // colores de CLOSED.
@@ -98,6 +124,12 @@ export function TurnosTab() {
   const [loading, setLoading] = useState(true);
   const [anotados, setAnotados] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminSession | null>(null);
+
+  // Filtros del toolbar + apertura del modal de generación + config colapsable.
+  const [expFilter, setExpFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [genOpen, setGenOpen] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
 
   // Form de generación
   const [expId, setExpId] = useState('');
@@ -133,6 +165,12 @@ export function TurnosTab() {
 
   const validSlots = slots.filter((s) => s.date && s.time);
 
+  // Lista visible según los filtros del toolbar (experiencia + estado).
+  const filtered = sessions.filter(
+    (s) =>
+      (!expFilter || s.experienceId === expFilter) && matchStatus(s, statusFilter),
+  );
+
   async function generate() {
     if (!expId) {
       showToast.error('Elegí una experiencia');
@@ -157,6 +195,7 @@ export function TurnosTab() {
       });
       showToast.success(`${validSlots.length} turno(s) generado(s)`);
       setSlots([{ date: '', time: '' }]);
+      setGenOpen(false);
       await loadSessions();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudo generar');
@@ -232,17 +271,57 @@ export function TurnosTab() {
 
   return (
     <div className='flex flex-col gap-5'>
-      {/* Panel generar */}
-      <div className='flex flex-col gap-4 rounded-2xl border border-[#e6dbcd] bg-white p-5'>
-        <div className='flex items-center gap-2'>
-          <CopyPlus className='h-5 w-5 text-[#9d684e]' />
-          <h2 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>
-            Generar turnos rápido
-          </h2>
-          <span className='text-xs text-[#455a54]/60'>
-            · repetí la experiencia en varias fechas
-          </span>
+      {/* Toolbar: filtros + generar */}
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <div className='flex flex-wrap items-center gap-2.5'>
+          <select
+            value={expFilter}
+            onChange={(e) => setExpFilter(e.target.value)}
+            className='h-10 rounded-[10px] border border-[#e6dbcd] bg-white px-3 text-[13px] font-medium text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:outline-none sm:h-9'
+          >
+            <option value=''>Todas las experiencias</option>
+            {experiences.map((e) => (
+              <option key={e._id} value={e._id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className='h-10 rounded-[10px] border border-[#e6dbcd] bg-white px-3 text-[13px] font-medium text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:outline-none sm:h-9'
+          >
+            {STATUS_FILTERS.map((o) => (
+              <option key={o.v} value={o.v}>
+                {o.l}
+              </option>
+            ))}
+          </select>
         </div>
+        <Button
+          type='button'
+          variant='verde'
+          className='gap-2'
+          onClick={() => setGenOpen(true)}
+        >
+          <CalendarPlus className='h-4 w-4' />
+          Generar turnos
+        </Button>
+      </div>
+
+      {/* Modal: generar turnos rápido */}
+      <Dialog open={genOpen} onOpenChange={setGenOpen}>
+        <DialogContent className='sm:max-w-lg'>
+          <DialogHeader className='text-left'>
+            <DialogTitle className='flex items-center gap-2'>
+              <CopyPlus className='h-5 w-5 text-[#9d684e]' />
+              Generar turnos rápido
+            </DialogTitle>
+          </DialogHeader>
+          <div className='flex flex-col gap-4'>
+            <span className='text-xs text-[#455a54]/60'>
+              Repetí la experiencia en varias fechas de una.
+            </span>
 
         <div className='grid gap-3 sm:grid-cols-[2fr_1fr_1fr]'>
           <Field label='Experiencia'>
@@ -360,13 +439,9 @@ export function TurnosTab() {
               : `GENERAR ${validSlots.length || ''} TURNO${validSlots.length === 1 ? '' : 'S'}`}
           </Button>
         </div>
-      </div>
-
-      {/* Días cerrados */}
-      <ClosedDatesPanel />
-
-      {/* Bloqueos de espacio (talleres/eventos) */}
-      <SpaceBlocksPanel />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Lista de turnos — Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
@@ -381,18 +456,19 @@ export function TurnosTab() {
           </div>
           {loading ? (
             <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
-          ) : sessions.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <div className='p-6 text-sm text-[#7a6e6f]'>
-              No hay turnos futuros. Generá arriba.
+              {sessions.length === 0
+                ? 'No hay turnos. Generá turnos con el botón de arriba.'
+                : 'No hay turnos para este filtro.'}
             </div>
           ) : (
-            sessions.map((s) => {
+            filtered.map((s) => {
               const badge = sessionBadge(s);
               return (
                 <div
                   key={s.id}
                   className={`${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`}
-                  style={{ boxShadow: `inset 4px 0 0 ${expColor(s)}` }}
                 >
                   <span className='truncate text-sm font-medium text-[#3d3338]'>
                     {s.experienceName}
@@ -421,18 +497,19 @@ export function TurnosTab() {
           <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             Cargando…
           </div>
-        ) : sessions.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
-            No hay turnos futuros. Generá arriba.
+            {sessions.length === 0
+              ? 'No hay turnos. Generá turnos con el botón de arriba.'
+              : 'No hay turnos para este filtro.'}
           </div>
         ) : (
-          sessions.map((s) => {
+          filtered.map((s) => {
             const badge = sessionBadge(s);
             return (
               <div
                 key={s.id}
                 className='rounded-2xl border border-[#e6dbcd] bg-white p-4'
-                style={{ borderLeft: `4px solid ${expColor(s)}` }}
               >
                 <div className='flex items-start justify-between gap-2'>
                   <span className='text-sm font-medium text-[#3d3338]'>
@@ -455,6 +532,30 @@ export function TurnosTab() {
           })
         )}
       </div>
+
+      {/* Ajustes de disponibilidad (días cerrados + bloqueos), colapsable */}
+      <button
+        type='button'
+        onClick={() => setShowConfig((v) => !v)}
+        className='flex items-center justify-between gap-2 rounded-2xl border border-[#e6dbcd] bg-white px-5 py-3.5 text-left'
+      >
+        <span className='flex items-center gap-2 text-sm font-medium text-[#455a54]'>
+          <SlidersHorizontal className='h-4 w-4 text-[#9d684e]' />
+          Días cerrados y bloqueos de espacio
+        </span>
+        <ChevronDown
+          className={
+            'h-4 w-4 text-[#7a6e6f] transition-transform' +
+            (showConfig ? ' rotate-180' : '')
+          }
+        />
+      </button>
+      {showConfig && (
+        <>
+          <ClosedDatesPanel />
+          <SpaceBlocksPanel />
+        </>
+      )}
 
       {anotados && (
         <AnotadosModal

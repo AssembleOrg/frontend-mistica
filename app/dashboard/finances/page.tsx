@@ -280,7 +280,7 @@ export default function FinancesPage() {
                     Sesiones del rango y diferencias de cierre
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <div className="flex items-center gap-0.5 rounded-lg p-1" style={{ background: 'var(--color-negro)' }}>
                     <Button
                       type="button"
@@ -311,17 +311,12 @@ export default function FinancesPage() {
                       />
                     </Button>
                   </div>
-                  <Badge
-                    style={
-                      summary.totalDiscrepancy === 0
-                        ? { background: 'color-mix(in srgb, var(--color-verde-profundo) 12%, transparent)', color: 'var(--color-verde-profundo)' }
-                        : summary.totalDiscrepancy > 0
-                          ? { background: 'color-mix(in srgb, var(--color-naranja-medio) 15%, transparent)', color: 'var(--color-naranja-medio)' }
-                          : { background: 'color-mix(in srgb, var(--color-terracota) 15%, transparent)', color: 'var(--color-terracota)' }
-                    }
+                  <span
+                    className="hidden sm:inline text-xs font-winter-solid whitespace-nowrap"
+                    style={{ color: 'var(--color-verde-profundo)', opacity: 0.8 }}
                   >
                     Diferencia neta: {formatCurrency(summary.totalDiscrepancy)}
-                  </Badge>
+                  </span>
                 </div>
               </div>
             </CardHeader>
@@ -381,6 +376,18 @@ export default function FinancesPage() {
                             >
                               <Pencil className="h-3.5 w-3.5" style={{ color: 'var(--color-ciruela-oscuro)' }} />
                             </button>}
+                            <button
+                              type="button"
+                              title="Descargar balance"
+                              aria-label="Descargar balance de la sesión"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open(`/session-report?id=${s.id}`, '_blank');
+                              }}
+                              className="opacity-40 hover:opacity-100 transition-opacity"
+                            >
+                              <FileDown className="h-4 w-4" style={{ color: 'var(--color-verde-profundo)' }} />
+                            </button>
                           </div>
                         )}
                       </div>

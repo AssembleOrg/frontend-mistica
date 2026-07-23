@@ -116,6 +116,8 @@ export interface SessionTransaction {
   // true cuando es seña: prepaid (saldo a favor) o venta con saldo pendiente
   // (status PARTIAL). Lo usa el chip "Seña" unificado del detalle de sesión.
   isSena?: boolean;
+  // Marca manual del checkbox tipo Excel. Sólo estado; no afecta cálculos.
+  checked?: boolean;
 }
 
 export interface SessionTransactionsResponse {
@@ -187,6 +189,19 @@ class CashboxService {
 
   async getSessionTransactions(id: string): Promise<ApiResponse<SessionTransactionsResponse>> {
     return apiService.get<SessionTransactionsResponse>(`/cashbox/${id}/transactions`);
+  }
+
+  /**
+   * Marca/desmarca un movimiento (checkbox tipo Excel del detalle de sesión).
+   * Sólo estado visual persistido: no afecta cálculos, saldos ni arqueo. El
+   * movimiento vive en la colección de su `source`, por eso va en la ruta.
+   */
+  async setTransactionChecked(
+    source: SessionTransaction['source'],
+    id: string,
+    checked: boolean,
+  ): Promise<ApiResponse<{ id: string; source: string; checked: boolean }>> {
+    return apiService.patch(`/cashbox/transactions/${source}/${id}/checked`, { checked });
   }
 
   async updateSessionLabel(id: string, label: string): Promise<ApiResponse<CashSession>> {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Banknote, CreditCard, Plus, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { AlertTriangle, Banknote, CreditCard, Pencil, Plus, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,10 @@ import {
 } from '@/services/cashbox.service';
 import { egressesService } from '@/services/egresses.service';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { computeSessionKpis } from '@/lib/session-kpis';
 import { showToast } from '@/lib/toast';
 import { EditSessionDialog } from './edit-session-dialog';
+import { EditEgressDialog } from './edit-egress-dialog';
 
 interface CashSession {
   id: string;
@@ -48,6 +50,14 @@ interface Props {
 type SourceFilter = 'all' | 'sale' | 'sena' | 'egress' | 'income';
 type MethodFilter = 'all' | 'CASH' | 'CARD' | 'TRANSFER' | 'MIXTO';
 
+// Etiqueta legible del método de pago que se muestra bajo el badge de tipo.
+const METHOD_LABEL: Record<string, string> = {
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  TRANSFER: 'Transferencia',
+  MIXTO: 'Mixto',
+};
+
 export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props) {
   const open = session !== null;
   const [transactions, setTransactions] = useState<SessionTransaction[]>([]);
@@ -72,6 +82,8 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
   // inline en vez de la X. Evitamos window.confirm (algunos navegadores lo
   // suprimen y el usuario no ve nada).
   const [confirmingEgressId, setConfirmingEgressId] = useState<string | null>(null);
+  // Egreso que se está editando (su id) — abre el EditEgressDialog.
+  const [editingEgressId, setEditingEgressId] = useState<string | null>(null);
 
   const loadAll = useCallback(() => {
     if (!session) return;
@@ -111,6 +123,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       setSourceFilter('all');
       setMethodFilter('all');
       setConfirmingEgressId(null);
+      setEditingEgressId(null);
       return;
     }
     loadAll();
@@ -152,6 +165,22 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     }
   };
 
+  // Checkbox tipo Excel por movimiento: sólo marca estado (true/false) y lo
+  // persiste. No afecta ningún cálculo, saldo ni arqueo. Optimista: refleja el
+  // toggle en memoria al instante y revierte si el PATCH falla.
+  const toggleChecked = useCallback((tx: SessionTransaction) => {
+    const next = !tx.checked;
+    setTransactions(prev =>
+      prev.map(t => (t.id === tx.id && t.source === tx.source ? { ...t, checked: next } : t)),
+    );
+    cashboxService.setTransactionChecked(tx.source, tx.id, next).catch(() => {
+      setTransactions(prev =>
+        prev.map(t => (t.id === tx.id && t.source === tx.source ? { ...t, checked: !next } : t)),
+      );
+      showToast.error('No se pudo guardar la marca');
+    });
+  }, []);
+
   const filteredTx = useMemo(() => {
     return transactions.filter(t => {
       if (sourceFilter !== 'all') {
@@ -168,43 +197,9 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
   }, [transactions, sourceFilter, methodFilter]);
 
   // KPIs y "cobrado por método" se derivan de las transacciones de ESTA sesión
-  // (ventana openedAt..closedAt exacta), no del summary del día calendario —
-  // así no se mezclan dos cierres del mismo día y los ingresos sí se cuentan.
-  const kpis = useMemo(() => {
-    let salesCount = 0, salesTotal = 0;
-    let egressCount = 0, egressTotal = 0;
-    let incomeCount = 0, incomeTotal = 0;
-    // Saldo de caja = SOLO efectivo (CASH). Tarjeta/transferencia no mueven la
-    // caja física, así apertura + netBalance reconcilia con "Esperado al cierre".
-    // Usamos amountByMethod (no paymentMethod) para que las ventas MIXTO sumen
-    // su porción CASH exacta.
-    let cashInflow = 0, cashOutflow = 0;
-    const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0 };
-
-    for (const t of transactions) {
-      if (t.source === 'sale') { salesCount++; salesTotal += t.amount; }
-      else if (t.source === 'egress') { egressCount++; egressTotal += t.amount; }
-      else if (t.source === 'income') { incomeCount++; incomeTotal += t.amount; }
-
-      const m = t.amountByMethod;
-      if (t.type === 'ingreso') {
-        byMethod.CASH += m.CASH;
-        byMethod.CARD += m.CARD;
-        byMethod.TRANSFER += m.TRANSFER;
-        cashInflow += m.CASH;
-      } else {
-        cashOutflow += m.CASH;
-      }
-    }
-
-    return {
-      salesCount, salesTotal,
-      egressCount, egressTotal,
-      incomeCount, incomeTotal,
-      netBalance: Number((cashInflow - cashOutflow).toFixed(2)),
-      byMethod,
-    };
-  }, [transactions]);
+  // (ventana openedAt..closedAt exacta), no del summary del día calendario.
+  // La lógica vive en computeSessionKpis y la comparte el reporte por sesión.
+  const kpis = useMemo(() => computeSessionKpis(transactions), [transactions]);
 
   if (!session) return null;
 
@@ -218,7 +213,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto" style={{ borderColor: 'var(--color-gris-claro)' }}>
+      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto overflow-x-hidden" style={{ borderColor: 'var(--color-gris-claro)' }}>
         <DialogHeader>
           <DialogTitle className="font-tan-nimbus text-lg" style={{ color: 'var(--color-verde-profundo)' }}>
             Detalle de sesión
@@ -230,7 +225,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
 
         {/* Resumen de caja */}
         <div
-          className="rounded-lg border p-4 space-y-1 text-sm font-sans"
+          className="rounded-lg border p-2.5 space-y-0.5 text-xs font-sans"
           style={{ borderColor: 'var(--color-gris-claro)', background: 'color-mix(in srgb, var(--color-verde-profundo) 5%, transparent)' }}
         >
           {(() => {
@@ -299,32 +294,32 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
         )}
 
         {!loadingTx && (
-          <div className="space-y-4">
+          <div className="space-y-2 min-w-0">
 
             {/* KPIs de la sesión (derivados de las transacciones de la ventana) */}
             <div
               className="grid grid-cols-2 sm:grid-cols-4 divide-x rounded-lg border overflow-hidden text-center"
               style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
             >
-              <div className="p-3">
+              <div className="p-2">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Ventas</p>
-                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{kpis.salesCount}</p>
+                <p className="text-base font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{kpis.salesCount}</p>
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(kpis.salesTotal)}</p>
               </div>
-              <div className="p-3">
+              <div className="p-2">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Ingresos</p>
-                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{kpis.incomeCount}</p>
+                <p className="text-base font-bold font-sans" style={{ color: 'var(--color-verde-profundo)' }}>{kpis.incomeCount}</p>
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(kpis.incomeTotal)}</p>
               </div>
-              <div className="p-3">
+              <div className="p-2">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Egresos</p>
-                <p className="text-lg font-bold font-sans" style={{ color: 'var(--color-terracota)' }}>{kpis.egressCount}</p>
+                <p className="text-base font-bold font-sans" style={{ color: 'var(--color-terracota)' }}>{kpis.egressCount}</p>
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.5 }}>{formatCurrency(kpis.egressTotal)}</p>
               </div>
-              <div className="p-3">
+              <div className="p-2">
                 <p className="text-xs font-sans" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>Balance</p>
                 <p
-                  className="text-lg font-bold font-sans"
+                  className="text-base font-bold font-sans"
                   style={{ color: kpis.netBalance >= 0 ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
                 >
                   {formatCurrency(kpis.netBalance)}
@@ -335,16 +330,16 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
 
             {/* Métodos de pago (ingresos de la sesión) */}
             <div>
-              <p className="text-xs font-medium font-sans uppercase tracking-wide mb-2" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+              <p className="text-xs font-medium font-sans uppercase tracking-wide mb-1" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
                 Cobrado por método
               </p>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {([
                   { icon: <Banknote className="h-3.5 w-3.5" />, label: 'Efectivo',      amount: kpis.byMethod.CASH },
                   { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'Tarjeta',     amount: kpis.byMethod.CARD },
                   { icon: <Send className="h-3.5 w-3.5" />,        label: 'Transferencia', amount: kpis.byMethod.TRANSFER },
                 ] as const).map(({ icon, label, amount }) => (
-                  <div key={label} className="flex items-center justify-between text-sm font-sans">
+                  <div key={label} className="flex items-center justify-between text-xs font-sans">
                     <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>
                       {icon}
                       <span>{label}</span>
@@ -363,7 +358,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
             </div>
 
             {/* Movimientos */}
-            <div className="space-y-2">
+            <div className="space-y-1 min-w-0">
               <div className="flex items-center justify-between">
                 <p
                   className="text-xs font-medium font-winter-solid uppercase tracking-wide"
@@ -452,8 +447,9 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                     : 'Ningún movimiento coincide con los filtros.'}
                 </p>
               ) : (
+                <div className="overflow-x-auto -mx-1 px-1 min-w-0">
                 <div
-                  className="rounded-md border divide-y"
+                  className="min-w-[480px] rounded-md border divide-y"
                   style={{ borderColor: 'var(--color-gris-claro)' }}
                 >
                   {filteredTx.map(t => {
@@ -465,6 +461,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                       hour: '2-digit',
                       minute: '2-digit',
                     });
+                    const metodo = METHOD_LABEL[t.paymentMethod] ?? t.paymentMethod;
                     return (
                       <div
                         key={t.id}
@@ -480,14 +477,22 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                         >
                           {hora}
                         </span>
-                        <span
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0"
-                          style={{
-                            color: isIncome ? '#2f6f3b' : '#9d2f2f',
-                            backgroundColor: isIncome ? 'rgba(47,111,59,0.12)' : 'rgba(157,47,47,0.12)',
-                          }}
-                        >
-                          {isIncome ? 'Ingreso' : 'Egreso'}
+                        <span className="flex flex-col items-start gap-0.5 shrink-0">
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                            style={{
+                              color: isIncome ? '#2f6f3b' : '#9d2f2f',
+                              backgroundColor: isIncome ? 'rgba(47,111,59,0.12)' : 'rgba(157,47,47,0.12)',
+                            }}
+                          >
+                            {isIncome ? 'Ingreso' : 'Egreso'}
+                          </span>
+                          <span
+                            className="text-[9px] leading-none pl-0.5"
+                            style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.55 }}
+                          >
+                            {metodo}
+                          </span>
                         </span>
                         {isPrepaid && (
                           <span
@@ -504,8 +509,37 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                         >
                           {t.description}
                         </span>
+                        <button
+                          type="button"
+                          role="checkbox"
+                          aria-checked={!!t.checked}
+                          aria-label={`Marcar movimiento ${t.description}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleChecked(t);
+                          }}
+                          className="shrink-0 grid place-items-center p-1.5 -m-1.5 rounded-md"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <span
+                            className="grid place-items-center rounded-[5px] transition-all"
+                            style={{
+                              width: 18,
+                              height: 18,
+                              border: '1.5px solid',
+                              borderColor: t.checked ? 'var(--color-verde-profundo)' : 'var(--color-gris-claro)',
+                              backgroundColor: t.checked ? 'var(--color-verde-profundo)' : 'var(--color-blanco)',
+                            }}
+                          >
+                            {t.checked && (
+                              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+                                <path d="M2.5 6.2L4.7 8.4L9.5 3.6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                        </button>
                         <span
-                          className="text-xs font-semibold shrink-0"
+                          className="text-xs font-semibold shrink-0 text-right tabular-nums min-w-[84px]"
                           style={{ color: isIncome ? 'var(--color-verde-profundo)' : 'var(--color-terracota)' }}
                         >
                           {isIncome ? '+' : '-'}
@@ -540,36 +574,50 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                               </Button>
                             </span>
                           ) : (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmingEgressId(t.id)}
-                              className="h-6 px-1.5 shrink-0 text-[10px] font-winter-solid text-[#455a54]/60 hover:text-red-600"
-                              aria-label={`Anular egreso ${t.description}`}
-                              title="Anular egreso"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
+                            <span className="flex items-center shrink-0">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingEgressId(t.id)}
+                                className="h-6 px-1.5 text-[10px] font-winter-solid text-[#455a54]/60 hover:text-[#9d684e]"
+                                aria-label={`Editar egreso ${t.description}`}
+                                title="Editar egreso"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmingEgressId(t.id)}
+                                className="h-6 px-1.5 text-[10px] font-winter-solid text-[#455a54]/60 hover:text-red-600"
+                                aria-label={`Anular egreso ${t.description}`}
+                                title="Anular egreso"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </span>
                           )
                         )}
                       </div>
                     );
                   })}
                 </div>
+                </div>
               )}
             </div>
 
             {/* Historial de ediciones (egresos retroactivos) */}
             {editHistory.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <p
                   className="text-xs font-medium font-winter-solid uppercase tracking-wide"
                   style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}
                 >
                   Historial de cambios
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {[...editHistory]
                     .sort((a, b) => new Date(b.editedAt).getTime() - new Date(a.editedAt).getTime())
                     .map((entry, idx) => {
@@ -589,7 +637,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                       return (
                         <div
                           key={idx}
-                          className="rounded-lg border p-2.5 text-xs font-winter-solid"
+                          className="rounded-lg border p-2 text-xs font-winter-solid"
                           style={{ borderColor: 'var(--color-gris-claro)', background: 'var(--color-blanco)' }}
                         >
                           <div className="flex items-center justify-between mb-1">
@@ -647,6 +695,18 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
           onSaved={() => {
             // Refresca el detalle (headline + transactions + historial)
             // y avisa al padre para que actualice la lista Estado de caja.
+            loadAll();
+            onChanged?.();
+          }}
+        />
+
+        <EditEgressDialog
+          egressId={editingEgressId}
+          onOpenChange={(o) => !o && setEditingEgressId(null)}
+          onUpdated={() => {
+            // El egreso cambió: refresca movimientos + headline (el esperado se
+            // recalcula solo) y avisa al padre para la lista Estado de caja.
+            setEditingEgressId(null);
             loadAll();
             onChanged?.();
           }}

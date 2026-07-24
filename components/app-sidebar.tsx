@@ -13,6 +13,7 @@ import {
   DollarSign,
   Tag,
   Activity,
+  Settings,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -55,7 +56,7 @@ const navigationItems = [
   { title: 'Stock',           url: '/dashboard/stock',      icon: Warehouse,    enabled: true,  adminOnly: true  },
   { title: 'Actividad',      url: '/dashboard/activity',   icon: Activity,     enabled: true,  adminOnly: true  },
   { title: 'Personal',        url: '/dashboard/staff',      icon: Users,        enabled: false, adminOnly: true  },
-  // { title: 'Configuración', url: '/dashboard/settings', icon: Settings, enabled: true, adminOnly: true },
+  { title: 'Configuración',   url: '/dashboard/settings',   icon: Settings,     enabled: true,  adminOnly: true  },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {

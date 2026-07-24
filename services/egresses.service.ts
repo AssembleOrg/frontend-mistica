@@ -45,6 +45,16 @@ export interface UpdateEgressRequest {
   [key: string]: unknown;
 }
 
+export interface DeleteEgressPayload {
+  /** Motivo del borrado (obligatorio, queda auditado). */
+  reason: string;
+  /** PIN del dueño, o... */
+  pin?: string;
+  /** ...contraseña del admin como respaldo si olvidó el PIN. */
+  adminPassword?: string;
+  [key: string]: unknown;
+}
+
 export interface EgressFilters {
   search?: string;
   from?: string;
@@ -145,10 +155,16 @@ export class EgressesService {
     return apiService.patch<Egress>(`${API_CONFIG.ENDPOINTS.EGRESSES.BASE}/${id}`, egressData);
   }
 
-  // Delete egress (soft delete)
-  async deleteEgress(id: string): Promise<ApiResponse<void>> {
+  // Delete egress (soft delete). Requiere PIN o contraseña del admin + motivo.
+  async deleteEgress(
+    id: string,
+    payload: DeleteEgressPayload,
+  ): Promise<ApiResponse<void>> {
     console.log('💰 EGRESSES SERVICE: Eliminando egreso:', id);
-    return apiService.delete<void>(`${API_CONFIG.ENDPOINTS.EGRESSES.BASE}/${id}`);
+    return apiService.delete<void>(
+      `${API_CONFIG.ENDPOINTS.EGRESSES.BASE}/${id}`,
+      payload,
+    );
   }
 
   // Complete egress

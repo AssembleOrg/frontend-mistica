@@ -3,6 +3,8 @@ import { apiService, type ApiResponse } from './api.service';
 export interface CashSessionEditEntry {
   editedAt: string;
   editedByUserId?: string;
+  /** Motivo de la edición (presente en borrados de egreso). */
+  reason?: string;
   addedEgresses: Array<{
     egressId: string;
     egressNumber: string;
@@ -13,6 +15,14 @@ export interface CashSessionEditEntry {
   addedIncomes: Array<{
     incomeId: string;
     incomeNumber: string;
+    concept: string;
+    amount: number;
+    paymentMethod: string;
+  }>;
+  /** Egresos borrados retroactivamente sobre una sesión cerrada. */
+  removedEgresses?: Array<{
+    egressId: string;
+    egressNumber: string;
     concept: string;
     amount: number;
     paymentMethod: string;

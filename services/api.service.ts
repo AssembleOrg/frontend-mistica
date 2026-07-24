@@ -267,9 +267,17 @@ export class ApiService {
 
   async delete<T>(
     endpoint: string,
+    data?: Record<string, unknown>,
     config?: HttpConfig
   ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE' }, config);
+    return this.request<T>(
+      endpoint,
+      {
+        method: 'DELETE',
+        body: data ? JSON.stringify(data) : undefined,
+      },
+      config
+    );
   }
 
   // Utility method for handling paginated requests

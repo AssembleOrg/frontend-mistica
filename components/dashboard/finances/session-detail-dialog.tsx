@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Banknote, CreditCard, Pencil, Plus, Send, TrendingDown, TrendingUp, X } from 'lucide-react';
+import { AlertTriangle, Banknote, CreditCard, Pencil, Plus, Send, Trash2, TrendingDown, TrendingUp, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import { computeSessionKpis } from '@/lib/session-kpis';
 import { showToast } from '@/lib/toast';
 import { EditSessionDialog } from './edit-session-dialog';
 import { EditEgressDialog } from './edit-egress-dialog';
+import { DeleteEgressDialog } from './delete-egress-dialog';
 
 interface CashSession {
   id: string;
@@ -84,6 +85,13 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
   const [confirmingEgressId, setConfirmingEgressId] = useState<string | null>(null);
   // Egreso que se está editando (su id) — abre el EditEgressDialog.
   const [editingEgressId, setEditingEgressId] = useState<string | null>(null);
+  // Egreso que se está borrando — abre el DeleteEgressDialog (caja cerrada). Se
+  // guarda descripción y monto para mostrarlos en la confirmación.
+  const [deletingEgress, setDeletingEgress] = useState<{
+    id: string;
+    description: string;
+    amount: number;
+  } | null>(null);
 
   const loadAll = useCallback(() => {
     if (!session) return;
@@ -124,6 +132,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       setMethodFilter('all');
       setConfirmingEgressId(null);
       setEditingEgressId(null);
+      setDeletingEgress(null);
       return;
     }
     loadAll();
@@ -143,6 +152,14 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
   // de una sesión cerrada está "Cargar egresos / ingresos" (retroactivo, 72hs),
   // que sí recalcula y deja registro en editHistory.
   const canCancelEgress = session?.status === 'OPEN';
+
+  // Borrar egresos SÓLO con la caja CERRADA: es la corrección de un error ya
+  // consolidado (ej. un pago cargado dos veces en una caja pasada). A
+  // diferencia de anular, el backend recalcula el esperado/discrepancia de la
+  // sesión cerrada y deja registro. Exige PIN o contraseña del admin (el modal
+  // lo pide): con la cuenta compartida, no cualquiera con acceso debe poder
+  // borrar. Con la caja abierta la vía correcta es anular (arriba).
+  const canDeleteEgress = session?.status === 'CLOSED';
 
   const handleCancelEgress = async (egressId: string) => {
     setConfirmingEgressId(null);
@@ -600,6 +617,27 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                             </span>
                           )
                         )}
+                        {canDeleteEgress && t.source === 'egress' && (
+                          <span className="flex items-center shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setDeletingEgress({
+                                  id: t.id,
+                                  description: t.description,
+                                  amount: t.amount,
+                                })
+                              }
+                              className="h-6 px-1.5 text-[10px] font-winter-solid text-[#455a54]/60 hover:text-red-600"
+                              aria-label={`Eliminar egreso ${t.description}`}
+                              title="Eliminar egreso (corrección)"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -623,6 +661,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                     .map((entry, idx) => {
                       const egressCount = entry.addedEgresses.length;
                       const incomeCount = (entry.addedIncomes ?? []).length;
+                      const removedCount = (entry.removedEgresses ?? []).length;
                       const summaryParts: string[] = [];
                       if (egressCount > 0) {
                         summaryParts.push(
@@ -632,6 +671,11 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                       if (incomeCount > 0) {
                         summaryParts.push(
                           `${incomeCount} ${incomeCount === 1 ? 'ingreso' : 'ingresos'}`,
+                        );
+                      }
+                      if (removedCount > 0) {
+                        summaryParts.push(
+                          `${removedCount} ${removedCount === 1 ? 'egreso borrado' : 'egresos borrados'}`,
                         );
                       }
                       return (
@@ -677,7 +721,29 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                                 </span>
                               </li>
                             ))}
+                            {(entry.removedEgresses ?? []).map((a) => (
+                              <li
+                                key={a.egressId}
+                                className="flex items-center justify-between gap-2"
+                                style={{ color: 'var(--color-ciruela-oscuro)' }}
+                              >
+                                <span className="truncate line-through opacity-70" title={a.concept}>
+                                  · {a.concept} (borrado)
+                                </span>
+                                <span className="font-semibold shrink-0 line-through opacity-70" style={{ color: 'var(--color-terracota)' }}>
+                                  -{formatCurrency(a.amount)}
+                                </span>
+                              </li>
+                            ))}
                           </ul>
+                          {entry.reason && (
+                            <p
+                              className="mt-1 pl-1 text-[11px] italic"
+                              style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}
+                            >
+                              Motivo: {entry.reason}
+                            </p>
+                          )}
                         </div>
                       );
                     })}
@@ -707,6 +773,20 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
             // El egreso cambió: refresca movimientos + headline (el esperado se
             // recalcula solo) y avisa al padre para la lista Estado de caja.
             setEditingEgressId(null);
+            loadAll();
+            onChanged?.();
+          }}
+        />
+
+        <DeleteEgressDialog
+          egressId={deletingEgress?.id ?? null}
+          egressDescription={deletingEgress?.description}
+          egressAmount={deletingEgress?.amount}
+          onOpenChange={(o) => !o && setDeletingEgress(null)}
+          onDeleted={() => {
+            // El egreso se borró: el backend ya recalculó la caja cerrada.
+            // Refrescamos detalle + historial y avisamos al padre.
+            setDeletingEgress(null);
             loadAll();
             onChanged?.();
           }}

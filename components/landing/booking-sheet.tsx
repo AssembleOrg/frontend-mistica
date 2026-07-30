@@ -2,25 +2,20 @@
 
 // Envuelve el ReservationForm en un bottom-sheet nativo, con la experiencia
 // preseleccionada. No cambia el flujo: el form conserva toda su lógica
-// (createHold, idempotencyKey, redirect a MercadoPago).
+// (createHold, idempotencyKey, datos de transferencia + comprobante por WhatsApp).
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { ReservationForm } from '@/components/landing/reservation-form';
-import type {
-  PublicExperience,
-  PublicSession,
-} from '@/services/reservations.public.service';
+import type { PublicExperience } from '@/services/reservations.public.service';
 
 export function BookingSheet({
   experience,
   experiences,
-  sessions,
   onClose,
 }: {
   /** Experiencia a reservar; null = sheet cerrado. */
   experience: PublicExperience | null;
   experiences: PublicExperience[];
-  sessions: PublicSession[];
   onClose: () => void;
 }) {
   return (
@@ -32,7 +27,6 @@ export function BookingSheet({
       {experience && (
         <ReservationForm
           experiences={experiences}
-          sessions={sessions}
           lockedExperienceId={experience._id}
         />
       )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, Timer, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Timer, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import { FilterChip, IconBtn, StatusBadge } from './_shared';
 const EMPTY: CreateExperienceInput = {
   name: '',
   description: '',
+  aliases: [],
   durationMinutes: 120,
   basePrice: 0,
   defaultCapacity: 8,
@@ -87,6 +88,7 @@ export function ExperienciasTab() {
     setForm({
       name: e.name,
       description: e.description ?? '',
+      aliases: e.aliases ?? [],
       durationMinutes: e.durationMinutes,
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
@@ -234,6 +236,21 @@ export function ExperienciasTab() {
                   </p>
                 )}
 
+                {/* Apodos: cómo la pide la gente en el chat. */}
+                {(e.aliases?.length ?? 0) > 0 && (
+                  <div className='flex flex-wrap gap-1.5'>
+                    {e.aliases!.map((a) => (
+                      <span
+                        key={a}
+                        className='rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2 py-0.5 font-mono text-[11px] text-[#455a54]'
+                        title='Apodo que reconoce el bot'
+                      >
+                        {a}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <div className='h-px w-full bg-[#e6dbcd]' />
 
                 {/* Precio + duración */}
@@ -308,6 +325,12 @@ export function ExperienciasTab() {
                   }
                   rows={2}
                   className={fieldCls}
+                />
+              </Field>
+              <Field label='Apodos'>
+                <AliasEditor
+                  value={form.aliases ?? []}
+                  onChange={(aliases) => setForm({ ...form, aliases })}
                 />
               </Field>
               <div className='grid grid-cols-3 gap-3'>
@@ -485,6 +508,102 @@ function Field({
         {label.toUpperCase()}
       </span>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Apodos de una experiencia, como chips. Son los nombres con los que la gente
+ * la pide en el chat ("AYD", "arte y degu"): el bot los usa para reconocerla
+ * sin adivinar. La comparación no distingue mayúsculas, acentos ni puntuación,
+ * así que "AYD", "a.y.d" y "A y D" son el mismo apodo.
+ */
+function AliasEditor({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const [draft, setDraft] = useState('');
+
+  // Misma normalización que el backend y el bot: así lo que se ve como
+  // repetido acá es exactamente lo que el backend rechazaría.
+  const key = (s: string) =>
+    s
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/&/g, ' y ')
+      .replace(/[^a-z0-9]/g, '');
+
+  const dup = draft.trim() !== '' && value.some((a) => key(a) === key(draft));
+  const tooShort = key(draft).length === 1;
+
+  function add() {
+    const text = draft.trim();
+    if (!text || dup || key(text).length < 2) return;
+    onChange([...value, text]);
+    setDraft('');
+  }
+
+  return (
+    <div className='flex flex-col gap-2'>
+      {value.length > 0 && (
+        <div className='flex flex-wrap gap-1.5'>
+          {value.map((a) => (
+            <span
+              key={a}
+              className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] py-1 pl-3 pr-1.5 text-[13px] text-[#3d3338]'
+            >
+              {a}
+              <button
+                type='button'
+                onClick={() => onChange(value.filter((x) => x !== a))}
+                className='inline-flex size-4 items-center justify-center rounded-full text-[#7a6e6f] hover:bg-[#e6dbcd] hover:text-[#3d3338]'
+                aria-label={`Quitar ${a}`}
+              >
+                <X className='h-3 w-3' />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className='flex gap-2'>
+        <Input
+          value={draft}
+          onChange={(ev) => setDraft(ev.target.value)}
+          onKeyDown={(ev) => {
+            if (ev.key === 'Enter' || ev.key === ',') {
+              ev.preventDefault();
+              add();
+            }
+          }}
+          placeholder='AYD, arte y degu…'
+          className={fieldCls}
+        />
+        <Button
+          type='button'
+          variant='ghost'
+          onClick={add}
+          disabled={!draft.trim() || dup || tooShort}
+          className='shrink-0 border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+        >
+          Agregar
+        </Button>
+      </div>
+      {dup && (
+        <span className='text-xs text-[#9d684e]'>Ese apodo ya está en la lista.</span>
+      )}
+      {tooShort && (
+        <span className='text-xs text-[#9d684e]'>
+          Muy corto: con una sola letra matchearía cualquier cosa.
+        </span>
+      )}
+      <span className='text-xs text-[#7a6e6f]'>
+        Cómo lo escribe la gente en el chat. No distingue mayúsculas, acentos ni
+        puntuación, y no puede repetirse en otra experiencia.
+      </span>
     </div>
   );
 }

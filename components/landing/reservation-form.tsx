@@ -1,12 +1,21 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Calendar, Minus, Plus, ShieldCheck } from 'lucide-react';
+import {
+  ArrowRight,
+  Calendar,
+  Check,
+  Copy,
+  Minus,
+  Plus,
+  ShieldCheck,
+} from 'lucide-react';
 import {
   newIdempotencyKey,
   reservationsPublic,
+  type AvailableShift,
+  type HoldResponse,
   type PublicExperience,
-  type PublicSession,
 } from '@/services/reservations.public.service';
 import { SectionLabel } from '@/components/landing/primitives';
 
@@ -48,11 +57,6 @@ function fmtDayHeader(iso: string) {
     timeZone: TZ,
   });
   return `${wd.replace('.', '')} ${dm.replace('/', '·')}`.toUpperCase();
-}
-
-// Clave de día (YYYY-MM-DD en TZ AR) para agrupar.
-function dayKey(iso: string) {
-  return new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ });
 }
 
 function fmtTime(iso: string) {
@@ -105,18 +109,19 @@ function StepLabel({ n, children }: { n: string; children: string }) {
 
 export function ReservationForm({
   experiences,
-  sessions,
   lockedExperienceId,
 }: {
   experiences: PublicExperience[];
-  sessions: PublicSession[];
   /** Si viene, la experiencia queda fija (flujo desde el índice/sheet). */
   lockedExperienceId?: string;
 }) {
   const [expId, setExpId] = useState(
     lockedExperienceId ?? experiences[0]?._id ?? '',
   );
-  const [sessionId, setSessionId] = useState('');
+  // Bloque elegido, identificado por día + turno ('2026-08-01|T1').
+  const [slotId, setSlotId] = useState('');
+  const [slots, setSlots] = useState<AvailableShift[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -126,28 +131,48 @@ export function ReservationForm({
   const [idemKey] = useState(() => newIdempotencyKey());
   // Marca qué campos ya fueron tocados para no mostrar error antes de tiempo.
   const [touched, setTouched] = useState({ name: false, email: false, phone: false });
+  // Hold ya creado: se muestran los datos para transferir la seña. La reserva
+  // se confirma cuando llega el comprobante por WhatsApp (lo lee el bot).
+  const [hold, setHold] = useState<HoldResponse | null>(null);
 
-  const sessionsForExp = useMemo(
-    () =>
-      sessions
-        .filter((s) => s.experienceId === expId && s.seatsAvailable > 0)
-        .sort((a, b) => +new Date(a.startAt) - +new Date(b.startAt)),
-    [sessions, expId],
-  );
+  // Días y turnos donde se puede reservar. No dependen de turnos precargados:
+  // salen de los bloques fijos del día, así que hay agenda siempre que el local
+  // abra. Se piden al backend cada vez que cambia la experiencia.
+  useEffect(() => {
+    if (!expId) return;
+    let alive = true;
+    setSlotsLoading(true);
+    reservationsPublic
+      .availability(expId)
+      .then((rows) => {
+        if (alive) setSlots(rows);
+      })
+      .catch(() => {
+        if (alive) setSlots([]);
+      })
+      .finally(() => {
+        if (alive) setSlotsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [expId]);
 
-  // Turnos agrupados por día (para la grilla): [{ key, header, slots }].
-  const sessionsByDay = useMemo(() => {
-    const groups = new Map<string, PublicSession[]>();
-    for (const s of sessionsForExp) {
-      const k = dayKey(s.startAt);
+  const slotKey = (s: AvailableShift) => `${s.dateKey}|${s.shiftKey}`;
+
+  // Bloques agrupados por día (para la grilla): [{ key, header, slots }].
+  const slotsByDay = useMemo(() => {
+    const groups = new Map<string, AvailableShift[]>();
+    for (const s of slots) {
+      const k = s.dateKey;
       (groups.get(k) ?? groups.set(k, []).get(k)!).push(s);
     }
-    return [...groups.entries()].map(([key, slots]) => ({
+    return [...groups.entries()].map(([key, rows]) => ({
       key,
-      header: fmtDayHeader(slots[0].startAt),
-      slots,
+      header: fmtDayHeader(rows[0].startAt),
+      slots: rows,
     }));
-  }, [sessionsForExp]);
+  }, [slots]);
 
   // Reset del turno al cambiar de experiencia — pero NO en el mount inicial
   // (si no, el flujo del sheet limpia la selección recién hecha).
@@ -157,12 +182,12 @@ export function ReservationForm({
       firstRender.current = false;
       return;
     }
-    setSessionId('');
+    setSlotId('');
     setQty(1);
   }, [expId]);
 
-  const selected = sessions.find((s) => s.id === sessionId);
-  const maxQty = selected ? Math.min(selected.seatsAvailable, 12) : 12;
+  const selected = slots.find((s) => slotKey(s) === slotId);
+  const maxQty = selected ? Math.max(1, selected.maxPartySize) : 12;
   const total = selected ? selected.price * qty : 0;
   const depositPct = selected?.depositPct ?? 50;
   const senia = Math.round((total * depositPct) / 100);
@@ -190,17 +215,19 @@ export function ReservationForm({
     setError(null);
     try {
       const normalizedPhone = normalizePhone(phone);
-      const hold = await reservationsPublic.createHold({
-        sessionId: selected.id,
+      const created = await reservationsPublic.createHold({
+        experienceId: expId,
+        date: selected.dateKey,
+        shiftKey: selected.shiftKey,
         quantity: qty,
         customerName: name.trim(),
         customerEmail: email.trim() || undefined,
         customerPhone: normalizedPhone || undefined,
         idempotencyKey: idemKey,
       });
-      window.location.href = hold.initPoint
-        ? hold.initPoint
-        : `/reservas/estado?ref=${hold.reservationId}`;
+      // No hay pasarela de pago: la seña se transfiere y el comprobante llega
+      // por WhatsApp. Mostramos los datos bancarios en la misma pantalla.
+      setHold(created);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo iniciar la reserva.');
       setSubmitting(false);
@@ -212,6 +239,18 @@ export function ReservationForm({
       <div className='border border-linea bg-arena p-8 text-center text-piedra'>
         Por ahora no hay experiencias disponibles. Volvé pronto.
       </div>
+    );
+  }
+
+  // Lugar apartado: falta que transfiera la seña y mande el comprobante.
+  if (hold) {
+    return (
+      <TransferPanel
+        hold={hold}
+        experienceName={expName}
+        when={selected ? fmtDate(selected.startAt) : ''}
+        quantity={qty}
+      />
     );
   }
 
@@ -247,31 +286,39 @@ export function ReservationForm({
         {/* Fecha y horario */}
         <div className='flex flex-col gap-3.5'>
           <StepLabel n={locked ? '01' : '02'}>Fecha y horario</StepLabel>
-          {sessionsForExp.length === 0 ? (
+          {slotsLoading ? (
+            <p className='flex items-center gap-2 border border-linea bg-arena px-4 py-3.5 text-sm text-piedra'>
+              <Calendar className='h-[18px] w-[18px] text-terracota' />
+              Buscando fechas disponibles…
+            </p>
+          ) : slots.length === 0 ? (
             <p className='flex items-center gap-2 border border-linea bg-arena px-4 py-3.5 text-sm text-piedra'>
               <Calendar className='h-[18px] w-[18px] text-terracota' />
               No hay turnos disponibles para esta experiencia.
             </p>
           ) : (
             <div className='sheet-scroll flex max-h-[340px] flex-col gap-5 overflow-y-auto lg:max-h-[420px]'>
-              {sessionsByDay.map((day) => (
+              {slotsByDay.map((day) => (
                 <div key={day.key} className='flex flex-col gap-2.5'>
                   <span className='font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ciruela-oscuro'>
                     {day.header}
                   </span>
                   <div className='flex flex-wrap gap-2'>
                     {day.slots.map((s) => {
-                      const on = s.id === sessionId;
-                      const low = s.seatsAvailable <= 3;
+                      const id = slotKey(s);
+                      const on = id === slotId;
+                      // "Quedan pocos" sólo cuando de verdad queda poco: el
+                      // número es el grupo más grande que todavía entra.
+                      const low = s.maxPartySize <= 4;
                       return (
                         <button
-                          key={s.id}
+                          key={id}
                           type='button'
                           onClick={() => {
-                            setSessionId(s.id);
+                            setSlotId(id);
                             setQty(1);
                           }}
-                          className={`press flex w-28 flex-col items-center gap-1 border py-2.5 transition ${
+                          className={`press flex w-32 flex-col items-center gap-1 border py-2.5 transition ${
                             on
                               ? 'border-terracota bg-terracota text-arena'
                               : 'border-linea bg-arena text-ciruela-oscuro hover:border-terracota/50'
@@ -281,16 +328,17 @@ export function ReservationForm({
                             {fmtTime(s.startAt)}
                           </span>
                           <span
-                            className={`text-[11px] ${
-                              on
-                                ? 'text-arena/70'
-                                : low
-                                  ? 'font-medium text-terracota'
-                                  : 'text-piedra'
-                            }`}
+                            className={`text-[11px] ${on ? 'text-arena/70' : 'text-piedra'}`}
                           >
-                            {s.seatsAvailable} cup.
+                            {s.shiftName}
                           </span>
+                          {low && (
+                            <span
+                              className={`text-[11px] ${on ? 'text-arena/70' : 'font-medium text-terracota'}`}
+                            >
+                              hasta {s.maxPartySize}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -425,8 +473,9 @@ export function ReservationForm({
         <div className='flex items-start gap-2.5 px-6 pb-2 pt-4'>
           <ShieldCheck className='mt-0.5 h-[18px] w-[18px] shrink-0 text-terracota' />
           <p className='text-[13px] leading-[1.5] text-piedra'>
-            Reservás abonando la seña con MercadoPago. El saldo lo completás en el
-            local. Recibís un código de 6 caracteres para gestionar tu reserva.
+            Reservás transfiriendo la seña y mandándonos el comprobante por
+            WhatsApp. El saldo lo completás en el local. Recibís un código de 6
+            caracteres para gestionar tu reserva.
           </p>
         </div>
         <div className='p-4'>
@@ -436,7 +485,7 @@ export function ReservationForm({
             disabled={!canSubmit}
             className='press flex w-full items-center justify-center gap-2.5 bg-naranja-medio px-6 py-[19px] font-mono text-sm uppercase tracking-[0.14em] text-ciruela-oscuro transition hover:brightness-95 disabled:opacity-50'
           >
-            {submitting ? 'Iniciando pago…' : 'Confirmar reserva'}
+            {submitting ? 'Apartando tu lugar…' : 'Confirmar reserva'}
             {!submitting && <ArrowRight className='h-[18px] w-[18px]' />}
           </button>
         </div>
@@ -454,4 +503,137 @@ const inputCls = (hasError = false) =>
 
 function FieldError({ children }: { children: string }) {
   return <span className='text-xs font-medium text-red-600'>{children}</span>;
+}
+
+// ─────────────────────── Seña por transferencia ───────────────────────
+
+/**
+ * Pantalla que sigue a la reserva. No hay pasarela de pago: el lugar queda
+ * apartado unos minutos, la persona transfiere la seña y manda la captura por
+ * WhatsApp. El bot la lee y ahí la reserva queda confirmada.
+ */
+function TransferPanel({
+  hold,
+  experienceName,
+  when,
+  quantity,
+}: {
+  hold: HoldResponse;
+  experienceName: string;
+  when: string;
+  quantity: number;
+}) {
+  const waText = encodeURIComponent(
+    `¡Hola! Acabo de reservar ${experienceName}${when ? ` (${when})` : ''} para ` +
+      `${quantity} ${quantity === 1 ? 'persona' : 'personas'}. ` +
+      'Te mando el comprobante de la seña.',
+  );
+  const waHref = hold.whatsapp
+    ? `https://wa.me/${hold.whatsapp}?text=${waText}`
+    : null;
+
+  return (
+    <div className='mx-auto flex max-w-xl flex-col gap-7 border border-linea bg-arena p-8'>
+      <div className='flex flex-col gap-2'>
+        <SectionLabel>Te apartamos el lugar</SectionLabel>
+        <p className='text-[15px] leading-relaxed text-piedra'>
+          Tenés <strong className='text-ciruela-oscuro'>{hold.holdMinutes} minutos</strong>{' '}
+          para transferir la seña y mandarnos el comprobante. Pasado ese tiempo el
+          lugar se libera y la reserva no queda confirmada.
+        </p>
+      </div>
+
+      <div className='flex flex-col gap-1 border-l-2 border-terracota pl-4'>
+        <span className='text-[15px] font-medium text-ciruela-oscuro'>
+          {experienceName}
+        </span>
+        {when && <span className='text-sm text-piedra'>{when}</span>}
+        <span className='text-sm text-piedra'>
+          {quantity} {quantity === 1 ? 'persona' : 'personas'}
+        </span>
+      </div>
+
+      <div className='flex flex-col gap-3 border border-linea bg-white p-5'>
+        <Row label='Seña a transferir' value={fmtPrice(hold.depositAmount)} strong />
+        <Row label='Saldo (se abona en el local)' value={fmtPrice(hold.balanceDue)} />
+        <div className='my-1 h-px w-full bg-linea' />
+        <CopyRow label='Alias' value={hold.transfer.alias} />
+        <Row label='Titular' value={hold.transfer.ownerName} />
+        <Row label='Banco' value={hold.transfer.bank} />
+      </div>
+
+      {waHref ? (
+        <a
+          href={waHref}
+          target='_blank'
+          rel='noopener noreferrer'
+          className='press flex w-full items-center justify-center gap-2.5 bg-naranja-medio px-6 py-[19px] font-mono text-sm uppercase tracking-[0.14em] text-ciruela-oscuro transition hover:brightness-95'
+        >
+          Enviar comprobante
+          <ArrowRight className='h-[18px] w-[18px]' />
+        </a>
+      ) : (
+        <p className='text-sm text-piedra'>
+          Mandanos la captura del comprobante por WhatsApp y confirmamos tu reserva.
+        </p>
+      )}
+
+      <p className='text-xs leading-relaxed text-piedra'>
+        Apenas leamos el comprobante te llega el código de reserva por WhatsApp. Si
+        ya transferiste y el tiempo venció, escribinos igual: el pago no se pierde.
+      </p>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className='flex items-baseline justify-between gap-4'>
+      <span className='text-sm text-piedra'>{label}</span>
+      <span
+        className={
+          strong
+            ? 'text-lg font-semibold text-ciruela-oscuro'
+            : 'text-[15px] text-ciruela-oscuro'
+        }
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** El alias es lo único que la persona necesita copiar sin errores. */
+function CopyRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className='flex items-center justify-between gap-4'>
+      <span className='text-sm text-piedra'>{label}</span>
+      <button
+        type='button'
+        onClick={() => {
+          void navigator.clipboard?.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1800);
+        }}
+        className='flex items-center gap-2 font-mono text-[15px] text-ciruela-oscuro transition hover:text-terracota'
+        aria-label={`Copiar ${label}`}
+      >
+        {value}
+        {copied ? (
+          <Check className='h-4 w-4 text-terracota' />
+        ) : (
+          <Copy className='h-4 w-4 text-piedra' />
+        )}
+      </button>
+    </div>
+  );
 }

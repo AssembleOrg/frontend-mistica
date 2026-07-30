@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   CalendarDays,
   CalendarRange,
+  Grid2x2,
   MessageCircle,
   Palette,
   Ticket,
@@ -13,15 +14,24 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ExperienciasTab } from '@/components/dashboard/reservas/experiencias-tab';
 import { AgendaTab } from '@/components/dashboard/reservas/agenda-tab';
+import { MesasTab } from '@/components/dashboard/reservas/mesas-tab';
 import { TurnosTab } from '@/components/dashboard/reservas/turnos-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
 import { ConsultasTab } from '@/components/dashboard/reservas/consultas-tab';
 import { PiezasTab } from '@/components/dashboard/reservas/piezas-tab';
 
-type Tab = 'agenda' | 'experiencias' | 'turnos' | 'reservas' | 'consultas' | 'piezas';
+type Tab =
+  | 'agenda'
+  | 'mesas'
+  | 'experiencias'
+  | 'turnos'
+  | 'reservas'
+  | 'consultas'
+  | 'piezas';
 
 const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
   { key: 'agenda', label: 'Agenda', icon: CalendarRange },
+  { key: 'mesas', label: 'Mesas', icon: Grid2x2 },
   { key: 'experiencias', label: 'Experiencias', icon: Palette },
   { key: 'turnos', label: 'Turnos', icon: CalendarDays },
   { key: 'reservas', label: 'Reservas', icon: Ticket },
@@ -63,6 +73,7 @@ export default function ReservasAdminPage() {
       </div>
 
       {tab === 'agenda' && <AgendaTab />}
+      {tab === 'mesas' && <MesasTab />}
       {tab === 'experiencias' && <ExperienciasTab />}
       {tab === 'turnos' && <TurnosTab />}
       {tab === 'reservas' && <ReservasTab />}

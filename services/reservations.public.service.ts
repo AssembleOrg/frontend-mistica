@@ -9,6 +9,9 @@ export interface PublicExperience {
   _id: string;
   name: string;
   description?: string;
+  // Apodos con los que los clientes nombran la experiencia ("AYD", "CyB").
+  // El bot los usa para reconocerla en la charla.
+  aliases?: string[];
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;
@@ -60,8 +63,13 @@ export interface HoldResponse {
   balanceDue: number;
   quantity: number;
   expiresAt?: string;
-  initPoint?: string;
-  preferenceId?: string;
+  paymentMethod: string;
+  /** Minutos que dura el lugar apartado esperando el comprobante. */
+  holdMinutes: number;
+  /** Datos bancarios para transferir la seña (único medio de pago). */
+  transfer: { alias: string; ownerName: string; bank: string };
+  /** WhatsApp al que mandar la captura del comprobante (sin +). */
+  whatsapp: string;
 }
 
 export interface ReservationView {
@@ -89,7 +97,14 @@ export interface ReservationView {
 }
 
 export interface CreateHoldInput {
-  sessionId: string;
+  // Dos formas de decir QUÉ se reserva: un turno existente, o el trío
+  // (experiencia, día, bloque) — el turno se crea solo si hace falta.
+  sessionId?: string;
+  experienceId?: string;
+  /** Día, YYYY-MM-DD. */
+  date?: string;
+  /** Turno del día, 'T1' / 'T2'. */
+  shiftKey?: string;
   quantity: number;
   customerName: string;
   customerEmail?: string;
@@ -122,12 +137,35 @@ export function newIdempotencyKey(): string {
   return `idk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/** Un bloque reservable de un día concreto (no hace falta turno precargado). */
+export interface AvailableShift {
+  dateKey: string;
+  shiftKey: string;
+  shiftName: string;
+  /** Horario del bloque, 'HH:mm'. */
+  start: string;
+  end: string;
+  /** Inicio y fin reales de la experiencia dentro del bloque (ISO). */
+  startAt: string;
+  endAt: string;
+  /** Grupo más grande que todavía entra. */
+  maxPartySize: number;
+  price: number;
+  depositPct: number;
+}
+
 export const reservationsPublic = {
   listExperiences: () => req<PublicExperience[]>('/experiences/public'),
 
   listSessions: (experienceId?: string) =>
     req<PublicSession[]>(
       `/experience-sessions/public${experienceId ? `?experienceId=${experienceId}` : ''}`,
+    ),
+
+  /** Días y turnos donde se puede reservar una experiencia. */
+  availability: (experienceId: string, days = 45) =>
+    req<AvailableShift[]>(
+      `/reservations/availability?experienceId=${experienceId}&days=${days}`,
     ),
 
   createHold: (input: CreateHoldInput) =>

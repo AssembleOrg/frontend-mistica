@@ -19,7 +19,6 @@ import { Reveal } from '@/components/landing/reveal';
 import {
   reservationsPublic,
   type PublicExperience,
-  type PublicSession,
 } from '@/services/reservations.public.service';
 
 const WA_MISTICA =
@@ -43,14 +42,13 @@ const STATS: [string, string][] = [
 
 const FAQS: [string, string][] = [
   ['¿Qué incluye una experiencia?', 'Los materiales, la guía de nuestros artistas y el café. Solo traé ganas de ensuciarte las manos.'],
-  ['¿Cómo funciona la seña?', 'Al reservar abonás una seña con MercadoPago. El saldo lo completás en el local el día de la experiencia.'],
+  ['¿Cómo funciona la seña?', 'Al reservar transferís una seña y nos mandás el comprobante por WhatsApp. El saldo lo completás en el local el día de la experiencia.'],
   ['¿Puedo cancelar o modificar?', 'Sí. Con el código de 6 caracteres que recibís podés gestionar tu reserva sin cuentas ni contraseñas.'],
   ['¿Organizan cumpleaños y eventos privados?', 'Sí, los coordinamos a medida. Escribinos y armamos la experiencia para tu grupo.'],
 ];
 
 export default function LandingPage() {
   const [experiences, setExperiences] = useState<PublicExperience[]>([]);
-  const [sessions, setSessions] = useState<PublicSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingExp, setBookingExp] = useState<PublicExperience | null>(null);
 
@@ -58,13 +56,11 @@ export default function LandingPage() {
     let alive = true;
     (async () => {
       try {
-        const [exps, sess] = await Promise.all([
-          reservationsPublic.listExperiences(),
-          reservationsPublic.listSessions(),
-        ]);
+        // Los turnos ya no se precargan acá: el formulario pide la
+        // disponibilidad del día según la experiencia que elija la persona.
+        const exps = await reservationsPublic.listExperiences();
         if (!alive) return;
         setExperiences(exps);
-        setSessions(sess);
       } catch {
         /* la landing se muestra igual sin datos */
       } finally {
@@ -325,7 +321,7 @@ export default function LandingPage() {
           {loading ? (
             <div className='h-96 animate-pulse bg-arena/60' />
           ) : (
-            <ReservationForm experiences={experiences} sessions={sessions} />
+            <ReservationForm experiences={experiences} />
           )}
         </div>
       </section>
@@ -554,7 +550,6 @@ export default function LandingPage() {
       <BookingSheet
         experience={bookingExp}
         experiences={experiences}
-        sessions={sessions}
         onClose={() => setBookingExp(null)}
       />
     </main>

@@ -51,6 +51,12 @@ export interface ReservationListResponse {
 export interface CreateExperienceInput {
   name: string;
   description?: string;
+  /**
+   * Apodos y abreviaturas con los que los clientes la nombran ("AYD",
+   * "arte y degu"). El bot los usa para reconocerla en la charla. No pueden
+   * repetirse entre experiencias: el backend rechaza el duplicado.
+   */
+  aliases?: string[];
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;

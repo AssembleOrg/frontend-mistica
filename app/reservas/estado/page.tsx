@@ -117,18 +117,18 @@ function EstadoInner() {
                 : failed
                   ? 'La reserva no se completó'
                   : review
-                    ? 'Estamos revisando tu pago'
-                    : 'Confirmando tu pago…'}
+                    ? 'Estamos revisando tu comprobante'
+                    : 'Esperando tu comprobante…'}
             </h1>
 
             <p className='mt-3 text-piedra'>
               {confirmed && reservation
                 ? `${reservation.experienceName} · ${fmtDate(reservation.startAt)} · ${reservation.quantity} ${reservation.quantity > 1 ? 'personas' : 'persona'}.`
                 : failed
-                  ? 'El pago no se aprobó o el tiempo de reserva venció. Podés intentar de nuevo.'
+                  ? 'El tiempo para enviar el comprobante venció y el lugar se liberó. Podés reservar de nuevo; si ya transferiste, escribinos y lo resolvemos.'
                   : review
-                    ? 'Tu pago llegó pero necesitamos revisarlo. Te contactamos a la brevedad.'
-                    : 'No cierres esta página. Apenas MercadoPago confirme, vas a ver tu código acá.'}
+                    ? 'Recibimos tu comprobante pero necesitamos revisarlo. Te contactamos a la brevedad.'
+                    : 'Transferí la seña y mandanos la captura del comprobante por WhatsApp. Apenas lo validemos vas a ver tu código acá.'}
             </p>
 
             {error && (

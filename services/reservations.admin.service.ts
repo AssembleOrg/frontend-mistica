@@ -37,6 +37,17 @@ export interface ReservationItem {
   customerPhone?: string;
   sessionId: string;
   experienceId: string;
+  /**
+   * Restricciones alimentarias del grupo. Se muestran SIEMPRE junto a la
+   * reserva: el equipo se tiene que enterar antes del día, no cuando la
+   * persona llega.
+   */
+  dietaryTags?: string[];
+  dietaryNotes?: string;
+  shiftKey?: string;
+  tableCodes?: string[];
+  sharedTable?: boolean;
+  notes?: string;
   createdAt: string;
 }
 

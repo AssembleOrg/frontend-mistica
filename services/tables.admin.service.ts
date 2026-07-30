@@ -57,6 +57,9 @@ export interface AgendaReservation {
   endAt?: string;
   shared: boolean;
   tables: string[];
+  /** Restricciones alimentarias del grupo (se ven en la agenda del día). */
+  dietaryTags?: string[];
+  dietaryNotes?: string;
 }
 
 export interface AgendaShift extends Shift {

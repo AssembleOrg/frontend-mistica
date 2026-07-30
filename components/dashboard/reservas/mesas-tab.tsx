@@ -28,6 +28,7 @@ import {
 } from '@/services/tables.admin.service';
 import { StatusBadge } from './_shared';
 import { ShiftTemplatesPanel } from './shift-templates-panel';
+import { DietaryTags } from './dietary-badge';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -332,6 +333,7 @@ function ReservationRow({
           <TableChip key={code} code={code} tone='assigned' />
         ))}
       </span>
+      <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />
       <button
         type='button'
         onClick={() => setEditing(true)}

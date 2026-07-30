@@ -6,6 +6,7 @@
 // comportarse como slide-over a la derecha, responsive (full en mobile).
 
 import { useEffect } from 'react';
+import { DietaryTags } from './dietary-badge';
 import {
   Ban,
   Building2,
@@ -123,7 +124,19 @@ export function ReservationDetailPanel({
             <KV k='Fecha' v={fmtDateTime(r.startAt)} />
             <KV k='Personas' v={String(r.quantity)} />
             <KV k='Origen' v={r.source === 'ADMIN' ? 'Panel admin' : 'Landing pública'} />
+            {(r.tableCodes?.length ?? 0) > 0 && (
+              <KV
+                k='Mesas'
+                v={r.tableCodes!.join(', ') + (r.sharedTable ? ' · compartida' : '')}
+              />
+            )}
           </Section>
+
+          {((r.dietaryTags?.length ?? 0) > 0 || r.dietaryNotes) && (
+            <Section title='RESTRICCIONES ALIMENTARIAS'>
+              <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} />
+            </Section>
+          )}
 
           <Section title='PAGO'>
             <div className='flex flex-col gap-2.5 rounded-xl bg-[#fbf5ef] p-4'>

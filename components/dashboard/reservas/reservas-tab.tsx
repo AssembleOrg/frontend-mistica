@@ -38,6 +38,7 @@ import {
   type ReservationPaymentMethod,
 } from '@/services/reservations.admin.service';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
+import { DietaryTags } from './dietary-badge';
 import { ReservasCalendar } from './reservas-calendar';
 import { ReservationDetailPanel } from './reservation-detail-panel';
 
@@ -376,6 +377,11 @@ export function ReservasTab() {
                         <p className='font-mono text-xs text-[#7a6e6f]'>
                           {fmtDateTime(r.startAt)}
                         </p>
+                        <DietaryTags
+                          tags={r.dietaryTags}
+                          notes={r.dietaryNotes}
+                          compact
+                        />
                       </div>
                       <span className='text-center text-sm text-[#455a54]'>{r.quantity}</span>
                       <div className='text-sm'>
@@ -442,6 +448,13 @@ export function ReservasTab() {
                     </p>
                     <p className='mt-2 text-sm text-[#3d3338]'>{r.experienceName}</p>
                     <p className='font-mono text-xs text-[#7a6e6f]'>{fmtDateTime(r.startAt)}</p>
+                    <div className='mt-1.5'>
+                      <DietaryTags
+                        tags={r.dietaryTags}
+                        notes={r.dietaryNotes}
+                        compact
+                      />
+                    </div>
                     <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
                       <span className='text-[#455a54]'>{r.quantity} pers.</span>
                       <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</span>

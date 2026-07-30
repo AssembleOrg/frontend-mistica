@@ -6,6 +6,7 @@ import {
   CalendarRange,
   Grid2x2,
   MessageCircle,
+  Headset,
   Palette,
   Ticket,
   Flame,
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { ExperienciasTab } from '@/components/dashboard/reservas/experiencias-tab';
 import { AgendaTab } from '@/components/dashboard/reservas/agenda-tab';
 import { MesasTab } from '@/components/dashboard/reservas/mesas-tab';
+import { ConversacionesTab } from '@/components/dashboard/reservas/conversaciones-tab';
 import { TurnosTab } from '@/components/dashboard/reservas/turnos-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
 import { ConsultasTab } from '@/components/dashboard/reservas/consultas-tab';
@@ -27,6 +29,7 @@ type Tab =
   | 'turnos'
   | 'reservas'
   | 'consultas'
+  | 'charlas'
   | 'piezas';
 
 const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
@@ -36,6 +39,7 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
   { key: 'turnos', label: 'Turnos', icon: CalendarDays },
   { key: 'reservas', label: 'Reservas', icon: Ticket },
   { key: 'consultas', label: 'Consultas', icon: MessageCircle },
+  { key: 'charlas', label: 'Charlas', icon: Headset },
   { key: 'piezas', label: 'Piezas', icon: Flame },
 ];
 
@@ -78,6 +82,7 @@ export default function ReservasAdminPage() {
       {tab === 'turnos' && <TurnosTab />}
       {tab === 'reservas' && <ReservasTab />}
       {tab === 'consultas' && <ConsultasTab />}
+      {tab === 'charlas' && <ConversacionesTab />}
       {tab === 'piezas' && <PiezasTab />}
     </div>
   );

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { DietaryTags } from './dietary-badge';
 import {
   fmtDateTime,
   fmtPrice,
@@ -140,13 +141,18 @@ export function AnotadosModal({
                   <span className='font-mono text-sm font-semibold text-[#9d684e]'>
                     {prettyCode(r.code)}
                   </span>
-                  <div>
+                  <div className='flex flex-col gap-1'>
                     <p className='text-sm font-medium text-[#455a54]'>
                       {r.customerName}
                     </p>
                     <p className='text-xs text-[#455a54]/60'>
                       {r.customerEmail ?? r.customerPhone ?? '—'}
                     </p>
+                    <DietaryTags
+                      tags={r.dietaryTags}
+                      notes={r.dietaryNotes}
+                      compact
+                    />
                   </div>
                   <span className='text-sm text-[#455a54]'>{r.quantity}</span>
                   <span className='text-xs text-[#455a54]/60'>

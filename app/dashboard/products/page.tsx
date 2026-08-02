@@ -82,8 +82,10 @@ export default function ProductsPage() {
   };
 
   const handleRefresh = () => {
-    // Reload the page to refresh data
-    window.location.reload();
+    // Refresca el catálogo desde el backend. Antes recargaba la página entera,
+    // lo que reconstruía el store desde el cache viejo y hacía reaparecer
+    // productos recién borrados.
+    fetchProducts();
   };
 
   // Listado filtrado client-side por categoría + búsqueda (nombre/barcode).
@@ -382,7 +384,7 @@ export default function ProductsPage() {
                   onDateRangeChange={handleDateRangeChange}
                   categoryFilter={categoryFilter}
                   onCategoryFilterChange={handleCategoryFilterChange}
-                  onRefresh={() => window.location.reload()}
+                  onRefresh={handleRefresh}
                   isLoading={isLoading}
                   canEdit={canEdit}
                   canDelete={canDelete}

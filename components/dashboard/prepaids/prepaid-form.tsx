@@ -38,11 +38,12 @@ export function PrepaidForm({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [formData, setFormData] = useState<{
     amount: number;
-    paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
+    // '' = sin elegir. No hay método por defecto: el operador lo selecciona.
+    paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | '';
     notes: string;
   }>({
     amount: 0,
-    paymentMethod: 'CASH',
+    paymentMethod: '',
     notes: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -60,7 +61,7 @@ export function PrepaidForm({
     } else {
       setFormData({
         amount: 0,
-        paymentMethod: 'CASH',
+        paymentMethod: '',
         notes: '',
       });
       setSelectedClientId(initialClientId || '');
@@ -175,6 +176,11 @@ export function PrepaidForm({
       newErrors.amount = 'El monto no puede ser mayor a $100,000';
     }
 
+    // Sólo en alta: en edición el método no se muestra ni se cambia.
+    if (!prepaid && !formData.paymentMethod) {
+      newErrors.paymentMethod = 'Debe seleccionar un método de pago';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -187,17 +193,24 @@ export function PrepaidForm({
       return;
     }
 
+    // Al crear, el método de pago es obligatorio; `formData.paymentMethod`
+    // arranca en '' (sin elegir), así que lo descartamos antes de armar el
+    // payload para que el tipo sea concreto.
+    const { paymentMethod } = formData;
+    if (!prepaid && !paymentMethod) return;
+
     try {
-      const prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest = prepaid
-        ? {
-            amount: formData.amount,
-            notes: formData.notes || undefined,
-          }
-        : {
-            amount: formData.amount,
-            paymentMethod: formData.paymentMethod,
-            notes: formData.notes || undefined,
-          };
+      const prepaidData: CreatePrepaidRequest | UpdatePrepaidRequest =
+        prepaid || !paymentMethod
+          ? {
+              amount: formData.amount,
+              notes: formData.notes || undefined,
+            }
+          : {
+              amount: formData.amount,
+              paymentMethod,
+              notes: formData.notes || undefined,
+            };
 
       await onSave(selectedClientId, prepaidData);
     } catch (error) {
@@ -352,12 +365,15 @@ export function PrepaidForm({
                     <button
                       key={m}
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
                         setFormData((prev) => ({
                           ...prev,
                           paymentMethod: m,
-                        }))
-                      }
+                        }));
+                        if (errors.paymentMethod) {
+                          setErrors((prev) => ({ ...prev, paymentMethod: '' }));
+                        }
+                      }}
                       className={`px-3 py-2 rounded-md border text-sm font-winter-solid transition ${
                         active
                           ? 'bg-[#9d684e] text-white border-[#9d684e]'
@@ -369,6 +385,9 @@ export function PrepaidForm({
                   );
                 })}
               </div>
+              {errors.paymentMethod && (
+                <p className="text-sm text-red-500 font-winter-solid">{errors.paymentMethod}</p>
+              )}
             </div>
           )}
 

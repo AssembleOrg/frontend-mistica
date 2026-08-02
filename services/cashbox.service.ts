@@ -1,4 +1,5 @@
 import { apiService, type ApiResponse } from './api.service';
+import type { EgressType } from '@/lib/egress-type-labels';
 
 export interface CashSessionEditEntry {
   editedAt: string;
@@ -51,7 +52,7 @@ export interface RetroactiveEgressInput {
   concept: string;
   amount: number;
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
-  type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
+  type: EgressType;
   notes?: string;
 }
 
@@ -79,6 +80,8 @@ export interface CashIncomeResponse {
   createdAt: string;
 }
 
+// Sin `type`: el backend fuerza EgressType.EXPENSE al crear egresos de caja,
+// así que mandarlo no tendría efecto. Se reclasifica editando el egreso.
 export interface CreateCashExpenseRequest {
   concept: string;
   amount: number;

@@ -32,6 +32,8 @@ import { SessionDetailDialog } from '@/components/dashboard/finances/session-det
 import { usePermissions } from '@/hooks/usePermissions';
 import { ResolveAutoClosureDialog } from '@/components/dashboard/finances/resolve-auto-closure-dialog';
 import { MonthlyCloseDialog } from '@/components/dashboard/finances/monthly-close-dialog';
+import { EgressBreakdownCard } from '@/components/dashboard/finances/egress-breakdown';
+import { useEgressBreakdown } from '@/hooks/useEgressBreakdown';
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -80,6 +82,7 @@ export default function FinancesPage() {
   const [cashboxView, setCashboxView] = useState<'list' | 'grid'>('list');
   const cancelEditRef = useRef(false);
   const [showMonthlyClose, setShowMonthlyClose] = useState(false);
+  const [showEgressReport, setShowEgressReport] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,6 +103,18 @@ export default function FinancesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Mismo rango que el resumen. Strings memoizados para no re-disparar la
+  // consulta en cada render por una referencia de Date nueva.
+  const fromIso = useMemo(
+    () => (dateRange?.from ? isoDate(dateRange.from) : undefined),
+    [dateRange?.from],
+  );
+  const toIso = useMemo(
+    () => (dateRange?.to ? isoDate(dateRange.to) : undefined),
+    [dateRange?.to],
+  );
+  const egressBreakdown = useEgressBreakdown({ from: fromIso, to: toIso });
 
   const startEditingLabel = useCallback(
     (s: FinanceSummary['cashSessions'][number]) => {
@@ -197,6 +212,16 @@ export default function FinancesPage() {
             <FileDown className="h-4 w-4 mr-2" />
             Cierre de Mes
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEgressReport(true)}
+            className="font-winter-solid"
+            style={{ borderColor: 'var(--color-terracota)', color: 'var(--color-terracota)' }}
+          >
+            <TrendingDown className="h-4 w-4 mr-2" />
+            PDF Egresos
+          </Button>
         </div>
       </div>
       <SessionDetailDialog
@@ -210,6 +235,13 @@ export default function FinancesPage() {
         onResolved={load}
       />
       <MonthlyCloseDialog open={showMonthlyClose} onOpenChange={setShowMonthlyClose} />
+      <MonthlyCloseDialog
+        open={showEgressReport}
+        onOpenChange={setShowEgressReport}
+        targetPath="/egress-report"
+        title="Reporte de Egresos"
+        description="Seleccioná el período para generar el PDF de egresos discriminados."
+      />
 
       {/* Filtro de período */}
       <div
@@ -585,6 +617,9 @@ export default function FinancesPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Bloque D — Desglose de egresos por tipo */}
+          <EgressBreakdownCard {...egressBreakdown} />
 
           {/* Bloque E — Top productos */}
           <Card style={{ borderColor: 'var(--color-gris-claro)' }}>

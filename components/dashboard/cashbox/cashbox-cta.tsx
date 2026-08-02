@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LockOpen, LockKeyhole } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCashbox } from '@/hooks/useCashbox';
@@ -21,6 +21,13 @@ export function CashboxCta() {
   const [showClose, setShowClose] = useState(false);
   const [sessionToEdit, setSessionToEdit] = useState<CashSession | null>(null);
 
+  // Las tres ramas de abajo renderean árboles distintos, y cuál sale depende de
+  // un fetch que sólo corre en el cliente. Hasta que montamos mostramos el
+  // mismo placeholder que el servidor, así el primer render del cliente
+  // coincide y React no reporta un mismatch de hidratación.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // El EditSessionDialog se monta SIEMPRE (fuera de los branches): tras cerrar
   // la caja, `isOpen` pasa a false y el árbol cambia de branch; si viviera
   // dentro del branch "abierta" se desmontaría justo cuando el usuario elige
@@ -35,9 +42,9 @@ export function CashboxCta() {
     />
   );
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
-      <Button variant='outline' size='sm' disabled className='w-full'>
+      <Button variant='outline' size='sm' disabled={true} className='w-full'>
         Caja…
       </Button>
     );

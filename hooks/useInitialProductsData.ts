@@ -1,8 +1,10 @@
 /**
  * Initial Products Data Hook - NextJS Pattern
- * 
- * Handles initial data fetching with proper error boundaries
- * and prevents multiple unnecessary requests
+ *
+ * Trae el catálogo desde el backend al montar. El store no persiste productos:
+ * el backend es la única fuente de verdad, así que siempre pedimos la lista
+ * fresca (antes se servía un cache de localStorage que mostraba productos ya
+ * borrados y precios viejos).
  */
 
 import { useEffect, useRef } from 'react';
@@ -10,25 +12,21 @@ import { useProductsStore } from '@/stores/products.store';
 import { productsService } from '@/services/products.service';
 import { toast } from 'sonner';
 import { log } from '@/lib/logger';
+import { translateApiError } from '@/lib/api-error-messages';
+import type { ApiError } from '@/services/api.service';
 
 interface UseInitialProductsDataOptions {
-  /**
-   * Skip the initial fetch if data already exists
-   * @default true
-   */
-  skipIfExists?: boolean;
-  
   /**
    * Show error toast on failure
    * @default true
    */
   showErrorToast?: boolean;
-  
+
   /**
    * Custom error handler
    */
   onError?: (error: unknown) => void;
-  
+
   /**
    * Custom success handler
    */
@@ -37,45 +35,23 @@ interface UseInitialProductsDataOptions {
 
 export function useInitialProductsData(options: UseInitialProductsDataOptions = {}) {
   const {
-    skipIfExists = true,
     showErrorToast = true,
     onError,
     onSuccess
   } = options;
-  
-  const store = useProductsStore();
-  
-  // Prevent multiple fetches
-  const fetchAttempted = useRef(false);
-  const isFetching = useRef(false);
 
-  // Manually hydrate store on client side (required with skipHydration: true)
+  const store = useProductsStore();
+
+  // Evita dobles fetch por el doble-render de StrictMode en dev.
+  const fetchAttempted = useRef(false);
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      log.debug('🔄 useInitialProductsData: Hidrando store manualmente');
-      // Force rehydration from localStorage
-      const hasHydrated = useProductsStore.persist?.hasHydrated();
-      if (!hasHydrated) {
-        useProductsStore.persist?.rehydrate();
-      }
-    }
-  }, []); // Run once on mount
-  
-  useEffect(() => {
-    const shouldFetch = (
-      !fetchAttempted.current && 
-      !isFetching.current && 
-      (!skipIfExists || store.products.length === 0)
-    );
-    
-    if (!shouldFetch) return;
-    
+    if (fetchAttempted.current) return;
     fetchAttempted.current = true;
-    isFetching.current = true;
-    
+
     const fetchInitialData = async () => {
       store.setLoading(true);
-      
+
       try {
         log.debug('📦 PRODUCTOS: Llamando a productsService.getAllProducts()');
         const response = await productsService.getAllProducts();
@@ -88,27 +64,29 @@ export function useInitialProductsData(options: UseInitialProductsDataOptions = 
       } catch (error) {
         console.error('📦 PRODUCTOS: Error en fetch:', error);
         store.setLoading(false);
-        
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : 'Error al cargar productos';
-        
+
+        const apiError = error as ApiError;
+        const errorMessage = translateApiError(
+          apiError?.message,
+          apiError?.status,
+          'No se pudieron cargar los productos.'
+        );
+
         store.setError(errorMessage);
-        
+
         if (showErrorToast) {
           toast.error(errorMessage);
         }
-        
+
         onError?.(error);
-        console.error('Initial products fetch failed:', error);
-      } finally {
-        isFetching.current = false;
       }
     };
-    
+
     fetchInitialData();
-  }, []); // Empty dependencies - only run once on mount
-  
+    // Sólo al montar: el fetch inicial no debe repetirse por cambios de estado.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return {
     isLoading: store.loading.isLoading,
     error: store.loading.error,

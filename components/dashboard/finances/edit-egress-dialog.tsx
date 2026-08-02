@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useEgressesAPI } from '@/hooks/useEgressesAPI';
+import { EGRESS_TYPES, type EgressType } from '@/lib/egress-type-labels';
 
 interface Props {
   /** Id del egreso a editar. null = diálogo cerrado. */
@@ -29,14 +30,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onUpdated?: () => void;
 }
-
-const TYPES = [
-  { value: 'EXPENSE', label: 'Gasto operativo' },
-  { value: 'WITHDRAWAL', label: 'Retiro' },
-  { value: 'REFUND', label: 'Devolución' },
-  { value: 'TRANSFER', label: 'Transferencia' },
-  { value: 'OTHER', label: 'Otro' },
-] as const;
 
 const METHODS = [
   { value: 'CASH', label: 'Efectivo' },
@@ -58,7 +51,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
   const [loadingEgress, setLoadingEgress] = useState(false);
   const [concept, setConcept] = useState('');
   const [amount, setAmount] = useState(0);
-  const [type, setType] = useState<typeof TYPES[number]['value']>('EXPENSE');
+  const [type, setType] = useState<EgressType>('EXPENSE');
   const [paymentMethod, setPaymentMethod] = useState<typeof METHODS[number]['value']>('CASH');
   const [notes, setNotes] = useState('');
 
@@ -73,7 +66,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
         if (cancelled) return;
         setConcept(egress.concept ?? '');
         setAmount(egress.amount ?? 0);
-        setType((egress.type as typeof TYPES[number]['value']) ?? 'EXPENSE');
+        setType((egress.type as EgressType) ?? 'EXPENSE');
         setPaymentMethod(
           (['CASH', 'CARD', 'TRANSFER'].includes(egress.paymentMethod)
             ? egress.paymentMethod
@@ -140,12 +133,12 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
             </div>
             <div className='space-y-1'>
               <Label className='text-xs'>Tipo</Label>
-              <Select value={type} onValueChange={(v) => setType(v as typeof TYPES[number]['value'])} disabled={loadingEgress}>
+              <Select value={type} onValueChange={(v) => setType(v as EgressType)} disabled={loadingEgress}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TYPES.map((t) => (
+                  {EGRESS_TYPES.map((t) => (
                     <SelectItem key={t.value} value={t.value}>
                       {t.label}
                     </SelectItem>

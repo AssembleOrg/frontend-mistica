@@ -13,6 +13,10 @@ import { Button } from '@/components/ui/button';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Ruta del reporte a abrir con el período elegido. */
+  targetPath?: string;
+  title?: string;
+  description?: string;
 }
 
 const MONTHS = [
@@ -31,7 +35,13 @@ function getPreviousMonth(): { month: number; year: number } {
 
 type Tipo = 'mes' | 'quincena';
 
-export function MonthlyCloseDialog({ open, onOpenChange }: Props) {
+export function MonthlyCloseDialog({
+  open,
+  onOpenChange,
+  targetPath = '/monthly-report',
+  title = 'Reporte de Caja',
+  description = 'Seleccioná el período para generar el reporte PDF.',
+}: Props) {
   const prev = getPreviousMonth();
   const [selectedMonth, setSelectedMonth] = useState(prev.month); // 1-based
   const [selectedYear, setSelectedYear] = useState(prev.year);
@@ -70,7 +80,7 @@ export function MonthlyCloseDialog({ open, onOpenChange }: Props) {
 
   function handleGenerate() {
     const params = new URLSearchParams({ from, to, label });
-    window.open(`/monthly-report?${params.toString()}`, '_blank');
+    window.open(`${targetPath}?${params.toString()}`, '_blank');
     onOpenChange(false);
   }
 
@@ -90,12 +100,12 @@ export function MonthlyCloseDialog({ open, onOpenChange }: Props) {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
-            Reporte de Caja
+            {title}
           </DialogTitle>
         </DialogHeader>
 
         <p className="text-sm font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.7 }}>
-          Seleccioná el período para generar el reporte PDF.
+          {description}
         </p>
 
         {/* Toggle tipo */}

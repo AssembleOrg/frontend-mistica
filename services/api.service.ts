@@ -68,8 +68,16 @@ export class ApiService {
     }
 
     if (!response.ok) {
+      // NestJS devuelve `message` como array cuando falla class-validator
+      // (["category must be a string"]). Lo aplanamos acá para que el resto
+      // de la app siempre reciba un string.
+      const rawMessage = data?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join('. ')
+        : rawMessage || `HTTP error! status: ${response.status}`;
+
       const apiError: ApiError = {
-        message: data.message || `HTTP error! status: ${response.status}`,
+        message,
         status: response.status,
         code: data.code,
         details: data.details || data,

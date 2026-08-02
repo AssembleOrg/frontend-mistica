@@ -80,11 +80,14 @@ export interface EgressStatistics {
 
 interface PaginatedResponse<T> {
   data: T[];
-  pagination: {
+  // El backend NestJS devuelve `meta`, no `pagination`.
+  meta: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
   };
 }
 
@@ -129,12 +132,43 @@ export class EgressesService {
       }
     }
 
-    const url = `${API_CONFIG.ENDPOINTS.EGRESSES.BASE}?${params.toString()}`;
+    // El listado paginado vive en `/egresses/all`; `/egresses` sólo acepta POST.
+    const url = `${API_CONFIG.ENDPOINTS.EGRESSES.ALL}?${params.toString()}`;
     console.log('💰 EGRESSES SERVICE: URL construida:', url);
-    
-    const response = await apiService.get<PaginatedResponse<Egress>>(url);
-    console.log('💰 EGRESSES SERVICE: Egresos obtenidos:', response.data?.data?.length || 0);
-    return response;
+
+    const response = await apiService.get<unknown>(url);
+
+    // Este endpoint devuelve el paginado crudo (`{data, meta}`), a diferencia
+    // del resto que envuelve en `{success, message, data}`. Como
+    // `apiService.handleResponse` hace `data.data || data` para desenvolver ese
+    // sobre, acá llega el array de egresos ya pelado y `meta` se pierde.
+    // Aceptamos ambas formas para no depender de ese detalle.
+    const raw = response.data;
+    const items: Egress[] = Array.isArray(raw)
+      ? (raw as Egress[])
+      : ((raw as PaginatedResponse<Egress>)?.data ?? []);
+    const meta = Array.isArray(raw)
+      ? undefined
+      : (raw as PaginatedResponse<Egress>)?.meta;
+
+    console.log('💰 EGRESSES SERVICE: Egresos obtenidos:', items.length);
+
+    return {
+      ...response,
+      data: {
+        data: items,
+        // Sin `meta` (caso array plano) el total real se desconoce: usamos el
+        // tamaño de la página, que es lo único cierto.
+        meta: meta ?? {
+          page,
+          limit,
+          total: items.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      },
+    };
   }
 
   // Get all egresses without pagination

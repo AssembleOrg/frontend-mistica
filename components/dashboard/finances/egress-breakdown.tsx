@@ -5,17 +5,8 @@ import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { egressTypeLabel } from '@/lib/egress-type-labels';
+import { C, SectionTitle, cellBase, thBase, totalCell } from './print-shell';
 import type { EgressBreakdown } from '@/hooks/useEgressBreakdown';
-
-/** Paleta del PDF — espejo de la de monthly-report-viewer. */
-const C = {
-  verde: '#455a54',
-  terracota: '#9d684e',
-  ciruela: '#4e4247',
-  gris: '#d9dadb',
-  fondo: '#f8f6f4',
-  blanco: '#ffffff',
-};
 
 /**
  * El backend clasifica como "Gasto operativo" todo egreso creado desde la caja
@@ -253,39 +244,6 @@ export function EgressBreakdownCard({
 /* Versión impresa — /monthly-report                                   */
 /* ------------------------------------------------------------------ */
 
-function PrintSectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        background: C.verde,
-        color: C.blanco,
-        padding: '5px 10px',
-        fontSize: 10,
-        fontWeight: 700,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-const printCell: React.CSSProperties = {
-  padding: '5px 10px',
-  borderBottom: `1px solid ${C.gris}`,
-  color: C.ciruela,
-};
-
-const printHead: React.CSSProperties = {
-  padding: '5px 10px',
-  fontWeight: 700,
-  color: C.verde,
-  fontSize: 9,
-  letterSpacing: '0.04em',
-  borderBottom: `1px solid ${C.gris}`,
-};
-
 export function EgressBreakdownPrint({
   rows,
   items,
@@ -297,9 +255,9 @@ export function EgressBreakdownPrint({
 }: Omit<Data, 'loading'>) {
   if (error) {
     return (
-      <div style={{ border: `1px solid ${C.gris}`, borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
-        <PrintSectionHeader>Egresos del Período</PrintSectionHeader>
-        <p style={{ padding: '12px 12px', fontSize: 10, color: C.terracota }}>
+      <div style={{ marginBottom: 20 }}>
+        <SectionTitle>Egresos del período</SectionTitle>
+        <p style={{ fontSize: 10, color: C.rojo }}>
           No se pudo cargar el desglose de egresos.
         </p>
       </div>
@@ -308,9 +266,9 @@ export function EgressBreakdownPrint({
 
   if (rows.length === 0) {
     return (
-      <div style={{ border: `1px solid ${C.gris}`, borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
-        <PrintSectionHeader>Egresos del Período</PrintSectionHeader>
-        <p style={{ padding: '12px 12px', fontSize: 10, color: C.ciruela, opacity: 0.5 }}>
+      <div style={{ marginBottom: 20 }}>
+        <SectionTitle>Egresos del período</SectionTitle>
+        <p style={{ fontSize: 10, color: C.gris, fontStyle: 'italic' }}>
           Sin egresos registrados en el período.
         </p>
       </div>
@@ -320,72 +278,73 @@ export function EgressBreakdownPrint({
   return (
     <>
       {/* Desglose por tipo */}
-      <div style={{ border: `1px solid ${C.gris}`, borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
-        <PrintSectionHeader>Egresos por Tipo</PrintSectionHeader>
-        <div style={{ padding: '10px 12px' }}>
-          {rows.map((r) => (
-            <div key={r.type} style={{ marginBottom: 9, breakInside: 'avoid' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                <span style={{ fontSize: 10, color: C.ciruela }}>
-                  {r.label}
-                  <span style={{ opacity: 0.5, marginLeft: 6 }}>
-                    ({r.count} {r.count === 1 ? 'egreso' : 'egresos'})
-                  </span>
-                </span>
-                <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: C.terracota }}>
-                    {formatCurrency(r.amount)}
-                  </span>
-                  <span style={{ fontSize: 9, color: C.ciruela, opacity: 0.5, minWidth: 28, textAlign: 'right' }}>
-                    {Math.round(r.pct)}%
-                  </span>
-                </span>
-              </div>
-              <div style={{ height: 3, borderRadius: 99, background: C.gris }}>
-                <div style={{ height: 3, borderRadius: 99, width: `${r.pct}%`, background: C.terracota }} />
-              </div>
-            </div>
-          ))}
-          <div style={{ marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.gris}`, display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 9, color: C.ciruela, opacity: 0.5 }}>
-              Total egresos del período ({count})
-            </span>
-            <span style={{ fontSize: 11, fontWeight: 800, color: C.terracota }}>
-              {formatCurrency(total)}
-            </span>
-          </div>
-          <p style={{ fontSize: 8, color: C.ciruela, opacity: 0.5, marginTop: 8, lineHeight: 1.5 }}>
-            {CLASSIFICATION_NOTE}
-          </p>
-        </div>
-      </div>
-
-      {/* Detalle */}
-      <div style={{ border: `1px solid ${C.gris}`, borderRadius: 6, overflow: 'hidden', marginBottom: 16 }}>
-        <PrintSectionHeader>Detalle de Egresos</PrintSectionHeader>
-        {truncated && (
-          <p style={{ padding: '6px 10px', fontSize: 9, color: C.terracota, background: C.fondo }}>
-            Mostrando los primeros {count} de {totalAvailable} egresos del período.
-          </p>
-        )}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
+      <div style={{ marginBottom: 20 }}>
+        <SectionTitle>Egresos por tipo</SectionTitle>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr style={{ background: '#edf0ef' }}>
-              <th style={{ ...printHead, textAlign: 'left', width: 60 }}>Fecha</th>
-              <th style={{ ...printHead, textAlign: 'left' }}>Concepto</th>
-              <th style={{ ...printHead, textAlign: 'left', width: 95 }}>Tipo</th>
-              <th style={{ ...printHead, textAlign: 'left', width: 80 }}>Método</th>
-              <th style={{ ...printHead, textAlign: 'right', width: 90 }}>Monto</th>
+            <tr>
+              <th style={{ ...thBase, textAlign: 'left' }}>Tipo</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 70 }}>Egresos</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 110 }}>Monto</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 42 }}>%</th>
             </tr>
           </thead>
           <tbody>
-            {items.map((e, i) => (
-              <tr key={e._id} style={{ background: i % 2 === 0 ? C.blanco : '#fafafa', breakInside: 'avoid' }}>
-                <td style={{ ...printCell, opacity: 0.7 }}>{formatDate(e.createdAt)}</td>
-                <td style={printCell}>{e.concept}</td>
-                <td style={{ ...printCell, opacity: 0.7 }}>{egressTypeLabel(e.type)}</td>
-                <td style={{ ...printCell, opacity: 0.7 }}>{methodLabel(e.paymentMethod)}</td>
-                <td style={{ ...printCell, textAlign: 'right', fontWeight: 700, color: C.terracota }}>
+            {rows.map((r) => (
+              <tr key={r.type} style={{ breakInside: 'avoid' }}>
+                <td style={{ ...cellBase, color: C.tinta }}>{r.label}</td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.gris }}>
+                  {r.count}
+                </td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.terracota }}>
+                  {formatCurrency(r.amount)}
+                </td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.gris }}>
+                  {Math.round(r.pct)}%
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td style={totalCell}>Total egresos del período</td>
+              <td className="tabular-nums" style={{ ...totalCell, textAlign: 'right' }}>{count}</td>
+              <td className="tabular-nums" style={{ ...totalCell, textAlign: 'right', fontWeight: 800, fontSize: 11, color: C.terracota }}>
+                {formatCurrency(total)}
+              </td>
+              <td style={totalCell} />
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ fontSize: 8, color: C.gris, marginTop: 8, lineHeight: 1.5 }}>
+          {CLASSIFICATION_NOTE}
+        </p>
+      </div>
+
+      {/* Detalle */}
+      <div style={{ marginBottom: 24 }}>
+        <SectionTitle>Detalle de egresos</SectionTitle>
+        {truncated && (
+          <p style={{ fontSize: 9, color: C.naranja, marginBottom: 6 }}>
+            Mostrando los primeros {count} de {totalAvailable} egresos del período.
+          </p>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...thBase, textAlign: 'left', width: 60 }}>Fecha</th>
+              <th style={{ ...thBase, textAlign: 'left' }}>Concepto</th>
+              <th style={{ ...thBase, textAlign: 'left', width: 95 }}>Tipo</th>
+              <th style={{ ...thBase, textAlign: 'left', width: 80 }}>Método</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 90 }}>Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((e) => (
+              <tr key={e._id} style={{ breakInside: 'avoid' }}>
+                <td className="tabular-nums" style={{ ...cellBase, color: C.gris }}>{formatDate(e.createdAt)}</td>
+                <td style={{ ...cellBase, color: C.tinta }}>{e.concept}</td>
+                <td style={{ ...cellBase, color: C.gris }}>{egressTypeLabel(e.type)}</td>
+                <td style={{ ...cellBase, color: C.gris }}>{methodLabel(e.paymentMethod)}</td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.terracota }}>
                   {formatCurrency(e.amount)}
                 </td>
               </tr>

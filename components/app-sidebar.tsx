@@ -3,6 +3,7 @@
 import * as React from 'react';
 import {
   Home,
+  KeyRound,
   Package,
   ShoppingCart,
   Users,
@@ -44,23 +45,26 @@ const SIDEBAR_STYLE = {
   '--sidebar-border': '#d9dadb',
 } as React.CSSProperties;
 
+// `view` es la clave de la vista (segmento bajo /dashboard, '' = inicio) que
+// se cruza con la whitelist `allowedViews` de la cuenta (ver lib/views.ts).
 const navigationItems = [
-  { title: 'Dashboard',       url: '/dashboard',            icon: Home,         enabled: true,  adminOnly: false },
-  { title: 'Ventas',          url: '/dashboard/sales',      icon: ShoppingCart, enabled: true,  adminOnly: false },
-  { title: 'Clientes',        url: '/dashboard/clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
-  { title: 'Reservas',        url: '/dashboard/reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
-  { title: 'Bot WhatsApp',    url: '/dashboard/bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
+  { title: 'Dashboard',       url: '/dashboard',            view: '',           icon: Home,         enabled: true,  adminOnly: false },
+  { title: 'Ventas',          url: '/dashboard/sales',      view: 'sales',      icon: ShoppingCart, enabled: true,  adminOnly: false },
+  { title: 'Clientes',        url: '/dashboard/clients',    view: 'clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
+  { title: 'Reservas',        url: '/dashboard/reservas',   view: 'reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
+  { title: 'Bot WhatsApp',    url: '/dashboard/bot',        view: 'bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
   // se siguen creando desde la venta y viéndose en el detalle del cliente;
   // sólo se quita el acceso directo a /dashboard/prepaids (la ruta queda).
-  // { title: 'Señas', url: '/dashboard/prepaids', icon: CreditCard, enabled: true, adminOnly: false },
-  { title: 'Caja y Finanzas', url: '/dashboard/finances',   icon: DollarSign,   enabled: true,  adminOnly: true  },
-  { title: 'Productos',       url: '/dashboard/products',   icon: Package,      enabled: true,  adminOnly: false },
-  { title: 'Categorías',      url: '/dashboard/categories', icon: Tag,          enabled: true,  adminOnly: true  },
-  { title: 'Stock',           url: '/dashboard/stock',      icon: Warehouse,    enabled: true,  adminOnly: true  },
-  { title: 'Actividad',      url: '/dashboard/activity',   icon: Activity,     enabled: true,  adminOnly: true  },
-  { title: 'Personal',        url: '/dashboard/staff',      icon: Users,        enabled: false, adminOnly: true  },
-  { title: 'Configuración',   url: '/dashboard/settings',   icon: Settings,     enabled: true,  adminOnly: true  },
+  // { title: 'Señas', url: '/dashboard/prepaids', view: 'prepaids', icon: CreditCard, enabled: true, adminOnly: false },
+  { title: 'Caja y Finanzas', url: '/dashboard/finances',   view: 'finances',   icon: DollarSign,   enabled: true,  adminOnly: true  },
+  { title: 'Productos',       url: '/dashboard/products',   view: 'products',   icon: Package,      enabled: true,  adminOnly: false },
+  { title: 'Categorías',      url: '/dashboard/categories', view: 'categories', icon: Tag,          enabled: true,  adminOnly: true  },
+  { title: 'Stock',           url: '/dashboard/stock',      view: 'stock',      icon: Warehouse,    enabled: true,  adminOnly: true  },
+  { title: 'Actividad',      url: '/dashboard/activity',   view: 'activity',   icon: Activity,     enabled: true,  adminOnly: true  },
+  { title: 'Personal',        url: '/dashboard/staff',      view: 'staff',      icon: Users,        enabled: false, adminOnly: true  },
+  { title: 'Cuentas',         url: '/dashboard/cuentas',    view: 'cuentas',    icon: KeyRound,     enabled: true,  adminOnly: true  },
+  { title: 'Configuración',   url: '/dashboard/settings',   view: 'settings',   icon: Settings,     enabled: true,  adminOnly: true  },
 ];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -76,13 +80,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   };
 
   const userRole = user?.role ?? null;
+  const allowedViews = user?.allowedViews ?? [];
   const filteredNavItems = React.useMemo(() => {
     return navigationItems.filter((item) => {
       if (item.enabled === false) return false;
       if (item.adminOnly && userRole !== 'admin') return false;
+      // Whitelist de vistas por cuenta: si la cuenta (no admin) tiene una
+      // lista, sólo ve esas vistas. Vacía = acceso estándar por rol.
+      if (
+        userRole !== 'admin' &&
+        allowedViews.length > 0 &&
+        !allowedViews.includes(item.view)
+      ) {
+        return false;
+      }
       return true;
     });
-  }, [userRole]);
+  }, [userRole, allowedViews]);
 
   return (
     <Sidebar

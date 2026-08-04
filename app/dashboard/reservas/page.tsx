@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  CalendarDays,
   CalendarRange,
   Grid2x2,
   MessageCircle,
@@ -17,7 +16,6 @@ import { ExperienciasTab } from '@/components/dashboard/reservas/experiencias-ta
 import { AgendaTab } from '@/components/dashboard/reservas/agenda-tab';
 import { MesasTab } from '@/components/dashboard/reservas/mesas-tab';
 import { ConversacionesTab } from '@/components/dashboard/reservas/conversaciones-tab';
-import { TurnosTab } from '@/components/dashboard/reservas/turnos-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
 import { ConsultasTab } from '@/components/dashboard/reservas/consultas-tab';
 import { PiezasTab } from '@/components/dashboard/reservas/piezas-tab';
@@ -26,7 +24,6 @@ type Tab =
   | 'agenda'
   | 'mesas'
   | 'experiencias'
-  | 'turnos'
   | 'reservas'
   | 'consultas'
   | 'charlas'
@@ -36,7 +33,6 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
   { key: 'agenda', label: 'Agenda', icon: CalendarRange },
   { key: 'mesas', label: 'Mesas', icon: Grid2x2 },
   { key: 'experiencias', label: 'Experiencias', icon: Palette },
-  { key: 'turnos', label: 'Turnos', icon: CalendarDays },
   { key: 'reservas', label: 'Reservas', icon: Ticket },
   { key: 'consultas', label: 'Consultas', icon: MessageCircle },
   { key: 'charlas', label: 'Charlas', icon: Headset },
@@ -44,14 +40,14 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
 ];
 
 export default function ReservasAdminPage() {
-  const [tab, setTab] = useState<Tab>('turnos');
+  const [tab, setTab] = useState<Tab>('agenda');
 
   return (
     <div className='flex flex-col gap-4'>
       <div className='flex flex-col gap-1'>
         <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>Reservas</h1>
         <p className='text-sm text-[#455a54]/60 font-winter-solid mt-0.5'>
-          Experiencias, turnos y reservas de la landing pública.
+          Experiencias, horarios y reservas de la landing pública.
         </p>
       </div>
 
@@ -79,7 +75,6 @@ export default function ReservasAdminPage() {
       {tab === 'agenda' && <AgendaTab />}
       {tab === 'mesas' && <MesasTab />}
       {tab === 'experiencias' && <ExperienciasTab />}
-      {tab === 'turnos' && <TurnosTab />}
       {tab === 'reservas' && <ReservasTab />}
       {tab === 'consultas' && <ConsultasTab />}
       {tab === 'charlas' && <ConversacionesTab />}

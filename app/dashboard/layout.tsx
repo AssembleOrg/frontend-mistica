@@ -1,5 +1,6 @@
 import { AppSidebar } from '@/components/app-sidebar';
 import { AuthHydrator } from '@/components/auth-hydrator';
+import { ViewGuard } from '@/components/view-guard';
 import { AutoClosureNotifier } from '@/components/dashboard/cashbox/auto-closure-notifier';
 import {
   SidebarInset,
@@ -15,6 +16,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AuthHydrator />
+      <ViewGuard />
       <AutoClosureNotifier />
       <AppSidebar />
       <SidebarInset>

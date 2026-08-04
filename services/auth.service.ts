@@ -17,6 +17,8 @@ export interface AuthResponse {
     name: string;
     role: 'admin' | 'user';
     avatar?: string;
+    /** Whitelist de vistas del panel; vacía = acceso estándar según el rol. */
+    allowedViews?: string[];
   };
 }
 
@@ -26,6 +28,8 @@ export interface User {
   name: string;
   role: 'admin' | 'user';
   avatar?: string;
+  /** Whitelist de vistas del panel; vacía = acceso estándar según el rol. */
+  allowedViews?: string[];
   createdAt?: string;
   updatedAt?: string;
 }

@@ -62,6 +62,7 @@ const EVENT_CONFIG: Partial<Record<EventKey, EventConfig>> = {
   'Cashbox:EXPENSE': { label: 'Egreso de caja',     icon: TrendingDown, color: '#4e4247', bg: 'rgba(78,66,71,0.12)'   },
   'Egress:CREATE':   { label: 'Egreso registrado',  icon: TrendingDown, color: '#4e4247', bg: 'rgba(78,66,71,0.12)'   },
   'Egress:CANCEL':   { label: 'Egreso anulado',     icon: Trash2,       color: '#4e4247', bg: 'rgba(78,66,71,0.12)'   },
+  'Egress:DELETE':   { label: 'Egreso eliminado',   icon: Trash2,       color: '#b91c1c', bg: 'rgba(185,28,28,0.10)'  },
   'Product:CREATE':  { label: 'Producto creado',    icon: Package,      color: '#cc844a', bg: 'rgba(204,132,74,0.12)' },
   'Product:UPDATE':  { label: 'Producto editado',   icon: Edit2,        color: '#cc844a', bg: 'rgba(204,132,74,0.12)' },
   'Product:BULK_UPDATE': { label: 'Actualiz. masiva', icon: Package,    color: '#cc844a', bg: 'rgba(204,132,74,0.12)' },
@@ -97,9 +98,24 @@ function fmt(n: number) {
 }
 
 function getInlineDetail(log: AuditLog): string | null {
+  const key = `${log.entity}:${log.action}`;
+
+  // Borrado de egreso: el monto/concepto quedan en oldValues (snapshot previo)
+  // y el motivo en newValues. Lo mostramos junto para que la auditoría sea
+  // legible de un vistazo.
+  if (key === 'Egress:DELETE') {
+    const old = log.oldValues;
+    const reason = log.newValues?.reason;
+    const parts: string[] = [];
+    if (old?.amount != null) {
+      parts.push(`${fmt(old.amount)}${old.concept ? ` · ${old.concept}` : ''}`);
+    }
+    if (reason) parts.push(`Motivo: ${reason}`);
+    return parts.length ? parts.join(' — ') : null;
+  }
+
   const v = log.newValues;
   if (!v) return null;
-  const key = `${log.entity}:${log.action}`;
   switch (key) {
     case 'Cashbox:OPEN':
       return v.openingCash != null ? `Apertura: ${fmt(v.openingCash)}` : null;

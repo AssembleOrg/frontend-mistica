@@ -749,12 +749,14 @@ html:has([data-slot='sheet-content'][data-state='open']) body {
     border-color: #000 !important;
   }
 
+  /* height:auto (no 100%): un reporte que supera una carilla —el cierre mensual
+     con el detalle de egresos— quedaba recortado al fijar la altura. */
   .receipt-a4 {
     position: absolute;
     left: 0;
     top: 0;
     width: 100%;
-    height: 100%;
+    height: auto;
   }
 
   .print\:hidden {

@@ -1,8 +1,11 @@
 import { apiService, type ApiResponse } from './api.service';
+import type { EgressType } from '@/lib/egress-type-labels';
 
 export interface CashSessionEditEntry {
   editedAt: string;
   editedByUserId?: string;
+  /** Motivo de la edición (presente en borrados de egreso). */
+  reason?: string;
   addedEgresses: Array<{
     egressId: string;
     egressNumber: string;
@@ -13,6 +16,14 @@ export interface CashSessionEditEntry {
   addedIncomes: Array<{
     incomeId: string;
     incomeNumber: string;
+    concept: string;
+    amount: number;
+    paymentMethod: string;
+  }>;
+  /** Egresos borrados retroactivamente sobre una sesión cerrada. */
+  removedEgresses?: Array<{
+    egressId: string;
+    egressNumber: string;
     concept: string;
     amount: number;
     paymentMethod: string;
@@ -41,7 +52,7 @@ export interface RetroactiveEgressInput {
   concept: string;
   amount: number;
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
-  type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
+  type: EgressType;
   notes?: string;
 }
 
@@ -69,6 +80,8 @@ export interface CashIncomeResponse {
   createdAt: string;
 }
 
+// Sin `type`: el backend fuerza EgressType.EXPENSE al crear egresos de caja,
+// así que mandarlo no tendría efecto. Se reclasifica editando el egreso.
 export interface CreateCashExpenseRequest {
   concept: string;
   amount: number;
@@ -116,6 +129,8 @@ export interface SessionTransaction {
   // true cuando es seña: prepaid (saldo a favor) o venta con saldo pendiente
   // (status PARTIAL). Lo usa el chip "Seña" unificado del detalle de sesión.
   isSena?: boolean;
+  // Marca manual del checkbox tipo Excel. Sólo estado; no afecta cálculos.
+  checked?: boolean;
 }
 
 export interface SessionTransactionsResponse {
@@ -187,6 +202,19 @@ class CashboxService {
 
   async getSessionTransactions(id: string): Promise<ApiResponse<SessionTransactionsResponse>> {
     return apiService.get<SessionTransactionsResponse>(`/cashbox/${id}/transactions`);
+  }
+
+  /**
+   * Marca/desmarca un movimiento (checkbox tipo Excel del detalle de sesión).
+   * Sólo estado visual persistido: no afecta cálculos, saldos ni arqueo. El
+   * movimiento vive en la colección de su `source`, por eso va en la ruta.
+   */
+  async setTransactionChecked(
+    source: SessionTransaction['source'],
+    id: string,
+    checked: boolean,
+  ): Promise<ApiResponse<{ id: string; source: string; checked: boolean }>> {
+    return apiService.patch(`/cashbox/transactions/${source}/${id}/checked`, { checked });
   }
 
   async updateSessionLabel(id: string, label: string): Promise<ApiResponse<CashSession>> {

@@ -10,6 +10,7 @@ import { productsService, CreateProductRequest, UpdateProductRequest } from '@/s
 import { ApiError } from '@/services/api.service';
 import type { ProductCategory } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { translateApiError } from '@/lib/api-error-messages';
 
 // Hook state interface
 interface UseProductsState {
@@ -79,7 +80,13 @@ export function useProducts() {
   const handleApiError = useCallback(
     (error: unknown, action: string) => {
       const apiError = error as ApiError;
-      const errorMessage = apiError?.message || `Error en ${action}`;
+      // El backend responde en inglés y con jerga de validación; al usuario le
+      // mostramos siempre español. El error crudo queda en la consola.
+      const errorMessage = translateApiError(
+        apiError?.message,
+        apiError?.status,
+        `No se pudo completar la acción: ${action}.`
+      );
       setState((prev) => ({ ...prev, error: errorMessage }));
       setError(errorMessage);
       showToast.error(errorMessage);

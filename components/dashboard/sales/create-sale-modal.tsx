@@ -588,12 +588,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // En edición la venta ya trae sus pagos: tampoco.
   const prevTotalRef = useRef(0);
   useEffect(() => {
-    if (editingSale) {
-      prevTotalRef.current = total;
-      return;
-    }
-    if (isPartial) {
-      setPayments((p) => (p.length === 0 ? [{ method: 'TRANSFER', amount: 0 }] : p));
+    if (editingSale || isPartial) {
       prevTotalRef.current = total;
       return;
     }
@@ -608,9 +603,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     const delta = Number((total - prevTotalRef.current).toFixed(2));
     prevTotalRef.current = total;
     setPayments((p) => {
-      if (p.length === 0) {
-        return total > 0 ? [{ method: 'TRANSFER', amount: Number(total.toFixed(2)) }] : p;
-      }
+      // Sin método elegido no sembramos ninguno: el operador debe seleccionarlo
+      // a mano en cada venta. `PaymentsEditor` precarga el monto pendiente al
+      // agregarlo, así que no se pierde el autocompletado del importe.
+      if (p.length === 0) return p;
       if (Math.abs(delta) < 0.005) return p;
       const copy = [...p];
       copy[0] = {

@@ -3,16 +3,31 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { Printer, X } from 'lucide-react';
-import { financeService, type FinanceSummary } from '@/services/finance.service';
-import { MonthlyReportViewer } from '@/components/dashboard/finances/monthly-report-viewer';
+import { EgressReportViewer } from '@/components/dashboard/finances/egress-report-viewer';
+import { useEgressBreakdown } from '@/hooks/useEgressBreakdown';
 import { showToast } from '@/lib/toast';
 
-function MonthlyReportContent() {
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function Loader({ text }: { text: string }) {
+  return (
+    <div className="fixed inset-0 bg-white flex items-center justify-center">
+      <div className="text-center">
+        <div
+          className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4"
+          style={{ borderColor: '#455a54', borderTopColor: 'transparent' }}
+        />
+        <p style={{ color: '#4e4247', fontSize: 14 }}>{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function EgressReportContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   const [reportLabel, setReportLabel] = useState('');
 
   useEffect(() => {
@@ -20,57 +35,41 @@ function MonthlyReportContent() {
     const to = searchParams.get('to');
     const label = searchParams.get('label');
 
-    if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    if (!from || !to || !ISO_DATE.test(from) || !ISO_DATE.test(to)) {
       showToast.error('Período inválido');
       router.back();
       return;
     }
 
     setReportLabel(label ?? `${from} – ${to}`);
-
-    const load = async () => {
-      try {
-        setIsLoading(true);
-        const res = await financeService.summary({ from, to });
-        setSummary(res.data);
-      } catch (err) {
-        console.error(err);
-        showToast.error('Error al cargar el reporte');
-        router.back();
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    load();
+    setRange({ from, to });
   }, [searchParams, router]);
 
+  const egresses = useEgressBreakdown({
+    from: range?.from,
+    to: range?.to,
+    enabled: range !== null,
+  });
+
+  // Auto-print sólo con los datos cargados y sin error: imprimir un reporte
+  // en blanco o con un mensaje de fallo no le sirve a nadie.
   useEffect(() => {
-    if (!summary || isLoading) return;
+    if (!range || egresses.loading || egresses.error) return;
     const timer = setTimeout(() => {
       window.print();
     }, 800);
     return () => clearTimeout(timer);
-  }, [summary, isLoading]);
+  }, [range, egresses.loading, egresses.error]);
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: '#455a54', borderTopColor: 'transparent' }} />
-          <p style={{ color: '#4e4247', fontSize: 14 }}>Generando reporte...</p>
-        </div>
-      </div>
-    );
+  if (!range || egresses.loading) {
+    return <Loader text="Generando reporte de egresos..." />;
   }
-
-  if (!summary) return null;
 
   return (
     <>
-      {/* A4 con márgenes: el @page global es 80mm (ticket térmico) y deformaba
-          este reporte. Con el detalle de egresos ocupa más de una carilla, así
-          que además evitamos cortar filas al medio. */}
+      {/* A4 con márgenes: el @page global es 80mm (ticket térmico) y deformaría
+          este reporte. El detalle puede ocupar más de una carilla, así que
+          además evitamos cortar filas al medio. */}
       <style>{`
         @page { size: A4; margin: 12mm; }
         @media print {
@@ -101,7 +100,7 @@ function MonthlyReportContent() {
         }}
       >
         <span style={{ color: '#efcbb9', fontSize: 13, fontWeight: 600 }}>
-          {reportLabel}
+          Egresos · {reportLabel}
         </span>
         <div style={{ display: 'flex', gap: 10 }}>
           <button
@@ -131,25 +130,17 @@ function MonthlyReportContent() {
         </div>
       </div>
 
-      {/* Espaciado para compensar la barra fija */}
       <div className="print:hidden" style={{ height: 52 }} />
 
-      <MonthlyReportViewer summary={summary} monthLabel={reportLabel} />
+      <EgressReportViewer egresses={egresses} periodLabel={reportLabel} />
     </>
   );
 }
 
-export default function MonthlyReportPage() {
+export default function EgressReportPage() {
   return (
-    <Suspense fallback={
-      <div className="fixed inset-0 bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: '#455a54', borderTopColor: 'transparent' }} />
-          <p style={{ color: '#4e4247', fontSize: 14 }}>Cargando...</p>
-        </div>
-      </div>
-    }>
-      <MonthlyReportContent />
+    <Suspense fallback={<Loader text="Cargando..." />}>
+      <EgressReportContent />
     </Suspense>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { showToast } from '@/lib/toast';
-import { egressesService, type Egress, type CreateEgressRequest, type UpdateEgressRequest, type EgressFilters, type EgressStatistics } from '@/services/egresses.service';
+import { egressesService, type Egress, type CreateEgressRequest, type UpdateEgressRequest, type EgressFilters, type EgressStatistics, type DeleteEgressPayload } from '@/services/egresses.service';
 import type { ApiResponse } from '@/services/api.service';
 
 export function useEgressesAPI() {
@@ -95,11 +95,16 @@ export function useEgressesAPI() {
     }
   }, []);
 
-  // Delete egress
-  const deleteEgress = useCallback(async (id: string): Promise<void> => {
+  // Delete egress. Requiere PIN o contraseña del admin + motivo (ver
+  // DeleteEgressPayload). El borrado es una acción sensible con cuenta admin
+  // compartida.
+  const deleteEgress = useCallback(async (
+    id: string,
+    payload: DeleteEgressPayload,
+  ): Promise<void> => {
     setIsLoading(true);
     try {
-      await egressesService.deleteEgress(id);
+      await egressesService.deleteEgress(id, payload);
       showToast.success('Egreso eliminado exitosamente');
       
       // Update local state

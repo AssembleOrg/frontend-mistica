@@ -3,39 +3,49 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { Printer, X } from 'lucide-react';
-import { financeService, type FinanceSummary } from '@/services/finance.service';
-import { MonthlyReportViewer } from '@/components/dashboard/finances/monthly-report-viewer';
+import {
+  cashboxService,
+  type CashSession,
+  type SessionTransaction,
+} from '@/services/cashbox.service';
+import { SessionReportViewer } from '@/components/dashboard/finances/session-report-viewer';
+import { defaultSessionLabel } from '@/lib/session-label';
 import { showToast } from '@/lib/toast';
 
-function MonthlyReportContent() {
+function SessionReportContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [summary, setSummary] = useState<FinanceSummary | null>(null);
+  const [session, setSession] = useState<CashSession | null>(null);
+  const [transactions, setTransactions] = useState<SessionTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [reportLabel, setReportLabel] = useState('');
 
   useEffect(() => {
-    const from = searchParams.get('from');
-    const to = searchParams.get('to');
-    const label = searchParams.get('label');
+    const id = searchParams.get('id');
 
-    if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
-      showToast.error('Período inválido');
+    if (!id) {
+      showToast.error('Sesión inválida');
       router.back();
       return;
     }
 
-    setReportLabel(label ?? `${from} – ${to}`);
-
     const load = async () => {
       try {
         setIsLoading(true);
-        const res = await financeService.summary({ from, to });
-        setSummary(res.data);
+        const [sessRes, txRes] = await Promise.all([
+          cashboxService.findOne(id),
+          cashboxService.getSessionTransactions(id),
+        ]);
+        if (!sessRes.data) {
+          showToast.error('Sesión no encontrada');
+          router.back();
+          return;
+        }
+        setSession(sessRes.data);
+        setTransactions(txRes.data?.transactions ?? []);
       } catch (err) {
         console.error(err);
-        showToast.error('Error al cargar el reporte');
+        showToast.error('Error al cargar el balance');
         router.back();
       } finally {
         setIsLoading(false);
@@ -46,31 +56,31 @@ function MonthlyReportContent() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (!summary || isLoading) return;
+    if (!session || isLoading) return;
     const timer = setTimeout(() => {
       window.print();
     }, 800);
     return () => clearTimeout(timer);
-  }, [summary, isLoading]);
+  }, [session, isLoading]);
 
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-2 border-t-transparent rounded-full mx-auto mb-4" style={{ borderColor: '#455a54', borderTopColor: 'transparent' }} />
-          <p style={{ color: '#4e4247', fontSize: 14 }}>Generando reporte...</p>
+          <p style={{ color: '#4e4247', fontSize: 14 }}>Generando balance...</p>
         </div>
       </div>
     );
   }
 
-  if (!summary) return null;
+  if (!session) return null;
+
+  const reportLabel = session.label?.trim() || defaultSessionLabel(session.openedAt);
 
   return (
     <>
-      {/* A4 con márgenes: el @page global es 80mm (ticket térmico) y deformaba
-          este reporte. Con el detalle de egresos ocupa más de una carilla, así
-          que además evitamos cortar filas al medio. */}
+      {/* Reglas de impresión: A4 con márgenes, colores fieles, sin cortes de fila. */}
       <style>{`
         @page { size: A4; margin: 12mm; }
         @media print {
@@ -78,7 +88,6 @@ function MonthlyReportContent() {
           .receipt-a4 {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
-            min-height: 0 !important;
           }
           tr { break-inside: avoid; }
         }
@@ -134,12 +143,12 @@ function MonthlyReportContent() {
       {/* Espaciado para compensar la barra fija */}
       <div className="print:hidden" style={{ height: 52 }} />
 
-      <MonthlyReportViewer summary={summary} monthLabel={reportLabel} />
+      <SessionReportViewer session={session} transactions={transactions} />
     </>
   );
 }
 
-export default function MonthlyReportPage() {
+export default function SessionReportPage() {
   return (
     <Suspense fallback={
       <div className="fixed inset-0 bg-white flex items-center justify-center">
@@ -149,7 +158,7 @@ export default function MonthlyReportPage() {
         </div>
       </div>
     }>
-      <MonthlyReportContent />
+      <SessionReportContent />
     </Suspense>
   );
 }

@@ -56,7 +56,7 @@ export default function DashboardLayout({
           </div>
         </header>
         <div
-          className='flex flex-1 flex-col gap-4 p-2 sm:p-4 pt-2 sm:pt-4 overflow-x-hidden'
+          className='flex flex-1 flex-col gap-4 p-2 sm:p-4 pt-2 sm:pt-4 overflow-x-clip'
           style={{ backgroundColor: '#efcbb9' }}
         >
           <div className="container-mobile">

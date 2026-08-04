@@ -156,8 +156,12 @@
   }
   
   html {
-    /* Prevent horizontal scroll on mobile */
-    overflow-x: hidden;
+    /* Prevent horizontal scroll on mobile.
+     * `clip` y no `hidden`: con `hidden` el navegador computa `overflow-y:
+     * auto` y el elemento se vuelve un scroll container propio, lo que rompe
+     * el bloqueo de scroll de fondo de los modales (Radix bloquea el
+     * viewport, no cada contenedor). `clip` recorta igual sin scrollport. */
+    overflow-x: clip;
     /* Scroll suave al navegar por anclas de la landing */
     scroll-behavior: smooth;
   }
@@ -175,8 +179,8 @@
 
   body {
     @apply bg-background text-foreground;
-    /* Prevent horizontal scroll on mobile */
-    overflow-x: hidden;
+    /* Prevent horizontal scroll on mobile (ver nota en `html` sobre `clip`). */
+    overflow-x: clip;
     /* Better mobile text rendering */
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
@@ -481,6 +485,22 @@ html.menu-lock,
 html.menu-lock body {
   overflow: hidden;
   touch-action: none;
+}
+
+/* Bloqueo de scroll de fondo con un modal abierto.
+ *
+ * Refuerzo del `overflow-x: clip` de arriba: si algún ancestro vuelve a
+ * generar un scroll container, esto frena igual el fondo. Van html Y body
+ * (como en `.menu-lock`): con sólo uno, el otro sigue scrolleando.
+ *
+ * Sin `touch-action: none` acá, a diferencia de `.menu-lock`: bloquearía
+ * también el scroll táctil DENTRO del modal, que se portalea al body.
+ */
+html:has([data-slot='dialog-content'][data-state='open']),
+html:has([data-slot='dialog-content'][data-state='open']) body,
+html:has([data-slot='sheet-content'][data-state='open']),
+html:has([data-slot='sheet-content'][data-state='open']) body {
+  overflow: hidden;
 }
 
 /* Overlay del menú mobile: fade del fondo + entrada escalonada de los links. */

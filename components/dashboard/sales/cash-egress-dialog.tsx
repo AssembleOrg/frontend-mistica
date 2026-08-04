@@ -56,7 +56,8 @@ export function CashEgressDialog({
 }: CashEgressDialogProps) {
   const [concept, setConcept] = useState('');
   const [amount, setAmount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  // Sin método por defecto: el operador lo elige explícitamente en cada egreso.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,7 +65,7 @@ export function CashEgressDialog({
     if (open) {
       setConcept('');
       setAmount(0);
-      setPaymentMethod('CASH');
+      setPaymentMethod('');
       setNotes('');
       setIsSubmitting(false);
     }
@@ -80,7 +81,10 @@ export function CashEgressDialog({
       showToast.error('El monto debe ser mayor a 0');
       return;
     }
-
+    if (!paymentMethod) {
+      showToast.error('Seleccioná un método de pago');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload: CreateCashExpenseRequest = {
@@ -172,7 +176,7 @@ export function CashEgressDialog({
               disabled={isSubmitting}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="Seleccioná un método" />
               </SelectTrigger>
               <SelectContent>
                 {METHODS.map((m) => (
@@ -218,7 +222,7 @@ export function CashEgressDialog({
             type="button"
             size="sm"
             onClick={handleSubmit}
-            disabled={isSubmitting || !concept.trim() || !(amount > 0)}
+            disabled={isSubmitting || !concept.trim() || !(amount > 0) || !paymentMethod}
             className="h-8 text-xs font-winter-solid bg-[#9d684e] hover:bg-[#9d684e]/90 text-white"
           >
             {isSubmitting ? (

@@ -120,10 +120,13 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
   })();
   const hasMarginIssue = marginState.kind === 'negative' || marginState.kind === 'zero';
 
+  // La categoría es obligatoria: el backend la exige y sin ella el producto
+  // no se puede crear.
   const isFormValid =
     formData.name.trim().length >= 3 &&
     formData.price > 0 &&
-    formData.barcode.trim().length > 0;
+    formData.barcode.trim().length > 0 &&
+    formData.category.trim().length > 0;
 
   const handleInputChange = (field: keyof FormData, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value as FormData[typeof field] }));
@@ -145,12 +148,35 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
     }));
   };
 
+  // Errores por campo, para señalar exactamente qué falta en vez de un toast
+  // genérico.
+  const collectValidationErrors = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (!formData.barcode.trim()) {
+      errors.barcode = 'Escaneá o generá un código de barras.';
+    }
+    if (formData.name.trim().length < 3) {
+      errors.name = 'El nombre debe tener al menos 3 caracteres.';
+    }
+    if (!formData.category.trim()) {
+      errors.category = 'Elegí una categoría para el producto.';
+    }
+    if (formData.price <= 0) {
+      errors.price = 'Ingresá un precio mayor a cero.';
+    }
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) {
+
+    const errors = collectValidationErrors();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
       showToast.error('Por favor completá los campos obligatorios');
       return;
     }
+    setValidationErrors({});
 
     setIsLoading(true);
     try {
@@ -162,7 +188,7 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
         price: formData.price,
         kind: formData.kind,
       };
-      if (formData.category) payload.category = formData.category;
+      payload.category = formData.category.trim();
       if (!isService && formData.costPrice > 0) payload.costPrice = formData.costPrice;
       if (!isService) payload.stock = formData.stock;
       if (formData.unitOfMeasure) payload.unitOfMeasure = formData.unitOfMeasure;
@@ -333,12 +359,14 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
               </div>
 
               <div>
-                <Label htmlFor='category' className='text-[#455a54] font-winter-solid'>Categoría</Label>
+                <Label htmlFor='category' className='text-[#455a54] font-winter-solid'>
+                  Categoría <span className='text-red-500'>*</span>
+                </Label>
                 <Select
-                  value={formData.category || undefined}
+                  value={formData.category}
                   onValueChange={(value) => handleInputChange('category', value)}
                 >
-                  <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20'>
+                  <SelectTrigger className={`border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20 ${validationErrors.category ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder={loadingCategories ? 'Cargando...' : 'Seleccione una categoría'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -353,6 +381,12 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
                     ))}
                   </SelectContent>
                 </Select>
+                {validationErrors.category && (
+                  <p className='text-xs sm:text-sm text-red-500 mt-1 flex items-center gap-1 font-winter-solid'>
+                    <AlertCircle className='w-3 h-3' />
+                    {validationErrors.category}
+                  </p>
+                )}
                 <p className='text-[10px] text-[#455a54]/50 mt-1 font-winter-solid'>
                   ¿No ves la categoría? Cargala desde <a href='/dashboard/categories' className='underline'>Categorías</a>.
                 </p>
@@ -361,7 +395,7 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
               <div>
                 <Label htmlFor='unitOfMeasure' className='text-[#455a54] font-winter-solid'>Unidad de Medida</Label>
                 <Select
-                  value={formData.unitOfMeasure || undefined}
+                  value={formData.unitOfMeasure}
                   onValueChange={(value) => handleInputChange('unitOfMeasure', value)}
                 >
                   <SelectTrigger className='border-[#9d684e]/20 focus:border-[#9d684e] focus:ring-[#9d684e]/20'>

@@ -61,7 +61,8 @@ export function ActiveServicesList() {
   const [newServiceName, setNewServiceName] = useState('');
   const [isCreatingService, setIsCreatingService] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
+  // Sin método por defecto: se elige explícitamente al cerrar cada servicio.
+  const [paymentMethod, setPaymentMethod] = useState<string>('');
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [productSearch, setProductSearch] = useState('');
   const [generateInvoice, setGenerateInvoice] = useState(false);
@@ -126,6 +127,7 @@ export function ActiveServicesList() {
       
       setPaymentDialogOpen(false);
       setSelectedService(null);
+      setPaymentMethod('');
       setCashReceived(0);
       setGenerateInvoice(false);
       setInvoiceType('C');
@@ -442,10 +444,12 @@ export function ActiveServicesList() {
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Método de Pago</label>
+                <label className="text-sm font-medium mb-2 block">
+                  Método de Pago <span className="text-red-500">*</span>
+                </label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Seleccioná un método" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="efectivo">Efectivo</SelectItem>
@@ -546,7 +550,10 @@ export function ActiveServicesList() {
                 </Button>
                 <Button
                   onClick={handleCloseService}
-                  disabled={paymentMethod === 'efectivo' && cashReceived < selectedService.totalAmount}
+                  disabled={
+                    !paymentMethod ||
+                    (paymentMethod === 'efectivo' && cashReceived < selectedService.totalAmount)
+                  }
                   className="flex-1 bg-[#9d684e] hover:bg-[#8a5a45]"
                 >
                   Procesar Pago

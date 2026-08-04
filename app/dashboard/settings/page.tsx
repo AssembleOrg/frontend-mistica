@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PaymentSettings } from '@/components/dashboard/settings/payment-settings';
+import { SecuritySettings } from '@/components/dashboard/settings/security-settings';
 import { PageHeader } from '@/components/ui/page-header';
-import { Percent, Building2, Receipt, type LucideIcon } from 'lucide-react';
+import { Percent, Building2, Receipt, KeyRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type SectionKey = 'payments' | 'business' | 'receipt';
+type SectionKey = 'payments' | 'security' | 'business' | 'receipt';
 
 interface Section {
   key: SectionKey;
@@ -15,6 +16,9 @@ interface Section {
   icon: LucideIcon;
   description: string;
   available: boolean;
+  // Oculta la sección de la navegación sin borrar su definición. Se dejan
+  // definidas para reactivarlas fácil cuando estén listas.
+  hidden?: boolean;
 }
 
 const sections: Section[] = [
@@ -24,6 +28,14 @@ const sections: Section[] = [
     icon: Percent,
     description: 'Recargos y descuentos según cómo cobres',
     available: true,
+    hidden: true,
+  },
+  {
+    key: 'security',
+    label: 'Seguridad',
+    icon: KeyRound,
+    description: 'PIN para borrar egresos',
+    available: true,
   },
   {
     key: 'business',
@@ -31,6 +43,7 @@ const sections: Section[] = [
     icon: Building2,
     description: 'Datos del negocio',
     available: false,
+    hidden: true,
   },
   {
     key: 'receipt',
@@ -38,11 +51,15 @@ const sections: Section[] = [
     icon: Receipt,
     description: 'Diseño y campos del recibo',
     available: false,
+    hidden: true,
   },
 ];
 
+// Solo las secciones visibles se renderizan en la navegación.
+const visibleSections = sections.filter((s) => !s.hidden);
+
 export default function SettingsPage() {
-  const [active, setActive] = useState<SectionKey>('payments');
+  const [active, setActive] = useState<SectionKey>('security');
   const activeSection = sections.find((s) => s.key === active)!;
 
   return (
@@ -55,7 +72,7 @@ export default function SettingsPage() {
       {/* Mobile: tabs scrollables */}
       <div className='lg:hidden -mx-4 px-4 overflow-x-auto'>
         <div className='flex gap-2 min-w-max'>
-          {sections.map((s) => {
+          {visibleSections.map((s) => {
             const Icon = s.icon;
             const isActive = active === s.key;
             return (
@@ -85,7 +102,7 @@ export default function SettingsPage() {
           <Card className='border-[#9d684e]/20 sticky top-4'>
             <CardContent className='p-2'>
               <nav className='space-y-1'>
-                {sections.map((s) => {
+                {visibleSections.map((s) => {
                   const Icon = s.icon;
                   const isActive = active === s.key;
                   return (
@@ -138,7 +155,8 @@ export default function SettingsPage() {
           <Card className='border-[#9d684e]/20'>
             <CardContent className='pt-6'>
               {active === 'payments' && <PaymentSettings />}
-              {active !== 'payments' && (
+              {active === 'security' && <SecuritySettings />}
+              {active !== 'payments' && active !== 'security' && (
                 <div className='py-12 text-center text-sm text-[#455a54]/60 font-winter-solid'>
                   Esta sección está en construcción.
                 </div>

@@ -1,7 +1,6 @@
 // stores/products.store.ts
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import type { Product, ProductCategory } from '@/lib/types';
 
 // Loading state interface
@@ -86,9 +85,13 @@ const initialState = {
   },
 };
 
+/**
+ * El catálogo NO se persiste en localStorage: el backend es la fuente de
+ * verdad. Persistirlo hacía que productos borrados reaparecieran tras un
+ * refresh y que precios/stock quedaran viejos.
+ */
 export const useProductsStore = create<ProductsState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       // Initial State
       ...initialState,
 
@@ -283,16 +286,5 @@ export const useProductsStore = create<ProductsState>()(
       reset: () => {
         set(initialState);
       },
-    }),
-    {
-      name: 'mistica-products-storage',
-      // Only persist essential data, not UI state
-      partialize: (state) => ({
-        products: state.products,
-        selectedProduct: state.selectedProduct,
-      }),
-      // Skip hydration to prevent SSR/client mismatch in NextJS App Router
-      skipHydration: true,
-    }
-  )
+  })
 );

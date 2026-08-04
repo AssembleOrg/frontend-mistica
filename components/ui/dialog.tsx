@@ -60,7 +60,11 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-1rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border border-[#9d684e]/20 p-6 shadow-xl duration-200 sm:max-w-[calc(100%-2rem)] md:max-w-2xl lg:max-w-4xl xl:max-w-6xl",
+          // `max-h` + `overflow-y-auto`: si el contenido es más alto que la
+          // ventana, scrollea dentro del modal. Sin esto se desborda fuera de
+          // pantalla y, como Radix bloquea el scroll del body, el gesto cae en
+          // el overlay y cierra el diálogo.
+          "bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-1rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border border-[#9d684e]/20 p-6 shadow-xl duration-200 sm:max-w-[calc(100%-2rem)] md:max-w-2xl lg:max-w-4xl xl:max-w-6xl",
           className
         )}
         {...props}

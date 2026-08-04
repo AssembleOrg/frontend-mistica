@@ -28,6 +28,7 @@ import {
   type RetroactiveIncomeInput,
 } from '@/services/cashbox.service';
 import { showToast } from '@/lib/toast';
+import { EGRESS_TYPES, type EgressType } from '@/lib/egress-type-labels';
 
 interface Props {
   sessionId: string | null;
@@ -41,7 +42,7 @@ type EgressRow = {
   concept: string;
   amount: number;
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
-  type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
+  type: EgressType;
   notes: string;
 };
 
@@ -65,14 +66,6 @@ const EMPTY_INCOME: IncomeRow = {
   amount: 0,
   paymentMethod: 'CASH',
   notes: '',
-};
-
-const TYPE_LABELS: Record<EgressRow['type'], string> = {
-  WITHDRAWAL: 'Retiro',
-  EXPENSE: 'Gasto operativo',
-  REFUND: 'Devolución',
-  TRANSFER: 'Transferencia',
-  OTHER: 'Otros',
 };
 
 const METHOD_LABELS: Record<EgressRow['paymentMethod'], string> = {
@@ -293,9 +286,9 @@ export function EditSessionDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(TYPE_LABELS) as Array<EgressRow['type']>).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {TYPE_LABELS[t]}
+                      {EGRESS_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

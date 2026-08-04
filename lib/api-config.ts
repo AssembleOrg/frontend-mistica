@@ -61,6 +61,10 @@ export const API_CONFIG = {
       ALL: '/egresses/all',
       STATISTICS: '/egresses/statistics',
     },
+    SETTINGS: {
+      CASH_DELETE_PIN: '/settings/cash-delete-pin',
+      CASH_DELETE_PIN_STATUS: '/settings/cash-delete-pin/status',
+    },
   },
 } as const;
 

@@ -149,11 +149,11 @@ export function ProductsTable({
     setDeleteConfirm(null);
     setActionLoading((prev) => ({ ...prev, [product.id]: true }));
     try {
+      // El toast de éxito/error lo dispara `deleteProduct` en useProducts.
       await deleteProduct(product.id);
-      showToast.success('Producto eliminado', `"${product.name}" fue eliminado.`);
       onRefresh?.();
     } catch {
-      showToast.error('Error', 'No se pudo eliminar el producto.');
+      // Ya notificado por handleApiError dentro del hook.
     } finally {
       setActionLoading((prev) => ({ ...prev, [product.id]: false }));
     }

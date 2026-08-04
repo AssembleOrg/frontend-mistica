@@ -10,6 +10,7 @@ export interface AuditLog {
   userEmail: string;
   ipAddress?: string;
   timestamp: string;
+  oldValues?: Record<string, any>;
   newValues?: Record<string, any>;
 }
 

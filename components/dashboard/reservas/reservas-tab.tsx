@@ -556,6 +556,11 @@ function NewReservationModal({
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [sessionId, setSessionId] = useState('');
+  // Horario libre: cualquier hora dentro de la ventana del negocio, aunque no
+  // haya turno cargado (el backend lo crea solo y valida mesas + limpieza).
+  const [freeMode, setFreeMode] = useState(false);
+  const [freeDate, setFreeDate] = useState('');
+  const [freeTime, setFreeTime] = useState('');
   const [qty, setQty] = useState('1');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -578,17 +583,25 @@ function NewReservationModal({
 
   const session = sessions.find((s) => s.id === sessionId) ?? null;
   const quantity = Math.max(1, Number(qty) || 1);
-  const total = session ? session.price * quantity : 0;
+  const exp = experiences.find((e) => e._id === expId) ?? null;
+  const unit = freeMode ? (exp?.basePrice ?? 0) : (session?.price ?? 0);
+  const total = unit * quantity;
 
   async function submit() {
-    if (!sessionId) return showToast.error('Elegí un turno');
+    if (freeMode) {
+      if (!freeDate || !freeTime) return showToast.error('Elegí día y hora');
+    } else if (!sessionId) {
+      return showToast.error('Elegí un turno');
+    }
     if (name.trim().length < 2) return showToast.error('Ingresá el nombre del cliente');
-    if (session && quantity > session.seatsAvailable)
+    if (!freeMode && session && quantity > session.seatsAvailable)
       return showToast.error(`Solo quedan ${session.seatsAvailable} lugares`);
     setSaving(true);
     try {
       await reservationsAdmin.createReservation({
-        sessionId,
+        ...(freeMode
+          ? { experienceId: expId, date: freeDate, startTime: freeTime }
+          : { sessionId }),
         quantity,
         customerName: name.trim(),
         customerPhone: phone.trim() || undefined,
@@ -635,11 +648,44 @@ function NewReservationModal({
 
           {expId && (
             <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>Turno</label>
-              {loadingSessions ? (
+              <div className='flex items-center justify-between'>
+                <label className='text-[13px] font-medium text-[#455a54]'>
+                  {freeMode ? 'Horario libre' : 'Turno'}
+                </label>
+                <button
+                  type='button'
+                  onClick={() => setFreeMode((v) => !v)}
+                  className='text-[12px] font-medium text-[#9d684e] underline-offset-2 hover:underline'
+                >
+                  {freeMode ? 'Elegir un turno cargado' : 'Otro horario (libre)'}
+                </button>
+              </div>
+              {freeMode ? (
+                <div className='flex flex-wrap items-center gap-2'>
+                  <Input
+                    type='date'
+                    value={freeDate}
+                    onChange={(e) => setFreeDate(e.target.value)}
+                    className={cn('w-40', field)}
+                  />
+                  <Input
+                    type='time'
+                    value={freeTime}
+                    onChange={(e) => setFreeTime(e.target.value)}
+                    className={cn('w-28', field)}
+                  />
+                  <span className='text-[12px] text-[#7a6e6f]'>
+                    Cualquier hora dentro del horario del salón; se validan
+                    mesas y limpieza al guardar.
+                  </span>
+                </div>
+              ) : loadingSessions ? (
                 <p className='text-sm text-[#7a6e6f]'>Cargando turnos…</p>
               ) : sessions.length === 0 ? (
-                <p className='text-sm text-[#7a6e6f]'>No hay turnos con lugar para esta experiencia.</p>
+                <p className='text-sm text-[#7a6e6f]'>
+                  No hay turnos con lugar para esta experiencia. Podés cargarla
+                  igual con “Otro horario (libre)”.
+                </p>
               ) : (
                 <div className='max-h-44 space-y-1.5 overflow-y-auto'>
                   {sessions.map((s) => {

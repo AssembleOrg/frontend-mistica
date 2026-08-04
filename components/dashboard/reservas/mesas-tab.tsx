@@ -1,19 +1,20 @@
 'use client';
 
-// Agenda de MESAS del día. El salón trabaja en turnos fijos y cada turno tiene
-// su propio pool de mesas: una mesa ocupada en el Turno 1 vuelve a estar libre
-// en el Turno 2 (el hueco entre turnos es el tiempo de limpieza).
+// Agenda de MESAS del día. El horario es LIBRE: una reserva arranca a
+// cualquier hora dentro de la ventana del negocio (apertura–cierre) y cada
+// mesa queda tomada de su inicio hasta el fin + limpieza. Dos reservas pueden
+// usar la misma mesa el mismo día si sus horarios no se pisan.
 //
-// Por turno se ven dos cosas: las reservas con las mesas que ocupan, y la
-// grilla completa de mesas con lo libre y lo ocupado.
+// Se ven dos cosas: las reservas del día con las mesas que ocupan, y la
+// grilla completa de mesas con sus ocupaciones (y bloqueos por rango horario).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
+  Clock,
   Lock,
   Pencil,
-  Unlock,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -23,11 +24,13 @@ import { AR_TZ, RESERVATION_STATUS_COLOR, prettyCode } from '@/lib/reservas-form
 import {
   tablesAdmin,
   type AgendaReservation,
-  type AgendaShift,
+  type DayAgenda,
+  type TableHolder,
   type TableStatus,
 } from '@/services/tables.admin.service';
 import { StatusBadge } from './_shared';
 import { ShiftTemplatesPanel } from './shift-templates-panel';
+import { RecurringBlocksPanel } from './recurring-blocks-panel';
 import { DietaryTags } from './dietary-badge';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
@@ -66,18 +69,35 @@ function longDayLabel(ymd: string): string {
   return `${DIAS[dt.getUTCDay()]} ${Number(ymd.slice(8, 10))} de ${MESES[Number(ymd.slice(5, 7)) - 1]}`;
 }
 
+/** ¿Dos ocupaciones se pisan en el tiempo? Sin horas se asume que sí. */
+function overlaps(
+  a: { startAt?: string; busyUntil?: string; endAt?: string },
+  b: { startAt?: string; busyUntil?: string; endAt?: string },
+): boolean {
+  const aStart = a.startAt ? new Date(a.startAt).getTime() : null;
+  const aEnd = a.busyUntil ?? a.endAt;
+  const bStart = b.startAt ? new Date(b.startAt).getTime() : null;
+  const bEnd = b.busyUntil ?? b.endAt;
+  if (aStart == null || aEnd == null || bStart == null || bEnd == null) {
+    return true;
+  }
+  return aStart < new Date(bEnd).getTime() && new Date(aEnd).getTime() > bStart;
+}
+
 // ─────────────────────────────── pestaña ───────────────────────────────
 
 export function MesasTab() {
   const [anchor, setAnchor] = useState<string>(todayYmd());
-  const [shifts, setShifts] = useState<AgendaShift[]>([]);
+  const [agenda, setAgenda] = useState<DayAgenda | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  /** Mesa a la que se le está armando un bloqueo. */
+  const [blocking, setBlocking] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setShifts(await tablesAdmin.agenda(anchor));
+      setAgenda(await tablesAdmin.agenda(anchor));
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar la agenda de mesas');
     } finally {
@@ -89,26 +109,36 @@ export function MesasTab() {
     load();
   }, [load]);
 
-  async function toggleBlock(shiftKey: string, t: TableStatus) {
-    const manual = t.holders.find((h) => !h.reservationId);
-    if (t.occupied && !manual) {
-      showToast.error('La mesa está tomada por una reserva. Cancelala o reprogramala.');
-      return;
-    }
+  useEffect(() => {
+    setBlocking(null);
+  }, [anchor]);
+
+  async function unblock(t: TableStatus, holder: TableHolder) {
     setBusy(true);
     try {
-      if (manual) {
-        await tablesAdmin.unblockTable({ date: anchor, shift: shiftKey, code: t.code });
-        showToast.success(`${t.code} liberada`);
-      } else {
-        const label = window.prompt(`¿Por qué se bloquea ${t.code}?`, 'Taller');
-        if (!label) return;
-        await tablesAdmin.blockTable({ date: anchor, shift: shiftKey, code: t.code, label });
-        showToast.success(`${t.code} bloqueada`);
-      }
+      await tablesAdmin.unblockTable({
+        date: anchor,
+        code: t.code,
+        start: holder.startAt ? hourAR(holder.startAt) : undefined,
+      });
+      showToast.success(`${t.code} liberada`);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cambiar el bloqueo');
+      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar el bloqueo');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function block(code: string, label: string, start?: string, end?: string) {
+    setBusy(true);
+    try {
+      await tablesAdmin.blockTable({ date: anchor, code, label, start, end });
+      showToast.success(`${code} bloqueada`);
+      setBlocking(null);
+      await load();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo bloquear la mesa');
     } finally {
       setBusy(false);
     }
@@ -123,6 +153,9 @@ export function MesasTab() {
       showToast.error(e instanceof Error ? e.message : 'No se pudieron cambiar las mesas');
     }
   }
+
+  const personas = agenda?.reservations.reduce((n, r) => n + r.qty, 0) ?? 0;
+  const conUso = agenda?.tables.filter((t) => t.occupied).length ?? 0;
 
   return (
     <div className='flex flex-col gap-5'>
@@ -156,129 +189,243 @@ export function MesasTab() {
           </button>
           {loading && <span className='text-xs text-[#7a6e6f]'>cargando…</span>}
         </div>
+        {agenda && (
+          <div className='flex flex-wrap items-center gap-2 text-xs'>
+            <Pill icon={Clock} text={`${agenda.open} – ${agenda.close}`} />
+            <Pill icon={UsersRound} text={`${personas} personas`} />
+            <Pill icon={Users} text={`${conUso}/${agenda.tables.length} mesas con uso`} />
+            <span className='rounded-full border border-[#e6dbcd] bg-white px-2.5 py-1 text-[#7a6e6f]'>
+              limpieza {agenda.cleaningMinutes} min
+            </span>
+          </div>
+        )}
       </div>
 
-      {shifts.map((shift) => (
-        <ShiftBlock
-          key={shift.key}
-          shift={shift}
-          busy={busy}
-          onToggleBlock={(t) => toggleBlock(shift.key, t)}
-          onReassign={reassign}
-        />
-      ))}
+      {agenda && (
+        <section className='overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
+          {/* Reservas del día */}
+          <div className='flex flex-col gap-2.5 p-4'>
+            {agenda.reservations.length === 0 && agenda.blocks.length === 0 ? (
+              <p className='py-4 text-center text-sm text-[#7a6e6f]'>Sin reservas este día.</p>
+            ) : (
+              <>
+                {agenda.reservations.map((r) => (
+                  <ReservationRow
+                    key={r.reservationId}
+                    r={r}
+                    allTables={agenda.tables}
+                    onReassign={reassign}
+                  />
+                ))}
+                {agenda.blocks.map((b, i) => (
+                  <div
+                    key={`${b.table}-${b.startAt ?? i}`}
+                    className='flex items-center gap-2.5 rounded-xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5'
+                  >
+                    <Lock className='h-4 w-4 shrink-0 text-[#7a6e6f]' />
+                    <span className='text-sm font-medium text-[#3d3338]'>{b.label}</span>
+                    {b.startAt && b.endAt && (
+                      <span className='font-mono text-[12px] text-[#7a6e6f]'>
+                        {hourAR(b.startAt)}–{hourAR(b.endAt)}
+                      </span>
+                    )}
+                    {b.recurring && (
+                      <span className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#9d684e]'>
+                        fijo semanal
+                      </span>
+                    )}
+                    <TableChip code={b.table} tone='blocked' />
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+
+          {/* Grilla de mesas */}
+          <div className='border-t border-[#e6dbcd] px-4 py-4'>
+            <div className='flex flex-col gap-4 lg:flex-row lg:gap-8'>
+              <TableGroup
+                title='Mesas de 2 personas'
+                tables={agenda.tables.filter((t) => t.kind === 'SMALL')}
+                busy={busy}
+                onPick={(t) => {
+                  const manual = t.holders.find(
+                    (h) => !h.reservationId && !h.recurring,
+                  );
+                  if (manual) {
+                    unblock(t, manual);
+                  } else if (
+                    t.holders.some((h) => h.recurring) &&
+                    !t.holders.some((h) => h.reservationId)
+                  ) {
+                    showToast.error(
+                      'Es un bloqueo fijo semanal: editalo en el panel de abajo.',
+                    );
+                  } else {
+                    setBlocking(t.code);
+                  }
+                }}
+              />
+              <TableGroup
+                title='Mesas grandes (10 personas)'
+                tables={agenda.tables.filter((t) => t.kind === 'LARGE')}
+                busy={busy}
+                onPick={(t) => {
+                  const manual = t.holders.find(
+                    (h) => !h.reservationId && !h.recurring,
+                  );
+                  if (manual) {
+                    unblock(t, manual);
+                  } else if (
+                    t.holders.some((h) => h.recurring) &&
+                    !t.holders.some((h) => h.reservationId)
+                  ) {
+                    showToast.error(
+                      'Es un bloqueo fijo semanal: editalo en el panel de abajo.',
+                    );
+                  } else {
+                    setBlocking(t.code);
+                  }
+                }}
+              />
+            </div>
+
+            {blocking && (
+              <BlockForm
+                code={blocking}
+                open={agenda.open}
+                close={agenda.close}
+                busy={busy}
+                onCancel={() => setBlocking(null)}
+                onSave={(label, start, end) => block(blocking, label, start, end)}
+              />
+            )}
+
+            <div className='mt-3.5 flex flex-wrap items-center gap-4 text-xs text-[#7a6e6f]'>
+              <Legend swatch='bg-white border-[#e6dbcd]' label='Libre todo el día' />
+              <Legend swatch='bg-[#e6dbcd] border-[#d8c9b6]' label='Con reservas' />
+              <Legend swatch='bg-[#fbf5ef] border-dashed border-[#c3b7a4]' label='Bloqueada a mano' />
+              <span className='text-[#a99f92]'>
+                Clic en una mesa libre para bloquearla; en una bloqueada, para liberarla.
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
 
       <p className='rounded-2xl border border-[#e6dbcd] bg-[#fbf5ef] px-4 py-3 text-[13px] text-[#7a6e6f]'>
-        Cada turno trabaja con sus propias mesas: una mesa ocupada en un turno
-        vuelve a estar disponible en el siguiente. El hueco entre turnos es el
-        tiempo de limpieza.
+        El horario es libre: una reserva puede arrancar a cualquier hora entre la
+        apertura y el cierre. Cada mesa queda ocupada hasta el fin de la
+        experiencia más {agenda?.cleaningMinutes ?? 10} minutos de limpieza. Los
+        turnos de abajo son sugerencias para ordenar la oferta, no un límite.
       </p>
+
+      <RecurringBlocksPanel />
 
       <ShiftTemplatesPanel />
     </div>
   );
 }
 
-// ─────────────────────────────── un turno ───────────────────────────────
+// ─────────────────────────── bloqueo por rango ───────────────────────────
 
-function ShiftBlock({
-  shift,
+function BlockForm({
+  code,
+  open,
+  close,
   busy,
-  onToggleBlock,
-  onReassign,
+  onCancel,
+  onSave,
 }: {
-  shift: AgendaShift;
+  code: string;
+  open: string;
+  close: string;
   busy: boolean;
-  onToggleBlock: (t: TableStatus) => void;
-  onReassign: (r: AgendaReservation, codes: string[]) => Promise<void>;
+  onCancel: () => void;
+  onSave: (label: string, start?: string, end?: string) => void;
 }) {
-  const smalls = useMemo(() => shift.tables.filter((t) => t.kind === 'SMALL'), [shift.tables]);
-  const larges = useMemo(() => shift.tables.filter((t) => t.kind === 'LARGE'), [shift.tables]);
-  const ocupadas = shift.tables.filter((t) => t.occupied).length;
-  const personas = shift.reservations.reduce((n, r) => n + r.qty, 0);
+  const [label, setLabel] = useState('Taller');
+  const [allDay, setAllDay] = useState(true);
+  const [start, setStart] = useState(open);
+  const [end, setEnd] = useState(close);
 
   return (
-    <section className='overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
-      {/* Cabecera del turno */}
-      <header className='flex flex-wrap items-center justify-between gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-3'>
-        <div className='flex items-baseline gap-3'>
-          <h3 className='font-tan-nimbus text-lg font-semibold text-[#455a54]'>{shift.name}</h3>
-          <span className='font-mono text-[13px] text-[#7a6e6f]'>
-            {shift.start} – {shift.end}
+    <div className='mt-4 flex flex-col gap-3 rounded-xl border-2 border-[#9d684e]/40 bg-[#fbf5ef] px-3.5 py-3'>
+      <span className='text-sm font-semibold text-[#3d3338]'>
+        Bloquear {code}
+      </span>
+      <div className='flex flex-wrap items-center gap-3'>
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder='Motivo (taller, evento, mesa rota)'
+          className='w-56 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-sm text-[#3d3338] outline-none focus:border-[#9d684e]'
+        />
+        <label className='flex items-center gap-2 text-[13px] text-[#3d3338]'>
+          <input
+            type='checkbox'
+            checked={allDay}
+            onChange={(e) => setAllDay(e.target.checked)}
+          />
+          Todo el día ({open}–{close})
+        </label>
+        {!allDay && (
+          <span className='flex items-center gap-2 text-[13px] text-[#3d3338]'>
+            de
+            <input
+              type='time'
+              value={start}
+              min={open}
+              max={close}
+              onChange={(e) => setStart(e.target.value)}
+              className='rounded-lg border border-[#e6dbcd] bg-white px-2 py-1.5 text-sm'
+            />
+            a
+            <input
+              type='time'
+              value={end}
+              min={open}
+              max={close}
+              onChange={(e) => setEnd(e.target.value)}
+              className='rounded-lg border border-[#e6dbcd] bg-white px-2 py-1.5 text-sm'
+            />
           </span>
-        </div>
-        <div className='flex flex-wrap items-center gap-2 text-xs'>
-          <Pill icon={UsersRound} text={`${personas} personas`} />
-          <Pill icon={Users} text={`${ocupadas}/${shift.tables.length} mesas ocupadas`} />
-          <span
-            className={cn(
-              'rounded-full px-2.5 py-1 font-semibold',
-              shift.remainingPartySize === 0
-                ? 'bg-[#f6e2e2] text-[#a33]'
-                : 'bg-[#E7F0EC] text-[#455a54]',
-            )}
-          >
-            {shift.remainingPartySize === 0
-              ? 'sin lugar'
-              : `entra un grupo de hasta ${shift.remainingPartySize}`}
-          </span>
-        </div>
-      </header>
-
-      {/* Reservas del turno */}
-      <div className='flex flex-col gap-2.5 p-4'>
-        {shift.reservations.length === 0 && shift.blocks.length === 0 ? (
-          <p className='py-4 text-center text-sm text-[#7a6e6f]'>Sin reservas en este turno.</p>
-        ) : (
-          <>
-            {shift.reservations.map((r) => (
-              <ReservationRow
-                key={r.reservationId}
-                r={r}
-                allTables={shift.tables}
-                onReassign={onReassign}
-              />
-            ))}
-            {shift.blocks.map((b) => (
-              <div
-                key={b.table}
-                className='flex items-center gap-2.5 rounded-xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5'
-              >
-                <Lock className='h-4 w-4 shrink-0 text-[#7a6e6f]' />
-                <span className='text-sm font-medium text-[#3d3338]'>{b.label}</span>
-                <TableChip code={b.table} tone='blocked' />
-              </div>
-            ))}
-          </>
         )}
       </div>
-
-      {/* Grilla de mesas */}
-      <div className='border-t border-[#e6dbcd] px-4 py-4'>
-        <div className='flex flex-col gap-4 lg:flex-row lg:gap-8'>
-          <TableGroup
-            title='Mesas de 2 personas'
-            tables={smalls}
-            busy={busy}
-            onToggleBlock={onToggleBlock}
-          />
-          <TableGroup
-            title='Mesas grandes (10 personas)'
-            tables={larges}
-            busy={busy}
-            onToggleBlock={onToggleBlock}
-          />
-        </div>
-        <div className='mt-3.5 flex flex-wrap items-center gap-4 text-xs text-[#7a6e6f]'>
-          <Legend swatch='bg-white border-[#e6dbcd]' label='Disponible' />
-          <Legend swatch='bg-[#e6dbcd] border-[#d8c9b6]' label='Ocupada en este turno' />
-          <Legend swatch='bg-[#fbf5ef] border-dashed border-[#c3b7a4]' label='Bloqueada a mano' />
-          <span className='text-[#a99f92]'>Clic en una mesa libre para bloquearla.</span>
-        </div>
+      <div className='flex items-center gap-2'>
+        <button
+          type='button'
+          disabled={busy || !label.trim() || (!allDay && end <= start)}
+          onClick={() =>
+            onSave(
+              label.trim(),
+              allDay ? undefined : start,
+              allDay ? undefined : end,
+            )
+          }
+          className='rounded-[9px] bg-[#455a54] px-3.5 py-1.5 text-[13px] font-medium text-white disabled:opacity-40'
+        >
+          Bloquear
+        </button>
+        <button
+          type='button'
+          disabled={busy}
+          onClick={onCancel}
+          className='rounded-[9px] border border-[#e6dbcd] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[#7a6e6f] hover:bg-[#fbf5ef]'
+        >
+          Cancelar
+        </button>
+        {!allDay && end <= start && (
+          <span className='text-[12px] font-medium text-[#a33]'>
+            El fin tiene que ser después del inicio.
+          </span>
+        )}
       </div>
-    </section>
+    </div>
   );
 }
+
+// ─────────────────────────── fila de reserva ───────────────────────────
 
 function ReservationRow({
   r,
@@ -347,8 +494,9 @@ function ReservationRow({
 }
 
 /**
- * Selección manual de mesas para una reserva. Muestra las libres y las propias;
- * las que ocupa otra reserva no se pueden elegir.
+ * Selección manual de mesas para una reserva. Se pueden elegir las libres EN
+ * EL HORARIO de la reserva: una mesa ocupada por otro grupo a otra hora del
+ * día sigue disponible para ésta.
  */
 function ReassignRow({
   r,
@@ -364,7 +512,6 @@ function ReassignRow({
   const [picked, setPicked] = useState<string[]>(r.tables);
   const [saving, setSaving] = useState(false);
 
-  const mine = useMemo(() => new Set(r.tables), [r.tables]);
   const seats = useMemo(() => {
     const kinds = picked.map(
       (c) => allTables.find((t) => t.code === c)?.kind ?? 'SMALL',
@@ -379,10 +526,20 @@ function ReassignRow({
 
   const falta = seats < r.qty;
 
+  /** ¿La mesa está tomada por OTRO en el horario de esta reserva? */
+  function takenByOther(t: TableStatus): boolean {
+    return t.holders.some(
+      (h) => h.reservationId !== r.reservationId && overlaps(h, r),
+    );
+  }
+
   return (
     <div className='flex flex-col gap-2.5 rounded-xl border-2 border-[#9d684e]/40 bg-[#fbf5ef] px-3.5 py-3'>
       <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
         <span className='text-sm font-semibold text-[#3d3338]'>{r.customerName}</span>
+        <span className='font-mono text-[13px] text-[#7a6e6f]'>
+          {hourAR(r.startAt)}–{hourAR(r.endAt)}
+        </span>
         <span className='text-[13px] text-[#7a6e6f]'>{r.qty} personas</span>
         <span
           className={cn(
@@ -397,14 +554,13 @@ function ReassignRow({
 
       <div className='flex flex-wrap gap-2'>
         {allTables.map((t) => {
-          const isMine = mine.has(t.code);
-          const takenByOther = t.occupied && !isMine;
+          const taken = takenByOther(t);
           const on = picked.includes(t.code);
           return (
             <button
               key={t.code}
               type='button'
-              disabled={takenByOther || saving}
+              disabled={taken || saving}
               onClick={() =>
                 setPicked((p) =>
                   p.includes(t.code) ? p.filter((c) => c !== t.code) : [...p, t.code],
@@ -412,13 +568,13 @@ function ReassignRow({
               }
               className={cn(
                 'rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors',
-                takenByOther
+                taken
                   ? 'cursor-not-allowed border-[#e6dbcd] bg-[#e6dbcd] text-[#a99f92] line-through'
                   : on
                     ? 'border-[#455a54] bg-[#455a54] text-white'
                     : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-white/60',
               )}
-              title={takenByOther ? 'Ocupada por otra reserva' : t.code}
+              title={taken ? 'Ocupada en este horario por otra reserva' : t.code}
             >
               {t.code}
               {t.kind === 'LARGE' && (
@@ -458,53 +614,69 @@ function ReassignRow({
   );
 }
 
+// ─────────────────────────── grilla de mesas ───────────────────────────
+
 function TableGroup({
   title,
   tables,
   busy,
-  onToggleBlock,
+  onPick,
 }: {
   title: string;
   tables: TableStatus[];
   busy: boolean;
-  onToggleBlock: (t: TableStatus) => void;
+  onPick: (t: TableStatus) => void;
 }) {
   return (
     <div className='min-w-0 flex-1'>
       <p className='mb-2 text-[13px] font-medium text-[#7a6e6f]'>{title}</p>
       <div className='flex flex-wrap gap-2'>
         {tables.map((t) => {
-          const manual = t.holders.find((h) => !h.reservationId);
-          const shared = t.holders.length > 1;
+          const manual = t.holders.find((h) => !h.reservationId && !h.recurring);
+          const fijo = t.holders.find((h) => h.recurring);
+          const reservas = t.holders.filter((h) => h.reservationId);
+          const usos = reservas
+            .map((h) => `${hourAR(h.startAt)}–${hourAR(h.endAt)} (${h.qty}p)`)
+            .join(' · ');
           return (
             <button
               key={t.code}
               type='button'
               disabled={busy}
-              onClick={() => onToggleBlock(t)}
+              onClick={() => onPick(t)}
               title={
                 manual
                   ? `${manual.label ?? 'Bloqueada'} — clic para liberar`
-                  : t.occupied
-                    ? `Ocupada (${t.holders.reduce((n, h) => n + h.qty, 0)} personas)`
-                    : 'Libre — clic para bloquear'
+                  : fijo && !reservas.length
+                    ? `${fijo.label ?? 'Bloqueo fijo'} (${hourAR(fijo.startAt)}–${hourAR(fijo.endAt)}) — fijo semanal, se edita en su panel`
+                    : reservas.length
+                      ? `Reservas: ${usos} — clic para bloquear otro horario`
+                      : 'Libre — clic para bloquear'
               }
               className={cn(
-                'relative inline-flex min-w-[4.25rem] items-center justify-center gap-1 rounded-lg border px-3 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-50',
-                manual
+                'relative inline-flex min-w-[4.25rem] flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors disabled:opacity-50',
+                manual || (fijo && !reservas.length)
                   ? 'border-dashed border-[#c3b7a4] bg-[#fbf5ef] text-[#7a6e6f]'
-                  : t.occupied
+                  : reservas.length
                     ? 'border-[#d8c9b6] bg-[#e6dbcd] text-[#3d3338]'
                     : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
               )}
             >
-              {manual ? <Lock className='h-3 w-3' /> : t.occupied ? null : <Unlock className='h-3 w-3 opacity-0' />}
-              {t.code}
-              {shared && (
-                <span className='absolute -right-1 -top-1 rounded-full bg-[#9d684e] px-1.5 text-[10px] font-bold text-white'>
-                  2
+              <span className='inline-flex items-center gap-1'>
+                {(manual || fijo) && <Lock className='h-3 w-3' />}
+                {t.code}
+              </span>
+              {reservas.length > 0 ? (
+                <span className='text-[10px] font-normal leading-none opacity-80'>
+                  {reservas.length === 1
+                    ? `${hourAR(reservas[0].startAt)}–${hourAR(reservas[0].endAt)}`
+                    : `${reservas.length} usos`}
                 </span>
-              )}
+              ) : fijo ? (
+                <span className='text-[10px] font-normal leading-none opacity-80'>
+                  {hourAR(fijo.startAt)}–{hourAR(fijo.endAt)}
+                </span>
+              ) : null}
             </button>
           );
         })}

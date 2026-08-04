@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Calendar,
   Check,
+  Clock,
   Copy,
   Minus,
   Plus,
@@ -18,6 +19,23 @@ import {
   type PublicExperience,
 } from '@/services/reservations.public.service';
 import { SectionLabel } from '@/components/landing/primitives';
+
+// Ventana de reservas del salón (hora local AR). El backend valida con sus
+// envs BUSINESS_OPEN/BUSINESS_CLOSE; esto sólo acota el input en el front.
+const BUSINESS_OPEN = '15:00';
+const BUSINESS_CLOSE = '20:00';
+
+function toMin(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+function fromMin(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+}
+/** ISO con offset fijo de Argentina (sin DST). */
+function isoAR(dateKey: string, hhmm: string): string {
+  return `${dateKey}T${hhmm}:00-03:00`;
+}
 
 function fmtPrice(n: number) {
   return new Intl.NumberFormat('es-AR', {
@@ -118,8 +136,16 @@ export function ReservationForm({
   const [expId, setExpId] = useState(
     lockedExperienceId ?? experiences[0]?._id ?? '',
   );
-  // Bloque elegido, identificado por día + turno ('2026-08-01|T1').
+  // Horario elegido: un sugerido ('2026-08-01|15:00') o 'custom' (hora libre).
   const [slotId, setSlotId] = useState('');
+  // Hora libre: día + hora elegidos a mano, validados con el preview.
+  const [customDay, setCustomDay] = useState('');
+  const [customTime, setCustomTime] = useState('');
+  const [customCheck, setCustomCheck] = useState<{
+    status: 'idle' | 'checking' | 'ok' | 'no';
+    maxPartySize?: number;
+    message?: string;
+  }>({ status: 'idle' });
   const [slots, setSlots] = useState<AvailableShift[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [qty, setQty] = useState(1);
@@ -158,7 +184,63 @@ export function ReservationForm({
     };
   }, [expId]);
 
-  const slotKey = (s: AvailableShift) => `${s.dateKey}|${s.shiftKey}`;
+  const slotKey = (s: AvailableShift) => `${s.dateKey}|${s.startTime}`;
+
+  const exp = experiences.find((e) => e._id === expId);
+  const duration = exp?.durationMinutes ?? 120;
+  /** Última hora de inicio que permite terminar antes del cierre. */
+  const latestStart = fromMin(toMin(BUSINESS_CLOSE) - duration);
+
+  // Valida la hora libre contra el salón real (mesas + limpieza) con un
+  // pequeño debounce. El backend es la autoridad; esto es feedback temprano.
+  useEffect(() => {
+    if (!customDay || !customTime) {
+      setCustomCheck({ status: 'idle' });
+      return;
+    }
+    if (toMin(customTime) < toMin(BUSINESS_OPEN) || customTime > latestStart) {
+      setCustomCheck({
+        status: 'no',
+        message: `Podés empezar entre las ${BUSINESS_OPEN} y las ${latestStart} (dura ${duration} min y cerramos ${BUSINESS_CLOSE}).`,
+      });
+      return;
+    }
+    let alive = true;
+    setCustomCheck({ status: 'checking' });
+    const t = setTimeout(() => {
+      reservationsPublic
+        .previewTables({
+          experienceId: expId,
+          date: customDay,
+          startTime: customTime,
+          quantity: 1,
+        })
+        .then((res) => {
+          if (!alive) return;
+          if (res.fits) {
+            setCustomCheck({ status: 'ok', maxPartySize: res.maxPartySize });
+            setSlotId('custom');
+          } else {
+            setCustomCheck({
+              status: 'no',
+              message:
+                res.needsSharedConsent
+                  ? 'A esa hora sólo queda mesa compartida: reservá por WhatsApp.'
+                  : 'A esa hora no quedan mesas. Probá otro horario.',
+            });
+          }
+        })
+        .catch(() => {
+          if (alive) {
+            setCustomCheck({ status: 'no', message: 'No pudimos verificar ese horario.' });
+          }
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [customDay, customTime, expId, duration, latestStart]);
 
   // Bloques agrupados por día (para la grilla): [{ key, header, slots }].
   const slotsByDay = useMemo(() => {
@@ -183,10 +265,28 @@ export function ReservationForm({
       return;
     }
     setSlotId('');
+    setCustomDay('');
+    setCustomTime('');
+    setCustomCheck({ status: 'idle' });
     setQty(1);
   }, [expId]);
 
-  const selected = slots.find((s) => slotKey(s) === slotId);
+  const suggested = slots.find((s) => slotKey(s) === slotId);
+  // Hora libre validada: se arma un "slot" equivalente con los datos de la
+  // experiencia (precio y seña salen de la plantilla, como en el backend).
+  const custom =
+    slotId === 'custom' && customCheck.status === 'ok' && exp && customDay && customTime
+      ? {
+          dateKey: customDay,
+          startTime: customTime,
+          startAt: isoAR(customDay, customTime),
+          endAt: isoAR(customDay, fromMin(toMin(customTime) + duration)),
+          maxPartySize: customCheck.maxPartySize ?? 12,
+          price: exp.basePrice,
+          depositPct: exp.depositPct ?? 50,
+        }
+      : null;
+  const selected = suggested ?? custom;
   const maxQty = selected ? Math.max(1, selected.maxPartySize) : 12;
   const total = selected ? selected.price * qty : 0;
   const depositPct = selected?.depositPct ?? 50;
@@ -204,7 +304,7 @@ export function ReservationForm({
 
   async function submit() {
     if (!selected) {
-      setError('Elegí un turno disponible.');
+      setError('Elegí un horario disponible.');
       return;
     }
     if (!dataValid) {
@@ -218,7 +318,7 @@ export function ReservationForm({
       const created = await reservationsPublic.createHold({
         experienceId: expId,
         date: selected.dateKey,
-        shiftKey: selected.shiftKey,
+        startTime: selected.startTime,
         quantity: qty,
         customerName: name.trim(),
         customerEmail: email.trim() || undefined,
@@ -297,6 +397,7 @@ export function ReservationForm({
               No hay turnos disponibles para esta experiencia.
             </p>
           ) : (
+            <>
             <div className='sheet-scroll flex max-h-[340px] flex-col gap-5 overflow-y-auto lg:max-h-[420px]'>
               {slotsByDay.map((day) => (
                 <div key={day.key} className='flex flex-col gap-2.5'>
@@ -330,7 +431,7 @@ export function ReservationForm({
                           <span
                             className={`text-[11px] ${on ? 'text-arena/70' : 'text-piedra'}`}
                           >
-                            {s.shiftName}
+                            {s.shiftName ?? 'Horario sugerido'}
                           </span>
                           {low && (
                             <span
@@ -346,6 +447,72 @@ export function ReservationForm({
                 </div>
               ))}
             </div>
+
+            {/* Otro horario (libre): cualquier hora dentro de la ventana. */}
+            <div
+              className={`flex flex-col gap-2.5 border px-4 py-3.5 transition ${
+                slotId === 'custom'
+                  ? 'border-terracota bg-arena'
+                  : 'border-linea bg-arena'
+              }`}
+            >
+              <div className='flex items-center gap-2'>
+                <Clock className='h-[16px] w-[16px] text-terracota' />
+                <span className='font-mono text-xs font-semibold uppercase tracking-[0.18em] text-ciruela-oscuro'>
+                  ¿Preferís otro horario?
+                </span>
+              </div>
+              <div className='flex flex-wrap items-center gap-3'>
+                <select
+                  value={customDay}
+                  onChange={(e) => {
+                    setCustomDay(e.target.value);
+                    if (slotId !== 'custom') setSlotId('');
+                  }}
+                  className='border border-linea bg-arena px-3 py-2.5 text-sm text-ciruela-oscuro outline-none focus:border-terracota'
+                >
+                  <option value=''>Elegí el día</option>
+                  {slotsByDay.map((day) => (
+                    <option key={day.key} value={day.key}>
+                      {day.header}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type='time'
+                  value={customTime}
+                  min={BUSINESS_OPEN}
+                  max={latestStart}
+                  step={300}
+                  disabled={!customDay}
+                  onChange={(e) => {
+                    setCustomTime(e.target.value);
+                    if (slotId !== 'custom') setSlotId('');
+                  }}
+                  className='border border-linea bg-arena px-3 py-2 text-sm text-ciruela-oscuro outline-none focus:border-terracota disabled:opacity-40'
+                />
+                <span className='text-[12px] text-piedra'>
+                  entre {BUSINESS_OPEN} y {latestStart}
+                </span>
+              </div>
+              {customCheck.status === 'checking' && (
+                <span className='text-[13px] text-piedra'>Verificando disponibilidad…</span>
+              )}
+              {customCheck.status === 'ok' && (
+                <span className='text-[13px] font-medium text-verde-profundo'>
+                  ¡Hay lugar!{' '}
+                  {customCheck.maxPartySize
+                    ? `Hasta ${customCheck.maxPartySize} personas a las ${customTime}.`
+                    : ''}
+                </span>
+              )}
+              {customCheck.status === 'no' && customCheck.message && (
+                <span className='text-[13px] font-medium text-terracota'>
+                  {customCheck.message}
+                </span>
+              )}
+            </div>
+            </>
           )}
         </div>
 
@@ -375,7 +542,7 @@ export function ReservationForm({
               </button>
             </div>
             <span className='text-sm text-piedra'>
-              {selected ? `Hasta ${maxQty} por este turno` : 'Elegí un turno primero'}
+              {selected ? `Hasta ${maxQty} en este horario` : 'Elegí un horario primero'}
             </span>
           </div>
         </div>

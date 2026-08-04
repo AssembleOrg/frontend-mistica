@@ -98,12 +98,15 @@ export interface ReservationView {
 
 export interface CreateHoldInput {
   // Dos formas de decir QUÉ se reserva: un turno existente, o el trío
-  // (experiencia, día, bloque) — el turno se crea solo si hace falta.
+  // (experiencia, día, hora) — el turno se crea solo si hace falta.
   sessionId?: string;
   experienceId?: string;
   /** Día, YYYY-MM-DD. */
   date?: string;
-  /** Turno del día, 'T1' / 'T2'. */
+  /** Hora local de inicio, 'HH:mm'. El horario es libre dentro de la ventana
+   *  del negocio (apertura–cierre). */
+  startTime?: string;
+  /** Turno sugerido ('T1'): compat, se traduce a su hora de inicio. */
   shiftKey?: string;
   quantity: number;
   customerName: string;
@@ -137,21 +140,32 @@ export function newIdempotencyKey(): string {
   return `idk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Un bloque reservable de un día concreto (no hace falta turno precargado). */
+/** Un horario sugerido reservable de un día concreto. */
 export interface AvailableShift {
   dateKey: string;
-  shiftKey: string;
-  shiftName: string;
-  /** Horario del bloque, 'HH:mm'. */
-  start: string;
-  end: string;
-  /** Inicio y fin reales de la experiencia dentro del bloque (ISO). */
+  /** Hora local de inicio, 'HH:mm'. Es la clave del horario. */
+  startTime: string;
+  /** Turno sugerido en el que cae (etiqueta; puede faltar). */
+  shiftKey?: string;
+  shiftName?: string;
+  /** Inicio y fin reales de la experiencia (ISO). */
   startAt: string;
   endAt: string;
   /** Grupo más grande que todavía entra. */
   maxPartySize: number;
   price: number;
   depositPct: number;
+}
+
+/** Respuesta del preview de mesas para un (día, hora, grupo). */
+export interface PreviewTablesResult {
+  fits: boolean;
+  reason?: string;
+  needsSharedConsent?: boolean;
+  maxPartySize?: number;
+  venueMaxPartySize?: number;
+  tables?: string[];
+  sharedTable?: boolean;
 }
 
 export const reservationsPublic = {
@@ -162,11 +176,26 @@ export const reservationsPublic = {
       `/experience-sessions/public${experienceId ? `?experienceId=${experienceId}` : ''}`,
     ),
 
-  /** Días y turnos donde se puede reservar una experiencia. */
+  /** Días y horarios sugeridos donde se puede reservar una experiencia. */
   availability: (experienceId: string, days = 45) =>
     req<AvailableShift[]>(
       `/reservations/availability?experienceId=${experienceId}&days=${days}`,
     ),
+
+  /**
+   * ¿Entra un grupo en (experiencia, día, hora)? No reserva nada. Sirve para
+   * validar un horario libre elegido a mano antes de crear el hold.
+   */
+  previewTables: (input: {
+    experienceId: string;
+    date: string;
+    startTime: string;
+    quantity: number;
+  }) =>
+    req<PreviewTablesResult>('/reservations/preview-tables', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 
   createHold: (input: CreateHoldInput) =>
     req<HoldResponse>('/reservations/hold', {

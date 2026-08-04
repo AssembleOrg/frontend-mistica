@@ -97,7 +97,15 @@ export interface GenerateSessionsInput {
 }
 
 export interface AdminCreateReservationInput {
-  sessionId: string;
+  /** Turno existente… */
+  sessionId?: string;
+  /** …o el trío (experiencia, día, hora): el turno se crea solo. El horario
+   *  es libre dentro de la ventana del negocio. */
+  experienceId?: string;
+  /** Día, YYYY-MM-DD. */
+  date?: string;
+  /** Hora local de inicio, 'HH:mm'. */
+  startTime?: string;
   quantity: number;
   customerName: string;
   customerEmail?: string;

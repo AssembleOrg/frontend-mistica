@@ -91,8 +91,8 @@ export function MesasTab() {
   const [agenda, setAgenda] = useState<DayAgenda | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  /** Mesa a la que se le está armando un bloqueo. */
-  const [blocking, setBlocking] = useState<string | null>(null);
+  /** Mesas seleccionadas para armar un bloqueo (multi-selección). */
+  const [blocking, setBlocking] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -110,7 +110,7 @@ export function MesasTab() {
   }, [load]);
 
   useEffect(() => {
-    setBlocking(null);
+    setBlocking([]);
   }, [anchor]);
 
   async function unblock(t: TableStatus, holder: TableHolder) {
@@ -130,15 +130,26 @@ export function MesasTab() {
     }
   }
 
-  async function block(code: string, label: string, start?: string, end?: string) {
+  async function block(
+    codes: string[],
+    label: string,
+    start?: string,
+    end?: string,
+  ) {
     setBusy(true);
     try {
-      await tablesAdmin.blockTable({ date: anchor, code, label, start, end });
-      showToast.success(`${code} bloqueada`);
-      setBlocking(null);
+      await tablesAdmin.blockTable({ date: anchor, codes, label, start, end });
+      showToast.success(
+        codes.length === 1
+          ? `${codes[0]} bloqueada`
+          : `${codes.length} mesas bloqueadas (${codes.join(', ')})`,
+      );
+      setBlocking([]);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo bloquear la mesa');
+      showToast.error(
+        e instanceof Error ? e.message : 'No se pudieron bloquear las mesas',
+      );
     } finally {
       setBusy(false);
     }
@@ -248,6 +259,7 @@ export function MesasTab() {
                 title='Mesas de 2 personas'
                 tables={agenda.tables.filter((t) => t.kind === 'SMALL')}
                 busy={busy}
+                selected={blocking}
                 onPick={(t) => {
                   const manual = t.holders.find(
                     (h) => !h.reservationId && !h.recurring,
@@ -262,7 +274,13 @@ export function MesasTab() {
                       'Es un bloqueo fijo semanal: editalo en el panel de abajo.',
                     );
                   } else {
-                    setBlocking(t.code);
+                    // Multi-selección: se juntan varias mesas y se bloquean
+                    // juntas (un cumpleaños puede ocupar más de una).
+                    setBlocking((prev) =>
+                      prev.includes(t.code)
+                        ? prev.filter((c) => c !== t.code)
+                        : [...prev, t.code],
+                    );
                   }
                 }}
               />
@@ -270,6 +288,7 @@ export function MesasTab() {
                 title='Mesas grandes (10 personas)'
                 tables={agenda.tables.filter((t) => t.kind === 'LARGE')}
                 busy={busy}
+                selected={blocking}
                 onPick={(t) => {
                   const manual = t.holders.find(
                     (h) => !h.reservationId && !h.recurring,
@@ -284,19 +303,28 @@ export function MesasTab() {
                       'Es un bloqueo fijo semanal: editalo en el panel de abajo.',
                     );
                   } else {
-                    setBlocking(t.code);
+                    // Multi-selección: se juntan varias mesas y se bloquean
+                    // juntas (un cumpleaños puede ocupar más de una).
+                    setBlocking((prev) =>
+                      prev.includes(t.code)
+                        ? prev.filter((c) => c !== t.code)
+                        : [...prev, t.code],
+                    );
                   }
                 }}
               />
             </div>
 
-            {blocking && (
+            {blocking.length > 0 && (
               <BlockForm
-                code={blocking}
+                codes={blocking}
                 open={agenda.open}
                 close={agenda.close}
                 busy={busy}
-                onCancel={() => setBlocking(null)}
+                onRemove={(code) =>
+                  setBlocking((prev) => prev.filter((c) => c !== code))
+                }
+                onCancel={() => setBlocking([])}
                 onSave={(label, start, end) => block(blocking, label, start, end)}
               />
             )}
@@ -306,7 +334,8 @@ export function MesasTab() {
               <Legend swatch='bg-[#e6dbcd] border-[#d8c9b6]' label='Con reservas' />
               <Legend swatch='bg-[#fbf5ef] border-dashed border-[#c3b7a4]' label='Bloqueada a mano' />
               <span className='text-[#a99f92]'>
-                Clic en una mesa libre para bloquearla; en una bloqueada, para liberarla.
+                Clic en mesas libres para seleccionarlas y bloquearlas juntas;
+                en una bloqueada, para liberarla.
               </span>
             </div>
           </div>
@@ -330,17 +359,19 @@ export function MesasTab() {
 // ─────────────────────────── bloqueo por rango ───────────────────────────
 
 function BlockForm({
-  code,
+  codes,
   open,
   close,
   busy,
+  onRemove,
   onCancel,
   onSave,
 }: {
-  code: string;
+  codes: string[];
   open: string;
   close: string;
   busy: boolean;
+  onRemove: (code: string) => void;
   onCancel: () => void;
   onSave: (label: string, start?: string, end?: string) => void;
 }) {
@@ -351,8 +382,22 @@ function BlockForm({
 
   return (
     <div className='mt-4 flex flex-col gap-3 rounded-xl border-2 border-[#9d684e]/40 bg-[#fbf5ef] px-3.5 py-3'>
-      <span className='text-sm font-semibold text-[#3d3338]'>
-        Bloquear {code}
+      <span className='flex flex-wrap items-center gap-1.5 text-sm font-semibold text-[#3d3338]'>
+        Bloquear
+        {codes.map((code) => (
+          <button
+            key={code}
+            type='button'
+            onClick={() => onRemove(code)}
+            title='Quitar de la selección'
+            className='inline-flex items-center gap-1 rounded-md border border-[#9d684e]/40 bg-white px-2 py-0.5 font-mono text-[12px] font-semibold text-[#455a54] hover:bg-[#f6e2e2] hover:line-through'
+          >
+            {code}
+          </button>
+        ))}
+        <span className='font-normal text-[#7a6e6f]'>
+          — seguí tocando mesas libres para agregar más
+        </span>
       </span>
       <div className='flex flex-wrap items-center gap-3'>
         <input
@@ -405,7 +450,7 @@ function BlockForm({
           }
           className='rounded-[9px] bg-[#455a54] px-3.5 py-1.5 text-[13px] font-medium text-white disabled:opacity-40'
         >
-          Bloquear
+          {codes.length === 1 ? 'Bloquear mesa' : `Bloquear ${codes.length} mesas`}
         </button>
         <button
           type='button'
@@ -620,11 +665,14 @@ function TableGroup({
   title,
   tables,
   busy,
+  selected,
   onPick,
 }: {
   title: string;
   tables: TableStatus[];
   busy: boolean;
+  /** Mesas marcadas para el próximo bloqueo (multi-selección). */
+  selected: string[];
   onPick: (t: TableStatus) => void;
 }) {
   return (
@@ -635,6 +683,7 @@ function TableGroup({
           const manual = t.holders.find((h) => !h.reservationId && !h.recurring);
           const fijo = t.holders.find((h) => h.recurring);
           const reservas = t.holders.filter((h) => h.reservationId);
+          const picked = selected.includes(t.code);
           const usos = reservas
             .map((h) => `${hourAR(h.startAt)}–${hourAR(h.endAt)} (${h.qty}p)`)
             .join(' · ');
@@ -655,11 +704,13 @@ function TableGroup({
               }
               className={cn(
                 'relative inline-flex min-w-[4.25rem] flex-col items-center justify-center gap-0.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors disabled:opacity-50',
-                manual || (fijo && !reservas.length)
-                  ? 'border-dashed border-[#c3b7a4] bg-[#fbf5ef] text-[#7a6e6f]'
-                  : reservas.length
-                    ? 'border-[#d8c9b6] bg-[#e6dbcd] text-[#3d3338]'
-                    : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
+                picked
+                  ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                  : manual || (fijo && !reservas.length)
+                    ? 'border-dashed border-[#c3b7a4] bg-[#fbf5ef] text-[#7a6e6f]'
+                    : reservas.length
+                      ? 'border-[#d8c9b6] bg-[#e6dbcd] text-[#3d3338]'
+                      : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
               )}
             >
               <span className='inline-flex items-center gap-1'>

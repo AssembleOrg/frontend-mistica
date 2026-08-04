@@ -113,12 +113,12 @@ export const tablesAdmin = {
     ).data,
 
   /**
-   * Bloquea una mesa en un rango horario. Sin `start`/`end` bloquea la
-   * ventana completa del día.
+   * Bloquea una o varias mesas en un rango horario (todo-o-nada). Sin
+   * `start`/`end` bloquea la ventana completa del día.
    */
   blockTable: async (input: {
     date: string;
-    code: string;
+    codes: string[];
     label: string;
     /** Hora local 'HH:mm'. */
     start?: string;

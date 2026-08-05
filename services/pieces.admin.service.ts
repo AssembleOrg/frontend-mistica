@@ -38,6 +38,12 @@ export interface PieceItem {
   quantity: number;
   status: PieceStatus;
   notes?: string;
+  /** Reserva a la que está asignada la pieza (camino normal). */
+  reservationId?: string;
+  reservationCode?: string;
+  /** Profesor asignado al proceso. */
+  professorId?: string;
+  professorName?: string;
   readyAt?: string;
   pickedUpAt?: string;
   createdAt: string;
@@ -52,7 +58,11 @@ export interface PieceListResponse {
 }
 
 export interface CreatePieceInput {
-  customerPhone: string;
+  /** Camino normal: asignar a una reserva (contacto y experiencia salen de ahí). */
+  reservationId?: string;
+  professorId?: string;
+  /** Camino manual (pieza sin reserva). */
+  customerPhone?: string;
   customerName?: string;
   experienceName?: string;
   quantity?: number;
@@ -64,12 +74,14 @@ export const piecesAdmin = {
   list: async (params?: {
     status?: string;
     search?: string;
+    professorId?: string;
     page?: number;
     limit?: number;
   }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
     if (params?.search?.trim()) q.set('search', params.search.trim());
+    if (params?.professorId) q.set('professorId', params.professorId);
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));
     return (await apiService.get<PieceListResponse>(`/pieces?${q.toString()}`))
@@ -85,7 +97,13 @@ export const piecesAdmin = {
   update: async (
     id: string,
     input: Partial<CreatePieceInput> & { status?: PieceStatus },
-  ) => (await apiService.patch<PieceItem>(`/pieces/${id}`, input)).data,
+  ) =>
+    (
+      await apiService.patch<PieceItem>(
+        `/pieces/${id}`,
+        input as unknown as Record<string, unknown>,
+      )
+    ).data,
   remove: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/${id}`)).data,
 };

@@ -1,6 +1,7 @@
 'use client';
 
 import { AccountsPanel } from '@/components/dashboard/cuentas/accounts-panel';
+import { ProfessorsPanel } from '@/components/dashboard/cuentas/professors-panel';
 
 export default function CuentasPage() {
   return (
@@ -11,10 +12,11 @@ export default function CuentasPage() {
         </h1>
         <p className='mt-0.5 font-winter-solid text-sm text-[#455a54]/60'>
           Creá y reseteá cuentas del sistema, cambiá contraseñas, roles y qué
-          vistas puede ver cada una.
+          vistas puede ver cada una. Abajo, los profesores del taller.
         </p>
       </div>
       <AccountsPanel />
+      <ProfessorsPanel />
     </div>
   );
 }

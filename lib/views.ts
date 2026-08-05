@@ -30,8 +30,26 @@ export const PANEL_VIEWS: PanelView[] = [
 export const ASSIGNABLE_VIEWS = PANEL_VIEWS.filter((v) => !v.adminOnly);
 
 /**
+ * Pestañas de la vista Reservas, asignables una por una: la clave granular es
+ * 'reservas:<tab>'. Habilitar 'reservas' entera equivale a todas. Ejemplo: un
+ * profesor con SOLO 'reservas:piezas' entra al panel y ve únicamente Piezas.
+ */
+export const RESERVAS_TABS = [
+  { key: 'agenda', label: 'Agenda' },
+  { key: 'mesas', label: 'Mesas' },
+  { key: 'experiencias', label: 'Experiencias' },
+  { key: 'reservas', label: 'Reservas' },
+  { key: 'consultas', label: 'Consultas' },
+  { key: 'charlas', label: 'Charlas' },
+  { key: 'piezas', label: 'Piezas' },
+] as const;
+
+export type ReservasTabKey = (typeof RESERVAS_TABS)[number]['key'];
+
+/**
  * ¿Esta cuenta puede ver esta vista? Los admin siempre; una cuenta común con
  * whitelist vacía ve las vistas estándar; con whitelist, sólo las listadas.
+ * Tener alguna pestaña granular ('reservas:piezas') habilita la vista madre.
  */
 export function canAccessView(
   view: string,
@@ -43,5 +61,23 @@ export function canAccessView(
   if (role === 'admin') return true;
   if (def.adminOnly) return false;
   if (!allowedViews || allowedViews.length === 0) return true;
-  return allowedViews.includes(view);
+  return (
+    allowedViews.includes(view) ||
+    allowedViews.some((v) => v.startsWith(`${view}:`))
+  );
+}
+
+/**
+ * Pestañas de Reservas visibles para esta cuenta. Admin, whitelist vacía o
+ * 'reservas' entera → todas; si sólo tiene claves granulares, ésas.
+ */
+export function allowedReservasTabs(
+  role: string | null | undefined,
+  allowedViews: string[] | null | undefined,
+): ReservasTabKey[] {
+  const all = RESERVAS_TABS.map((t) => t.key);
+  if (role === 'admin') return all;
+  if (!allowedViews || allowedViews.length === 0) return all;
+  if (allowedViews.includes('reservas')) return all;
+  return all.filter((k) => allowedViews.includes(`reservas:${k}`));
 }

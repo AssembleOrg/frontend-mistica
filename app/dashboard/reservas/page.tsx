@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   CalendarRange,
   Grid2x2,
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { allowedReservasTabs } from '@/lib/views';
 import { ExperienciasTab } from '@/components/dashboard/reservas/experiencias-tab';
 import { AgendaTab } from '@/components/dashboard/reservas/agenda-tab';
 import { MesasTab } from '@/components/dashboard/reservas/mesas-tab';
@@ -40,7 +42,19 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
 ];
 
 export default function ReservasAdminPage() {
+  const { user } = useAuth();
+
+  // Pestañas visibles según la cuenta: un profesor con sólo 'reservas:piezas'
+  // habilitada entra acá y ve únicamente Piezas.
+  const visibleTabs = useMemo(() => {
+    const allowed = allowedReservasTabs(user?.role, user?.allowedViews);
+    return TABS.filter((t) => allowed.includes(t.key));
+  }, [user?.role, user?.allowedViews]);
+
   const [tab, setTab] = useState<Tab>('agenda');
+  const active: Tab = visibleTabs.some((t) => t.key === tab)
+    ? tab
+    : (visibleTabs[0]?.key ?? 'agenda');
 
   return (
     <div className='flex flex-col gap-4'>
@@ -52,8 +66,8 @@ export default function ReservasAdminPage() {
       </div>
 
       <div className='flex flex-wrap gap-2'>
-        {TABS.map(({ key, label, icon: Icon }) => {
-          const on = key === tab;
+        {visibleTabs.map(({ key, label, icon: Icon }) => {
+          const on = key === active;
           return (
             <Button
               key={key}
@@ -72,13 +86,13 @@ export default function ReservasAdminPage() {
         })}
       </div>
 
-      {tab === 'agenda' && <AgendaTab />}
-      {tab === 'mesas' && <MesasTab />}
-      {tab === 'experiencias' && <ExperienciasTab />}
-      {tab === 'reservas' && <ReservasTab />}
-      {tab === 'consultas' && <ConsultasTab />}
-      {tab === 'charlas' && <ConversacionesTab />}
-      {tab === 'piezas' && <PiezasTab />}
+      {active === 'agenda' && <AgendaTab />}
+      {active === 'mesas' && <MesasTab />}
+      {active === 'experiencias' && <ExperienciasTab />}
+      {active === 'reservas' && <ReservasTab />}
+      {active === 'consultas' && <ConsultasTab />}
+      {active === 'charlas' && <ConversacionesTab />}
+      {active === 'piezas' && <PiezasTab />}
     </div>
   );
 }

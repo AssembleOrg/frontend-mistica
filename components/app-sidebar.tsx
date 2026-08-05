@@ -86,11 +86,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       if (item.enabled === false) return false;
       if (item.adminOnly && userRole !== 'admin') return false;
       // Whitelist de vistas por cuenta: si la cuenta (no admin) tiene una
-      // lista, sólo ve esas vistas. Vacía = acceso estándar por rol.
+      // lista, sólo ve esas vistas. Vacía = acceso estándar por rol. Una
+      // clave granular ('reservas:piezas') habilita la vista madre.
       if (
         userRole !== 'admin' &&
         allowedViews.length > 0 &&
-        !allowedViews.includes(item.view)
+        !allowedViews.includes(item.view) &&
+        !allowedViews.some((v) => v.startsWith(`${item.view}:`))
       ) {
         return false;
       }

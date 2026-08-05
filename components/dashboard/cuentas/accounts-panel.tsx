@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { ASSIGNABLE_VIEWS } from '@/lib/views';
+import { ASSIGNABLE_VIEWS, RESERVAS_TABS } from '@/lib/views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,6 +36,15 @@ import {
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+/** Etiqueta legible de una clave de vista (incluye las granulares). */
+function viewLabel(key: string): string {
+  if (key.startsWith('reservas:')) {
+    const tab = RESERVAS_TABS.find((t) => t.key === key.slice('reservas:'.length));
+    return tab ? `Reservas · ${tab.label}` : key;
+  }
+  return ASSIGNABLE_VIEWS.find((v) => v.key === key)?.label ?? key;
+}
 
 interface FormState {
   name: string;
@@ -283,7 +292,7 @@ function AccountRow({
               key={v}
               className='rounded border border-[#e6dbcd] bg-[#fbf5ef] px-1.5 py-0.5 text-[10px] font-semibold text-[#455a54]'
             >
-              {ASSIGNABLE_VIEWS.find((x) => x.key === v)?.label ?? v}
+              {viewLabel(v)}
             </span>
           ))
         )}
@@ -430,7 +439,7 @@ function AccountEditor({
               </span>
             </Label>
             <div className='flex flex-wrap gap-1.5'>
-              {ASSIGNABLE_VIEWS.map((v) => {
+              {ASSIGNABLE_VIEWS.filter((v) => v.key !== 'reservas').map((v) => {
                 const on = form.allowedViews.includes(v.key);
                 return (
                   <button
@@ -448,6 +457,68 @@ function AccountEditor({
                   </button>
                 );
               })}
+            </div>
+
+            {/* Reservas se habilita entera o pestaña por pestaña (ej. un
+                profesor con SOLO Piezas). */}
+            <div className='mt-2 rounded-xl border border-[#e6dbcd] bg-white p-2.5'>
+              <p className='mb-1.5 text-[12px] font-medium text-[#7a6e6f]'>
+                Reservas — entera o por pestaña
+              </p>
+              <div className='flex flex-wrap gap-1.5'>
+                <button
+                  type='button'
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      allowedViews: form.allowedViews.includes('reservas')
+                        ? form.allowedViews.filter((v) => v !== 'reservas')
+                        : [
+                            ...form.allowedViews.filter(
+                              (v) => !v.startsWith('reservas:'),
+                            ),
+                            'reservas',
+                          ],
+                    })
+                  }
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors',
+                    form.allowedViews.includes('reservas')
+                      ? 'border-[#455a54] bg-[#455a54] text-white'
+                      : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f3e9df]',
+                  )}
+                >
+                  Reservas (todo)
+                </button>
+                {RESERVAS_TABS.map((t) => {
+                  const key = `reservas:${t.key}`;
+                  const full = form.allowedViews.includes('reservas');
+                  const on = full || form.allowedViews.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type='button'
+                      disabled={full}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          allowedViews: form.allowedViews.includes(key)
+                            ? form.allowedViews.filter((v) => v !== key)
+                            : [...form.allowedViews, key],
+                        })
+                      }
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-60',
+                        on
+                          ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                          : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f3e9df]',
+                      )}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

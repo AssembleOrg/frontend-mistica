@@ -25,6 +25,7 @@ import {
   reservationsAdmin,
   type AdminExperience,
   type CreateExperienceInput,
+  type PriceVariant,
 } from '@/services/reservations.admin.service';
 import { FilterChip, IconBtn, StatusBadge } from './_shared';
 
@@ -32,6 +33,7 @@ const EMPTY: CreateExperienceInput = {
   name: '',
   description: '',
   aliases: [],
+  priceVariants: [],
   durationMinutes: 120,
   basePrice: 0,
   defaultCapacity: 8,
@@ -89,6 +91,7 @@ export function ExperienciasTab() {
       name: e.name,
       description: e.description ?? '',
       aliases: e.aliases ?? [],
+      priceVariants: e.priceVariants ?? [],
       durationMinutes: e.durationMinutes,
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
@@ -383,6 +386,10 @@ export function ExperienciasTab() {
                   className={fieldCls}
                 />
               </Field>
+              <VariantsEditor
+                variants={form.priceVariants ?? []}
+                onChange={(priceVariants) => setForm({ ...form, priceVariants })}
+              />
               <Field label='Lugares fijos en el salón (mesa)'>
                 <Input
                   type='number'
@@ -604,6 +611,158 @@ function AliasEditor({
         Cómo lo escribe la gente en el chat. No distingue mayúsculas, acentos ni
         puntuación, y no puede repetirse en otra experiencia.
       </span>
+    </div>
+  );
+}
+
+// ───────────────────── Variantes de precio ─────────────────────
+
+/**
+ * Editor de variantes de precio: modalidades alternativas (escuelita "Por
+ * clase" / "Mensual") y tiers por cantidad con extras (cumpleaños 5+/10+).
+ * Los tiers POR PERSONA con rango se aplican SOLOS al precio de la reserva
+ * según el tamaño del grupo; el resto es informativo y el bot lo menciona.
+ */
+function VariantsEditor({
+  variants,
+  onChange,
+}: Readonly<{
+  variants: PriceVariant[];
+  onChange: (v: PriceVariant[]) => void;
+}>) {
+  function patch(i: number, part: Partial<PriceVariant>) {
+    onChange(variants.map((v, idx) => (idx === i ? { ...v, ...part } : v)));
+  }
+  function remove(i: number) {
+    onChange(variants.filter((_, idx) => idx !== i));
+  }
+  function add() {
+    onChange([
+      ...variants,
+      { name: '', price: 0, unit: 'PER_PERSON', active: true },
+    ]);
+  }
+
+  return (
+    <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-white p-3'>
+      <div className='flex items-center justify-between'>
+        <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+          VARIANTES DE PRECIO
+        </span>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={add}
+          className='h-7 gap-1 border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+        >
+          <Plus className='h-3 w-3' />
+          Agregar variante
+        </Button>
+      </div>
+
+      {variants.length === 0 && (
+        <p className='text-xs text-[#7a6e6f]'>
+          Sin variantes: se cobra siempre el precio por persona de arriba.
+        </p>
+      )}
+
+      {variants.map((v, i) => (
+        <div
+          key={i}
+          className={`flex flex-col gap-2 rounded-lg border p-2.5 ${
+            v.active === false
+              ? 'border-dashed border-[#e6dbcd] opacity-60'
+              : 'border-[#e6dbcd]'
+          }`}
+        >
+          <div className='flex flex-wrap items-center gap-2'>
+            <Input
+              value={v.name}
+              onChange={(ev) => patch(i, { name: ev.target.value })}
+              placeholder="Nombre ('Mensual', 'Grupo de 5 o más')"
+              className={`${fieldCls} h-8 w-52 text-sm`}
+            />
+            <Input
+              type='number'
+              min={0}
+              value={v.price}
+              onChange={(ev) => patch(i, { price: Number(ev.target.value) })}
+              placeholder='Precio'
+              className={`${fieldCls} h-8 w-28 text-sm`}
+            />
+            <select
+              value={v.unit}
+              onChange={(ev) =>
+                patch(i, { unit: ev.target.value as PriceVariant['unit'] })
+              }
+              className={`${fieldCls} h-8 rounded-md border px-2 text-sm`}
+            >
+              <option value='PER_PERSON'>por persona</option>
+              <option value='FLAT'>total (fijo)</option>
+            </select>
+            <span className='flex items-center gap-1.5 text-[12px] text-[#455a54]'>
+              de
+              <Input
+                type='number'
+                min={1}
+                value={v.minQty ?? ''}
+                onChange={(ev) =>
+                  patch(i, {
+                    minQty: ev.target.value ? Number(ev.target.value) : undefined,
+                  })
+                }
+                placeholder='—'
+                className={`${fieldCls} h-8 w-16 text-sm`}
+              />
+              a
+              <Input
+                type='number'
+                min={1}
+                value={v.maxQty ?? ''}
+                onChange={(ev) =>
+                  patch(i, {
+                    maxQty: ev.target.value ? Number(ev.target.value) : undefined,
+                  })
+                }
+                placeholder='—'
+                className={`${fieldCls} h-8 w-16 text-sm`}
+              />
+              pers.
+            </span>
+            <label className='flex items-center gap-1.5 text-[12px] text-[#455a54]'>
+              <Switch
+                checked={v.active !== false}
+                onCheckedChange={(checked) => patch(i, { active: checked })}
+                className='data-[state=checked]:bg-[#455a54]'
+              />
+              Activa
+            </label>
+            <button
+              type='button'
+              onClick={() => remove(i)}
+              title='Quitar variante'
+              className='ml-auto text-[#a33] hover:opacity-70'
+            >
+              <Trash2 className='h-4 w-4' />
+            </button>
+          </div>
+          <Input
+            value={v.description ?? ''}
+            onChange={(ev) => patch(i, { description: ev.target.value })}
+            placeholder="Qué incluye ('velas de cumpleaños', 'torta + pieza de cerámica de regalo')"
+            className={`${fieldCls} h-8 text-sm`}
+          />
+        </div>
+      ))}
+
+      <p className='text-xs text-[#7a6e6f]'>
+        <strong>Por persona + rango</strong> (ej. de 5 a 9): se aplica sola al
+        precio de la reserva según el tamaño del grupo — el bot y la landing
+        cobran ese precio. <strong>Total (fijo)</strong> o sin rango (ej.
+        &ldquo;Mensual&rdquo;): es una modalidad informativa que el bot menciona
+        al pasar precios.
+      </p>
     </div>
   );
 }

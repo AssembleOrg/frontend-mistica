@@ -59,6 +59,23 @@ export interface ReservationListResponse {
   totalPages: number;
 }
 
+
+/**
+ * Variante de precio: modalidad alternativa (escuelita "Mensual") o tier por
+ * cantidad (cumpleaños 5+/10+ con extras). Los tiers POR_PERSONA con rango se
+ * aplican solos al precio de la reserva; el resto es informativo (el bot lo
+ * menciona).
+ */
+export interface PriceVariant {
+  name: string;
+  price: number;
+  unit: 'PER_PERSON' | 'FLAT';
+  minQty?: number;
+  maxQty?: number;
+  description?: string;
+  active?: boolean;
+}
+
 export interface CreateExperienceInput {
   name: string;
   description?: string;
@@ -68,6 +85,8 @@ export interface CreateExperienceInput {
    * repetirse entre experiencias: el backend rechaza el duplicado.
    */
   aliases?: string[];
+  /** Variantes de precio (modalidades y tiers por cantidad). */
+  priceVariants?: PriceVariant[];
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;

@@ -26,6 +26,16 @@ export interface PublicExperience {
   // Lugares FIJOS del salón que ocupa un turno abierto (ej. mesa de taller = 10).
   // 0/ausente = el control del salón usa los anotados.
   venueSeats?: number;
+  /** Variantes de precio (modalidades y tiers por cantidad con extras). */
+  priceVariants?: Array<{
+    name: string;
+    price: number;
+    unit: 'PER_PERSON' | 'FLAT';
+    minQty?: number;
+    maxQty?: number;
+    description?: string;
+    active?: boolean;
+  }>;
 }
 
 export interface PublicSession {

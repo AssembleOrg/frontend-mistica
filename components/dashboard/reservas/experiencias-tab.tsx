@@ -44,6 +44,7 @@ const EMPTY: CreateExperienceInput = {
   name: '',
   description: '',
   aliases: [],
+  images: [],
   priceVariants: [],
   durationMinutes: 120,
   basePrice: 0,
@@ -102,6 +103,7 @@ export function ExperienciasTab() {
       name: e.name,
       description: e.description ?? '',
       aliases: e.aliases ?? [],
+      images: e.images ?? [],
       priceVariants: e.priceVariants ?? [],
       durationMinutes: e.durationMinutes,
       basePrice: e.basePrice,
@@ -428,6 +430,12 @@ export function ExperienciasTab() {
                   anotados.
                 </p>
               </Field>
+              <Field label='Imágenes (URLs)'>
+                <ImagesEditor
+                  value={form.images ?? []}
+                  onChange={(images) => setForm({ ...form, images })}
+                />
+              </Field>
               <Field label='Color en la agenda'>
                 <div className='flex flex-wrap items-center gap-2'>
                   {EXPERIENCE_COLOR_PALETTE.map((c) => (
@@ -633,6 +641,82 @@ function AliasEditor({
         Cómo lo escribe la gente en el chat. No distingue mayúsculas, acentos ni
         puntuación, y no puede repetirse en otra experiencia.
       </span>
+    </div>
+  );
+}
+
+/**
+ * URLs de imágenes de la experiencia (se muestran en la landing). Chips con
+ * miniatura + input para pegar la URL. Sin upload: el equipo sube la foto a
+ * su hosting/Drive público y pega el link.
+ */
+function ImagesEditor({
+  value,
+  onChange,
+}: Readonly<{
+  value: string[];
+  onChange: (next: string[]) => void;
+}>) {
+  const [draft, setDraft] = useState('');
+  const valid = /^https?:\/\/.+/.test(draft.trim());
+
+  function add() {
+    const url = draft.trim();
+    if (!valid || value.includes(url)) return;
+    onChange([...value, url]);
+    setDraft('');
+  }
+
+  return (
+    <div className='flex flex-col gap-2'>
+      {value.length > 0 && (
+        <div className='flex flex-wrap gap-2'>
+          {value.map((url) => (
+            <span
+              key={url}
+              className='inline-flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-1 pr-1.5'
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt=''
+                className='h-9 w-9 rounded-md object-cover'
+              />
+              <button
+                type='button'
+                onClick={() => onChange(value.filter((x) => x !== url))}
+                className='inline-flex size-4 items-center justify-center rounded-full text-[#7a6e6f] hover:bg-[#e6dbcd] hover:text-[#3d3338]'
+                aria-label='Quitar imagen'
+              >
+                <X className='h-3 w-3' />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className='flex gap-2'>
+        <Input
+          value={draft}
+          onChange={(ev) => setDraft(ev.target.value)}
+          onKeyDown={(ev) => {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              add();
+            }
+          }}
+          placeholder='https://…'
+          className={fieldCls}
+        />
+        <Button
+          type='button'
+          variant='ghost'
+          onClick={add}
+          disabled={!valid}
+          className='shrink-0 border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+        >
+          Agregar
+        </Button>
+      </div>
     </div>
   );
 }

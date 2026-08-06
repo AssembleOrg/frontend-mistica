@@ -44,6 +44,8 @@ export interface ReservationItem {
    */
   dietaryTags?: string[];
   dietaryNotes?: string;
+  /** true = cumpleaños sobre la experiencia (beneficios aplicados). */
+  isBirthday?: boolean;
   shiftKey?: string;
   tableCodes?: string[];
   sharedTable?: boolean;
@@ -70,7 +72,12 @@ export interface ReservationListResponse {
  */
 export interface PriceVariant {
   name: string;
-  price: number;
+  /**
+   * Precio. AUSENTE = beneficio puro: mantiene el precio base sobre el que
+   * aplica (los beneficios del cumpleaños heredan el de la experiencia
+   * elegida).
+   */
+  price?: number;
   unit: 'PER_PERSON' | 'FLAT';
   minQty?: number;
   maxQty?: number;
@@ -143,6 +150,8 @@ export interface AdminCreateReservationInput {
   paymentMethod: ReservationPaymentMethod;
   amount?: number;
   notes?: string;
+  /** Cumpleaños: aplica los beneficios sobre el precio de la experiencia. */
+  isBirthday?: boolean;
 }
 
 export const reservationsAdmin = {

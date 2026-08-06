@@ -377,7 +377,12 @@ export function ReservasTab() {
                         {r.customerName}
                       </button>
                       <div className='min-w-0'>
-                        <p className='truncate text-sm text-[#3d3338]'>{r.experienceName}</p>
+                        <p className='truncate text-sm text-[#3d3338]'>
+                          {r.experienceName}
+                          {r.isBirthday && (
+                            <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
+                          )}
+                        </p>
                         <p className='font-mono text-xs text-[#7a6e6f]'>
                           {fmtDateTime(r.startAt)}
                         </p>
@@ -450,7 +455,12 @@ export function ReservasTab() {
                     <p className='mt-1.5 text-sm font-semibold text-[#3d3338]'>
                       {r.customerName}
                     </p>
-                    <p className='mt-2 text-sm text-[#3d3338]'>{r.experienceName}</p>
+                    <p className='mt-2 text-sm text-[#3d3338]'>
+                      {r.experienceName}
+                      {r.isBirthday && (
+                        <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
+                      )}
+                    </p>
                     <p className='font-mono text-xs text-[#7a6e6f]'>{fmtDateTime(r.startAt)}</p>
                     <div className='mt-1.5'>
                       <DietaryTags
@@ -583,6 +593,9 @@ function NewReservationModal({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  // Cumpleaños: el backend aplica los beneficios (regalos, lugares
+  // bonificados) sobre el precio de la experiencia elegida.
+  const [isBday, setIsBday] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const exp = experiences.find((e) => e._id === expId) ?? null;
@@ -712,6 +725,7 @@ function NewReservationModal({
         customerName: name.trim(),
         customerPhone: phone.trim() || undefined,
         paymentMethod: method,
+        isBirthday: isBday || undefined,
       });
       showToast.success('Reserva creada');
       await onDone();
@@ -905,12 +919,47 @@ function NewReservationModal({
             </div>
           </div>
 
+          <button
+            type='button'
+            onClick={() => setIsBday(!isBday)}
+            className={cn(
+              'flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-sm transition',
+              isBday
+                ? 'border-[#6d5a78] bg-[#efe6f2] text-[#6d5a78]'
+                : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
+            )}
+          >
+            <span
+              className={cn(
+                'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px]',
+                isBday
+                  ? 'border-[#6d5a78] bg-[#6d5a78] text-white'
+                  : 'border-[#c9bfb0] bg-white',
+              )}
+            >
+              {isBday ? '✓' : ''}
+            </span>
+            <span>
+              Es un cumpleaños 🎉
+              <span className='block text-[11px] text-[#7a6e6f]'>
+                Se aplican los beneficios del festejo sobre el precio de la
+                experiencia (regalos, lugares bonificados).
+              </span>
+            </span>
+          </button>
+
           {total > 0 && (
             <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>
               Total: <strong>{fmtPrice(total)}</strong>{' '}
               <span className='text-[#7a6e6f]'>
                 ({quantity} × {fmtPrice(unit)})
               </span>
+              {isBday && (
+                <span className='block text-[12px] text-[#6d5a78]'>
+                  Es estimado: si un beneficio de cumpleaños aplica (ej. lugar
+                  bonificado), el total real se calcula al crear.
+                </span>
+              )}
             </p>
           )}
         </div>

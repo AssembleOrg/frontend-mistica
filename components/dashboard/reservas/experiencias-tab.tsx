@@ -237,7 +237,9 @@ export function ExperienciasTab() {
                     />
                     <span className='truncate'>{e.name}</span>
                   </h3>
-                  {online ? (
+                  {e.isBirthday ? (
+                    <StatusBadge label='Ocasión 🎉' bg='#efe6f2' fg='#6d5a78' />
+                  ) : online ? (
                     <StatusBadge label='Online' bg='#E7F0EC' fg='#455a54' />
                   ) : (
                     <StatusBadge label='Coordinada' bg='#f3e7db' fg='#9d684e' />
@@ -267,21 +269,29 @@ export function ExperienciasTab() {
 
                 <div className='h-px w-full bg-[#e6dbcd]' />
 
-                {/* Precio + duración */}
-                <div className='flex items-center justify-between gap-2'>
-                  <div className='flex items-baseline gap-1'>
-                    <span className='text-[19px] font-bold text-[#9d684e]'>
-                      {fmtPrice(e.basePrice)}
+                {/* Precio + duración. La ocasión Cumpleaños no tiene propios:
+                    hereda los de la experiencia que elija el cliente. */}
+                {e.isBirthday ? (
+                  <p className='text-[13px] leading-snug text-[#6d5a78]'>
+                    Precio y duración: los de la experiencia elegida. Este item
+                    aporta los beneficios del festejo.
+                  </p>
+                ) : (
+                  <div className='flex items-center justify-between gap-2'>
+                    <div className='flex items-baseline gap-1'>
+                      <span className='text-[19px] font-bold text-[#9d684e]'>
+                        {fmtPrice(e.basePrice)}
+                      </span>
+                      <span className='text-xs text-[#7a6e6f]'>/persona</span>
+                    </div>
+                    <span className='inline-flex items-center gap-1.5 rounded-[7px] border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
+                      <Timer className='h-3.5 w-3.5 text-[#7a6e6f]' />
+                      <span className='font-mono text-xs text-[#3d3338]'>
+                        {online ? fmtDuration(e.durationMinutes) : 'Coordinada'}
+                      </span>
                     </span>
-                    <span className='text-xs text-[#7a6e6f]'>/persona</span>
                   </div>
-                  <span className='inline-flex items-center gap-1.5 rounded-[7px] border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
-                    <Timer className='h-3.5 w-3.5 text-[#7a6e6f]' />
-                    <span className='font-mono text-xs text-[#3d3338]'>
-                      {online ? fmtDuration(e.durationMinutes) : 'Coordinada'}
-                    </span>
-                  </span>
-                </div>
+                )}
 
                 {/* Estado activo + acciones */}
                 <div className='flex items-center justify-between gap-2'>
@@ -713,9 +723,11 @@ function qtyPhrase(v: PriceVariant): string | null {
  */
 function describeVariant(v: PriceVariant): string {
   const price =
-    v.unit === 'FLAT'
-      ? `${fmtPrice(v.price)} total`
-      : `${fmtPrice(v.price)} por persona`;
+    v.price == null
+      ? 'mismo precio'
+      : v.unit === 'FLAT'
+        ? `${fmtPrice(v.price)} total`
+        : `${fmtPrice(v.price)} por persona`;
   const kind = kindOf(v);
   const qty = qtyPhrase(v);
 
@@ -993,11 +1005,22 @@ function VariantForm({
             <Input
               type='number'
               min={0}
-              value={v.price}
-              onChange={(ev) => onPatch({ price: Number(ev.target.value) })}
+              value={v.price ?? ''}
+              onChange={(ev) =>
+                onPatch({
+                  price: ev.target.value ? Number(ev.target.value) : undefined,
+                })
+              }
+              placeholder='mismo precio'
               className={`${fieldCls} h-9 text-sm`}
             />
           </div>
+          {kind !== 'modality' && (
+            <p className='mt-1 text-[11px] text-[#455a54]/60'>
+              Vacío = no cambia el precio: la promo sólo suma el beneficio
+              (regalo, lugares bonificados).
+            </p>
+          )}
         </Field>
       </div>
 
@@ -1166,7 +1189,10 @@ function VariantForm({
           ASÍ QUEDA:{' '}
         </span>
         {describeVariant(v)}
-        {kind !== 'modality' && basePrice > 0 && v.price !== basePrice && (
+        {kind !== 'modality' &&
+          basePrice > 0 &&
+          v.price != null &&
+          v.price !== basePrice && (
           <span className='text-[#7a6e6f]'>
             {' '}
             (precio normal: {fmtPrice(basePrice)})

@@ -155,6 +155,20 @@ export function ReservationForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idemKey] = useState(() => newIdempotencyKey());
+  // ¿Es un cumpleaños? El negocio aplica los beneficios del festejo (regalos,
+  // lugares bonificados) sobre el precio de la experiencia elegida.
+  const [isBday, setIsBday] = useState(false);
+  // Montos calculados por el negocio (incluyen promos/beneficios): son los
+  // mismos que después se cobran. Si no llegan, se muestra el cálculo local.
+  const [srvPricing, setSrvPricing] = useState<{
+    unitPrice: number;
+    totalAmount: number;
+    depositAmount: number;
+    balanceDue: number;
+    variantName?: string;
+    variantDescription?: string;
+    freeSpots?: number;
+  } | null>(null);
   // Marca qué campos ya fueron tocados para no mostrar error antes de tiempo.
   const [touched, setTouched] = useState({ name: false, email: false, phone: false });
   // Hold ya creado: se muestran los datos para transferir la seña. La reserva
@@ -288,12 +302,46 @@ export function ReservationForm({
       : null;
   const selected = suggested ?? custom;
   const maxQty = selected ? Math.max(1, selected.maxPartySize) : 12;
-  const total = selected ? selected.price * qty : 0;
+  const localTotal = selected ? selected.price * qty : 0;
   const depositPct = selected?.depositPct ?? 50;
-  const senia = Math.round((total * depositPct) / 100);
-  const saldo = total - senia;
+  const total = srvPricing?.totalAmount ?? localTotal;
+  const senia =
+    srvPricing?.depositAmount ?? Math.round((total * depositPct) / 100);
+  const saldo = srvPricing?.balanceDue ?? total - senia;
   const expName = experiences.find((e) => e._id === expId)?.name ?? 'Experiencia';
   const locked = !!lockedExperienceId;
+
+  // Montos del negocio para el horario/grupo elegido (con promos y beneficios
+  // de cumpleaños incluidos): el resumen muestra lo mismo que se va a cobrar.
+  useEffect(() => {
+    if (!expId || !selected) {
+      setSrvPricing(null);
+      return;
+    }
+    const { dateKey, startTime } = selected;
+    let alive = true;
+    const t = setTimeout(() => {
+      reservationsPublic
+        .previewTables({
+          experienceId: expId,
+          date: dateKey,
+          startTime,
+          quantity: qty,
+          isBirthday: isBday || undefined,
+        })
+        .then((res) => {
+          if (alive) setSrvPricing(res.pricing ?? null);
+        })
+        .catch(() => {
+          if (alive) setSrvPricing(null);
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expId, selected?.dateKey, selected?.startTime, qty, isBday]);
 
   // Errores de formato de "Tus datos".
   const nameError = validateName(name);
@@ -324,6 +372,7 @@ export function ReservationForm({
         customerEmail: email.trim() || undefined,
         customerPhone: normalizedPhone || undefined,
         idempotencyKey: idemKey,
+        isBirthday: isBday || undefined,
       });
       // No hay pasarela de pago: la seña se transfiere y el comprobante llega
       // por WhatsApp. Mostramos los datos bancarios en la misma pantalla.
@@ -584,6 +633,36 @@ export function ReservationForm({
             />
             {touched.email && emailError && <FieldError>{emailError}</FieldError>}
           </div>
+
+          {/* Ocasión: cumpleaños. El negocio aplica los beneficios solos. */}
+          <button
+            type='button'
+            onClick={() => setIsBday(!isBday)}
+            aria-pressed={isBday}
+            className={`flex w-full items-start gap-3 border px-4 py-3.5 text-left transition ${
+              isBday
+                ? 'border-terracota bg-arena'
+                : 'border-linea bg-transparent hover:bg-arena'
+            }`}
+          >
+            <span
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border text-[11px] ${
+                isBday
+                  ? 'border-terracota bg-terracota text-arena'
+                  : 'border-linea bg-transparent'
+              }`}
+            >
+              {isBday ? '✓' : ''}
+            </span>
+            <span className='text-sm text-ciruela-oscuro'>
+              Es un cumpleaños 🎉
+              <span className='block text-[13px] leading-snug text-piedra'>
+                Festejalo acá: según el día y el tamaño del grupo se aplican
+                beneficios solos (regalos, lugares bonificados) y los ves
+                reflejados en el resumen.
+              </span>
+            </span>
+          </button>
         </div>
       </div>
 
@@ -614,6 +693,21 @@ export function ReservationForm({
             </div>
           ))}
         </div>
+        {srvPricing?.variantName && (
+          <div className='border-b border-linea bg-arena px-6 py-3.5'>
+            <p className='text-sm font-medium text-terracota'>
+              ✨ {srvPricing.variantName}
+            </p>
+            {(srvPricing.variantDescription || srvPricing.freeSpots) && (
+              <p className='mt-0.5 text-[13px] leading-snug text-piedra'>
+                {srvPricing.freeSpots
+                  ? `${srvPricing.freeSpots === 1 ? '1 lugar bonificado' : `${srvPricing.freeSpots} lugares bonificados`}: entran todos, pagás ${srvPricing.freeSpots} menos. `
+                  : ''}
+                {srvPricing.variantDescription ?? ''}
+              </p>
+            )}
+          </div>
+        )}
         <div className='flex items-center justify-between border-b border-linea px-6 py-3.5'>
           <span className='text-sm text-piedra'>Total experiencia</span>
           <span className='text-[15px] font-medium text-ciruela-oscuro'>

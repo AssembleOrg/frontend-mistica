@@ -26,10 +26,16 @@ export interface PublicExperience {
   // Lugares FIJOS del salón que ocupa un turno abierto (ej. mesa de taller = 10).
   // 0/ausente = el control del salón usa los anotados.
   venueSeats?: number;
+  /**
+   * Es la ocasión "Cumpleaños": no se reserva directo, envuelve a la
+   * experiencia elegida (hereda precio/duración) y aporta beneficios.
+   */
+  isBirthday?: boolean;
   /** Variantes de precio (modalidades, tiers por cantidad y promos por día/fecha). */
   priceVariants?: Array<{
     name: string;
-    price: number;
+    /** Ausente = beneficio puro: mantiene el precio heredado. */
+    price?: number;
     unit: 'PER_PERSON' | 'FLAT';
     minQty?: number;
     maxQty?: number;
@@ -129,6 +135,8 @@ export interface CreateHoldInput {
   customerEmail?: string;
   customerPhone?: string;
   idempotencyKey: string;
+  /** Cumpleaños: aplica los beneficios sobre el precio de la experiencia. */
+  isBirthday?: boolean;
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -182,6 +190,17 @@ export interface PreviewTablesResult {
   venueMaxPartySize?: number;
   tables?: string[];
   sharedTable?: boolean;
+  /** Montos server-side (mismos que se cobran), con promo aplicada si hay. */
+  pricing?: {
+    unitPrice: number;
+    totalAmount: number;
+    depositAmount: number;
+    balanceDue: number;
+    variantName?: string;
+    variantDescription?: string;
+    /** Lugares bonificados por la promo (entran pero no se cobran). */
+    freeSpots?: number;
+  };
 }
 
 export const reservationsPublic = {
@@ -207,6 +226,7 @@ export const reservationsPublic = {
     date: string;
     startTime: string;
     quantity: number;
+    isBirthday?: boolean;
   }) =>
     req<PreviewTablesResult>('/reservations/preview-tables', {
       method: 'POST',

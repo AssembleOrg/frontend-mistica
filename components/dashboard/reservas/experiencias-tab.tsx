@@ -746,7 +746,13 @@ function describeVariant(v: PriceVariant): string {
   if (qty) parts.push(qty);
 
   const when = parts.length ? parts.join(', ') : 'siempre';
-  return `${when.charAt(0).toUpperCase()}${when.slice(1)} → ${price}`;
+  const bonus =
+    v.freeSpots && v.freeSpots > 0
+      ? v.freeSpots === 1
+        ? ' · 1 lugar bonificado'
+        : ` · ${v.freeSpots} lugares bonificados`
+      : '';
+  return `${when.charAt(0).toUpperCase()}${when.slice(1)} → ${price}${bonus}`;
 }
 
 const KIND_BADGE: Record<VariantKind, { label: string; bg: string; fg: string }> =
@@ -796,8 +802,10 @@ function VariantsEditor({
       days: undefined,
       dateFrom: undefined,
       dateTo: undefined,
+      freeSpots: undefined,
       unit: 'PER_PERSON',
     };
+    if (kind !== 'modality') cleared.freeSpots = v.freeSpots;
     if (kind === 'qty') cleared.minQty = v.minQty ?? 2;
     if (kind === 'weekday') cleared.days = v.days?.length ? v.days : [];
     if (kind === 'modality') cleared.unit = v.unit;
@@ -1116,6 +1124,30 @@ function VariantForm({
             precios (ej. escuelita &ldquo;Mensual&rdquo; $80) y el pago se
             coordina.
           </p>
+        </Field>
+      )}
+
+      {kind !== 'modality' && (
+        <Field label='Lugares bonificados (opcional)'>
+          <div className='flex items-center gap-2 text-sm text-[#455a54]'>
+            <Input
+              type='number'
+              min={0}
+              value={v.freeSpots ?? ''}
+              onChange={(ev) =>
+                onPatch({
+                  freeSpots: ev.target.value
+                    ? Number(ev.target.value)
+                    : undefined,
+                })
+              }
+              placeholder='0'
+              className={`${fieldCls} h-9 w-20 text-sm`}
+            />
+            <span className='text-[12px] text-[#7a6e6f]'>
+              lugares gratis: entran todos, se cobran esa cantidad menos
+            </span>
+          </div>
         </Field>
       )}
 

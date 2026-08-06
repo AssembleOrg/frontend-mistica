@@ -80,6 +80,8 @@ export interface PriceVariant {
   dateFrom?: string;
   /** Rige hasta ('YYYY-MM-DD'). */
   dateTo?: string;
+  /** Lugares bonificados: entran todos, se cobran (cantidad - freeSpots). */
+  freeSpots?: number;
   description?: string;
   active?: boolean;
 }

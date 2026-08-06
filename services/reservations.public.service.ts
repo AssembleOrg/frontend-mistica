@@ -37,6 +37,8 @@ export interface PublicExperience {
     days?: number[];
     dateFrom?: string;
     dateTo?: string;
+    /** Lugares bonificados: entran todos, se cobran (cantidad - freeSpots). */
+    freeSpots?: number;
     description?: string;
     active?: boolean;
   }>;

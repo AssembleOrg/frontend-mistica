@@ -26,13 +26,17 @@ export interface PublicExperience {
   // Lugares FIJOS del salón que ocupa un turno abierto (ej. mesa de taller = 10).
   // 0/ausente = el control del salón usa los anotados.
   venueSeats?: number;
-  /** Variantes de precio (modalidades y tiers por cantidad con extras). */
+  /** Variantes de precio (modalidades, tiers por cantidad y promos por día/fecha). */
   priceVariants?: Array<{
     name: string;
     price: number;
     unit: 'PER_PERSON' | 'FLAT';
     minQty?: number;
     maxQty?: number;
+    /** Días de semana ISO (1=lunes..7=domingo) en los que rige. */
+    days?: number[];
+    dateFrom?: string;
+    dateTo?: string;
     description?: string;
     active?: boolean;
   }>;

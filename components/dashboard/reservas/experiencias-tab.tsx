@@ -1,7 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, Timer, Trash2, X } from 'lucide-react';
+import {
+  CalendarDays,
+  CalendarRange,
+  Pencil,
+  Plus,
+  Tag,
+  Timer,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
 import { fmtPrice } from '@/lib/reservas-format';
 import {
   DEFAULT_EXPERIENCE_COLOR,
@@ -305,7 +316,7 @@ export function ExperienciasTab() {
 
       <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
         {form && (
-          <DialogContent className='sm:max-w-md'>
+          <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
             <DialogHeader className='text-left'>
               <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
                 {editing ? 'Editar experiencia' : 'Nueva experiencia'}
@@ -388,6 +399,7 @@ export function ExperienciasTab() {
               </Field>
               <VariantsEditor
                 variants={form.priceVariants ?? []}
+                basePrice={form.basePrice}
                 onChange={(priceVariants) => setForm({ ...form, priceVariants })}
               />
               <Field label='Lugares fijos en el salón (mesa)'>
@@ -615,39 +627,188 @@ function AliasEditor({
   );
 }
 
-// ───────────────────── Variantes de precio ─────────────────────
+// ───────────────────── Promos y variantes de precio ─────────────────────
 
 /**
- * Editor de variantes de precio: modalidades alternativas (escuelita "Por
- * clase" / "Mensual") y tiers por cantidad con extras (cumpleaños 5+/10+).
- * Los tiers POR PERSONA con rango se aplican SOLOS al precio de la reserva
- * según el tamaño del grupo; el resto es informativo y el bot lo menciona.
+ * Editor de promos y variantes de precio. Cada variante tiene un TIPO que
+ * define su condición:
+ * · Por cantidad: rango de personas (cumpleaños 5+/10+ con extras).
+ * · Por día de semana: rige los días elegidos, todas las semanas (promo martes).
+ * · Por fecha: fecha puntual o rango del calendario (promo del 20/12).
+ * · Modalidad: precio alternativo informativo, nunca se aplica solo
+ *   (escuelita "Mensual" $80).
+ * Las tres primeras se aplican SOLAS al precio de la reserva (bot + landing
+ * cobran ese precio); el tipo se infiere de qué condiciones tiene guardadas.
  */
+type VariantKind = 'qty' | 'weekday' | 'date' | 'modality';
+
+const KINDS: Array<{
+  kind: VariantKind;
+  label: string;
+  hint: string;
+  icon: typeof Users;
+}> = [
+  {
+    kind: 'qty',
+    label: 'Por cantidad',
+    hint: 'Según cuántas personas reserven',
+    icon: Users,
+  },
+  {
+    kind: 'weekday',
+    label: 'Por día de semana',
+    hint: 'Los días que elijas, todas las semanas',
+    icon: CalendarDays,
+  },
+  {
+    kind: 'date',
+    label: 'Por fecha',
+    hint: 'Una fecha puntual o un rango',
+    icon: CalendarRange,
+  },
+  {
+    kind: 'modality',
+    label: 'Modalidad',
+    hint: 'Precio alternativo, sólo informativo',
+    icon: Tag,
+  },
+];
+
+// Días ISO: 1=lunes .. 7=domingo.
+const WEEKDAYS: Array<{ iso: number; short: string; name: string }> = [
+  { iso: 1, short: 'Lun', name: 'lunes' },
+  { iso: 2, short: 'Mar', name: 'martes' },
+  { iso: 3, short: 'Mié', name: 'miércoles' },
+  { iso: 4, short: 'Jue', name: 'jueves' },
+  { iso: 5, short: 'Vie', name: 'viernes' },
+  { iso: 6, short: 'Sáb', name: 'sábados' },
+  { iso: 7, short: 'Dom', name: 'domingos' },
+];
+
+function kindOf(v: PriceVariant): VariantKind {
+  if (v.dateFrom || v.dateTo) return 'date';
+  if (v.days && v.days.length > 0) return 'weekday';
+  if (v.minQty != null || v.maxQty != null) return 'qty';
+  return 'modality';
+}
+
+// 'YYYY-MM-DD' -> 'DD/MM/YYYY' sin pasar por Date (evita el corrimiento UTC).
+function fmtYmd(ymd: string): string {
+  const [y, m, d] = ymd.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function qtyPhrase(v: PriceVariant): string | null {
+  if (v.minQty != null && v.maxQty != null)
+    return `de ${v.minQty} a ${v.maxQty} personas`;
+  if (v.minQty != null) return `desde ${v.minQty} personas`;
+  if (v.maxQty != null) return `hasta ${v.maxQty} personas`;
+  return null;
+}
+
+/**
+ * Frase humana de la variante ("Los martes → $7 por persona"). Es lo que ve
+ * el admin en la lista y en la vista previa del editor: dice exactamente
+ * cuándo se cobra ese precio, sin tener que interpretar campos.
+ */
+function describeVariant(v: PriceVariant): string {
+  const price =
+    v.unit === 'FLAT'
+      ? `${fmtPrice(v.price)} total`
+      : `${fmtPrice(v.price)} por persona`;
+  const kind = kindOf(v);
+  const qty = qtyPhrase(v);
+
+  if (kind === 'modality') return `${price} · el bot la menciona, no se aplica sola`;
+
+  const parts: string[] = [];
+  if (kind === 'date') {
+    if (v.dateFrom && v.dateFrom === v.dateTo) {
+      parts.push(`el ${fmtYmd(v.dateFrom)}`);
+    } else if (v.dateFrom && v.dateTo) {
+      parts.push(`del ${fmtYmd(v.dateFrom)} al ${fmtYmd(v.dateTo)}`);
+    } else if (v.dateFrom) {
+      parts.push(`desde el ${fmtYmd(v.dateFrom)}`);
+    } else if (v.dateTo) {
+      parts.push(`hasta el ${fmtYmd(v.dateTo)}`);
+    }
+  }
+  if (kind === 'weekday' && v.days?.length) {
+    const names = WEEKDAYS.filter((w) => v.days!.includes(w.iso)).map(
+      (w) => w.name,
+    );
+    parts.push(
+      names.length > 1
+        ? `los ${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`
+        : `los ${names[0]}`,
+    );
+  }
+  if (qty) parts.push(qty);
+
+  const when = parts.length ? parts.join(', ') : 'siempre';
+  return `${when.charAt(0).toUpperCase()}${when.slice(1)} → ${price}`;
+}
+
+const KIND_BADGE: Record<VariantKind, { label: string; bg: string; fg: string }> =
+  {
+    qty: { label: 'Por cantidad', bg: '#E7F0EC', fg: '#455a54' },
+    weekday: { label: 'Por día', bg: '#f3e7db', fg: '#9d684e' },
+    date: { label: 'Por fecha', bg: '#efe6f2', fg: '#6d5a78' },
+    modality: { label: 'Modalidad', bg: '#f1efe9', fg: '#7a6e6f' },
+  };
+
 function VariantsEditor({
   variants,
+  basePrice,
   onChange,
 }: Readonly<{
   variants: PriceVariant[];
+  basePrice: number;
   onChange: (v: PriceVariant[]) => void;
 }>) {
+  // Índice de la variante desplegada en modo edición (null = todas plegadas).
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+
   function patch(i: number, part: Partial<PriceVariant>) {
     onChange(variants.map((v, idx) => (idx === i ? { ...v, ...part } : v)));
   }
   function remove(i: number) {
     onChange(variants.filter((_, idx) => idx !== i));
+    setEditingIdx(null);
   }
   function add() {
     onChange([
       ...variants,
-      { name: '', price: 0, unit: 'PER_PERSON', active: true },
+      { name: '', price: basePrice || 0, unit: 'PER_PERSON', active: true },
     ]);
+    setEditingIdx(variants.length);
+  }
+
+  /**
+   * Cambiar el tipo limpia las condiciones que no le corresponden, así lo
+   * guardado siempre coincide con lo que el admin ve elegido.
+   */
+  function setKind(i: number, kind: VariantKind) {
+    const v = variants[i];
+    const cleared: Partial<PriceVariant> = {
+      minQty: undefined,
+      maxQty: undefined,
+      days: undefined,
+      dateFrom: undefined,
+      dateTo: undefined,
+      unit: 'PER_PERSON',
+    };
+    if (kind === 'qty') cleared.minQty = v.minQty ?? 2;
+    if (kind === 'weekday') cleared.days = v.days?.length ? v.days : [];
+    if (kind === 'modality') cleared.unit = v.unit;
+    patch(i, cleared);
   }
 
   return (
     <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-white p-3'>
       <div className='flex items-center justify-between'>
         <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-          VARIANTES DE PRECIO
+          PROMOS Y VARIANTES DE PRECIO
         </span>
         <Button
           type='button'
@@ -657,112 +818,359 @@ function VariantsEditor({
           className='h-7 gap-1 border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
         >
           <Plus className='h-3 w-3' />
-          Agregar variante
+          Agregar
         </Button>
       </div>
 
       {variants.length === 0 && (
         <p className='text-xs text-[#7a6e6f]'>
-          Sin variantes: se cobra siempre el precio por persona de arriba.
+          Sin promos: se cobra siempre el precio por persona de arriba. Podés
+          agregar promos por cantidad de personas, por día de semana, por fecha,
+          o modalidades de pago alternativas.
         </p>
       )}
 
-      {variants.map((v, i) => (
-        <div
-          key={i}
-          className={`flex flex-col gap-2 rounded-lg border p-2.5 ${
-            v.active === false
-              ? 'border-dashed border-[#e6dbcd] opacity-60'
-              : 'border-[#e6dbcd]'
-          }`}
+      {variants.map((v, i) =>
+        editingIdx === i ? (
+          <VariantForm
+            key={i}
+            variant={v}
+            basePrice={basePrice}
+            onPatch={(part) => patch(i, part)}
+            onKind={(k) => setKind(i, k)}
+            onDone={() => setEditingIdx(null)}
+            onRemove={() => remove(i)}
+          />
+        ) : (
+          <VariantRow
+            key={i}
+            variant={v}
+            onEdit={() => setEditingIdx(i)}
+            onToggle={(active) => patch(i, { active })}
+            onRemove={() => remove(i)}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+/** Fila plegada: badge de tipo + nombre + frase humana + acciones. */
+function VariantRow({
+  variant: v,
+  onEdit,
+  onToggle,
+  onRemove,
+}: Readonly<{
+  variant: PriceVariant;
+  onEdit: () => void;
+  onToggle: (active: boolean) => void;
+  onRemove: () => void;
+}>) {
+  const badge = KIND_BADGE[kindOf(v)];
+  const off = v.active === false;
+  return (
+    <div
+      className={`flex flex-col gap-1 rounded-lg border p-2.5 ${
+        off ? 'border-dashed border-[#e6dbcd] opacity-60' : 'border-[#e6dbcd]'
+      }`}
+    >
+      <div className='flex items-center gap-2'>
+        <span
+          className='shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide'
+          style={{ backgroundColor: badge.bg, color: badge.fg }}
         >
-          <div className='flex flex-wrap items-center gap-2'>
-            <Input
-              value={v.name}
-              onChange={(ev) => patch(i, { name: ev.target.value })}
-              placeholder="Nombre ('Mensual', 'Grupo de 5 o más')"
-              className={`${fieldCls} h-8 w-52 text-sm`}
-            />
+          {badge.label}
+        </span>
+        <span className='min-w-0 flex-1 truncate text-sm font-medium text-[#3d3338]'>
+          {v.name || <span className='text-[#7a6e6f]'>Sin nombre</span>}
+        </span>
+        <Switch
+          checked={!off}
+          onCheckedChange={onToggle}
+          title={off ? 'Apagada: no rige' : 'Encendida'}
+          className='data-[state=checked]:bg-[#455a54]'
+        />
+        <IconBtn icon={Pencil} title='Editar' tone='verde' onClick={onEdit} />
+        <IconBtn icon={Trash2} title='Quitar' tone='rojo' onClick={onRemove} />
+      </div>
+      <p className='pl-1 text-xs text-[#7a6e6f]'>
+        {describeVariant(v)}
+        {v.description ? ` · ${v.description}` : ''}
+      </p>
+    </div>
+  );
+}
+
+/** Editor desplegado de una variante: tipo, precio, condición y detalle. */
+function VariantForm({
+  variant: v,
+  basePrice,
+  onPatch,
+  onKind,
+  onDone,
+  onRemove,
+}: Readonly<{
+  variant: PriceVariant;
+  basePrice: number;
+  onPatch: (part: Partial<PriceVariant>) => void;
+  onKind: (kind: VariantKind) => void;
+  onDone: () => void;
+  onRemove: () => void;
+}>) {
+  const kind = kindOf(v);
+  const incomplete =
+    !v.name.trim() ||
+    (kind === 'weekday' && !(v.days && v.days.length > 0)) ||
+    (kind === 'date' && !v.dateFrom && !v.dateTo);
+
+  function toggleDay(iso: number) {
+    const days = v.days ?? [];
+    onPatch({
+      days: days.includes(iso)
+        ? days.filter((d) => d !== iso)
+        : [...days, iso].sort((a, b) => a - b),
+    });
+  }
+
+  return (
+    <div className='flex flex-col gap-3 rounded-lg border-2 border-[#9d684e]/40 bg-[#fbf5ef]/60 p-3'>
+      {/* Tipo: define cuándo rige el precio */}
+      <div className='flex flex-col gap-1.5'>
+        <span className='text-[11px] font-medium text-[#455a54]/70'>
+          ¿Cuándo rige este precio?
+        </span>
+        <div className='grid grid-cols-2 gap-1.5'>
+          {KINDS.map(({ kind: k, label, hint, icon: Icon }) => (
+            <button
+              key={k}
+              type='button'
+              onClick={() => onKind(k)}
+              className={`flex flex-col gap-0.5 rounded-lg border p-2 text-left transition ${
+                kind === k
+                  ? 'border-[#455a54] bg-white shadow-sm'
+                  : 'border-[#e6dbcd] bg-white/60 hover:bg-white'
+              }`}
+            >
+              <span className='flex items-center gap-1.5 text-[13px] font-medium text-[#3d3338]'>
+                <Icon
+                  className={`h-3.5 w-3.5 ${
+                    kind === k ? 'text-[#9d684e]' : 'text-[#7a6e6f]'
+                  }`}
+                />
+                {label}
+              </span>
+              <span className='text-[11px] leading-tight text-[#7a6e6f]'>
+                {hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className='grid grid-cols-2 gap-2'>
+        <Field label='Nombre'>
+          <Input
+            value={v.name}
+            onChange={(ev) => onPatch({ name: ev.target.value })}
+            placeholder={
+              kind === 'modality' ? 'Mensual' : 'Promo martes, Grupo de 5+…'
+            }
+            className={`${fieldCls} h-9 text-sm`}
+          />
+        </Field>
+        <Field label={v.unit === 'FLAT' ? 'Precio total' : 'Precio por persona'}>
+          <div className='flex items-center gap-2'>
+            <span className='text-sm text-[#7a6e6f]'>$</span>
             <Input
               type='number'
               min={0}
               value={v.price}
-              onChange={(ev) => patch(i, { price: Number(ev.target.value) })}
-              placeholder='Precio'
-              className={`${fieldCls} h-8 w-28 text-sm`}
+              onChange={(ev) => onPatch({ price: Number(ev.target.value) })}
+              className={`${fieldCls} h-9 text-sm`}
             />
-            <select
-              value={v.unit}
-              onChange={(ev) =>
-                patch(i, { unit: ev.target.value as PriceVariant['unit'] })
-              }
-              className={`${fieldCls} h-8 rounded-md border px-2 text-sm`}
-            >
-              <option value='PER_PERSON'>por persona</option>
-              <option value='FLAT'>total (fijo)</option>
-            </select>
-            <span className='flex items-center gap-1.5 text-[12px] text-[#455a54]'>
-              de
-              <Input
-                type='number'
-                min={1}
-                value={v.minQty ?? ''}
-                onChange={(ev) =>
-                  patch(i, {
-                    minQty: ev.target.value ? Number(ev.target.value) : undefined,
-                  })
-                }
-                placeholder='—'
-                className={`${fieldCls} h-8 w-16 text-sm`}
-              />
-              a
-              <Input
-                type='number'
-                min={1}
-                value={v.maxQty ?? ''}
-                onChange={(ev) =>
-                  patch(i, {
-                    maxQty: ev.target.value ? Number(ev.target.value) : undefined,
-                  })
-                }
-                placeholder='—'
-                className={`${fieldCls} h-8 w-16 text-sm`}
-              />
-              pers.
-            </span>
-            <label className='flex items-center gap-1.5 text-[12px] text-[#455a54]'>
-              <Switch
-                checked={v.active !== false}
-                onCheckedChange={(checked) => patch(i, { active: checked })}
-                className='data-[state=checked]:bg-[#455a54]'
-              />
-              Activa
-            </label>
-            <button
-              type='button'
-              onClick={() => remove(i)}
-              title='Quitar variante'
-              className='ml-auto text-[#a33] hover:opacity-70'
-            >
-              <Trash2 className='h-4 w-4' />
-            </button>
           </div>
-          <Input
-            value={v.description ?? ''}
-            onChange={(ev) => patch(i, { description: ev.target.value })}
-            placeholder="Qué incluye ('velas de cumpleaños', 'torta + pieza de cerámica de regalo')"
-            className={`${fieldCls} h-8 text-sm`}
-          />
-        </div>
-      ))}
+        </Field>
+      </div>
 
-      <p className='text-xs text-[#7a6e6f]'>
-        <strong>Por persona + rango</strong> (ej. de 5 a 9): se aplica sola al
-        precio de la reserva según el tamaño del grupo — el bot y la landing
-        cobran ese precio. <strong>Total (fijo)</strong> o sin rango (ej.
-        &ldquo;Mensual&rdquo;): es una modalidad informativa que el bot menciona
-        al pasar precios.
-      </p>
+      {/* Condición según el tipo */}
+      {kind === 'qty' && (
+        <Field label='Cantidad de personas'>
+          <div className='flex items-center gap-2 text-sm text-[#455a54]'>
+            de
+            <Input
+              type='number'
+              min={1}
+              value={v.minQty ?? ''}
+              onChange={(ev) =>
+                onPatch({
+                  minQty: ev.target.value ? Number(ev.target.value) : undefined,
+                })
+              }
+              placeholder='5'
+              className={`${fieldCls} h-9 w-20 text-sm`}
+            />
+            a
+            <Input
+              type='number'
+              min={1}
+              value={v.maxQty ?? ''}
+              onChange={(ev) =>
+                onPatch({
+                  maxQty: ev.target.value ? Number(ev.target.value) : undefined,
+                })
+              }
+              placeholder='sin tope'
+              className={`${fieldCls} h-9 w-24 text-sm`}
+            />
+            personas
+          </div>
+          <p className='mt-1 text-[11px] text-[#455a54]/60'>
+            Dejá &ldquo;a&rdquo; vacío para &ldquo;5 o más&rdquo;. Si hay dos
+            promos que aplican, gana la de más personas.
+          </p>
+        </Field>
+      )}
+
+      {kind === 'weekday' && (
+        <Field label='Qué días'>
+          <div className='flex flex-wrap gap-1.5'>
+            {WEEKDAYS.map((w) => {
+              const on = v.days?.includes(w.iso) ?? false;
+              return (
+                <button
+                  key={w.iso}
+                  type='button'
+                  onClick={() => toggleDay(w.iso)}
+                  className={`h-9 w-11 rounded-lg border text-[13px] font-medium transition ${
+                    on
+                      ? 'border-[#455a54] bg-[#455a54] text-white'
+                      : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+                  }`}
+                >
+                  {w.short}
+                </button>
+              );
+            })}
+          </div>
+          <p className='mt-1 text-[11px] text-[#455a54]/60'>
+            Rige esos días todas las semanas, hasta que la apagues.
+          </p>
+        </Field>
+      )}
+
+      {kind === 'date' && (
+        <Field label='Qué fechas'>
+          <div className='flex flex-wrap items-center gap-2'>
+            <DatePicker
+              value={v.dateFrom}
+              onChange={(dateFrom) =>
+                onPatch({
+                  dateFrom,
+                  // Autocompletar "hasta" para el caso común de un solo día.
+                  dateTo: v.dateTo && v.dateTo >= dateFrom ? v.dateTo : dateFrom,
+                })
+              }
+              placeholder='Desde'
+              className='w-36'
+            />
+            <span className='text-sm text-[#7a6e6f]'>hasta</span>
+            <DatePicker
+              value={v.dateTo}
+              onChange={(dateTo) => onPatch({ dateTo })}
+              placeholder='Hasta'
+              className='w-36'
+            />
+          </div>
+          <p className='mt-1 text-[11px] text-[#455a54]/60'>
+            Misma fecha en los dos = promo de un solo día.
+          </p>
+        </Field>
+      )}
+
+      {kind === 'modality' && (
+        <Field label='Cómo se cobra'>
+          <div className='flex gap-1.5'>
+            {(
+              [
+                ['PER_PERSON', 'Por persona'],
+                ['FLAT', 'Precio total fijo'],
+              ] as const
+            ).map(([unit, label]) => (
+              <button
+                key={unit}
+                type='button'
+                onClick={() => onPatch({ unit })}
+                className={`h-9 rounded-lg border px-3 text-[13px] font-medium transition ${
+                  v.unit === unit
+                    ? 'border-[#455a54] bg-[#455a54] text-white'
+                    : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className='mt-1 text-[11px] text-[#455a54]/60'>
+            Las modalidades no se cobran solas: el bot las menciona al pasar
+            precios (ej. escuelita &ldquo;Mensual&rdquo; $80) y el pago se
+            coordina.
+          </p>
+        </Field>
+      )}
+
+      <Field label='Qué incluye (opcional)'>
+        <Input
+          value={v.description ?? ''}
+          onChange={(ev) => onPatch({ description: ev.target.value })}
+          placeholder='velas de cumpleaños, torta + pieza de regalo…'
+          className={`${fieldCls} h-9 text-sm`}
+        />
+      </Field>
+
+      {/* Vista previa: la misma frase que va a ver el equipo en la lista */}
+      <div className='rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-xs text-[#455a54]'>
+        <span className='font-mono text-[10px] tracking-wider text-[#7a6e6f]'>
+          ASÍ QUEDA:{' '}
+        </span>
+        {describeVariant(v)}
+        {kind !== 'modality' && basePrice > 0 && v.price !== basePrice && (
+          <span className='text-[#7a6e6f]'>
+            {' '}
+            (precio normal: {fmtPrice(basePrice)})
+          </span>
+        )}
+      </div>
+
+      <div className='flex items-center justify-between'>
+        <button
+          type='button'
+          onClick={onRemove}
+          className='inline-flex items-center gap-1 text-xs text-[#a33] hover:opacity-70'
+        >
+          <Trash2 className='h-3.5 w-3.5' />
+          Quitar
+        </button>
+        <Button
+          type='button'
+          variant='verde'
+          size='sm'
+          onClick={onDone}
+          disabled={incomplete}
+          className='h-8 px-4'
+        >
+          Listo
+        </Button>
+      </div>
+      {incomplete && (
+        <p className='text-[11px] text-[#9d684e]'>
+          {!v.name.trim()
+            ? 'Ponele un nombre para poder guardarla.'
+            : kind === 'weekday'
+              ? 'Elegí al menos un día.'
+              : 'Elegí las fechas en las que rige.'}
+        </p>
+      )}
     </div>
   );
 }

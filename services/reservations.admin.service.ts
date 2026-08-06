@@ -61,9 +61,11 @@ export interface ReservationListResponse {
 
 
 /**
- * Variante de precio: modalidad alternativa (escuelita "Mensual") o tier por
- * cantidad (cumpleaños 5+/10+ con extras). Los tiers POR_PERSONA con rango se
- * aplican solos al precio de la reserva; el resto es informativo (el bot lo
+ * Variante de precio: modalidad alternativa (escuelita "Mensual") o promo
+ * auto-aplicable. Una variante POR_PERSONA con al menos una condición se
+ * aplica SOLA al precio de la reserva cuando se cumplen todas: rango de
+ * personas (cumpleaños 5+/10+), días de semana (promo martes) y/o fecha o
+ * rango de fechas (promo del 20/12). El resto es informativo (el bot lo
  * menciona).
  */
 export interface PriceVariant {
@@ -72,6 +74,12 @@ export interface PriceVariant {
   unit: 'PER_PERSON' | 'FLAT';
   minQty?: number;
   maxQty?: number;
+  /** Días de semana ISO (1=lunes..7=domingo) en los que rige. */
+  days?: number[];
+  /** Rige desde ('YYYY-MM-DD'). Igual a dateTo = fecha puntual. */
+  dateFrom?: string;
+  /** Rige hasta ('YYYY-MM-DD'). */
+  dateTo?: string;
   description?: string;
   active?: boolean;
 }

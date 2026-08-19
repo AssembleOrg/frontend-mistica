@@ -86,6 +86,8 @@ export interface CreateCashExpenseRequest {
   concept: string;
   amount: number;
   paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
+  /** false = gasto externo: no descuenta del arqueo de la caja física. */
+  affectsCashbox?: boolean;
   notes?: string;
 }
 

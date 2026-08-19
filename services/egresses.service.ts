@@ -12,6 +12,8 @@ export interface Egress {
   currency: 'USD' | 'EUR' | 'UYU' | 'ARS' | 'BRL';
   type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
+  /** false = gasto externo: cuenta en finanzas, no en el arqueo de caja. */
+  affectsCashbox?: boolean;
   notes?: string;
   authorizedBy?: string;
   userId: string;
@@ -28,6 +30,8 @@ export interface CreateEgressRequest {
   currency: 'USD' | 'EUR' | 'UYU' | 'ARS' | 'BRL';
   type: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
+  /** false = gasto externo: no descuenta del arqueo de la caja física. */
+  affectsCashbox?: boolean;
   notes?: string;
   authorizedBy?: string;
   userId: string;

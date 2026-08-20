@@ -120,9 +120,11 @@ function retiroNode(p: PieceItem, cfg: PieceStatusConfig[]) {
 
 export function PiezasTab() {
   const { user } = useAuth();
-  // Cuentas comunes (ej. profesores) sólo OBSERVAN el estado de las piezas:
-  // sin alta, sin borrado y sin cambiar la etapa.
-  const canManage = user?.role === 'admin';
+  // El PROFESOR registra y gestiona piezas (alta, estado, fotos), como pide
+  // el alcance del taller. Borrar registros y configurar los estados del
+  // proceso queda para el admin.
+  const isAdmin = user?.role === 'admin';
+  const canManage = true;
   const [items, setItems] = useState<PieceItem[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
   const [professorId, setProfessorId] = useState('');
@@ -311,29 +313,27 @@ export function PiezasTab() {
               className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
             />
           </div>
-          {canManage && (
-            <>
-              <Button
-                type='button'
-                variant='ghost'
-                onClick={() => setEditingStatuses(true)}
-                title='Configurar los estados del proceso'
-                className='shrink-0 gap-1.5 border border-[#e6dbcd] bg-white px-2.5 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
-              >
-                <Settings2 className='h-4 w-4' />
-                Estados
-              </Button>
-              <Button
-                type='button'
-                variant='verde'
-                onClick={() => setCreating(true)}
-                className='shrink-0 gap-2'
-              >
-                <Plus className='h-4 w-4' />
-                Nueva pieza
-              </Button>
-            </>
+          {isAdmin && (
+            <Button
+              type='button'
+              variant='ghost'
+              onClick={() => setEditingStatuses(true)}
+              title='Configurar los estados del proceso'
+              className='shrink-0 gap-1.5 border border-[#e6dbcd] bg-white px-2.5 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+            >
+              <Settings2 className='h-4 w-4' />
+              Estados
+            </Button>
           )}
+          <Button
+            type='button'
+            variant='verde'
+            onClick={() => setCreating(true)}
+            className='shrink-0 gap-2'
+          >
+            <Plus className='h-4 w-4' />
+            Nueva pieza
+          </Button>
         </div>
       </div>
 
@@ -409,19 +409,15 @@ export function PiezasTab() {
                         </span>
                       )}
                     </button>
-                    {canManage ? (
-                      <>
-                        <div className='w-[8rem]'>{statusSelect(p)}</div>
-                        <IconBtn
-                          icon={Trash2}
-                          title='Eliminar'
-                          tone='rojo'
-                          disabled={busy === p._id}
-                          onClick={() => remove(p)}
-                        />
-                      </>
-                    ) : (
-                      <span className='text-[11px] text-[#a99f92]'>sólo lectura</span>
+                    <div className='w-[8rem]'>{statusSelect(p)}</div>
+                    {isAdmin && (
+                      <IconBtn
+                        icon={Trash2}
+                        title='Eliminar'
+                        tone='rojo'
+                        disabled={busy === p._id}
+                        onClick={() => remove(p)}
+                      />
                     )}
                   </div>
                 </div>
@@ -478,9 +474,9 @@ export function PiezasTab() {
                 </div>
                 <div className='mt-3 flex items-center justify-between gap-2'>
                   {retiroNode(p, statusCfg)}
-                  {canManage && (
-                    <div className='flex items-center gap-2'>
-                      <div className='w-[9rem]'>{statusSelect(p)}</div>
+                  <div className='flex items-center gap-2'>
+                    <div className='w-[9rem]'>{statusSelect(p)}</div>
+                    {isAdmin && (
                       <IconBtn
                         icon={Trash2}
                         title='Eliminar'
@@ -488,8 +484,8 @@ export function PiezasTab() {
                         disabled={busy === p._id}
                         onClick={() => remove(p)}
                       />
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             );

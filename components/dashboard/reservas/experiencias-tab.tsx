@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
+import { ImageUploadButton } from '@/components/ui/image-upload-button';
 import { fmtPrice } from '@/lib/reservas-format';
 import {
   DEFAULT_EXPERIENCE_COLOR,
@@ -694,7 +695,12 @@ function ImagesEditor({
           ))}
         </div>
       )}
-      <div className='flex gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <ImageUploadButton
+          folder='experiencias'
+          onUploaded={(url) => onChange([...value, url])}
+        />
+        <span className='text-[11px] text-[#a99f92]'>o pegá una URL:</span>
         <Input
           value={draft}
           onChange={(ev) => setDraft(ev.target.value)}
@@ -705,7 +711,7 @@ function ImagesEditor({
             }
           }}
           placeholder='https://…'
-          className={fieldCls}
+          className={`${fieldCls} h-9 min-w-40 flex-1`}
         />
         <Button
           type='button'

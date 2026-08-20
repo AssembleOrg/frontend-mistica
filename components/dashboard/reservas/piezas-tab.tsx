@@ -30,6 +30,7 @@ import {
   type CreatePieceInput,
 } from '@/services/pieces.admin.service';
 import { tallerAdmin, type Student } from '@/services/taller.admin.service';
+import { ImageUploadButton } from '@/components/ui/image-upload-button';
 import {
   reservationsAdmin,
   type AdminExperience,
@@ -1046,7 +1047,12 @@ function PhotosDialog({
             </div>
           )}
           {canManage && (
-            <div className='flex gap-2'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <ImageUploadButton
+                folder='piezas'
+                onUploaded={(url) => setPhotos((prev) => [...prev, url])}
+              />
+              <span className='text-[11px] text-[#a99f92]'>o pegá una URL:</span>
               <Input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -1056,8 +1062,8 @@ function PhotosDialog({
                     setDraft('');
                   }
                 }}
-                placeholder='https://… (URL de la foto)'
-                className={fieldCls}
+                placeholder='https://…'
+                className={`${fieldCls} h-9 min-w-40 flex-1`}
               />
               <Button
                 type='button'

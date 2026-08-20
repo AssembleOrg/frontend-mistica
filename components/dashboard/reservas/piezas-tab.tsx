@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { Camera, Plus, Search, Settings2, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,9 +26,10 @@ import {
   PIECE_STATUS_LABEL,
   PIECE_STATUS_ORDER,
   type PieceItem,
-  type PieceStatus,
+  type PieceStatusConfig,
   type CreatePieceInput,
 } from '@/services/pieces.admin.service';
+import { tallerAdmin, type Student } from '@/services/taller.admin.service';
 import {
   reservationsAdmin,
   type AdminExperience,
@@ -44,46 +45,54 @@ import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 
 const LIMIT = 20;
 
-// Etapas "en proceso" (previas a estar lista). El resto son estados finales.
-const IN_PROCESS: PieceStatus[] = [
-  'SECADO',
-  'PRIMERA_HORNEADA',
-  'ESMALTADO',
-  'SEGUNDA_HORNEADA',
-];
+// Los estados del proceso son CONFIGURABLES por el taller (el backend los
+// sirve en /pieces/statuses). Mientras cargan, se usan los históricos.
+const FALLBACK_CFG: PieceStatusConfig[] = PIECE_STATUS_ORDER.map((key) => ({
+  key,
+  label: PIECE_STATUS_LABEL[key],
+  isReady: key === 'LISTA',
+  isFinal: key === 'RETIRADA',
+}));
 
-// Color del badge/chip por estado: en proceso → terracota suave, lista → verde,
-// retirada → piedra.
-function statusColors(s: PieceStatus): { bg: string; fg: string } {
-  if (s === 'LISTA') return { bg: '#E7F0EC', fg: '#455a54' };
-  if (s === 'RETIRADA') return { bg: '#f1ede6', fg: '#7a6e6f' };
-  return { bg: '#F6E9DC', fg: '#cc844a' };
+function cfgOf(s: string, cfg: PieceStatusConfig[]) {
+  return cfg.find((c) => c.key === s);
 }
 
-// Filtros: "Todas" + uno por estado, con el acento/tinte de cada estado.
-const FILTERS: { key: string; label: string; color: string; tint: string }[] = [
-  { key: '', label: 'Todas', color: '#455a54', tint: '#E7F0EC' },
-  ...PIECE_STATUS_ORDER.map((s) => {
-    const { bg, fg } = statusColors(s);
-    return { key: s, label: PIECE_STATUS_LABEL[s], color: fg, tint: bg };
-  }),
-];
+function labelOf(s: string, cfg: PieceStatusConfig[]) {
+  return cfgOf(s, cfg)?.label ?? s;
+}
+
+// Color del badge/chip por estado: en proceso → terracota suave, lista → verde,
+// final (retirada/entregada) → piedra.
+function statusColors(
+  s: string,
+  cfg: PieceStatusConfig[],
+): { bg: string; fg: string } {
+  const c = cfgOf(s, cfg);
+  if (c?.isReady) return { bg: '#E7F0EC', fg: '#455a54' };
+  if (c?.isFinal) return { bg: '#f1ede6', fg: '#7a6e6f' };
+  return { bg: '#F6E9DC', fg: '#cc844a' };
+}
 
 const COLS =
   'grid grid-cols-[9rem_8.5rem_1fr_8rem_9.5rem_9rem_7rem_11.5rem] items-center gap-3';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
-// Barra de progreso de 6 segmentos según la etapa de la pieza.
-function ProgressStepper({ status }: Readonly<{ status: PieceStatus }>) {
-  const stage = PIECE_STATUS_ORDER.indexOf(status) + 1; // 1..6
-  const fill =
-    status === 'RETIRADA' ? '#7a6e6f' : stage >= 5 ? '#455a54' : '#9d684e';
+// Barra de progreso: un segmento por estado configurado.
+function ProgressStepper({
+  status,
+  cfg,
+}: Readonly<{ status: string; cfg: PieceStatusConfig[] }>) {
+  const idx = cfg.findIndex((c) => c.key === status);
+  const stage = idx + 1; // 1..n (0 si el estado no figura)
+  const c = cfgOf(status, cfg);
+  const fill = c?.isFinal ? '#7a6e6f' : c?.isReady ? '#455a54' : '#9d684e';
   return (
     <div className='flex items-center gap-1'>
-      {Array.from({ length: 6 }, (_, i) => (
+      {cfg.map((seg, i) => (
         <span
-          key={i}
+          key={seg.key}
           className='h-1.5 flex-1 rounded-full'
           style={{ backgroundColor: i + 1 <= stage ? fill : '#e6dbcd' }}
         />
@@ -93,17 +102,18 @@ function ProgressStepper({ status }: Readonly<{ status: PieceStatus }>) {
 }
 
 // Texto de la columna "Retiro".
-function retiroNode(p: PieceItem) {
-  if (p.status === 'RETIRADA') {
+function retiroNode(p: PieceItem, cfg: PieceStatusConfig[]) {
+  const c = cfgOf(p.status, cfg);
+  if (c?.isFinal) {
     return (
       <span className='text-xs text-[#7a6e6f]'>
-        Retirada
+        {c.label}
         {p.pickedUpAt ? ` · ${fmtDate(p.pickedUpAt)}` : ''}
       </span>
     );
   }
-  if (p.status === 'LISTA') {
-    return <span className='text-xs text-[#455a54]'>Lista para retirar</span>;
+  if (c?.isReady) {
+    return <span className='text-xs text-[#455a54]'>{c.label}</span>;
   }
   return <span className='text-xs text-[#7a6e6f]'>—</span>;
 }
@@ -125,6 +135,25 @@ export function PiezasTab() {
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // Estados configurables del proceso (con fallback histórico hasta cargar).
+  const [statusCfg, setStatusCfg] = useState<PieceStatusConfig[]>(FALLBACK_CFG);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [editingStatuses, setEditingStatuses] = useState(false);
+  const [photosOf, setPhotosOf] = useState<PieceItem | null>(null);
+
+  const loadCfg = useCallback(() => {
+    piecesAdmin
+      .statuses()
+      .then((cfg) => cfg.length && setStatusCfg(cfg))
+      .catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    loadCfg();
+    tallerAdmin
+      .listStudents(false)
+      .then(setStudents)
+      .catch(() => setStudents([]));
+  }, [loadCfg]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -165,13 +194,13 @@ export function PiezasTab() {
     load();
   }, [load]);
 
-  async function changeStatus(p: PieceItem, next: PieceStatus) {
+  async function changeStatus(p: PieceItem, next: string) {
     if (next === p.status) return;
     setBusy(p._id);
     try {
       await piecesAdmin.update(p._id, { status: next });
       showToast.success(
-        next === 'LISTA'
+        cfgOf(next, statusCfg)?.isReady
           ? 'Pieza lista — se avisó al cliente'
           : 'Estado actualizado',
       );
@@ -201,22 +230,33 @@ export function PiezasTab() {
     return (
       <Select
         value={p.status}
-        onValueChange={(v) => changeStatus(p, v as PieceStatus)}
+        onValueChange={(v) => changeStatus(p, v)}
         disabled={busy === p._id}
       >
         <SelectTrigger className={cn('h-8 w-full text-xs', fieldCls)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {PIECE_STATUS_ORDER.map((s) => (
-            <SelectItem key={s} value={s}>
-              {PIECE_STATUS_LABEL[s]}
+          {statusCfg.map((c) => (
+            <SelectItem key={c.key} value={c.key}>
+              {c.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
     );
   }
+
+  const filters = useMemo(
+    () => [
+      { key: '', label: 'Todas', color: '#455a54', tint: '#E7F0EC' },
+      ...statusCfg.map((c) => {
+        const { bg, fg } = statusColors(c.key, statusCfg);
+        return { key: c.key, label: c.label, color: fg, tint: bg };
+      }),
+    ],
+    [statusCfg],
+  );
 
   const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const to = (page - 1) * LIMIT + items.length;
@@ -226,7 +266,7 @@ export function PiezasTab() {
       {/* Filtros de estado + búsqueda + nueva pieza */}
       <div className='flex flex-wrap items-center gap-x-3 gap-y-2.5'>
         <div className='flex flex-wrap items-center gap-2'>
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <FilterChip
               key={f.key || 'all'}
               label={f.label}
@@ -272,15 +312,27 @@ export function PiezasTab() {
             />
           </div>
           {canManage && (
-            <Button
-              type='button'
-              variant='verde'
-              onClick={() => setCreating(true)}
-              className='shrink-0 gap-2'
-            >
-              <Plus className='h-4 w-4' />
-              Nueva pieza
-            </Button>
+            <>
+              <Button
+                type='button'
+                variant='ghost'
+                onClick={() => setEditingStatuses(true)}
+                title='Configurar los estados del proceso'
+                className='shrink-0 gap-1.5 border border-[#e6dbcd] bg-white px-2.5 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                <Settings2 className='h-4 w-4' />
+                Estados
+              </Button>
+              <Button
+                type='button'
+                variant='verde'
+                onClick={() => setCreating(true)}
+                className='shrink-0 gap-2'
+              >
+                <Plus className='h-4 w-4' />
+                Nueva pieza
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -308,13 +360,13 @@ export function PiezasTab() {
             </div>
           ) : (
             items.map((p) => {
-              const { bg, fg } = statusColors(p.status);
+              const { bg, fg } = statusColors(p.status, statusCfg);
               return (
                 <div
                   key={p._id}
                   className={cn(
                     `${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`,
-                    p.status === 'RETIRADA' && 'opacity-60',
+                    !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                   )}
                 >
                   <div className='min-w-0'>
@@ -338,12 +390,25 @@ export function PiezasTab() {
                   <span className='truncate text-sm text-[#7a6e6f]'>
                     {p.professorName || '—'}
                   </span>
-                  <ProgressStepper status={p.status} />
+                  <ProgressStepper status={p.status} cfg={statusCfg} />
                   <div>
-                    <StatusBadge label={PIECE_STATUS_LABEL[p.status]} bg={bg} fg={fg} />
+                    <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
                   </div>
-                  <div>{retiroNode(p)}</div>
+                  <div>{retiroNode(p, statusCfg)}</div>
                   <div className='flex items-center justify-end gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setPhotosOf(p)}
+                      title={`Fotos (${p.photos?.length ?? 0})`}
+                      className='relative text-[#7a6e6f] hover:text-[#455a54]'
+                    >
+                      <Camera className='h-4 w-4' />
+                      {(p.photos?.length ?? 0) > 0 && (
+                        <span className='absolute -right-2 -top-1.5 rounded-full bg-[#9d684e] px-1 text-[9px] font-bold text-white'>
+                          {p.photos!.length}
+                        </span>
+                      )}
+                    </button>
                     {canManage ? (
                       <>
                         <div className='w-[8rem]'>{statusSelect(p)}</div>
@@ -378,13 +443,13 @@ export function PiezasTab() {
           </div>
         ) : (
           items.map((p) => {
-            const { bg, fg } = statusColors(p.status);
+            const { bg, fg } = statusColors(p.status, statusCfg);
             return (
               <div
                 key={p._id}
                 className={cn(
                   'rounded-2xl border border-[#e6dbcd] bg-white p-4',
-                  p.status === 'RETIRADA' && 'opacity-60',
+                  !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                 )}
               >
                 <div className='flex items-start justify-between gap-2'>
@@ -398,7 +463,7 @@ export function PiezasTab() {
                       </p>
                     )}
                   </div>
-                  <StatusBadge label={PIECE_STATUS_LABEL[p.status]} bg={bg} fg={fg} />
+                  <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
                 </div>
                 <p className='mt-2 text-sm text-[#3d3338]'>
                   {p.notes || `${p.quantity} pieza(s)`}
@@ -409,10 +474,10 @@ export function PiezasTab() {
                     .join(' · ') || '—'}
                 </p>
                 <div className='mt-3'>
-                  <ProgressStepper status={p.status} />
+                  <ProgressStepper status={p.status} cfg={statusCfg} />
                 </div>
                 <div className='mt-3 flex items-center justify-between gap-2'>
-                  {retiroNode(p)}
+                  {retiroNode(p, statusCfg)}
                   {canManage && (
                     <div className='flex items-center gap-2'>
                       <div className='w-[9rem]'>{statusSelect(p)}</div>
@@ -444,9 +509,34 @@ export function PiezasTab() {
       {creating && (
         <NewPieceModal
           professors={professors}
+          students={students}
+          statusCfg={statusCfg}
           onClose={() => setCreating(false)}
           onDone={async () => {
             setCreating(false);
+            await load();
+          }}
+        />
+      )}
+
+      {editingStatuses && (
+        <StatusesDialog
+          initial={statusCfg}
+          onClose={() => setEditingStatuses(false)}
+          onSaved={(cfg) => {
+            setStatusCfg(cfg);
+            setEditingStatuses(false);
+          }}
+        />
+      )}
+
+      {photosOf && (
+        <PhotosDialog
+          piece={photosOf}
+          canManage={canManage}
+          onClose={() => setPhotosOf(null)}
+          onSaved={async () => {
+            setPhotosOf(null);
             await load();
           }}
         />
@@ -457,16 +547,21 @@ export function PiezasTab() {
 
 function NewPieceModal({
   professors,
+  students,
+  statusCfg,
   onClose,
   onDone,
 }: Readonly<{
   professors: Professor[];
+  students: Student[];
+  statusCfg: PieceStatusConfig[];
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
-  // Camino NORMAL: la pieza se asigna a una RESERVA (el contacto ya está ahí).
-  // El modo manual queda para piezas sin reserva (huérfanas, históricas).
-  const [mode, setMode] = useState<'reserva' | 'manual'>('reserva');
+  // Camino NORMAL: la pieza se asigna a una RESERVA (el contacto ya está ahí)
+  // o a un ALUMNO del taller. El modo manual queda para piezas sin origen.
+  const [mode, setMode] = useState<'reserva' | 'alumno' | 'manual'>('reserva');
+  const [studentId, setStudentId] = useState('');
 
   // Búsqueda de reserva por nombre / código / teléfono.
   const [resSearch, setResSearch] = useState('');
@@ -480,7 +575,7 @@ function NewPieceModal({
     customerName: '',
     experienceName: '',
     quantity: 1,
-    status: 'SECADO',
+    status: statusCfg[0]?.key ?? 'SECADO',
   });
   const [qtyInput, setQtyInput] = useState('1');
   const [notes, setNotes] = useState('');
@@ -540,6 +635,11 @@ function NewPieceModal({
         showToast.error('Elegí la reserva a la que pertenece la pieza');
         return;
       }
+    } else if (mode === 'alumno') {
+      if (!studentId) {
+        showToast.error('Elegí el alumno al que pertenece la pieza');
+        return;
+      }
     } else {
       if (!form.customerPhone?.trim()) {
         showToast.error('El teléfono es obligatorio');
@@ -566,13 +666,21 @@ function NewPieceModal({
               status: form.status,
               notes: notes.trim() || undefined,
             }
-          : {
-              ...form,
-              customerPhone: normalizePhoneAR(form.customerPhone ?? ''),
-              professorId: professorId || undefined,
-              quantity,
-              notes: notes.trim() || undefined,
-            },
+          : mode === 'alumno'
+            ? {
+                studentId,
+                professorId: professorId || undefined,
+                quantity,
+                status: form.status,
+                notes: notes.trim() || undefined,
+              }
+            : {
+                ...form,
+                customerPhone: normalizePhoneAR(form.customerPhone ?? ''),
+                professorId: professorId || undefined,
+                quantity,
+                notes: notes.trim() || undefined,
+              },
       );
       showToast.success('Pieza cargada');
       await onDone();
@@ -609,6 +717,18 @@ function NewPieceModal({
             </button>
             <button
               type='button'
+              onClick={() => setMode('alumno')}
+              className={cn(
+                'rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                mode === 'alumno'
+                  ? 'border-[#455a54] bg-[#455a54] text-white'
+                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
+              )}
+            >
+              De un alumno
+            </button>
+            <button
+              type='button'
               onClick={() => setMode('manual')}
               className={cn(
                 'rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
@@ -617,7 +737,7 @@ function NewPieceModal({
                   : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
               )}
             >
-              Sin reserva (manual)
+              Sin origen (manual)
             </button>
           </div>
 
@@ -686,6 +806,24 @@ function NewPieceModal({
                 </div>
               </Field>
             )
+          ) : mode === 'alumno' ? (
+            <Field label='Alumno (el aviso de lista le llega a su contacto)'>
+              <Select
+                value={studentId || undefined}
+                onValueChange={setStudentId}
+              >
+                <SelectTrigger className={fieldCls}>
+                  <SelectValue placeholder='Elegí el alumno' />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((st) => (
+                    <SelectItem key={st._id} value={st._id}>
+                      {st.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
           ) : (
             <>
               <Field label='Teléfono del cliente'>
@@ -772,17 +910,15 @@ function NewPieceModal({
             <Field label='Estado inicial'>
               <Select
                 value={form.status}
-                onValueChange={(v) =>
-                  setForm({ ...form, status: v as PieceStatus })
-                }
+                onValueChange={(v) => setForm({ ...form, status: v })}
               >
                 <SelectTrigger className={fieldCls}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {PIECE_STATUS_ORDER.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {PIECE_STATUS_LABEL[s]}
+                  {statusCfg.map((c) => (
+                    <SelectItem key={c.key} value={c.key}>
+                      {c.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -837,5 +973,259 @@ function Field({
       </span>
       {children}
     </div>
+  );
+}
+
+// ───────────────────── Fotos de una pieza (registro fotográfico) ─────────────────────
+
+/**
+ * Registro fotográfico de la pieza: URLs de fotos con miniatura. El equipo
+ * sube la foto a su hosting/Drive público y pega el link. Cuentas de sólo
+ * lectura pueden verlas pero no editarlas.
+ */
+function PhotosDialog({
+  piece,
+  canManage,
+  onClose,
+  onSaved,
+}: Readonly<{
+  piece: PieceItem;
+  canManage: boolean;
+  onClose: () => void;
+  onSaved: () => void | Promise<void>;
+}>) {
+  const [photos, setPhotos] = useState<string[]>(piece.photos ?? []);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const valid = /^https?:\/\/.+/.test(draft.trim());
+
+  async function save() {
+    setSaving(true);
+    try {
+      await piecesAdmin.update(piece._id, { photos });
+      showToast.success('Fotos guardadas');
+      await onSaved();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
+            Fotos · {piece.notes || piece.customerName || 'Pieza'}
+          </DialogTitle>
+        </DialogHeader>
+        <div className='flex flex-col gap-3'>
+          {photos.length === 0 ? (
+            <p className='text-sm text-[#7a6e6f]'>Sin fotos todavía.</p>
+          ) : (
+            <div className='grid grid-cols-3 gap-2'>
+              {photos.map((url) => (
+                <div key={url} className='relative'>
+                  <a href={url} target='_blank' rel='noreferrer'>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt=''
+                      className='h-24 w-full rounded-lg border border-[#e6dbcd] object-cover'
+                    />
+                  </a>
+                  {canManage && (
+                    <button
+                      type='button'
+                      onClick={() => setPhotos(photos.filter((x) => x !== url))}
+                      className='absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#a33] text-white'
+                      aria-label='Quitar foto'
+                    >
+                      <X className='h-3 w-3' />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {canManage && (
+            <div className='flex gap-2'>
+              <Input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && valid) {
+                    setPhotos([...photos, draft.trim()]);
+                    setDraft('');
+                  }
+                }}
+                placeholder='https://… (URL de la foto)'
+                className={fieldCls}
+              />
+              <Button
+                type='button'
+                variant='ghost'
+                disabled={!valid}
+                onClick={() => {
+                  setPhotos([...photos, draft.trim()]);
+                  setDraft('');
+                }}
+                className='shrink-0 border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                Agregar
+              </Button>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onClose}
+            className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+          >
+            {canManage ? 'Cancelar' : 'Cerrar'}
+          </Button>
+          {canManage && (
+            <Button type='button' variant='verde' onClick={save} disabled={saving}>
+              {saving ? 'Guardando…' : 'Guardar fotos'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ───────────────────── Estados configurables del proceso ─────────────────────
+
+/**
+ * Editor de los ESTADOS del proceso de piezas (adaptables al taller: Fresco,
+ * En proceso, Horneado…). Reglas: al menos un estado, y uno marcado "lista"
+ * (dispara el aviso al cliente). Cambiar los estados no toca piezas viejas:
+ * conservan su clave aunque se renombre o borre.
+ */
+function StatusesDialog({
+  initial,
+  onClose,
+  onSaved,
+}: Readonly<{
+  initial: PieceStatusConfig[];
+  onClose: () => void;
+  onSaved: (cfg: PieceStatusConfig[]) => void;
+}>) {
+  const [rows, setRows] = useState<PieceStatusConfig[]>(
+    initial.map((c) => ({ ...c })),
+  );
+  const [saving, setSaving] = useState(false);
+
+  function patch(i: number, part: Partial<PieceStatusConfig>) {
+    setRows(rows.map((r, idx) => (idx === i ? { ...r, ...part } : r)));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const cfg = await piecesAdmin.setStatuses(rows);
+      showToast.success('Estados actualizados');
+      onSaved(cfg);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-md'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
+            Estados del proceso
+          </DialogTitle>
+        </DialogHeader>
+        <div className='flex flex-col gap-2'>
+          <p className='text-[12px] text-[#7a6e6f]'>
+            En orden, del primero al último. Marcá cuál avisa al cliente que la
+            pieza está <strong>lista</strong> y cuál <strong>cierra</strong> el
+            ciclo (entregada).
+          </p>
+          {rows.map((r, i) => (
+            <div
+              key={i}
+              className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] px-3 py-2'
+            >
+              <span className='w-5 text-center font-mono text-[11px] text-[#a99f92]'>
+                {i + 1}
+              </span>
+              <Input
+                value={r.label}
+                onChange={(e) => patch(i, { label: e.target.value })}
+                placeholder='Nombre del estado'
+                className={`${fieldCls} h-8 w-40 text-sm`}
+              />
+              <label className='flex items-center gap-1 text-[11px] text-[#455a54]'>
+                <input
+                  type='checkbox'
+                  checked={!!r.isReady}
+                  onChange={(e) => patch(i, { isReady: e.target.checked })}
+                />
+                lista
+              </label>
+              <label className='flex items-center gap-1 text-[11px] text-[#455a54]'>
+                <input
+                  type='checkbox'
+                  checked={!!r.isFinal}
+                  onChange={(e) => patch(i, { isFinal: e.target.checked })}
+                />
+                cierra
+              </label>
+              <button
+                type='button'
+                onClick={() => setRows(rows.filter((_, idx) => idx !== i))}
+                className='ml-auto text-[#a33] hover:opacity-70'
+                aria-label='Quitar estado'
+              >
+                <Trash2 className='h-4 w-4' />
+              </button>
+            </div>
+          ))}
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            onClick={() =>
+              setRows([
+                ...rows,
+                {
+                  key: `ESTADO_${rows.length + 1}`,
+                  label: '',
+                  isReady: false,
+                  isFinal: false,
+                },
+              ])
+            }
+            className='h-8 w-fit gap-1 border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+          >
+            <Plus className='h-3 w-3' />
+            Agregar estado
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onClose}
+            className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+          >
+            Cancelar
+          </Button>
+          <Button type='button' variant='verde' onClick={save} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar estados'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

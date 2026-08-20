@@ -17,6 +17,11 @@ export const PANEL_VIEWS: PanelView[] = [
   { key: 'clients', label: 'Clientes', adminOnly: false },
   { key: 'reservas', label: 'Reservas', adminOnly: false },
   { key: 'products', label: 'Productos', adminOnly: false },
+  // Taller: alumnos y grupos. Los profesores la usan en modo práctico
+  // (sin plata); la parte administrativa (pagos) la gatea el backend por rol.
+  { key: 'alumnos', label: 'Alumnos y grupos', adminOnly: false },
+  // Herramientas del equipo: tareas asignadas y lista de compras.
+  { key: 'equipo', label: 'Equipo', adminOnly: false },
   { key: 'bot', label: 'Bot WhatsApp', adminOnly: true },
   { key: 'finances', label: 'Caja y Finanzas', adminOnly: true },
   { key: 'categories', label: 'Categorías', adminOnly: true },

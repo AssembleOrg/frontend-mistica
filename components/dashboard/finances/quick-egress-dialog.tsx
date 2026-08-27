@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { useEgressesAPI } from '@/hooks/useEgressesAPI';
+import { EgressCategorySelect } from './category-select';
 import { useAuthStore } from '@/stores/auth.store';
 
 interface Props {
@@ -58,6 +59,7 @@ export function QuickEgressDialog({ open, onOpenChange, onCreated }: Props) {
   const [type, setType] = useState<typeof TYPES[number]['value']>('EXPENSE');
   const [paymentMethod, setPaymentMethod] = useState<typeof METHODS[number]['value']>('CASH');
   const [notes, setNotes] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   // false = gasto externo (banco/plata del dueño): cuenta en finanzas pero no
   // baja el efectivo esperado de la caja. Caso típico: sueldos.
   const [affectsCashbox, setAffectsCashbox] = useState(true);
@@ -68,6 +70,7 @@ export function QuickEgressDialog({ open, onOpenChange, onCreated }: Props) {
     setType('EXPENSE');
     setPaymentMethod('CASH');
     setNotes('');
+    setCategoryId('');
     setAffectsCashbox(true);
   }
 
@@ -81,6 +84,7 @@ export function QuickEgressDialog({ open, onOpenChange, onCreated }: Props) {
         type,
         paymentMethod,
         affectsCashbox,
+        categoryId: categoryId || undefined,
         notes: notes.trim() || undefined,
         userId: user?.id ?? 'unknown',
       });
@@ -138,6 +142,10 @@ export function QuickEgressDialog({ open, onOpenChange, onCreated }: Props) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className='space-y-1'>
+            <Label className='text-xs'>Categoría</Label>
+            <EgressCategorySelect value={categoryId} onChange={setCategoryId} />
           </div>
           <div className='space-y-1'>
             <Label className='text-xs'>Método de pago</Label>

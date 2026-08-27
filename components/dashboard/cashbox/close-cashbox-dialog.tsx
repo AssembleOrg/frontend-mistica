@@ -42,6 +42,9 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLo
   const { closeSession, submitting } = useCashbox();
   const [step, setStep] = useState<'count' | 'done'>('count');
   const [counted, setCounted] = useState(0);
+  // Retiro opcional al cierre: lo que queda (conteo - retiro) se sugiere como
+  // apertura de la próxima caja.
+  const [withdrawn, setWithdrawn] = useState(0);
   const [notes, setNotes] = useState('');
   const [expected, setExpected] = useState<number | null>(null);
   const [loadingExpected, setLoadingExpected] = useState(false);
@@ -51,6 +54,7 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLo
     if (open) {
       setStep('count');
       setCounted(0);
+      setWithdrawn(0);
       setNotes('');
       setExpected(null);
       setClosed(null);
@@ -110,7 +114,11 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLo
       // OJO: NO llamamos onClosed?.() acá. Ese refresh recarga el estado de
       // caja (current → null) y desmontaría este modal antes de mostrar el
       // paso `done`. Refrescamos recién al cerrar el modal (Listo / Cargar).
-      const result = await closeSession({ countedClosingCash: counted, notes: notes || undefined });
+      const result = await closeSession({
+        countedClosingCash: counted,
+        withdrawnAmount: withdrawn > 0 ? withdrawn : undefined,
+        notes: notes || undefined,
+      });
       setClosed(result);
       setStep('done');
     } catch {
@@ -159,6 +167,18 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLo
                 <span>Contado</span>
                 <span className='font-semibold'>{formatCurrency(closed.countedClosingCash ?? 0)}</span>
               </div>
+              {(closed.withdrawnAmount ?? 0) > 0 && (
+                <>
+                  <div className='flex items-center justify-between'>
+                    <span>Retiro</span>
+                    <span className='font-semibold'>{formatCurrency(closed.withdrawnAmount ?? 0)}</span>
+                  </div>
+                  <div className='flex items-center justify-between'>
+                    <span>Queda en la caja</span>
+                    <span className='font-semibold'>{formatCurrency(closed.leftInBox ?? 0)}</span>
+                  </div>
+                </>
+              )}
               {finalDiff !== 0 && (
                 <div
                   className='flex items-center justify-between pt-1 border-t border-[#9d684e]/15'
@@ -228,6 +248,22 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLo
             {diffMessage}
           </div>
           <div className='space-y-2'>
+            <Label>Retiro de efectivo (opcional)</Label>
+            <CurrencyInput value={withdrawn} onChange={setWithdrawn} placeholder='0,00' />
+            {withdrawn > 0 && withdrawn <= counted && (
+              <p className='text-xs text-[#455a54]'>
+                Retirás {formatCurrency(withdrawn)}: quedan{' '}
+                <span className='font-semibold'>{formatCurrency(counted - withdrawn)}</span>{' '}
+                en la caja para la próxima apertura.
+              </p>
+            )}
+            {withdrawn > counted && (
+              <p className='text-xs' style={{ color: 'var(--color-terracota)' }}>
+                El retiro no puede superar el efectivo contado ({formatCurrency(counted)}).
+              </p>
+            )}
+          </div>
+          <div className='space-y-2'>
             <Label>Notas (opcional)</Label>
             <Textarea
               value={notes}
@@ -244,7 +280,7 @@ export function CloseCashboxDialog({ open, onOpenChange, session, onClosed, onLo
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitting || counted < 0}
+            disabled={submitting || counted < 0 || withdrawn > counted}
             className='bg-[#9d684e] hover:bg-[#9d684e]/90 text-white w-full sm:w-auto'
           >
             {submitting ? 'Cerrando…' : 'Cerrar caja'}

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { ManageEgressCategoriesDialog } from './manage-egress-categories-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { egressTypeLabel } from '@/lib/egress-type-labels';
 import { C, SectionTitle, cellBase, thBase, totalCell } from './print-shell';
@@ -58,6 +59,7 @@ export function EgressBreakdownCard({
   totalAvailable,
 }: Data) {
   const [showDetail, setShowDetail] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
 
   return (
     <Card style={{ borderColor: 'var(--color-gris-claro)' }}>
@@ -66,13 +68,28 @@ export function EgressBreakdownCard({
           <p className="text-base font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
             Egresos por tipo
           </p>
-          <span
-            className="text-sm font-bold font-tan-nimbus"
-            style={{ color: 'var(--color-terracota)' }}
-          >
-            {formatCurrency(total)}
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              title="Gestionar categorías de egreso"
+              onClick={() => setShowCategories(true)}
+              className="text-[11px] font-winter-solid underline-offset-2 hover:underline"
+              style={{ color: 'var(--color-verde-profundo)' }}
+            >
+              Categorías
+            </button>
+            <span
+              className="text-sm font-bold font-tan-nimbus"
+              style={{ color: 'var(--color-terracota)' }}
+            >
+              {formatCurrency(total)}
+            </span>
           </span>
         </div>
+        <ManageEgressCategoriesDialog
+          open={showCategories}
+          onOpenChange={setShowCategories}
+        />
 
         {loading && (
           <div className="space-y-3 animate-pulse">

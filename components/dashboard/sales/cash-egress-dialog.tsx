@@ -27,6 +27,7 @@ import {
   cashboxService,
   type CreateCashExpenseRequest,
 } from '@/services/cashbox.service';
+import { EgressCategorySelect } from '@/components/dashboard/finances/category-select';
 
 type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER';
 
@@ -59,6 +60,7 @@ export function CashEgressDialog({
   // Sin método por defecto: el operador lo elige explícitamente en cada egreso.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('');
   const [notes, setNotes] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   // false = gasto externo: se paga con plata que no estaba en el cajón (banco,
   // cuenta del dueño); cuenta en finanzas pero no baja el esperado del arqueo.
   const [affectsCashbox, setAffectsCashbox] = useState(true);
@@ -70,6 +72,7 @@ export function CashEgressDialog({
       setAmount(0);
       setPaymentMethod('');
       setNotes('');
+      setCategoryId('');
       setAffectsCashbox(true);
       setIsSubmitting(false);
     }
@@ -97,6 +100,7 @@ export function CashEgressDialog({
         paymentMethod,
         affectsCashbox,
       };
+      if (categoryId) payload.categoryId = categoryId;
       if (notes.trim()) payload.notes = notes.trim();
       await cashboxService.createExpense(payload);
       showToast.success('Egreso registrado');
@@ -169,6 +173,11 @@ export function CashEgressDialog({
               onChange={setAmount}
               disabled={isSubmitting}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[#455a54] font-winter-solid">Categoría</Label>
+            <EgressCategorySelect value={categoryId} onChange={setCategoryId} disabled={isSubmitting} />
           </div>
 
           <div className="space-y-1.5">

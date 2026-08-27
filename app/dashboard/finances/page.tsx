@@ -422,6 +422,15 @@ export default function FinancesPage() {
                             </button>
                           </div>
                         )}
+                        {/* Apertura de la caja (y retiro del cierre, si hubo):
+                            queda anotado en el historial, sesión por sesión. */}
+                        <p className="text-xs font-winter-solid mt-0.5" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.65 }}>
+                        Abrió {new Date(s.openedAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} hs
+                        {' '}con {formatCurrency(s.openingCash)}
+                        {(s.withdrawnAmount ?? 0) > 0 && (
+                          <> · Retiro al cierre: {formatCurrency(s.withdrawnAmount ?? 0)}</>
+                        )}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         {s.wasEdited && (

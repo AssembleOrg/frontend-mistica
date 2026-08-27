@@ -65,6 +65,7 @@ export interface FinanceSummary {
     expectedClosingCash: number | null;
     countedClosingCash: number | null;
     discrepancy: number | null;
+    withdrawnAmount: number | null;
     status: 'OPEN' | 'CLOSED';
     closureType: 'MANUAL' | 'AUTO';
     wasEdited: boolean;

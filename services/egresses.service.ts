@@ -14,6 +14,9 @@ export interface Egress {
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
   /** false = gasto externo: cuenta en finanzas, no en el arqueo de caja. */
   affectsCashbox?: boolean;
+  /** Categoría del gasto (Sueldos, Servicios…) — snapshot del nombre. */
+  categoryId?: string;
+  categoryName?: string;
   notes?: string;
   authorizedBy?: string;
   userId: string;
@@ -32,14 +35,32 @@ export interface CreateEgressRequest {
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
   /** false = gasto externo: no descuenta del arqueo de la caja física. */
   affectsCashbox?: boolean;
+  /** Categoría del gasto. */
+  categoryId?: string;
   notes?: string;
   authorizedBy?: string;
   userId: string;
   [key: string]: unknown;
 }
 
+export interface EgressCategory {
+  _id: string;
+  name: string;
+  color?: string;
+  isActive: boolean;
+}
+
+export interface EgressCategoryInput {
+  name: string;
+  color?: string;
+  isActive?: boolean;
+  [key: string]: unknown;
+}
+
 export interface UpdateEgressRequest {
   concept?: string;
+  /** Categoría del gasto ('' = quitarla). */
+  categoryId?: string;
   amount?: number;
   currency?: 'USD' | 'EUR' | 'UYU' | 'ARS' | 'BRL';
   type?: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
@@ -96,6 +117,26 @@ interface PaginatedResponse<T> {
 }
 
 export class EgressesService {
+  // ── Categorías de egreso ──
+  async listCategories(): Promise<ApiResponse<EgressCategory[]>> {
+    return apiService.get<EgressCategory[]>('/egresses/categories');
+  }
+
+  async createCategory(input: EgressCategoryInput): Promise<ApiResponse<EgressCategory>> {
+    return apiService.post<EgressCategory>('/egresses/categories', input);
+  }
+
+  async updateCategory(
+    id: string,
+    input: Partial<EgressCategoryInput>,
+  ): Promise<ApiResponse<EgressCategory>> {
+    return apiService.patch<EgressCategory>(`/egresses/categories/${id}`, input);
+  }
+
+  async removeCategory(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return apiService.delete<{ success: boolean }>(`/egresses/categories/${id}`);
+  }
+
   // Create a new egress
   async createEgress(egressData: CreateEgressRequest): Promise<ApiResponse<Egress>> {
     console.log('💰 EGRESSES SERVICE: Creando egreso:', egressData);

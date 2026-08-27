@@ -45,6 +45,10 @@ export interface CashSession {
   openedByUserId?: string;
   closedByUserId?: string;
   closureType?: 'MANUAL' | 'AUTO';
+  /** Retiro de efectivo hecho al cerrar (opcional). */
+  withdrawnAmount?: number;
+  /** Lo que quedó físicamente en la caja tras el cierre (conteo - retiro). */
+  leftInBox?: number;
   editHistory?: CashSessionEditEntry[];
 }
 
@@ -88,6 +92,8 @@ export interface CreateCashExpenseRequest {
   paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
   /** false = gasto externo: no descuenta del arqueo de la caja física. */
   affectsCashbox?: boolean;
+  /** Categoría del gasto (Sueldos, Servicios…). */
+  categoryId?: string;
   notes?: string;
 }
 
@@ -108,6 +114,8 @@ export interface OpenCashSessionRequest {
 
 export interface CloseCashSessionRequest {
   countedClosingCash: number;
+  /** Retiro de efectivo al cierre (opcional): queda (conteo - retiro) en caja. */
+  withdrawnAmount?: number;
   notes?: string;
 }
 
@@ -147,6 +155,11 @@ class CashboxService {
 
   async getPendingAutoClosure(): Promise<ApiResponse<CashSession | null>> {
     return apiService.get<CashSession | null>('/cashbox/pending-auto-closure');
+  }
+
+  /** Última sesión cerrada: aviso al abrir de con cuánto quedó la caja. */
+  async getLastClosure(): Promise<ApiResponse<CashSession | null>> {
+    return apiService.get<CashSession | null>('/cashbox/last-closure');
   }
 
   /**

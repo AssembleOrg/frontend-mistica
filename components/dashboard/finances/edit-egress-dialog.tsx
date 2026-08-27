@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { EgressCategorySelect } from './category-select';
 import { useEgressesAPI } from '@/hooks/useEgressesAPI';
 import { EGRESS_TYPES, type EgressType } from '@/lib/egress-type-labels';
 
@@ -54,6 +55,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
   const [type, setType] = useState<EgressType>('EXPENSE');
   const [paymentMethod, setPaymentMethod] = useState<typeof METHODS[number]['value']>('CASH');
   const [notes, setNotes] = useState('');
+  const [categoryId, setCategoryId] = useState('');
 
   // Precarga los datos del egreso al abrir. Mientras el fetch está en vuelo el
   // form queda deshabilitado para no guardar valores vacíos.
@@ -73,6 +75,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
             : 'CASH') as typeof METHODS[number]['value'],
         );
         setNotes(egress.notes ?? '');
+        setCategoryId(egress.categoryId ?? '');
       })
       .catch(() => {
         // toast manejado en el hook; cerramos para no dejar un form vacío.
@@ -94,6 +97,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
         amount,
         type,
         paymentMethod,
+        categoryId,
         notes: notes.trim() || undefined,
       });
       onUpdated?.();
@@ -146,6 +150,10 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className='space-y-1'>
+            <Label className='text-xs'>Categoría</Label>
+            <EgressCategorySelect value={categoryId} onChange={setCategoryId} disabled={busy} />
           </div>
           <div className='space-y-1'>
             <Label className='text-xs'>Método de pago</Label>

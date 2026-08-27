@@ -438,7 +438,7 @@ function WeekAgenda({
                       <p className='truncate text-xs font-medium text-[#3d3338]' title={s.experienceName}>
                         {s.experienceName}
                       </p>
-                      <p className='mt-0.5 flex items-center justify-between text-[10px] text-[#455a54]/70'>
+                      <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
                         <span>{s.seatsTaken}/{s.capacity} pers.</span>
                         <span className='font-mono uppercase tracking-wide'>
                           {SESSION_STATUS_LABEL[s.status] ?? s.status}

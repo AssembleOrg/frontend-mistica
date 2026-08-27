@@ -748,7 +748,7 @@ function NewReservationModal({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
+      <DialogContent className='sm:max-w-lg'>
         <DialogHeader>
           <DialogTitle>Nueva reserva</DialogTitle>
           <DialogDescription>
@@ -757,7 +757,7 @@ function NewReservationModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className='space-y-4'>
+        <div className='space-y-3'>
           {/* 1 · Experiencia */}
           <div className='space-y-1.5'>
             <label className='text-[13px] font-medium text-[#455a54]'>
@@ -826,7 +826,7 @@ function NewReservationModal({
                     title={`${sl.shiftName ?? 'Horario sugerido'} · hasta ${sl.maxPartySize} personas`}
                   >
                     {sl.startTime}
-                    <span className='ml-1.5 text-[10px] font-normal opacity-70'>
+                    <span className='ml-1.5 text-xs font-normal opacity-70'>
                       {sl.shiftName ?? 'sugerido'}
                     </span>
                   </button>

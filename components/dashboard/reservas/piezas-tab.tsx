@@ -69,10 +69,12 @@ function statusColors(
   s: string,
   cfg: PieceStatusConfig[],
 ): { bg: string; fg: string } {
+  // Contraste alto sobre tinte de marca: fg oscuro sobre bg claro. El naranja
+  // medio (#cc844a) sobre crema era ilegible; usamos terracota oscuro (#8a5638).
   const c = cfgOf(s, cfg);
-  if (c?.isReady) return { bg: '#E7F0EC', fg: '#455a54' };
-  if (c?.isFinal) return { bg: '#f1ede6', fg: '#7a6e6f' };
-  return { bg: '#F6E9DC', fg: '#cc844a' };
+  if (c?.isReady) return { bg: '#dcebe1', fg: '#2f4a40' };
+  if (c?.isFinal) return { bg: '#eae4db', fg: '#5c5148' };
+  return { bg: '#f3e2d0', fg: '#8a5638' };
 }
 
 const COLS =
@@ -166,12 +168,17 @@ export function PiezasTab() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  useEffect(() => {
-    professorsAdmin
-      .list()
-      .then(setProfessors)
-      .catch(() => setProfessors([]));
+  const loadProfessors = useCallback(async () => {
+    try {
+      setProfessors(await professorsAdmin.list());
+    } catch {
+      setProfessors([]);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadProfessors();
+  }, [loadProfessors]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -267,7 +274,7 @@ export function PiezasTab() {
   return (
     <div className='flex flex-col gap-5'>
       {/* Filtros de estado + búsqueda + nueva pieza */}
-      <div className='flex flex-wrap items-center gap-x-3 gap-y-2.5'>
+      <div className='flex flex-col gap-2.5'>
         <div className='flex flex-wrap items-center gap-2'>
           {filters.map((f) => (
             <FilterChip
@@ -283,7 +290,7 @@ export function PiezasTab() {
             />
           ))}
         </div>
-        <div className='flex w-full flex-wrap items-center gap-2.5 sm:ml-auto sm:w-auto'>
+        <div className='flex flex-wrap items-center gap-2.5'>
           {professors.length > 0 && (
             <Select
               value={professorId || 'all'}
@@ -305,7 +312,7 @@ export function PiezasTab() {
               </SelectContent>
             </Select>
           )}
-          <div className='relative w-full sm:w-72'>
+          <div className='relative w-full min-w-[12rem] flex-1 sm:w-auto'>
             <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
             <Input
               value={searchInput}
@@ -508,6 +515,7 @@ export function PiezasTab() {
           professors={professors}
           students={students}
           statusCfg={statusCfg}
+          onProfessorCreated={loadProfessors}
           onClose={() => setCreating(false)}
           onDone={async () => {
             setCreating(false);
@@ -546,12 +554,15 @@ function NewPieceModal({
   professors,
   students,
   statusCfg,
+  onProfessorCreated,
   onClose,
   onDone,
 }: Readonly<{
   professors: Professor[];
   students: Student[];
   statusCfg: PieceStatusConfig[];
+  /** Recarga la lista de profesores tras crear uno inline (patrón CRM). */
+  onProfessorCreated: () => Promise<void>;
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
@@ -688,6 +699,21 @@ function NewPieceModal({
     }
   }
 
+  // CRM-like: crear un profesor sin salir del modal. Lazy: pide solo el nombre
+  // (el resto se completa después desde Cuentas) y lo deja seleccionado.
+  async function createProfessor() {
+    const name = window.prompt('Nombre del nuevo profesor')?.trim();
+    if (!name) return;
+    try {
+      const created = await professorsAdmin.create({ name });
+      await onProfessorCreated();
+      setProfessorId(created.id ?? created._id ?? '');
+      showToast.success('Profesor creado');
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo crear');
+    }
+  }
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='sm:max-w-lg'>
@@ -772,7 +798,7 @@ function NewPieceModal({
                     className={cn('pl-9', fieldCls)}
                   />
                 </div>
-                <div className='max-h-44 overflow-y-auto rounded-xl border border-[#e6dbcd]'>
+                <div className='rounded-xl border border-[#e6dbcd]'>
                   {resLoading ? (
                     <p className='p-3 text-sm text-[#7a6e6f]'>Buscando…</p>
                   ) : resResults.length === 0 ? (
@@ -869,24 +895,36 @@ function NewPieceModal({
           )}
 
           <Field label='Profesor asignado'>
-            <Select
-              value={professorId || 'none'}
-              onValueChange={(v) => setProfessorId(v === 'none' ? '' : v)}
-            >
-              <SelectTrigger className={fieldCls}>
-                <SelectValue placeholder='Sin asignar' />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='none'>Sin asignar</SelectItem>
-                {professors
-                  .filter((pr) => pr.active)
-                  .map((pr) => (
-                    <SelectItem key={pr.id} value={pr.id}>
-                      {pr.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
+            <div className='flex items-center gap-2'>
+              <Select
+                value={professorId || 'none'}
+                onValueChange={(v) => setProfessorId(v === 'none' ? '' : v)}
+              >
+                <SelectTrigger className={cn('flex-1', fieldCls)}>
+                  <SelectValue placeholder='Sin asignar' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='none'>Sin asignar</SelectItem>
+                  {professors
+                    .filter((pr) => pr.active)
+                    .map((pr) => (
+                      <SelectItem key={pr.id} value={pr.id}>
+                        {pr.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={createProfessor}
+                title='Crear un profesor nuevo'
+                className='shrink-0 gap-1.5 border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                <Plus className='h-4 w-4' />
+                Nuevo
+              </Button>
+            </div>
           </Field>
 
           <div className='grid grid-cols-2 gap-3'>
@@ -965,7 +1003,7 @@ function Field({
 }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+      <span className='font-mono text-xs tracking-wider text-[#7a6e6f]'>
         {label.toUpperCase()}
       </span>
       {children}
@@ -1141,7 +1179,7 @@ function StatusesDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-md'>
+      <DialogContent className='sm:max-w-md'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
             Estados del proceso

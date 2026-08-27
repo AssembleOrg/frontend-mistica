@@ -198,7 +198,7 @@ export function RecurringBlocksPanel() {
           const rules = byDay.get(weekday) ?? [];
           return (
             <div key={dia} className='flex min-h-[7rem] flex-col gap-2 bg-white p-2.5'>
-              <span className='text-center font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-[#7a6e6f]'>
+              <span className='text-center font-mono text-xs font-semibold uppercase tracking-[0.12em] text-[#7a6e6f]'>
                 <span className='lg:hidden'>{dia}</span>
                 <span className='hidden lg:inline'>{DIAS_CORTO[i]}</span>
               </span>
@@ -218,11 +218,11 @@ export function RecurringBlocksPanel() {
                         : 'border-dashed border-[#e6dbcd] bg-[#fbf5ef] opacity-60 hover:opacity-90',
                     )}
                   >
-                    <span className='flex items-center gap-1 font-mono text-[11px] font-semibold text-[#9d684e]'>
+                    <span className='flex items-center gap-1 font-mono text-xs font-semibold text-[#9d684e]'>
                       <CalendarClock className='h-3 w-3' />
                       {r.start}–{r.end}
                     </span>
-                    <span className='text-[12px] font-semibold leading-tight text-[#3d3338]'>
+                    <span className='text-sm font-semibold leading-tight text-[#3d3338]'>
                       {r.label}
                       {!r.active && (
                         <span className='ml-1 font-normal text-[#a99f92]'>(pausado)</span>
@@ -232,7 +232,7 @@ export function RecurringBlocksPanel() {
                       {r.tableCodes.map((c) => (
                         <span
                           key={c}
-                          className='rounded border border-[#e6dbcd] bg-white px-1 font-mono text-[10px] font-semibold text-[#455a54]'
+                          className='rounded border border-[#e6dbcd] bg-white px-1 font-mono text-xs font-semibold text-[#455a54]'
                         >
                           {c}
                         </span>
@@ -262,7 +262,7 @@ export function RecurringBlocksPanel() {
         />
       )}
 
-      <p className='border-t border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-[12px] text-[#7a6e6f]'>
+      <p className='border-t border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-sm text-[#7a6e6f]'>
         Las mesas bloqueadas acá quedan ocupadas <strong>todas las semanas</strong> en
         ese día y horario: no se ofrecen online ni por WhatsApp y bajan la
         disponibilidad máxima del día. Tocá un bloqueo para editarlo.

@@ -242,7 +242,7 @@ export function ConversacionesTab() {
         {/* Bandeja */}
         <div className='flex max-h-[560px] flex-col gap-2 overflow-y-auto'>
           {visibles.length === 0 ? (
-            <p className='rounded-2xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] p-6 text-center text-sm text-[#7a6e6f]'>
+            <p className='rounded-2xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] p-4 text-center text-sm text-[#7a6e6f]'>
               No hay charlas acá.
             </p>
           ) : (
@@ -263,29 +263,29 @@ export function ConversacionesTab() {
                     {c.customerName ?? c.phone}
                   </span>
                   {c.status === 'WAITING' && (
-                    <span className='rounded-full bg-[#9d684e] px-2 py-0.5 text-[10px] font-bold uppercase text-white'>
+                    <span className='rounded-full bg-[#9d684e] px-2 py-0.5 text-xs font-bold uppercase text-white'>
                       espera
                     </span>
                   )}
                   {c.status === 'CLOSED' && (
-                    <span className='rounded-full bg-[#e6dbcd] px-2 py-0.5 text-[10px] font-semibold text-[#7a6e6f]'>
+                    <span className='rounded-full bg-[#e6dbcd] px-2 py-0.5 text-xs font-semibold text-[#7a6e6f]'>
                       cerrada
                     </span>
                   )}
-                  <span className='ml-auto shrink-0 font-mono text-[11px] text-[#7a6e6f]'>
+                  <span className='ml-auto shrink-0 font-mono text-xs text-[#7a6e6f]'>
                     {cuando(c.lastMessageAt)}
                   </span>
                 </div>
                 {c.reason && (
-                  <span className='truncate text-[12px] italic text-[#9d684e]'>
+                  <span className='truncate text-sm italic text-[#9d684e]'>
                     {c.reason}
                   </span>
                 )}
-                <span className='truncate text-[12px] text-[#7a6e6f]'>
+                <span className='truncate text-sm text-[#7a6e6f]'>
                   {c.lastMessagePreview ?? '—'}
                 </span>
                 {c.unreadForAdmin > 0 && (
-                  <span className='w-fit rounded-full bg-[#455a54] px-2 py-0.5 text-[10px] font-bold text-white'>
+                  <span className='w-fit rounded-full bg-[#455a54] px-2 py-0.5 text-xs font-bold text-white'>
                     {c.unreadForAdmin} sin leer
                   </span>
                 )}
@@ -310,7 +310,7 @@ export function ConversacionesTab() {
                   <span className='font-tan-nimbus text-[16px] font-semibold text-[#455a54]'>
                     {selected.customerName ?? selected.phone}
                   </span>
-                  <span className='font-mono text-[11px] text-[#7a6e6f]'>
+                  <span className='font-mono text-xs text-[#7a6e6f]'>
                     {selected.phone}
                     {selected.takenByName ? ` · atiende ${selected.takenByName}` : ''}
                   </span>
@@ -389,7 +389,7 @@ function Burbuja({ m }: { m: ConversationMessage }) {
               : 'border border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338]',
         )}
       >
-        <div className='mb-0.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide opacity-70'>
+        <div className='mb-0.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide opacity-70'>
           {isBot ? (
             <>
               <Bot className='h-3 w-3' /> bot

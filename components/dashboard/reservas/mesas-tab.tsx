@@ -236,12 +236,12 @@ export function MesasTab() {
                     <Lock className='h-4 w-4 shrink-0 text-[#7a6e6f]' />
                     <span className='text-sm font-medium text-[#3d3338]'>{b.label}</span>
                     {b.startAt && b.endAt && (
-                      <span className='font-mono text-[12px] text-[#7a6e6f]'>
+                      <span className='font-mono text-sm text-[#7a6e6f]'>
                         {hourAR(b.startAt)}–{hourAR(b.endAt)}
                       </span>
                     )}
                     {b.recurring && (
-                      <span className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#9d684e]'>
+                      <span className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#9d684e]'>
                         fijo semanal
                       </span>
                     )}
@@ -623,7 +623,7 @@ function ReassignRow({
             >
               {t.code}
               {t.kind === 'LARGE' && (
-                <span className='ml-1 text-[10px] font-normal opacity-70'>10</span>
+                <span className='ml-1 text-[11px] font-normal opacity-70'>10</span>
               )}
             </button>
           );
@@ -718,13 +718,13 @@ function TableGroup({
                 {t.code}
               </span>
               {reservas.length > 0 ? (
-                <span className='text-[10px] font-normal leading-none opacity-80'>
+                <span className='text-xs font-normal leading-none opacity-80'>
                   {reservas.length === 1
                     ? `${hourAR(reservas[0].startAt)}–${hourAR(reservas[0].endAt)}`
                     : `${reservas.length} usos`}
                 </span>
               ) : fijo ? (
-                <span className='text-[10px] font-normal leading-none opacity-80'>
+                <span className='text-xs font-normal leading-none opacity-80'>
                   {hourAR(fijo.startAt)}–{hourAR(fijo.endAt)}
                 </span>
               ) : null}

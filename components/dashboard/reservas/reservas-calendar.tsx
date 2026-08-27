@@ -302,7 +302,7 @@ export function ReservasCalendar({
                       </span>
                     )}
                     {isClosed && (
-                      <span className='truncate text-[10px] font-medium text-[#7a6e6f]'>
+                      <span className='truncate text-xs font-medium text-[#7a6e6f]'>
                         cerrado
                       </span>
                     )}
@@ -323,7 +323,7 @@ export function ReservasCalendar({
                           style={{ backgroundColor: fg }}
                         />
                         <span
-                          className='truncate text-[10px] font-medium'
+                          className='truncate text-xs font-medium'
                           style={{ color: fg }}
                         >
                           {hm} {r.experienceName}
@@ -332,7 +332,7 @@ export function ReservasCalendar({
                     );
                   })}
                   {evs.length > 2 && (
-                    <span className='px-1 text-[10px] font-medium text-[#7a6e6f]'>
+                    <span className='px-1 text-xs font-medium text-[#7a6e6f]'>
                       +{evs.length - 2} más
                     </span>
                   )}

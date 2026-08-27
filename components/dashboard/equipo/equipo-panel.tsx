@@ -182,7 +182,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
       ) : (
         <>
           {pending.length === 0 && (
-            <p className='rounded-2xl border border-[#e6dbcd] bg-white p-5 text-sm text-[#7a6e6f]'>
+            <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
               Sin tareas pendientes 🎉
             </p>
           )}
@@ -252,7 +252,7 @@ function TaskRow({
           {t.title}
         </p>
         {t.description && (
-          <p className='text-[12px] text-[#7a6e6f]'>{t.description}</p>
+          <p className='text-sm text-[#7a6e6f]'>{t.description}</p>
         )}
         <div className='mt-1 flex flex-wrap items-center gap-1.5'>
           {t.assigneeName && (
@@ -385,7 +385,7 @@ function ComprasTab() {
       ) : (
         <>
           {pending.length === 0 && (
-            <p className='rounded-2xl border border-[#e6dbcd] bg-white p-5 text-sm text-[#7a6e6f]'>
+            <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
               Nada pendiente de comprar.
             </p>
           )}

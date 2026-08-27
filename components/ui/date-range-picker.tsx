@@ -9,6 +9,7 @@ import { es } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { PopoverPortal } from "@/components/ui/popover-portal"
 
 export interface DateRangePickerProps {
   className?: string
@@ -28,7 +29,7 @@ export function DateRangePicker({
   toPlaceholder = "Fecha hasta",
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false)
-  const [dropdownRef, setDropdownRef] = React.useState<HTMLDivElement | null>(null)
+  const anchorRef = React.useRef<HTMLDivElement>(null)
   const [selectedRange, setSelectedRange] = React.useState<DateRange | undefined>(date)
   const [firstClickDate, setFirstClickDate] = React.useState<Date | null>(null)
 
@@ -67,48 +68,26 @@ export function DateRangePicker({
   }
 
   const handleDayClick = (day: Date) => {
-    console.log('📅 Day clicked:', day, 'First click date:', firstClickDate)
-    
     // Si no hay primera fecha seleccionada, esta es la primera
     if (!firstClickDate) {
-      console.log('📅 Setting first date')
       setFirstClickDate(day)
       setSelectedRange({ from: day, to: undefined })
       return
     }
-    
+
     // Si ya hay una primera fecha, esta es la segunda
     const from = firstClickDate < day ? firstClickDate : day
     const to = firstClickDate < day ? day : firstClickDate
-    
+
     const newRange: DateRange = { from, to }
-    console.log('📅 Setting complete range:', newRange)
-    
     setSelectedRange(newRange)
     setFirstClickDate(null)
     onDateChange?.(newRange)
     setIsOpen(false)
   }
 
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen, dropdownRef])
-
   return (
-    <div className={cn("relative", className)} ref={setDropdownRef}>
+    <div className={cn("relative", className)} ref={anchorRef}>
       <Button
         variant="outline"
         onClick={() => setIsOpen(!isOpen)}
@@ -127,39 +106,36 @@ export function DateRangePicker({
         )}
       </Button>
       
-      {isOpen && (
-        <div className="absolute top-full right-0 mt-1 z-50 w-auto bg-white border border-[#9d684e]/20 rounded-md shadow-lg">
-          <div className="p-3">
-            <div className="mb-2 text-sm text-[#455a54] font-winter-solid">
-              {!selectedRange?.from 
-                ? "Selecciona fecha de inicio" 
-                : !selectedRange?.to && firstClickDate
-                  ? "Ahora selecciona fecha de fin" 
-                  : selectedRange?.from && selectedRange?.to
-                    ? "Rango seleccionado - puedes cambiarlo"
-                    : "Selecciona fecha de inicio"}
-            </div>
-            <Calendar
-              mode="range"
-              defaultMonth={selectedRange?.from || new Date()}
-              selected={selectedRange}
-              onSelect={(range) => {
-                console.log('📅 Calendar onSelect called with:', range);
-                console.log('📅 Range details:', {
-                  from: range?.from,
-                  to: range?.to,
-                  hasFrom: !!range?.from,
-                  hasTo: !!range?.to
-                });
-                // Ignoramos el onSelect automático y usamos nuestro handleDayClick
-              }}
-              onDayClick={handleDayClick}
-              numberOfMonths={2}
-              className="border-0"
-            />
+      <PopoverPortal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        anchorRef={anchorRef}
+        align="end"
+        className="w-auto bg-white border border-[#9d684e]/20 rounded-md shadow-lg"
+      >
+        <div className="p-3">
+          <div className="mb-2 text-sm text-[#455a54] font-winter-solid">
+            {!selectedRange?.from
+              ? "Selecciona fecha de inicio"
+              : !selectedRange?.to && firstClickDate
+                ? "Ahora selecciona fecha de fin"
+                : selectedRange?.from && selectedRange?.to
+                  ? "Rango seleccionado - puedes cambiarlo"
+                  : "Selecciona fecha de inicio"}
           </div>
+          <Calendar
+            mode="range"
+            defaultMonth={selectedRange?.from || new Date()}
+            selected={selectedRange}
+            onSelect={() => {
+              // Ignoramos el onSelect automático y usamos nuestro handleDayClick
+            }}
+            onDayClick={handleDayClick}
+            numberOfMonths={2}
+            className="border-0"
+          />
         </div>
-      )}
+      </PopoverPortal>
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { PopoverPortal } from '@/components/ui/popover-portal';
 
 export interface DatePickerProps {
   /** Valor en formato plano 'yyyy-MM-dd' (sin hora, sin TZ). */
@@ -40,7 +41,7 @@ export function DatePicker({
   disablePast = false,
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const anchorRef = React.useRef<HTMLDivElement>(null);
   const selected = parseYmd(value);
 
   // Hoy a medianoche local para deshabilitar días previos sin cortar el de hoy.
@@ -50,17 +51,8 @@ export function DatePicker({
     return d;
   }, []);
 
-  React.useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-
   return (
-    <div className={cn('relative', className)} ref={ref}>
+    <div className={cn('relative', className)} ref={anchorRef}>
       <Button
         type='button'
         variant='outline'
@@ -90,24 +82,27 @@ export function DatePicker({
         )}
       </Button>
 
-      {open && (
-        <div className='absolute left-0 top-full z-50 mt-1 w-auto rounded-md border border-[#e6dbcd] bg-white shadow-lg'>
-          <Calendar
-            mode='single'
-            locale={es}
-            defaultMonth={selected ?? new Date()}
-            selected={selected}
-            disabled={disablePast ? { before: today } : undefined}
-            onSelect={(d) => {
-              if (d) {
-                onChange(format(d, 'yyyy-MM-dd'));
-                setOpen(false);
-              }
-            }}
-            className='p-2'
-          />
-        </div>
-      )}
+      <PopoverPortal
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={anchorRef}
+        className='w-auto rounded-md border border-[#e6dbcd] bg-white shadow-lg'
+      >
+        <Calendar
+          mode='single'
+          locale={es}
+          defaultMonth={selected ?? new Date()}
+          selected={selected}
+          disabled={disablePast ? { before: today } : undefined}
+          onSelect={(d) => {
+            if (d) {
+              onChange(format(d, 'yyyy-MM-dd'));
+              setOpen(false);
+            }
+          }}
+          className='p-2'
+        />
+      </PopoverPortal>
     </div>
   );
 }

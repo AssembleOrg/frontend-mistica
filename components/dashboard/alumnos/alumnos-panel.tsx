@@ -153,7 +153,7 @@ export function AlumnosPanel() {
             placeholder='Buscar alumno…'
             className={`${fieldCls} h-9 w-56`}
           />
-          <label className='flex items-center gap-2 text-xs text-[#7a6e6f]'>
+          <label className='flex items-center gap-2 text-sm text-[#7a6e6f]'>
             <Switch
               checked={showInactive}
               onCheckedChange={setShowInactive}
@@ -180,11 +180,11 @@ export function AlumnosPanel() {
 
       {/* Lista */}
       {loading ? (
-        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
           Cargando…
         </div>
       ) : visible.length === 0 ? (
-        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
           {students.length === 0 ? 'Sin alumnos todavía.' : 'Sin resultados.'}
         </div>
       ) : (
@@ -206,7 +206,7 @@ export function AlumnosPanel() {
                   <StatusBadge label='Baja' bg='#f1efe9' fg='#7a6e6f' />
                 )}
               </div>
-              <p className='text-xs text-[#7a6e6f]'>
+              <p className='text-sm text-[#7a6e6f]'>
                 Desde {fmtDate(s.joinedAt)}
                 {s.guardianName ? ` · Resp.: ${s.guardianName}` : ''}
                 {s.phone ? ` · ${s.phone}` : ''}
@@ -259,7 +259,7 @@ export function AlumnosPanel() {
       {/* Alta / edición */}
       <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
         {form && (
-          <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-md'>
+          <DialogContent className='sm:max-w-md'>
             <DialogHeader className='text-left'>
               <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
                 {editing ? 'Editar alumno' : 'Nuevo alumno'}
@@ -390,9 +390,7 @@ function Field({
 }) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
-        {label.toUpperCase()}
-      </span>
+      <span className='text-sm font-medium text-[#455a54]'>{label}</span>
       {children}
     </div>
   );
@@ -489,7 +487,7 @@ function StudentDetailDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
+      <DialogContent className='sm:max-w-lg'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
             {student.name}
@@ -561,8 +559,8 @@ function StudentDetailDialog({
 
                 {/* Historial de pagos */}
                 <div className='flex items-center justify-between'>
-                  <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-                    HISTORIAL DE PAGOS
+                  <span className='text-sm font-semibold text-[#455a54]'>
+                    Historial de pagos
                   </span>
                   <Button
                     type='button'
@@ -747,8 +745,8 @@ function StudentDetailDialog({
                   </p>
                 )}
 
-                <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-                  ÚLTIMAS CLASES
+                <span className='text-sm font-semibold text-[#455a54]'>
+                  Últimas clases
                 </span>
                 {practical.attendance.length === 0 ? (
                   <p className='text-xs text-[#7a6e6f]'>Sin asistencias registradas.</p>
@@ -773,9 +771,7 @@ function StudentDetailDialog({
                   </div>
                 )}
 
-                <span className='font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-                  PIEZAS
-                </span>
+                <span className='text-sm font-semibold text-[#455a54]'>Piezas</span>
                 {practical.pieces.length === 0 ? (
                   <p className='text-xs text-[#7a6e6f]'>Sin piezas registradas.</p>
                 ) : (

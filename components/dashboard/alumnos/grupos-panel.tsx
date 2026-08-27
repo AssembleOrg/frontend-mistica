@@ -135,11 +135,11 @@ export function GruposPanel() {
       </div>
 
       {loading ? (
-        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
           Cargando…
         </div>
       ) : groups.length === 0 ? (
-        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
           Sin grupos todavía. Creá el primero.
         </div>
       ) : (
@@ -162,7 +162,7 @@ export function GruposPanel() {
                   {g.description}
                 </p>
               )}
-              <p className='text-xs text-[#455a54]'>
+              <p className='text-sm text-[#455a54]'>
                 {g.schedule.length
                   ? g.schedule
                       .map(
@@ -172,7 +172,7 @@ export function GruposPanel() {
                       .join(' · ')
                   : 'Sin horario cargado'}
               </p>
-              <p className='text-xs text-[#7a6e6f]'>
+              <p className='text-sm text-[#7a6e6f]'>
                 {g.studentIds.length} alumno(s)
                 {g.professorName ? ` · Prof. ${g.professorName}` : ''}
               </p>
@@ -219,7 +219,7 @@ export function GruposPanel() {
       {/* Alta / edición */}
       <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
         {form && (
-          <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
+          <DialogContent className='sm:max-w-lg'>
             <DialogHeader className='text-left'>
               <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
                 {editing ? 'Editar grupo' : 'Nuevo grupo'}
@@ -348,7 +348,7 @@ export function GruposPanel() {
               </Field>
 
               <Field label={`Alumnos (${form.studentIds?.length ?? 0})`}>
-                <div className='flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg border border-[#e6dbcd] bg-white p-2'>
+                <div className='flex flex-col gap-1 rounded-lg border border-[#e6dbcd] bg-white p-2'>
                   {students.length === 0 && (
                     <p className='text-xs text-[#7a6e6f]'>
                       No hay alumnos activos cargados.
@@ -377,7 +377,7 @@ export function GruposPanel() {
                         }`}
                       >
                         <span
-                          className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] ${
+                          className={`flex h-4 w-4 items-center justify-center rounded border text-xs ${
                             on
                               ? 'border-[#455a54] bg-[#455a54] text-white'
                               : 'border-[#c9bfb0]'
@@ -445,9 +445,7 @@ function Field({
 }) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
-        {label.toUpperCase()}
-      </span>
+      <span className='text-sm font-medium text-[#455a54]'>{label}</span>
       {children}
     </div>
   );
@@ -534,7 +532,7 @@ function AttendanceDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-md'>
+      <DialogContent className='sm:max-w-md'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
             Asistencia · {group.name}

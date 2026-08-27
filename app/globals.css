@@ -503,6 +503,32 @@ html:has([data-slot='sheet-content'][data-state='open']) body {
   overflow: hidden;
 }
 
+/*
+ * Modal: header/footer tocan los bordes reales (arriba/abajo de todo) y el
+ * CUERPO scrollea entre ellos. El content (.dialog-shell) es flex-col sin
+ * padding ni scroll; el cuerpo es el/los hijo(s) directo(s) que NO son
+ * header/footer/close. Les damos flex + scroll + padding automáticamente, así
+ * NINGÚN modal existente necesita envolver su contenido en un componente nuevo.
+ */
+.dialog-shell
+  > :not([data-slot='dialog-header']):not([data-slot='dialog-footer']):not(
+    [data-slot='dialog-close']
+  ) {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+}
+@media (min-width: 640px) {
+  .dialog-shell
+    > :not([data-slot='dialog-header']):not(
+      [data-slot='dialog-footer']
+    ):not([data-slot='dialog-close']) {
+    padding: 1.25rem;
+  }
+}
+
 /* Overlay del menú mobile: fade del fondo + entrada escalonada de los links. */
 @keyframes overlay-in {
   from {

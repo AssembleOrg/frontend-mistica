@@ -54,6 +54,7 @@ const EMPTY: CreateExperienceInput = {
   color: DEFAULT_EXPERIENCE_COLOR,
   bookableOnline: true,
   venueSeats: 0,
+  isBirthday: false,
   isActive: true,
 };
 
@@ -113,6 +114,7 @@ export function ExperienciasTab() {
       color: e.color ?? DEFAULT_EXPERIENCE_COLOR,
       bookableOnline: e.bookableOnline ?? true,
       venueSeats: e.venueSeats ?? 0,
+      isBirthday: e.isBirthday ?? false,
       isActive: e.isActive,
     });
   }
@@ -220,13 +222,13 @@ export function ExperienciasTab() {
             : 'No hay experiencias para este filtro.'}
         </div>
       ) : (
-        <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+        <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>
           {visible.map((e) => {
             const online = e.bookableOnline !== false;
             return (
               <div
                 key={e._id}
-                className='flex flex-col gap-3 rounded-2xl border border-[#e6dbcd] bg-white p-[18px]'
+                className='flex flex-col gap-3 rounded-2xl border border-[#e6dbcd] bg-white p-4'
               >
                 {/* Nombre + estado de reserva */}
                 <div className='flex items-start justify-between gap-2'>
@@ -329,7 +331,7 @@ export function ExperienciasTab() {
 
       <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
         {form && (
-          <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-lg'>
+          <DialogContent className='sm:max-w-lg'>
             <DialogHeader className='text-left'>
               <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
                 {editing ? 'Editar experiencia' : 'Nueva experiencia'}
@@ -495,6 +497,20 @@ export function ExperienciasTab() {
               </div>
               <div className='flex items-center gap-2.5'>
                 <Switch
+                  id='exp-birthday'
+                  checked={form.isBirthday ?? false}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, isBirthday: checked })
+                  }
+                  className='data-[state=checked]:bg-[#9d684e]'
+                />
+                <Label htmlFor='exp-birthday' className='text-sm text-[#455a54]'>
+                  Es cumpleaños 🎉 (hereda precio y duración de la experiencia
+                  elegida)
+                </Label>
+              </div>
+              <div className='flex items-center gap-2.5'>
+                <Switch
                   id='exp-active'
                   checked={form.isActive}
                   onCheckedChange={(checked) =>
@@ -542,7 +558,7 @@ function Field({
 }) {
   return (
     <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-[11px] tracking-wider text-[#455a54]/60'>
+      <span className='font-mono text-xs tracking-wider text-[#455a54]/60'>
         {label.toUpperCase()}
       </span>
       {children}
@@ -987,7 +1003,7 @@ function VariantRow({
     >
       <div className='flex items-center gap-2'>
         <span
-          className='shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide'
+          className='shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide'
           style={{ backgroundColor: badge.bg, color: badge.fg }}
         >
           {badge.label}
@@ -1275,7 +1291,7 @@ function VariantForm({
 
       {/* Vista previa: la misma frase que va a ver el equipo en la lista */}
       <div className='rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-xs text-[#455a54]'>
-        <span className='font-mono text-[10px] tracking-wider text-[#7a6e6f]'>
+        <span className='font-mono text-xs tracking-wider text-[#7a6e6f]'>
           ASÍ QUEDA:{' '}
         </span>
         {describeVariant(v)}

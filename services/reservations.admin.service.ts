@@ -116,6 +116,9 @@ export interface CreateExperienceInput {
   bookableOnline?: boolean;
   // Lugares fijos del salón que ocupa un turno abierto (mesa de taller = 10).
   venueSeats?: number;
+  // true = marca esta experiencia como el doc "Cumpleaños": hereda precio y
+  // duración de la experiencia elegida y aporta sus beneficios (a lo sumo una).
+  isBirthday?: boolean;
 }
 
 export interface SessionSlotInput {

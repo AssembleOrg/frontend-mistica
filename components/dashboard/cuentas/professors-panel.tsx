@@ -148,16 +148,16 @@ export function ProfessorsPanel() {
               <span className='block truncate text-sm font-semibold text-[#3d3338]'>
                 {p.name}
                 {!p.active && (
-                  <span className='ml-2 text-[11px] font-normal text-[#a99f92]'>(inactivo)</span>
+                  <span className='ml-2 text-xs font-normal text-[#a99f92]'>(inactivo)</span>
                 )}
               </span>
-              <span className='block truncate text-[13px] text-[#7a6e6f]'>
+              <span className='block truncate text-sm text-[#7a6e6f]'>
                 {[p.phone, p.email].filter(Boolean).join(' · ') || 'sin contacto'}
               </span>
             </div>
 
             {p.accountEmail ? (
-              <span className='inline-flex items-center gap-1 rounded-full bg-[#E7F0EC] px-2.5 py-1 text-[11px] font-semibold text-[#455a54]'>
+              <span className='inline-flex items-center gap-1 rounded-full bg-[#E7F0EC] px-2.5 py-1 text-xs font-semibold text-[#455a54]'>
                 <KeyRound className='h-3 w-3' />
                 {p.accountEmail}
               </span>
@@ -165,7 +165,7 @@ export function ProfessorsPanel() {
               <button
                 type='button'
                 onClick={() => setAccountFor(p)}
-                className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#9d684e]/40 bg-[#f4ead9] px-2.5 py-1 text-[12px] font-medium text-[#9d684e] hover:bg-[#f0dfc6]'
+                className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#9d684e]/40 bg-[#f4ead9] px-2.5 py-1 text-sm font-medium text-[#9d684e] hover:bg-[#f0dfc6]'
               >
                 <KeyRound className='h-3 w-3' />
                 Crear cuenta de acceso
@@ -184,7 +184,7 @@ export function ProfessorsPanel() {
                     notes: p.notes ?? '',
                   });
                 }}
-                className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-1 text-[12px] font-medium text-[#455a54] hover:bg-[#fbf5ef]'
+                className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-1 text-sm font-medium text-[#455a54] hover:bg-[#fbf5ef]'
               >
                 <Pencil className='h-3 w-3' />
                 Editar
@@ -192,7 +192,7 @@ export function ProfessorsPanel() {
               <button
                 type='button'
                 onClick={() => remove(p)}
-                className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-1 text-[12px] font-medium text-[#a33] hover:bg-[#f6e2e2]'
+                className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-1 text-sm font-medium text-[#a33] hover:bg-[#f6e2e2]'
               >
                 <Trash2 className='h-3 w-3' />
               </button>
@@ -221,7 +221,7 @@ export function ProfessorsPanel() {
           </div>
           <div className='grid gap-3 sm:grid-cols-2'>
             <div className='space-y-1.5'>
-              <Label className='text-[13px] text-[#455a54]'>Nombre y apellido</Label>
+              <Label className='text-sm text-[#455a54]'>Nombre y apellido</Label>
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -229,7 +229,7 @@ export function ProfessorsPanel() {
               />
             </div>
             <div className='space-y-1.5'>
-              <Label className='text-[13px] text-[#455a54]'>Teléfono</Label>
+              <Label className='text-sm text-[#455a54]'>Teléfono</Label>
               <Input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -238,7 +238,7 @@ export function ProfessorsPanel() {
               />
             </div>
             <div className='space-y-1.5'>
-              <Label className='text-[13px] text-[#455a54]'>Email de contacto</Label>
+              <Label className='text-sm text-[#455a54]'>Email de contacto</Label>
               <Input
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -247,7 +247,7 @@ export function ProfessorsPanel() {
               />
             </div>
             <div className='space-y-1.5'>
-              <Label className='text-[13px] text-[#455a54]'>Notas</Label>
+              <Label className='text-sm text-[#455a54]'>Notas</Label>
               <Input
                 value={form.notes}
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -288,7 +288,7 @@ export function ProfessorsPanel() {
         />
       )}
 
-      <p className='border-t border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-[12px] text-[#7a6e6f]'>
+      <p className='border-t border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-sm text-[#7a6e6f]'>
         Las piezas se asignan a un profesor desde la pestaña Piezas de Reservas.
         La cuenta de acceso se crea con <strong>sólo la pestaña Piezas</strong>{' '}
         habilitada; podés sumarle o quitarle vistas desde Cuentas.
@@ -357,7 +357,7 @@ function AccountForProfessor({
       </div>
       <div className='flex flex-wrap items-end gap-3'>
         <div className='space-y-1.5'>
-          <Label className='text-[13px] text-[#455a54]'>Email (usuario)</Label>
+          <Label className='text-sm text-[#455a54]'>Email (usuario)</Label>
           <Input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -366,7 +366,7 @@ function AccountForProfessor({
           />
         </div>
         <div className='space-y-1.5'>
-          <Label className='text-[13px] text-[#455a54]'>Contraseña</Label>
+          <Label className='text-sm text-[#455a54]'>Contraseña</Label>
           <Input
             value={password}
             onChange={(e) => {
@@ -382,7 +382,7 @@ function AccountForProfessor({
             setPassword(generatePassword());
             setCopied(false);
           }}
-          className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-2 text-[12px] font-medium text-[#455a54] hover:bg-[#f3e9df]'
+          className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-2 text-sm font-medium text-[#455a54] hover:bg-[#f3e9df]'
         >
           <Dices className='h-3.5 w-3.5' />
           Generar
@@ -394,13 +394,13 @@ function AccountForProfessor({
             setCopied(true);
             setTimeout(() => setCopied(false), 1800);
           }}
-          className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-2 text-[12px] font-medium text-[#455a54] hover:bg-[#f3e9df]'
+          className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-2 text-sm font-medium text-[#455a54] hover:bg-[#f3e9df]'
         >
           {copied ? <Check className='h-3.5 w-3.5' /> : <Copy className='h-3.5 w-3.5' />}
           {copied ? 'Copiada' : 'Copiar'}
         </button>
       </div>
-      <p className='mt-2 text-[12px] text-[#7a6e6f]'>
+      <p className='mt-2 text-sm text-[#7a6e6f]'>
         Se crea como cuenta común con <strong>sólo la pestaña Piezas</strong> de
         Reservas habilitada.
       </p>

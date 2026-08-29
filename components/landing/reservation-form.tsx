@@ -116,13 +116,8 @@ const option = (on: boolean) =>
       : 'border-linea bg-arena text-ciruela-oscuro hover:border-terracota/50'
   }`;
 
-function StepLabel({ n, children }: { n: string; children: string }) {
-  return (
-    <div className='flex items-baseline gap-3'>
-      <span className='font-mono text-xs tabular-nums text-terracota'>{n}</span>
-      <SectionLabel>{children}</SectionLabel>
-    </div>
-  );
+function StepLabel({ children }: { children: string }) {
+  return <SectionLabel>{children}</SectionLabel>;
 }
 
 export function ReservationForm({
@@ -416,7 +411,7 @@ export function ReservationForm({
         {/* Experiencia (oculta cuando viene bloqueada desde el índice) */}
         {!locked && (
           <div className='flex flex-col gap-3.5'>
-            <StepLabel n='01'>Elegí la experiencia</StepLabel>
+            <StepLabel>Tu experiencia</StepLabel>
             <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
               {experiences.map((e) => (
                 <button
@@ -434,7 +429,7 @@ export function ReservationForm({
 
         {/* Fecha y horario */}
         <div className='flex flex-col gap-3.5'>
-          <StepLabel n={locked ? '01' : '02'}>Fecha y horario</StepLabel>
+          <StepLabel>Elegí tu momento</StepLabel>
           {slotsLoading ? (
             <p className='flex items-center gap-2 border border-linea bg-arena px-4 py-3.5 text-sm text-piedra'>
               <Calendar className='h-[18px] w-[18px] text-terracota' />
@@ -567,7 +562,7 @@ export function ReservationForm({
 
         {/* Personas */}
         <div className='flex flex-col gap-3.5'>
-          <StepLabel n={locked ? '02' : '03'}>Cantidad de personas</StepLabel>
+          <StepLabel>¿Quiénes te acompañan?</StepLabel>
           <div className='flex items-center gap-[18px]'>
             <div className='flex items-center border border-linea bg-arena'>
               <button
@@ -598,7 +593,7 @@ export function ReservationForm({
 
         {/* Datos */}
         <div className='flex flex-col gap-3.5'>
-          <StepLabel n={locked ? '03' : '04'}>Tus datos</StepLabel>
+          <StepLabel>Dejanos tus datos</StepLabel>
           <div className='grid gap-3 sm:grid-cols-2'>
             <div className='flex flex-col gap-1'>
               <input
@@ -639,23 +634,30 @@ export function ReservationForm({
             type='button'
             onClick={() => setIsBday(!isBday)}
             aria-pressed={isBday}
-            className={`flex w-full items-start gap-3 border px-4 py-3.5 text-left transition ${
-              isBday
-                ? 'border-terracota bg-arena'
-                : 'border-linea bg-transparent hover:bg-arena'
+            className={`relative flex w-full items-start gap-3 overflow-hidden border bg-white px-4 py-3.5 text-left transition ${
+              isBday ? 'border-terracota' : 'border-linea'
             }`}
           >
+            {/* Globos + serpentinas de fondo, sutiles para no tapar el texto */}
             <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border text-[11px] ${
+              aria-hidden
+              className='pointer-events-none absolute inset-0 bg-repeat opacity-[0.22]'
+              style={{
+                backgroundImage: 'url(/serpentina.png)',
+                backgroundSize: '150px',
+              }}
+            />
+            <span
+              className={`relative z-10 mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center border text-[11px] ${
                 isBday
                   ? 'border-terracota bg-terracota text-arena'
-                  : 'border-linea bg-transparent'
+                  : 'border-linea bg-white'
               }`}
             >
               {isBday ? '✓' : ''}
             </span>
-            <span className='text-sm text-ciruela-oscuro'>
-              Es un cumpleaños 🎉
+            <span className='relative z-10 text-sm text-ciruela-oscuro'>
+              Es un cumpleaños
               <span className='block text-[13px] leading-snug text-piedra'>
                 Festejalo acá: según el día y el tamaño del grupo se aplican
                 beneficios solos (regalos, lugares bonificados) y los ves

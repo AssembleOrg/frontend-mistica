@@ -50,10 +50,15 @@ function ExperienceRow({
       />
 
       <div className='grid grid-cols-[auto_1fr_auto] items-center gap-4 py-7 sm:gap-8 sm:py-9'>
-        {/* Numeral en el gutter */}
-        <span className='font-mono text-xs tabular-nums text-terracota/70 sm:text-sm'>
-          {String(index + 1).padStart(2, '0')}
-        </span>
+        {/* Foto de la experiencia en el gutter (solo desktop) */}
+        <div className='hidden h-20 w-32 shrink-0 overflow-hidden lg:block'>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={img}
+            alt=''
+            className='h-full w-full object-cover transition-transform duration-500 group-hover:scale-105'
+          />
+        </div>
 
         {/* Título + descripción */}
         <div className='min-w-0'>
@@ -67,15 +72,9 @@ function ExperienceRow({
           )}
         </div>
 
-        {/* Imagen revelada en hover (solo desktop) */}
-        <div className='pointer-events-none hidden h-20 w-32 shrink-0 overflow-hidden opacity-0 transition-opacity duration-300 group-hover:opacity-100 lg:block'>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={img} alt='' className='h-full w-full object-cover' />
-        </div>
-
         {/* Meta: duración · precio/seña · flecha */}
         <div className='flex shrink-0 items-center gap-4 sm:gap-6'>
-          <div className='text-right'>
+          <div className='w-28 text-right'>
             <p className='font-mono text-xs tabular-nums text-ciruela-oscuro'>
               {exp.durationMinutes} min
             </p>

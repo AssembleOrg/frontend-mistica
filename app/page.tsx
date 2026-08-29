@@ -384,18 +384,18 @@ export default function LandingPage() {
             sentido. Se crea con las manos, se comparte en la mesa y se respira
             distinto. En el corazón de Quilmes.
           </p>
-          <div className='mt-2 flex flex-wrap items-stretch'>
+          <div className='mt-2 flex items-stretch'>
             {STATS.map(([n, l], i) => (
               <div
                 key={l}
-                className={`flex flex-col gap-1.5 py-1 pr-10 ${
-                  i > 0 ? 'border-l border-arena/20 pl-10' : ''
+                className={`flex flex-col gap-1.5 py-1 pr-5 sm:pr-10 ${
+                  i > 0 ? 'border-l border-arena/20 pl-5 sm:pl-10' : ''
                 }`}
               >
-                <span className='font-playfair text-[34px] font-medium text-durazno'>
+                <span className='font-playfair text-2xl font-medium text-durazno sm:text-[34px]'>
                   {n}
                 </span>
-                <span className='max-w-[150px] text-[13px] leading-snug text-arena/70'>
+                <span className='max-w-[150px] text-[11px] leading-snug text-arena/70 sm:text-[13px]'>
                   {l}
                 </span>
               </div>

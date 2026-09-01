@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { FileDown } from 'lucide-react';
+import { format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 interface Props {
   open: boolean;
@@ -33,7 +36,7 @@ function getPreviousMonth(): { month: number; year: number } {
   return { month, year: now.getFullYear() };
 }
 
-type Tipo = 'mes' | 'quincena';
+type Tipo = 'mes' | 'quincena' | 'custom';
 
 export function MonthlyCloseDialog({
   open,
@@ -47,6 +50,7 @@ export function MonthlyCloseDialog({
   const [selectedYear, setSelectedYear] = useState(prev.year);
   const [tipo, setTipo] = useState<Tipo>('mes');
   const [quincena, setQuincena] = useState<1 | 2>(1);
+  const [customRange, setCustomRange] = useState<DateRange | undefined>();
 
   const currentYear = new Date().getFullYear();
   const years = Array.from(
@@ -58,15 +62,18 @@ export function MonthlyCloseDialog({
   const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
   const monthStr = pad(selectedMonth);
 
-  let from: string;
-  let to: string;
-  let label: string;
+  let from = '';
+  let to = '';
+  let label = '';
 
   if (tipo === 'mes') {
-    from = `${selectedYear}-${monthStr}-01`;
-    to = `${selectedYear}-${monthStr}-${pad(lastDay)}`;
-    label = `${MONTHS[selectedMonth - 1]} ${selectedYear}`;
-  } else {
+    // Mes contable del negocio: del 10 del mes anterior al 10 del mes elegido.
+    const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
+    const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
+    from = `${prevYear}-${pad(prevMonth)}-10`;
+    to = `${selectedYear}-${monthStr}-10`;
+    label = `${MONTHS[selectedMonth - 1]} ${selectedYear} (10 al 10)`;
+  } else if (tipo === 'quincena') {
     from = quincena === 1
       ? `${selectedYear}-${monthStr}-01`
       : `${selectedYear}-${monthStr}-16`;
@@ -74,11 +81,19 @@ export function MonthlyCloseDialog({
       ? `${selectedYear}-${monthStr}-15`
       : `${selectedYear}-${monthStr}-${pad(lastDay)}`;
     label = `${quincena === 1 ? '1ra' : '2da'} Quincena — ${MONTHS[selectedMonth - 1]} ${selectedYear}`;
+  } else if (customRange?.from && customRange?.to) {
+    from = format(customRange.from, 'yyyy-MM-dd');
+    to = format(customRange.to, 'yyyy-MM-dd');
+    label = `${format(customRange.from, 'dd/MM/yyyy')} – ${format(customRange.to, 'dd/MM/yyyy')}`;
   }
 
-  const previewRange = `${from.split('-').reverse().join('/')} – ${to.split('-').reverse().join('/')}`;
+  const canGenerate = Boolean(from && to);
+  const previewRange = canGenerate
+    ? `${from.split('-').reverse().join('/')} – ${to.split('-').reverse().join('/')}`
+    : 'Elegí un rango de fechas';
 
   function handleGenerate() {
+    if (!canGenerate) return;
     const params = new URLSearchParams({ from, to, label });
     window.open(`${targetPath}?${params.toString()}`, '_blank');
     onOpenChange(false);
@@ -118,7 +133,7 @@ export function MonthlyCloseDialog({
             }}
             onClick={() => setTipo('mes')}
           >
-            Mes completo
+            Mes (10 al 10)
           </button>
           <button
             style={{
@@ -130,9 +145,20 @@ export function MonthlyCloseDialog({
           >
             Quincena
           </button>
+          <button
+            style={{
+              ...pillBase,
+              background: tipo === 'custom' ? 'var(--color-verde-profundo)' : 'transparent',
+              color: tipo === 'custom' ? 'white' : 'var(--color-ciruela-oscuro)',
+            }}
+            onClick={() => setTipo('custom')}
+          >
+            Personalizado
+          </button>
         </div>
 
-        {/* Selectores mes + año */}
+        {/* Selectores mes + año (no aplican al rango personalizado) */}
+        {tipo !== 'custom' && (
         <div className="flex gap-3">
           <div className="flex-1">
             <label className="text-xs font-winter-solid mb-1 block" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
@@ -165,6 +191,21 @@ export function MonthlyCloseDialog({
             </select>
           </div>
         </div>
+        )}
+
+        {/* Calendario para rango a medida */}
+        {tipo === 'custom' && (
+          <div>
+            <label className="text-xs font-winter-solid mb-1 block" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.6 }}>
+              Rango de fechas
+            </label>
+            <DateRangePicker
+              date={customRange}
+              onDateChange={setCustomRange}
+              placeholder="Elegí desde y hasta"
+            />
+          </div>
+        )}
 
         {/* Selector quincena */}
         {tipo === 'quincena' && (
@@ -197,8 +238,14 @@ export function MonthlyCloseDialog({
           className="rounded-lg px-3 py-2 text-xs font-winter-solid"
           style={{ background: '#f8f6f4', color: 'var(--color-ciruela-oscuro)', border: '1px solid var(--color-gris-claro)' }}
         >
-          <span style={{ fontWeight: 600 }}>{label}</span>
-          <span style={{ opacity: 0.5, marginLeft: 6 }}>· {previewRange}</span>
+          {canGenerate ? (
+            <>
+              <span style={{ fontWeight: 600 }}>{label}</span>
+              <span style={{ opacity: 0.5, marginLeft: 6 }}>· {previewRange}</span>
+            </>
+          ) : (
+            <span style={{ opacity: 0.6 }}>{previewRange}</span>
+          )}
         </div>
 
         <div className="flex gap-2 justify-end mt-1">
@@ -208,7 +255,8 @@ export function MonthlyCloseDialog({
           <Button
             size="sm"
             onClick={handleGenerate}
-            style={{ background: 'var(--color-verde-profundo)', color: 'white' }}
+            disabled={!canGenerate}
+            style={{ background: 'var(--color-verde-profundo)', color: 'white', opacity: canGenerate ? 1 : 0.5 }}
           >
             <FileDown className="h-4 w-4 mr-2" />
             Generar PDF

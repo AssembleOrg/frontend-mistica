@@ -5,6 +5,7 @@ import { Camera, Plus, Search, Settings2, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,12 @@ import {
   professorsAdmin,
   type Professor,
 } from '@/services/professors.admin.service';
+import {
+  QuickCreateSelect,
+  professorFields,
+  studentFields,
+} from '@/components/ui/quick-create-select';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { normalizePhoneAR, phoneCoreAR } from '@/lib/utils/whatsapp';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
@@ -128,6 +135,7 @@ export function PiezasTab() {
   // proceso queda para el admin.
   const isAdmin = user?.role === 'admin';
   const canManage = true;
+  const confirm = useConfirm();
   const [items, setItems] = useState<PieceItem[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
   const [professorId, setProfessorId] = useState('');
@@ -140,6 +148,7 @@ export function PiezasTab() {
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   // Estados configurables del proceso (con fallback histórico hasta cargar).
   const [statusCfg, setStatusCfg] = useState<PieceStatusConfig[]>(FALLBACK_CFG);
   const [students, setStudents] = useState<Student[]>([]);
@@ -152,13 +161,17 @@ export function PiezasTab() {
       .then((cfg) => cfg.length && setStatusCfg(cfg))
       .catch(() => undefined);
   }, []);
+  const loadStudents = useCallback(async () => {
+    try {
+      setStudents(await tallerAdmin.listStudents(false));
+    } catch {
+      setStudents([]);
+    }
+  }, []);
   useEffect(() => {
     loadCfg();
-    tallerAdmin
-      .listStudents(false)
-      .then(setStudents)
-      .catch(() => setStudents([]));
-  }, [loadCfg]);
+    void loadStudents();
+  }, [loadCfg, loadStudents]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -204,6 +217,33 @@ export function PiezasTab() {
     load();
   }, [load]);
 
+  // Conteo por estado para los chips (patrón de reservas-tab): una request
+  // liviana por estado leyendo r.total, respetando búsqueda y profesor. Se
+  // recalcula tras cada recarga del listado (total cambia al mutar piezas).
+  useEffect(() => {
+    let alive = true;
+    const keys = ['', ...statusCfg.map((c) => c.key)];
+    Promise.all(
+      keys.map((k) =>
+        piecesAdmin
+          .list({
+            status: k || undefined,
+            search: search || undefined,
+            professorId: professorId || undefined,
+            page: 1,
+            limit: 1,
+          })
+          .then((r) => [k, r.total] as const)
+          .catch(() => [k, 0] as const),
+      ),
+    ).then((pairs) => {
+      if (alive) setCounts(Object.fromEntries(pairs));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [statusCfg, search, professorId, total]);
+
   async function changeStatus(p: PieceItem, next: string) {
     if (next === p.status) return;
     setBusy(p._id);
@@ -223,7 +263,11 @@ export function PiezasTab() {
   }
 
   async function remove(p: PieceItem) {
-    if (!confirm('¿Eliminar este registro de pieza?')) return;
+    const ok = await confirm({
+      title: 'Eliminar pieza',
+      description: 'Se eliminará este registro de pieza. No se puede deshacer.',
+    });
+    if (!ok) return;
     setBusy(p._id);
     try {
       await piecesAdmin.remove(p._id);
@@ -280,6 +324,7 @@ export function PiezasTab() {
             <FilterChip
               key={f.key || 'all'}
               label={f.label}
+              count={counts[f.key]}
               active={f.key === status}
               color={f.color}
               tint={f.tint}
@@ -516,6 +561,7 @@ export function PiezasTab() {
           students={students}
           statusCfg={statusCfg}
           onProfessorCreated={loadProfessors}
+          onStudentCreated={loadStudents}
           onClose={() => setCreating(false)}
           onDone={async () => {
             setCreating(false);
@@ -555,6 +601,7 @@ function NewPieceModal({
   students,
   statusCfg,
   onProfessorCreated,
+  onStudentCreated,
   onClose,
   onDone,
 }: Readonly<{
@@ -563,6 +610,8 @@ function NewPieceModal({
   statusCfg: PieceStatusConfig[];
   /** Recarga la lista de profesores tras crear uno inline (patrón CRM). */
   onProfessorCreated: () => Promise<void>;
+  /** Recarga la lista de alumnos tras crear uno inline. */
+  onStudentCreated: () => Promise<void>;
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
@@ -699,21 +748,6 @@ function NewPieceModal({
     }
   }
 
-  // CRM-like: crear un profesor sin salir del modal. Lazy: pide solo el nombre
-  // (el resto se completa después desde Cuentas) y lo deja seleccionado.
-  async function createProfessor() {
-    const name = window.prompt('Nombre del nuevo profesor')?.trim();
-    if (!name) return;
-    try {
-      const created = await professorsAdmin.create({ name });
-      await onProfessorCreated();
-      setProfessorId(created.id ?? created._id ?? '');
-      showToast.success('Profesor creado');
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo crear');
-    }
-  }
-
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='sm:max-w-lg'>
@@ -831,21 +865,22 @@ function NewPieceModal({
             )
           ) : mode === 'alumno' ? (
             <Field label='Alumno (el aviso de lista le llega a su contacto)'>
-              <Select
-                value={studentId || undefined}
-                onValueChange={setStudentId}
-              >
-                <SelectTrigger className={fieldCls}>
-                  <SelectValue placeholder='Elegí el alumno' />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((st) => (
-                    <SelectItem key={st._id} value={st._id}>
-                      {st.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <QuickCreateSelect
+                value={studentId}
+                onChange={setStudentId}
+                options={students.map((st) => ({ id: st._id, name: st.name }))}
+                placeholder='Elegí el alumno'
+                createTitle='Nuevo alumno'
+                fields={studentFields}
+                onCreate={async (vals) => {
+                  const created = await tallerAdmin.createStudent({
+                    name: vals.name,
+                    phone: vals.phone,
+                  });
+                  await onStudentCreated();
+                  return { id: created._id, name: created.name };
+                }}
+              />
             </Field>
           ) : (
             <>
@@ -895,36 +930,27 @@ function NewPieceModal({
           )}
 
           <Field label='Profesor asignado'>
-            <div className='flex items-center gap-2'>
-              <Select
-                value={professorId || 'none'}
-                onValueChange={(v) => setProfessorId(v === 'none' ? '' : v)}
-              >
-                <SelectTrigger className={cn('flex-1', fieldCls)}>
-                  <SelectValue placeholder='Sin asignar' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='none'>Sin asignar</SelectItem>
-                  {professors
-                    .filter((pr) => pr.active)
-                    .map((pr) => (
-                      <SelectItem key={pr.id} value={pr.id}>
-                        {pr.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={createProfessor}
-                title='Crear un profesor nuevo'
-                className='shrink-0 gap-1.5 border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
-              >
-                <Plus className='h-4 w-4' />
-                Nuevo
-              </Button>
-            </div>
+            <QuickCreateSelect
+              value={professorId}
+              onChange={setProfessorId}
+              options={professors
+                .filter((pr) => pr.active)
+                .map((pr) => ({ id: pr.id, name: pr.name }))}
+              emptyLabel='Sin asignar'
+              placeholder='Sin asignar'
+              createTitle='Nuevo profesor'
+              fields={professorFields}
+              onCreate={async (vals) => {
+                const created = await professorsAdmin.create({
+                  name: vals.name,
+                  phone: vals.phone,
+                  email: vals.email,
+                });
+                await onProfessorCreated();
+                const id = created.id ?? created._id ?? '';
+                return { id, name: created.name };
+              }}
+            />
           </Field>
 
           <div className='grid grid-cols-2 gap-3'>
@@ -1185,52 +1211,77 @@ function StatusesDialog({
             Estados del proceso
           </DialogTitle>
         </DialogHeader>
-        <div className='flex flex-col gap-2'>
-          <p className='text-[12px] text-[#7a6e6f]'>
-            En orden, del primero al último. Marcá cuál avisa al cliente que la
-            pieza está <strong>lista</strong> y cuál <strong>cierra</strong> el
-            ciclo (entregada).
+        <div className='flex flex-col gap-3'>
+          <p className='text-[12px] leading-relaxed text-[#7a6e6f]'>
+            El recorrido de una pieza, en orden del primero al último. Marcá cuál
+            avisa al cliente que está <strong>lista</strong> y cuál{' '}
+            <strong>cierra</strong> el ciclo (entregada).
           </p>
-          {rows.map((r, i) => (
-            <div
-              key={i}
-              className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] px-3 py-2'
-            >
-              <span className='w-5 text-center font-mono text-[11px] text-[#a99f92]'>
-                {i + 1}
-              </span>
-              <Input
-                value={r.label}
-                onChange={(e) => patch(i, { label: e.target.value })}
-                placeholder='Nombre del estado'
-                className={`${fieldCls} h-8 w-40 text-sm`}
-              />
-              <label className='flex items-center gap-1 text-[11px] text-[#455a54]'>
-                <input
-                  type='checkbox'
-                  checked={!!r.isReady}
-                  onChange={(e) => patch(i, { isReady: e.target.checked })}
-                />
-                lista
-              </label>
-              <label className='flex items-center gap-1 text-[11px] text-[#455a54]'>
-                <input
-                  type='checkbox'
-                  checked={!!r.isFinal}
-                  onChange={(e) => patch(i, { isFinal: e.target.checked })}
-                />
-                cierra
-              </label>
-              <button
-                type='button'
-                onClick={() => setRows(rows.filter((_, idx) => idx !== i))}
-                className='ml-auto text-[#a33] hover:opacity-70'
-                aria-label='Quitar estado'
-              >
-                <Trash2 className='h-4 w-4' />
-              </button>
-            </div>
-          ))}
+          <div className='flex flex-col'>
+            {rows.map((r, i) => (
+              <div key={i} className='flex gap-3'>
+                {/* Timeline: número + línea conectora */}
+                <div className='flex flex-col items-center'>
+                  <span className='flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#455a54] font-mono text-[11px] font-semibold text-white'>
+                    {i + 1}
+                  </span>
+                  {i < rows.length - 1 && (
+                    <span className='w-px flex-1 bg-[#e6dbcd]' />
+                  )}
+                </div>
+                <div className='mb-2 flex-1 rounded-xl border border-[#e6dbcd] bg-white p-3'>
+                  <div className='flex items-center gap-2'>
+                    <Input
+                      value={r.label}
+                      onChange={(e) => patch(i, { label: e.target.value })}
+                      placeholder='Nombre del estado'
+                      className={`${fieldCls} h-9 flex-1 text-sm font-medium`}
+                    />
+                    <button
+                      type='button'
+                      onClick={() =>
+                        setRows(rows.filter((_, idx) => idx !== i))
+                      }
+                      className='shrink-0 rounded-md p-1.5 text-[#a33] hover:bg-[#a33]/10'
+                      aria-label='Quitar estado'
+                    >
+                      <Trash2 className='h-4 w-4' />
+                    </button>
+                  </div>
+                  <div className='mt-2.5 flex flex-col gap-2'>
+                    <label className='flex items-center justify-between gap-2'>
+                      <span className='flex items-center gap-1.5 text-[13px] text-[#3d3338]'>
+                        Avisa que está lista
+                        {r.isReady && (
+                          <span className='rounded-full bg-[#E7F0EC] px-1.5 py-0.5 text-[10px] font-semibold text-[#455a54]'>
+                            aviso
+                          </span>
+                        )}
+                      </span>
+                      <Switch
+                        checked={!!r.isReady}
+                        onCheckedChange={(v) => patch(i, { isReady: v })}
+                      />
+                    </label>
+                    <label className='flex items-center justify-between gap-2'>
+                      <span className='flex items-center gap-1.5 text-[13px] text-[#3d3338]'>
+                        Cierra el ciclo
+                        {r.isFinal && (
+                          <span className='rounded-full bg-[#f3e9df] px-1.5 py-0.5 text-[10px] font-semibold text-[#9d684e]'>
+                            final
+                          </span>
+                        )}
+                      </span>
+                      <Switch
+                        checked={!!r.isFinal}
+                        onCheckedChange={(v) => patch(i, { isFinal: v })}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
           <Button
             type='button'
             variant='outline'

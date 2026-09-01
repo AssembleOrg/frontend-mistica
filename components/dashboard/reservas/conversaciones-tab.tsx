@@ -29,6 +29,7 @@ import {
   type ConversationMessage,
 } from '@/services/conversations.admin.service';
 import { FilterChip } from './_shared';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const AR_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -55,6 +56,7 @@ function cuando(iso: string): string {
 type Filtro = 'abiertas' | 'WAITING' | 'CLOSED';
 
 export function ConversacionesTab() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<Conversation[]>([]);
   const [filtro, setFiltro] = useState<Filtro>('abiertas');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -182,12 +184,13 @@ export function ConversacionesTab() {
 
   async function cerrar() {
     if (!selected) return;
-    if (
-      !window.confirm(
-        `¿Dar por terminada la charla con ${selected.customerName ?? selected.phone}? El bot vuelve a atender ese chat.`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: 'Terminar charla',
+      description: `¿Dar por terminada la charla con ${selected.customerName ?? selected.phone}? El bot vuelve a atender ese chat.`,
+      confirmLabel: 'Terminar charla',
+      variant: 'normal',
+    });
+    if (!ok) return;
     try {
       await conversationsAdmin.close(selected.id);
       showToast.success('Charla cerrada. El bot vuelve a atender.');

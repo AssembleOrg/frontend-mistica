@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ const fieldCls =
 const triggerCls = `w-full ${fieldCls} data-[placeholder]:text-[#455a54]/60`;
 
 export function SpaceBlocksPanel() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<SpaceBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState<SpaceBlockKind>('WEEKLY');
@@ -94,7 +96,12 @@ export function SpaceBlocksPanel() {
   }
 
   async function remove(id: string) {
-    if (!confirm('¿Quitar este bloqueo de espacio?')) return;
+    const ok = await confirm({
+      title: 'Quitar bloqueo de espacio',
+      description: '¿Quitar este bloqueo de espacio?',
+      confirmLabel: 'Quitar',
+    });
+    if (!ok) return;
     try {
       await spaceBlocksAdmin.remove(id);
       showToast.success('Quitado');

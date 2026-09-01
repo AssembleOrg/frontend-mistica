@@ -2,6 +2,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { AuthHydrator } from '@/components/auth-hydrator';
 import { ViewGuard } from '@/components/view-guard';
 import { AutoClosureNotifier } from '@/components/dashboard/cashbox/auto-closure-notifier';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 import {
   SidebarInset,
   SidebarProvider,
@@ -62,7 +63,7 @@ export default function DashboardLayout({
           style={{ backgroundColor: '#efcbb9' }}
         >
           <div className="container-mobile">
-            {children}
+            <ConfirmProvider>{children}</ConfirmProvider>
           </div>
         </div>
       </SidebarInset>

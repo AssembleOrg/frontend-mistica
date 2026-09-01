@@ -14,6 +14,7 @@ import {
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
   DialogContent,
@@ -69,6 +70,7 @@ const FILTERS: { key: string; label: string; color: string; tint: string }[] = [
 type View = 'list' | 'calendar';
 
 export function ReservasTab() {
+  const confirm = useConfirm();
   const [view, setView] = useState<View>('list');
   const [items, setItems] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,12 +159,12 @@ export function ReservasTab() {
   }, [search, expFilter, tick]);
 
   async function doCancel(r: ReservationItem) {
-    if (
-      !confirm(
-        `¿Cancelar la reserva ${prettyCode(r.code)}? Libera el cupo y reembolsa si fue MercadoPago.`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: 'Cancelar reserva',
+      description: `¿Cancelar la reserva ${prettyCode(r.code)}? Libera el cupo y reembolsa si fue MercadoPago.`,
+      confirmLabel: 'Cancelar reserva',
+    });
+    if (!ok) return;
     setBusy(r._id);
     try {
       await reservationsAdmin.cancelReservation(r._id);
@@ -993,6 +995,7 @@ function RescheduleModal({
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
+  const confirm = useConfirm();
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string>('');
@@ -1022,14 +1025,17 @@ function RescheduleModal({
       showToast.error('Elegí el nuevo turno');
       return;
     }
-    if (
-      insideWindow &&
-      !confirm(
-        `Faltan menos de ${RESCHEDULE_MIN_HOURS} hs para el turno original. ` +
+    if (insideWindow) {
+      const ok = await confirm({
+        title: 'Reprogramar dentro de la ventana',
+        description:
+          `Faltan menos de ${RESCHEDULE_MIN_HOURS} hs para el turno original. ` +
           '¿Reprogramar igual (override admin)?',
-      )
-    )
-      return;
+        confirmLabel: 'Reprogramar igual',
+        variant: 'normal',
+      });
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       await reservationsAdmin.rescheduleReservation(reservation._id, selected, insideWindow);

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Select,
   SelectContent,
@@ -61,6 +62,7 @@ const EMPTY: ShiftTemplateInput = {
 };
 
 export function ShiftTemplatesPanel() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<ShiftTemplate[]>([]);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,8 +135,11 @@ export function ShiftTemplatesPanel() {
   }
 
   async function remove(t: ShiftTemplate) {
-    if (!window.confirm(`¿Eliminar el turno "${t.name}" (${diaLabel(t.weekday)})?`))
-      return;
+    const ok = await confirm({
+      title: 'Eliminar turno',
+      description: `¿Eliminar el turno "${t.name}" (${diaLabel(t.weekday)})?`,
+    });
+    if (!ok) return;
     try {
       await shiftTemplatesAdmin.remove(t._id);
       showToast.success('Turno eliminado');

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   recurringBlocksAdmin,
   tablesAdmin,
@@ -51,6 +52,7 @@ const EMPTY: FormState = {
 };
 
 export function RecurringBlocksPanel() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<RecurringBlock[]>([]);
   const [tables, setTables] = useState<AdminTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,9 +159,11 @@ export function RecurringBlocksPanel() {
   }
 
   async function remove(rule: RecurringBlock) {
-    if (!window.confirm(`¿Eliminar "${rule.label}" del ${DIAS[rule.weekday - 1].toLowerCase()} ${rule.start}?`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Eliminar bloqueo fijo',
+      description: `¿Eliminar "${rule.label}" del ${DIAS[rule.weekday - 1].toLowerCase()} ${rule.start}?`,
+    });
+    if (!ok) return;
     try {
       await recurringBlocksAdmin.remove(rule._id);
       showToast.success('Bloqueo fijo eliminado');

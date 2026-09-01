@@ -6,7 +6,7 @@ import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateInput } from '@/components/ui/date-input';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,12 @@ import {
   professorsAdmin,
   type Professor,
 } from '@/services/professors.admin.service';
+import {
+  QuickCreateSelect,
+  QuickCreateButton,
+  professorFields,
+  studentFields,
+} from '@/components/ui/quick-create-select';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
 
 const fieldCls =
@@ -246,30 +252,40 @@ export function GruposPanel() {
               </Field>
               {isAdmin && (
                 <Field label='Profesor a cargo'>
-                  <select
+                  <QuickCreateSelect
                     value={form.professorId ?? ''}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        professorId: e.target.value || undefined,
-                      })
+                    onChange={(id) =>
+                      setForm({ ...form, professorId: id || undefined })
                     }
-                    className={`${fieldCls} h-9 w-full rounded-md border px-2 text-sm`}
-                  >
-                    <option value=''>Sin asignar</option>
-                    {professors.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={professors.map((p) => ({ id: p.id, name: p.name }))}
+                    emptyLabel='Sin asignar'
+                    placeholder='Sin asignar'
+                    createTitle='Nuevo profesor'
+                    fields={professorFields}
+                    onCreate={async (vals) => {
+                      const created = await professorsAdmin.create({
+                        name: vals.name,
+                        phone: vals.phone,
+                        email: vals.email,
+                      });
+                      const id = created.id ?? created._id ?? '';
+                      setProfessors((prev) => [
+                        ...prev,
+                        { ...created, id } as Professor,
+                      ]);
+                      return { id, name: created.name };
+                    }}
+                  />
                 </Field>
               )}
 
               <Field label='Días y horarios'>
                 <div className='flex flex-col gap-1.5'>
                   {(form.schedule ?? []).map((sl, i) => (
-                    <div key={i} className='flex items-center gap-1.5'>
+                    <div
+                      key={i}
+                      className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] bg-white p-2'
+                    >
                       <select
                         value={sl.weekday}
                         onChange={(e) => {
@@ -280,7 +296,7 @@ export function GruposPanel() {
                           };
                           setForm({ ...form, schedule });
                         }}
-                        className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
+                        className={`${fieldCls} h-9 w-20 shrink-0 rounded-md border px-2 text-sm`}
                       >
                         {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                           <option key={d} value={d}>
@@ -288,27 +304,29 @@ export function GruposPanel() {
                           </option>
                         ))}
                       </select>
-                      <Input
-                        type='time'
-                        value={sl.start}
-                        onChange={(e) => {
-                          const schedule = [...(form.schedule ?? [])];
-                          schedule[i] = { ...sl, start: e.target.value };
-                          setForm({ ...form, schedule });
-                        }}
-                        className={`${fieldCls} h-9 w-28`}
-                      />
-                      <span className='text-xs text-[#7a6e6f]'>a</span>
-                      <Input
-                        type='time'
-                        value={sl.end}
-                        onChange={(e) => {
-                          const schedule = [...(form.schedule ?? [])];
-                          schedule[i] = { ...sl, end: e.target.value };
-                          setForm({ ...form, schedule });
-                        }}
-                        className={`${fieldCls} h-9 w-28`}
-                      />
+                      <div className='flex min-w-0 flex-1 basis-40 items-center gap-1.5'>
+                        <Input
+                          type='time'
+                          value={sl.start}
+                          onChange={(e) => {
+                            const schedule = [...(form.schedule ?? [])];
+                            schedule[i] = { ...sl, start: e.target.value };
+                            setForm({ ...form, schedule });
+                          }}
+                          className={`${fieldCls} h-9 min-w-0 flex-1`}
+                        />
+                        <span className='shrink-0 text-xs text-[#7a6e6f]'>a</span>
+                        <Input
+                          type='time'
+                          value={sl.end}
+                          onChange={(e) => {
+                            const schedule = [...(form.schedule ?? [])];
+                            schedule[i] = { ...sl, end: e.target.value };
+                            setForm({ ...form, schedule });
+                          }}
+                          className={`${fieldCls} h-9 min-w-0 flex-1`}
+                        />
+                      </div>
                       <button
                         type='button'
                         onClick={() =>
@@ -319,7 +337,7 @@ export function GruposPanel() {
                             ),
                           })
                         }
-                        className='text-[#a33] hover:opacity-70'
+                        className='shrink-0 text-[#a33] hover:opacity-70'
                         aria-label='Quitar horario'
                       >
                         <X className='h-4 w-4' />
@@ -348,6 +366,31 @@ export function GruposPanel() {
               </Field>
 
               <Field label={`Alumnos (${form.studentIds?.length ?? 0})`}>
+                <div className='mb-1.5 flex justify-end'>
+                  <QuickCreateButton
+                    label='Nuevo alumno'
+                    createTitle='Nuevo alumno'
+                    fields={studentFields}
+                    onCreate={async (vals) => {
+                      const created = await tallerAdmin.createStudent({
+                        name: vals.name,
+                        phone: vals.phone,
+                      });
+                      setStudents((prev) => [...prev, created]);
+                      return { id: created._id, name: created.name };
+                    }}
+                    onCreated={(created) =>
+                      setForm((f) =>
+                        f
+                          ? {
+                              ...f,
+                              studentIds: [...(f.studentIds ?? []), created.id],
+                            }
+                          : f,
+                      )
+                    }
+                  />
+                </div>
                 <div className='flex flex-col gap-1 rounded-lg border border-[#e6dbcd] bg-white p-2'>
                   {students.length === 0 && (
                     <p className='text-xs text-[#7a6e6f]'>
@@ -476,9 +519,11 @@ function AttendanceDialog({
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [date, setDate] = useState(todayKey);
+  // status null = "sin marcar" (arranque de un día nuevo). Así el resaltado de
+  // un botón SÍ significa "lo marcó el usuario", y no se confunde con un default.
   const [records, setRecords] = useState<
-    Array<{ studentId: string; status: AttendanceStatus }>
-  >(group.studentIds.map((id) => ({ studentId: id, status: 'PRESENT' })));
+    Array<{ studentId: string; status: AttendanceStatus | null }>
+  >(group.studentIds.map((id) => ({ studentId: id, status: null })));
   const [extra, setExtra] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -499,7 +544,7 @@ function AttendanceDialog({
           );
         } else {
           setRecords(
-            group.studentIds.map((id) => ({ studentId: id, status: 'PRESENT' })),
+            group.studentIds.map((id) => ({ studentId: id, status: null })),
           );
         }
       })
@@ -515,7 +560,11 @@ function AttendanceDialog({
       await tallerAdmin.saveAttendance({
         groupId: group._id,
         date,
-        records,
+        // Sin marcar → Presente (si tomaste asistencia y no lo tocaste, vino).
+        records: records.map((r) => ({
+          studentId: r.studentId,
+          status: r.status ?? 'PRESENT',
+        })),
       });
       showToast.success('Asistencia guardada');
       onClose();
@@ -539,16 +588,31 @@ function AttendanceDialog({
           </DialogTitle>
         </DialogHeader>
         <div className='flex flex-col gap-3'>
-          <DatePicker value={date} onChange={setDate} className='w-40' />
+          <DateInput value={date} onChange={setDate} className='w-40' />
 
           {records.length === 0 && (
             <p className='text-xs text-[#7a6e6f]'>El grupo no tiene alumnos.</p>
           )}
+          {records.length > 0 &&
+            (() => {
+              const unmarked = records.filter((r) => r.status === null).length;
+              return (
+                <p className='text-[12px] text-[#7a6e6f]'>
+                  {unmarked === 0
+                    ? '✓ Todos marcados'
+                    : `${unmarked} sin marcar (al guardar quedan Presente)`}
+                </p>
+              );
+            })()}
           <div className='flex flex-col gap-1.5'>
             {records.map((r, i) => (
               <div
                 key={r.studentId}
-                className='flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e6dbcd] px-3 py-2'
+                className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                  r.status === null
+                    ? 'border-dashed border-[#d9cdbd] bg-[#fbf5ef]/40'
+                    : 'border-[#e6dbcd]'
+                }`}
               >
                 <span className='text-[13px] font-medium text-[#3d3338]'>
                   {studentName.get(r.studentId) ?? '(alumno)'}

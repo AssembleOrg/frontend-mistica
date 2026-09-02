@@ -37,6 +37,11 @@ const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 const EMPTY: CreateStudentInput = { name: '', isActive: true };
+const clientsService = new ClientsService();
+
+function clientIdOf(client: Client): string {
+  return client.id || client._id || '';
+}
 
 // Valores canónicos del sistema (ventas/caja usan estos), label en español.
 const PAYMENT_METHODS = [
@@ -315,15 +320,30 @@ export function AlumnosPanel() {
                 <AsyncSelect<Client>
                   value={selectedClient}
                   onChange={(client) => {
-                    setSelectedClient(client);
-                    if (client) setForm({ ...form, clientId: client.id, name: client.fullName, phone: client.phone ?? form.phone, email: client.email ?? form.email });
-                    else setForm({ ...form, clientId: undefined });
+                    if (!client) {
+                      setSelectedClient(null);
+                      setForm((current) => current ? { ...current, clientId: undefined } : current);
+                      return;
+                    }
+                    const clientId = clientIdOf(client);
+                    const normalized = { ...client, id: clientId };
+                    setSelectedClient(normalized);
+                    setForm((current) => current ? {
+                      ...current,
+                      clientId,
+                      name: client.fullName,
+                      phone: client.phone ?? '',
+                      email: client.email ?? '',
+                    } : current);
                   }}
                   fetcher={async (term, page, pageSize) => {
-                    const result = await new ClientsService().getClients(page, pageSize, { search: term });
-                    return { items: result.data.data, hasMore: result.data.meta.hasNextPage };
+                    const result = await clientsService.getClients(page, pageSize, { search: term });
+                    return {
+                      items: result.data.data.map((client) => ({ ...client, id: clientIdOf(client) })),
+                      hasMore: result.data.meta.hasNextPage,
+                    };
                   }}
-                  getKey={(client) => client.id}
+                  getKey={clientIdOf}
                   getLabel={(client) => client.fullName}
                   placeholder='Buscá un cliente por nombre…'
                   noResultsLabel='No encontramos clientes'
@@ -331,29 +351,43 @@ export function AlumnosPanel() {
                 />
                 <p className='mt-1 text-[11px] text-[#7a6e6f]'>Al elegirlo se completan sus datos y queda asociado al alumno.</p>
               </Field>
-              <Field label='Nombre y apellido'>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className={fieldCls}
-                />
-              </Field>
-              <div className='grid grid-cols-2 gap-3'>
-                <Field label='Teléfono'>
-                  <Input
-                    value={form.phone ?? ''}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    className={fieldCls}
-                  />
-                </Field>
-                <Field label='Email'>
-                  <Input
-                    value={form.email ?? ''}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className={fieldCls}
-                  />
-                </Field>
-              </div>
+              {selectedClient ? (
+                <div className='rounded-xl border border-[#bfd2c9] bg-[#E7F0EC] px-3 py-2 text-sm text-[#455a54]'>
+                  <p className='font-semibold'>Datos tomados del cliente</p>
+                  <p>{selectedClient.fullName}</p>
+                  {(selectedClient.phone || selectedClient.email) && (
+                    <p className='text-xs text-[#6d7d77]'>
+                      {[selectedClient.phone, selectedClient.email].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <Field label='Nombre y apellido'>
+                    <Input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className={fieldCls}
+                    />
+                  </Field>
+                  <div className='grid grid-cols-2 gap-3'>
+                    <Field label='Teléfono'>
+                      <Input
+                        value={form.phone ?? ''}
+                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                        className={fieldCls}
+                      />
+                    </Field>
+                    <Field label='Email'>
+                      <Input
+                        value={form.email ?? ''}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        className={fieldCls}
+                      />
+                    </Field>
+                  </div>
+                </>
+              )}
               <Field label='Adulto responsable (escuelita)'>
                 <Input
                   value={form.guardianName ?? ''}

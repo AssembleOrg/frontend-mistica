@@ -253,8 +253,13 @@ export function AsyncSelect<T>({
                     <div
                       key={getKey(item)}
                       onMouseEnter={() => setHighlightedIndex(idx)}
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // evita perder foco antes del click
+                      role='option'
+                      aria-selected={value ? getKey(value) === getKey(item) : false}
+                      onPointerDown={(e) => {
+                        // PointerDown funciona igual con mouse, touch y lápiz.
+                        // Seleccionamos antes de que Dialog/portal procese el cambio de foco.
+                        e.preventDefault();
+                        e.stopPropagation();
                         selectItem(item);
                       }}
                       style={{

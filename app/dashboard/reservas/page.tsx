@@ -65,7 +65,7 @@ export default function ReservasAdminPage() {
         </p>
       </div>
 
-      <div className='flex flex-wrap gap-2'>
+      <div className='-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0'>
         {visibleTabs.map(({ key, label, icon: Icon }) => {
           const on = key === active;
           return (
@@ -75,7 +75,7 @@ export default function ReservasAdminPage() {
               variant={on ? 'verde' : 'ghost'}
               onClick={() => setTab(key)}
               className={cn(
-                'gap-2',
+                'shrink-0 gap-2',
                 !on && 'bg-white text-[#3d3338] hover:bg-white/70',
               )}
             >

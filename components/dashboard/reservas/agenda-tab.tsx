@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   ChevronLeft,
   ChevronRight,
+  Loader2,
   Ticket,
   Users,
   Wallet,
@@ -17,6 +18,7 @@ import {
   arDayEndISO,
   arDayStartISO,
   fmtPrice,
+  fmtPriceCompact,
   SESSION_STATUS_LABEL,
 } from '@/lib/reservas-format';
 import { DEFAULT_EXPERIENCE_COLOR } from '@/lib/experience-colors';
@@ -202,7 +204,14 @@ export function AgendaTab() {
           >
             Hoy
           </button>
-          {loading && <span className='text-xs text-[#7a6e6f]'>cargando…</span>}
+          {/* Spinner con ancho fijo: no empuja el layout al aparecer/desaparecer. */}
+          <Loader2
+            className={cn(
+              'h-4 w-4 shrink-0 animate-spin text-[#9d684e] transition-opacity',
+              loading ? 'opacity-100' : 'opacity-0',
+            )}
+            aria-hidden={!loading}
+          />
         </div>
         <div className='inline-flex items-center rounded-[11px] border border-[#e6dbcd] bg-[#fbf5ef] p-1'>
           {(
@@ -228,14 +237,15 @@ export function AgendaTab() {
 
       {mode === 'day' ? (
         <>
-          {/* Resumen del día */}
-          <div className='grid grid-cols-1 gap-3.5 sm:grid-cols-3'>
-            <StatCard icon={Ticket} value={String(stats.turnos)} label='turnos' />
-            <StatCard icon={Users} value={String(stats.personas)} label='personas' />
-            <StatCard
+          {/* Resumen del día: una sola barra segmentada, condensada. */}
+          <div className='flex items-stretch divide-x divide-[#e6dbcd] overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
+            <Stat icon={Ticket} value={String(stats.turnos)} label='turnos' />
+            <Stat icon={Users} value={String(stats.personas)} label='personas' />
+            <Stat
               icon={Wallet}
-              value={fmtPrice(stats.porCobrar)}
-              label='por cobrar en el local'
+              value={fmtPriceCompact(stats.porCobrar)}
+              title={fmtPrice(stats.porCobrar)}
+              label='por cobrar'
               color='#9d684e'
             />
           </div>
@@ -273,25 +283,28 @@ export function AgendaTab() {
   );
 }
 
-function StatCard({
+// Un segmento del resumen: ícono + valor + label, condensado y responsive.
+function Stat({
   icon: Icon,
   value,
   label,
+  title,
   color = '#455a54',
 }: {
   icon: typeof Ticket;
   value: string;
   label: string;
+  title?: string;
   color?: string;
 }) {
   return (
-    <div className='flex items-center gap-3 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
-      <span className='inline-flex size-10 items-center justify-center rounded-[10px] bg-[#fbf5ef]'>
-        <Icon className='h-[19px] w-[19px]' style={{ color }} />
-      </span>
-      <span className='flex flex-col'>
-        <span className='font-tan-nimbus text-[22px] font-semibold text-[#3d3338]'>{value}</span>
-        <span className='text-xs text-[#7a6e6f]'>{label}</span>
+    <div className='flex min-w-0 flex-1 items-center gap-2.5 px-3 py-3 sm:px-4' title={title}>
+      <Icon className='h-4 w-4 shrink-0 sm:h-[18px] sm:w-[18px]' style={{ color }} />
+      <span className='flex min-w-0 flex-col leading-tight'>
+        <span className='truncate font-tan-nimbus text-lg font-semibold text-[#3d3338] sm:text-xl'>
+          {value}
+        </span>
+        <span className='truncate text-[11px] text-[#7a6e6f] sm:text-xs'>{label}</span>
       </span>
     </div>
   );

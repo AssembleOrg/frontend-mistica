@@ -227,30 +227,35 @@ export function AlumnosPanel() {
 
   return (
     <div className='flex flex-col gap-4'>
-      {/* Situaciones administrativas: cuotas vencidas y por vencer */}
+      {/* Situaciones administrativas: cuotas vencidas y por vencer.
+          Dropdown nativo (details) para condensar en mobile; la fila vencida
+          se pinta con fondo rojo en vez de badge. */}
       {isAdmin && alerts.length > 0 && (
-        <div className='rounded-2xl border border-[#e8b84b]/50 bg-[#fdf6e3] p-4'>
-          <p className='mb-2 flex items-center gap-2 text-sm font-semibold text-[#8a6d1a]'>
-            <AlertTriangle className='h-4 w-4' />
-            Pagos que requieren atención
-          </p>
-          <div className='flex flex-col gap-1.5'>
+        <details className='group rounded-2xl border border-[#e8b84b]/50 bg-[#fdf6e3] px-4 py-3'>
+          <summary className='flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-[#8a6d1a]'>
+            <AlertTriangle className='h-4 w-4 shrink-0' />
+            <span className='min-w-0 flex-1'>Pagos que requieren atención</span>
+            <span className='rounded-full bg-[#8a6d1a]/10 px-2 py-0.5 text-[12px] tabular-nums'>
+              {alerts.length}
+            </span>
+            <span className='text-[#8a6d1a]/60 transition group-open:rotate-180'>▾</span>
+          </summary>
+          <div className='mt-2 flex flex-col gap-1'>
             {alerts.map((a) => (
               <div
                 key={a.paymentId}
-                className='flex flex-wrap items-center gap-2 text-[13px] text-[#5b512f]'
+                className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md px-2 py-1.5 text-[13px] ${
+                  a.overdue ? 'bg-[#fbe4e4] text-[#a33]' : 'text-[#5b512f]'
+                }`}
               >
                 <span className='font-medium'>{a.studentName}</span>
                 <span>· {a.concept}</span>
                 <span>· {fmtPrice(a.amount)}</span>
                 <span>· vence {fmtDate(a.dueDate)}</span>
-                {a.overdue && (
-                  <StatusBadge label='VENCIDA' bg='#fbe4e4' fg='#a33' />
-                )}
               </div>
             ))}
           </div>
-        </div>
+        </details>
       )}
 
       {/* Toolbar */}
@@ -587,6 +592,7 @@ function StudentDetailDialog({
     amount: number;
     status: 'PAID' | 'PENDING';
     dueDate?: string;
+    paidAt?: string;
     method?: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -704,9 +710,9 @@ function StudentDetailDialog({
                   )}
                 </div>
 
-                {/* Regularidad */}
+                {/* Regularidad: chip condensado, no un bloque de color a todo lo ancho. */}
                 <div
-                  className={`rounded-xl border p-3 text-sm ${
+                  className={`inline-flex w-fit max-w-full items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium ${
                     adminData.regularity.upToDate
                       ? 'border-[#c9dcd2] bg-[#E7F0EC] text-[#455a54]'
                       : 'border-[#efb9b9] bg-[#fbe4e4] text-[#a33]'
@@ -714,7 +720,7 @@ function StudentDetailDialog({
                 >
                   {adminData.regularity.upToDate
                     ? '✓ Al día con los pagos'
-                    : `⚠ ${adminData.regularity.overdueCount} cuota(s) vencida(s) por ${fmtPrice(adminData.regularity.overdueAmount)}`}
+                    : `⚠ ${adminData.regularity.overdueCount} cuota(s) vencida(s) · ${fmtPrice(adminData.regularity.overdueAmount)}`}
                 </div>
 
                 <div className='flex flex-col gap-1.5'>
@@ -859,6 +865,15 @@ function StudentDetailDialog({
                           value={payForm.dueDate}
                           onChange={(dueDate) =>
                             setPayForm({ ...payForm, dueDate })
+                          }
+                          className='w-36'
+                        />
+                      )}
+                      {payForm.status === 'PAID' && (
+                        <DateInput
+                          value={payForm.paidAt}
+                          onChange={(paidAt) =>
+                            setPayForm({ ...payForm, paidAt })
                           }
                           className='w-36'
                         />

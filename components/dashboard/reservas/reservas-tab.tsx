@@ -271,14 +271,14 @@ export function ReservasTab() {
             );
           })}
         </div>
-        <div className='flex flex-wrap items-center gap-2.5'>
+        <div className='flex w-full items-center gap-2.5 sm:w-auto'>
           <select
             value={expFilter}
             onChange={(e) => {
               setExpFilter(e.target.value);
               setPage(1);
             }}
-            className='h-10 rounded-[10px] border border-[#e6dbcd] bg-white px-3 text-[13px] font-medium text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:outline-none sm:h-9'
+            className='h-10 min-w-0 flex-1 rounded-[10px] border border-[#e6dbcd] bg-white px-3 text-[13px] font-medium text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:outline-none sm:h-9 sm:flex-none'
           >
             <option value=''>Todas las experiencias</option>
             {experiences.map((e) => (
@@ -287,9 +287,9 @@ export function ReservasTab() {
               </option>
             ))}
           </select>
-          <Button type='button' variant='verde' className='gap-2' onClick={() => setNewOpen(true)}>
+          <Button type='button' variant='verde' className='shrink-0 gap-2' onClick={() => setNewOpen(true)}>
             <Plus className='h-4 w-4' />
-            Nueva reserva
+            <span className='sm:inline'>Nueva reserva</span>
           </Button>
         </div>
       </div>
@@ -302,9 +302,10 @@ export function ReservasTab() {
         />
       ) : (
         <>
-          {/* Filtros de estado con contador + búsqueda */}
-          <div className='flex flex-wrap items-center gap-x-3 gap-y-2.5'>
-            <div className='flex flex-wrap items-center gap-2'>
+          {/* Filtros de estado con contador + búsqueda. Mobile: buscador arriba,
+              chips en tira scrollable debajo. Desktop: chips a la izq, buscador a la der. */}
+          <div className='flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center'>
+            <div className='-mx-4 order-last flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-none sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0'>
               {FILTERS.map((f) => (
                 <FilterChip
                   key={f.key || 'all'}
@@ -457,31 +458,33 @@ export function ReservasTab() {
                     <p className='mt-1.5 text-sm font-semibold text-[#3d3338]'>
                       {r.customerName}
                     </p>
-                    <p className='mt-2 text-sm text-[#3d3338]'>
+                    <p className='mt-1.5 text-sm text-[#3d3338]'>
                       {r.experienceName}
                       {r.isBirthday && (
                         <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
                       )}
+                      <span className='ml-1.5 font-mono text-xs text-[#7a6e6f]'>
+                        · {fmtDateTime(r.startAt)}
+                      </span>
                     </p>
-                    <p className='font-mono text-xs text-[#7a6e6f]'>{fmtDateTime(r.startAt)}</p>
-                    <div className='mt-1.5'>
+                    {/* Meta condensada: personas · monto (saldo) · origen, en una línea. */}
+                    <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
+                      <span className='text-[#455a54]'>{r.quantity} pers.</span>
+                      <span className='text-[#c3b7a4]'>·</span>
+                      <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</span>
+                      {r.balanceDue != null && r.balanceDue > 0 && (
+                        <span className='text-[11px] text-[#9d684e]'>
+                          (saldo {fmtPrice(r.balanceDue)})
+                        </span>
+                      )}
+                      <span className='ml-auto rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#7a6e6f]'>
+                        {r.source === 'ADMIN' ? 'Admin' : 'Público'}
+                      </span>
                       <DietaryTags
                         tags={r.dietaryTags}
                         notes={r.dietaryNotes}
                         compact
                       />
-                    </div>
-                    <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'>
-                      <span className='text-[#455a54]'>{r.quantity} pers.</span>
-                      <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</span>
-                      {r.balanceDue != null && r.balanceDue > 0 && (
-                        <span className='text-[11px] text-[#7a6e6f]'>
-                          saldo {fmtPrice(r.balanceDue)}
-                        </span>
-                      )}
-                      <span className='rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#7a6e6f]'>
-                        {r.source === 'ADMIN' ? 'Admin' : 'Público'}
-                      </span>
                     </div>
                     {actions && (
                       <div className='mt-3' onClick={(e) => e.stopPropagation()}>

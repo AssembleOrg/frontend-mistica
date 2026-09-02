@@ -6,8 +6,8 @@
 // recalculada en scroll/resize. Click-afuera cuenta el panel como "adentro".
 //
 // No usa @radix-ui/react-popover (no instalado) — solo createPortal + rect.
-// ponytail: alineación bottom-start/-end sin flip vertical; si un panel quedara
-// cortado contra el borde inferior, agregar la medición de viewport acá.
+// Si no entra abajo del trigger, flipea arriba; si tampoco entra arriba, se
+// pega al borde inferior. Horizontalmente se clampa al viewport.
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -35,8 +35,29 @@ export function PopoverPortal({
     const el = anchorRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setPos({ top: r.bottom + 4, left: align === 'end' ? r.right : r.left, width: r.width });
+    // Primer cálculo sin panel montado (h=w=0): ubica abajo; el segundo pase
+    // (layout effect sobre `pos`) mide el panel real y corrige antes del paint.
+    const h = panelRef.current?.offsetHeight ?? 0;
+    const w = panelRef.current?.offsetWidth ?? 0;
+    const GAP = 4;
+    const EDGE = 8;
+    let top = r.bottom + GAP;
+    if (top + h > window.innerHeight - EDGE) top = r.top - GAP - h; // flip arriba
+    if (top < EDGE) top = Math.max(EDGE, window.innerHeight - EDGE - h); // no entra: pegar abajo
+    let left = align === 'end' ? r.right - w : r.left;
+    left = Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - w));
+    setPos((prev) =>
+      prev && prev.top === top && prev.left === left && prev.width === r.width
+        ? prev
+        : { top, left, width: r.width },
+    );
   }, [anchorRef, align]);
+
+  // Segundo pase: con el panel ya en el DOM se puede medir y flipear/clampar.
+  // El bail-out por igualdad en setPos evita el loop.
+  React.useLayoutEffect(() => {
+    if (open && pos) place();
+  }, [open, pos, place]);
 
   React.useLayoutEffect(() => {
     if (!open) return;
@@ -74,9 +95,13 @@ export function PopoverPortal({
         position: 'fixed',
         top: pos.top,
         left: pos.left,
-        transform: align === 'end' ? 'translateX(-100%)' : undefined,
         minWidth: pos.width,
+        maxWidth: `calc(100vw - 16px)`,
         zIndex: 60, // por encima del DialogContent (z-50)
+        // Radix Dialog modal pone pointer-events:none en <body>; este panel vive
+        // ahí y lo heredaría: el click atraviesa el calendario, cae en el overlay
+        // y cierra el modal. Forzamos auto para que el click quede en el panel.
+        pointerEvents: 'auto',
       }}
       className={className}
     >

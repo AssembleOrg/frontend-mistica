@@ -319,7 +319,7 @@ export function PiezasTab() {
     <div className='flex flex-col gap-5'>
       {/* Filtros de estado + búsqueda + nueva pieza */}
       <div className='flex flex-col gap-2.5'>
-        <div className='flex flex-wrap items-center gap-2'>
+        <div className='-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0'>
           {filters.map((f) => (
             <FilterChip
               key={f.key || 'all'}
@@ -335,29 +335,10 @@ export function PiezasTab() {
             />
           ))}
         </div>
-        <div className='flex flex-wrap items-center gap-2.5'>
-          {professors.length > 0 && (
-            <Select
-              value={professorId || 'all'}
-              onValueChange={(v) => {
-                setProfessorId(v === 'all' ? '' : v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className={cn('h-9 w-44 rounded-full text-xs', fieldCls)}>
-                <SelectValue placeholder='Profesor' />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value='all'>Todos los profesores</SelectItem>
-                {professors.map((pr) => (
-                  <SelectItem key={pr.id} value={pr.id}>
-                    {pr.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <div className='relative w-full min-w-[12rem] flex-1 sm:w-auto'>
+        {/* Mobile: buscador full-width arriba; profesor + acciones en la fila de
+            abajo. Desktop: todo en una sola fila que envuelve. */}
+        <div className='flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center'>
+          <div className='relative order-first w-full min-w-[12rem] sm:order-none sm:w-auto sm:flex-1'>
             <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
             <Input
               value={searchInput}
@@ -366,27 +347,50 @@ export function PiezasTab() {
               className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
             />
           </div>
-          {isAdmin && (
+          <div className='flex items-center gap-2.5'>
+            {professors.length > 0 && (
+              <Select
+                value={professorId || 'all'}
+                onValueChange={(v) => {
+                  setProfessorId(v === 'all' ? '' : v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className={cn('h-9 min-w-0 flex-1 rounded-full text-xs sm:w-44 sm:flex-none', fieldCls)}>
+                  <SelectValue placeholder='Profesor' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='all'>Todos los profesores</SelectItem>
+                  {professors.map((pr) => (
+                    <SelectItem key={pr.id} value={pr.id}>
+                      {pr.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {isAdmin && (
+              <Button
+                type='button'
+                variant='ghost'
+                onClick={() => setEditingStatuses(true)}
+                title='Configurar los estados del proceso'
+                className='shrink-0 gap-1.5 border border-[#e6dbcd] bg-white px-2.5 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                <Settings2 className='h-4 w-4' />
+                Estados
+              </Button>
+            )}
             <Button
               type='button'
-              variant='ghost'
-              onClick={() => setEditingStatuses(true)}
-              title='Configurar los estados del proceso'
-              className='shrink-0 gap-1.5 border border-[#e6dbcd] bg-white px-2.5 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+              variant='verde'
+              onClick={() => setCreating(true)}
+              className='shrink-0 gap-2'
             >
-              <Settings2 className='h-4 w-4' />
-              Estados
+              <Plus className='h-4 w-4' />
+              Nueva pieza
             </Button>
-          )}
-          <Button
-            type='button'
-            variant='verde'
-            onClick={() => setCreating(true)}
-            className='shrink-0 gap-2'
-          >
-            <Plus className='h-4 w-4' />
-            Nueva pieza
-          </Button>
+          </div>
         </div>
       </div>
 
@@ -759,12 +763,12 @@ function NewPieceModal({
 
         <div className='flex flex-col gap-3'>
           {/* Origen: reserva (normal) o carga manual */}
-          <div className='flex gap-1.5'>
+          <div className='flex flex-wrap gap-1.5'>
             <button
               type='button'
               onClick={() => setMode('reserva')}
               className={cn(
-                'rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
                 mode === 'reserva'
                   ? 'border-[#455a54] bg-[#455a54] text-white'
                   : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
@@ -776,7 +780,7 @@ function NewPieceModal({
               type='button'
               onClick={() => setMode('alumno')}
               className={cn(
-                'rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
                 mode === 'alumno'
                   ? 'border-[#455a54] bg-[#455a54] text-white'
                   : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
@@ -788,7 +792,7 @@ function NewPieceModal({
               type='button'
               onClick={() => setMode('manual')}
               className={cn(
-                'rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
                 mode === 'manual'
                   ? 'border-[#455a54] bg-[#455a54] text-white'
                   : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',

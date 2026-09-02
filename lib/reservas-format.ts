@@ -12,6 +12,14 @@ export function fmtPrice(n: number): string {
   }).format(n);
 }
 
+// Monto compacto para espacios chicos (stat cards): $ 1,2 M / $ 350 k / $ 900.
+// A partir de 1.000.000 usa "M", de 10.000 usa "k"; abajo, el formato normal.
+export function fmtPriceCompact(n: number): string {
+  if (n >= 1_000_000) return `$ ${(n / 1_000_000).toFixed(1).replace('.', ',')} M`;
+  if (n >= 10_000) return `$ ${Math.round(n / 1000)} k`;
+  return fmtPrice(n);
+}
+
 // Fecha + hora: "mié 24/12/2026 · 18:00" (la fecha siempre DD/MM/YYYY).
 export function fmtDateTime(iso: string): string {
   const d = new Date(iso);

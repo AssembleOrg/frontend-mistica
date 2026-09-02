@@ -138,15 +138,16 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     <div className='flex flex-col gap-4'>
       {/* Alta rápida */}
       <div className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
-        <div className='flex flex-wrap items-center gap-2'>
+        {/* Mobile: campos apilados; desktop: una fila que envuelve. */}
+        <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center'>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && create()}
             placeholder='Nueva tarea (ej. "Hornear tanda de tazas")'
-            className={`${fieldCls} h-9 min-w-56 flex-1`}
+            className={`${fieldCls} h-9 min-w-56 sm:flex-1`}
           />
-          <div className='flex min-h-9 flex-wrap items-center gap-1 rounded-md border border-[#e6dbcd] bg-[#fbf5ef] px-2 py-1'>
+          <div className='flex max-h-24 min-h-9 flex-wrap items-center gap-1 overflow-y-auto rounded-md border border-[#e6dbcd] bg-[#fbf5ef] px-2 py-1'>
             {accounts.length === 0 ? <span className='text-xs text-[#7a6e6f]'>Sin responsables</span> : accounts.map((a) => {
               const selected = assigneeIds.includes(a.id);
               return <button key={a.id} type='button' onClick={() => setAssigneeIds((ids) => selected ? ids.filter((id) => id !== a.id) : [...ids, a.id])}
@@ -155,17 +156,19 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
               </button>;
             })}
           </div>
-          <DatePicker value={dueDate} onChange={setDueDate} placeholder='Límite' clearable className='w-36' />
-          <Button
-            type='button'
-            variant='verde'
-            onClick={create}
-            disabled={creating}
-            className='gap-1.5'
-          >
-            <Plus className='h-4 w-4' />
-            Crear
-          </Button>
+          <div className='flex items-center gap-2'>
+            <DatePicker value={dueDate} onChange={setDueDate} placeholder='Límite' clearable className='w-36' />
+            <Button
+              type='button'
+              variant='verde'
+              onClick={create}
+              disabled={creating}
+              className='gap-1.5'
+            >
+              <Plus className='h-4 w-4' />
+              Crear
+            </Button>
+          </div>
         </div>
         <Textarea
           value={description}

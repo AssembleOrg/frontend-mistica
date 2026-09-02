@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Loader2,
   Lock,
   Pencil,
   Users,
@@ -54,6 +55,7 @@ function hourAR(iso?: string): string {
   return new Date(iso).toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false, // 24h "15:30"; es-AR default es 12h "03:30 p. m." y desborda en mobile
     timeZone: AR_TZ,
   });
 }
@@ -198,7 +200,14 @@ export function MesasTab() {
           >
             Hoy
           </button>
-          {loading && <span className='text-xs text-[#7a6e6f]'>cargando…</span>}
+          {/* Spinner con ancho fijo: no empuja el layout al aparecer/desaparecer. */}
+          <Loader2
+            className={cn(
+              'h-4 w-4 shrink-0 animate-spin text-[#9d684e] transition-opacity',
+              loading ? 'opacity-100' : 'opacity-0',
+            )}
+            aria-hidden={!loading}
+          />
         </div>
         {agenda && (
           <div className='flex flex-wrap items-center gap-2 text-xs'>
@@ -404,7 +413,7 @@ function BlockForm({
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder='Motivo (taller, evento, mesa rota)'
-          className='w-56 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-sm text-[#3d3338] outline-none focus:border-[#9d684e]'
+          className='w-full rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-sm text-[#3d3338] outline-none focus:border-[#9d684e] sm:w-56'
         />
         <label className='flex items-center gap-2 text-[13px] text-[#3d3338]'>
           <input
@@ -437,7 +446,7 @@ function BlockForm({
           </span>
         )}
       </div>
-      <div className='flex items-center gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
         <button
           type='button'
           disabled={busy || !label.trim() || (!allDay && end <= start)}
@@ -499,37 +508,42 @@ function ReservationRow({
   }
 
   return (
-    <div className='flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#e6dbcd] bg-white px-3.5 py-2.5'>
-      <span className='font-mono text-[13px] font-semibold text-[#455a54]'>
-        {hourAR(r.startAt)}–{hourAR(r.endAt)}
-      </span>
-      <span className='min-w-0 flex-1 truncate text-sm font-semibold text-[#3d3338]'>
-        {r.customerName}
-      </span>
-      <span className='inline-flex items-center gap-1.5 text-[13px] text-[#7a6e6f]'>
-        <Users className='h-3.5 w-3.5' />
-        {r.qty}
-      </span>
-      <span className='truncate text-[13px] text-[#7a6e6f]'>{r.experienceName}</span>
-      {r.code && (
-        <span className='font-mono text-[11px] text-[#a99f92]'>{prettyCode(r.code)}</span>
-      )}
-      {r.status && <StatusBadge label={r.status} bg={bg} fg={fg} />}
-      {r.shared && (
-        <span className='rounded-full bg-[#f4ead9] px-2.5 py-1 text-[11px] font-semibold text-[#9d684e]'>
-          mesa compartida
+    <div className='rounded-xl border border-[#e6dbcd] bg-white px-3.5 py-2.5'>
+      {/* Línea 1: hora + nombre + qty. Nombre trunca; nada empuja al horario. */}
+      <div className='flex items-center gap-x-3'>
+        <span className='shrink-0 font-mono text-[13px] font-semibold text-[#455a54]'>
+          {hourAR(r.startAt)}–{hourAR(r.endAt)}
         </span>
-      )}
-      <span className='flex flex-wrap gap-1.5'>
+        <span className='min-w-0 flex-1 truncate text-sm font-semibold text-[#3d3338]'>
+          {r.customerName}
+        </span>
+        <span className='inline-flex shrink-0 items-center gap-1.5 text-[13px] text-[#7a6e6f]'>
+          <Users className='h-3.5 w-3.5' />
+          {r.qty}
+        </span>
+      </div>
+      {/* Línea 2: metadatos + chips de mesa, envuelven libremente. */}
+      <div className='mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5'>
+        <span className='min-w-0 truncate text-[13px] text-[#7a6e6f]'>{r.experienceName}</span>
+        {r.code && (
+          <span className='font-mono text-[11px] text-[#a99f92]'>{prettyCode(r.code)}</span>
+        )}
+        {r.status && <StatusBadge label={r.status} bg={bg} fg={fg} />}
+        {r.shared && (
+          <span className='rounded-full bg-[#f4ead9] px-2.5 py-1 text-[11px] font-semibold text-[#9d684e]'>
+            mesa compartida
+          </span>
+        )}
         {r.tables.map((code) => (
           <TableChip key={code} code={code} tone='assigned' />
         ))}
-      </span>
-      <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />
+        <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />
+      </div>
+      {/* Línea 3: acción — full-width en mobile, auto en desktop. */}
       <button
         type='button'
         onClick={() => setEditing(true)}
-        className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-1 text-[12px] font-medium text-[#455a54] hover:bg-[#fbf5ef]'
+        className='mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-2.5 py-1.5 text-[12px] font-medium text-[#455a54] hover:bg-[#fbf5ef] sm:mt-1.5 sm:w-auto sm:py-1'
       >
         <Pencil className='h-3 w-3' />
         Cambiar mesas
@@ -630,7 +644,7 @@ function ReassignRow({
         })}
       </div>
 
-      <div className='flex items-center gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
         <button
           type='button'
           disabled={saving || falta || picked.length === 0}

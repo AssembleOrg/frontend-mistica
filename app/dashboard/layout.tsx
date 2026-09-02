@@ -3,6 +3,7 @@ import { AuthHydrator } from '@/components/auth-hydrator';
 import { ViewGuard } from '@/components/view-guard';
 import { AutoClosureNotifier } from '@/components/dashboard/cashbox/auto-closure-notifier';
 import { ConfirmProvider } from '@/components/ui/confirm-dialog';
+import { InAppNotificationsBell } from '@/components/dashboard/in-app-notifications-bell';
 import {
   SidebarInset,
   SidebarProvider,
@@ -57,6 +58,7 @@ export default function DashboardLayout({
               podés abrir o cerrar el panel con este ícono
             </span>
           </div>
+          <InAppNotificationsBell />
         </header>
         <div
           className='flex flex-1 flex-col gap-4 p-2 sm:p-4 pt-2 sm:pt-4 overflow-x-clip'

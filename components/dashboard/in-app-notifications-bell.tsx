@@ -15,7 +15,7 @@ export function InAppNotificationsBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (user?.role !== 'admin') return;
+    if (!user) return;
     void inAppNotifications.list().then(setItems).catch(() => setItems([]));
     return inAppNotifications.subscribe((event) => {
       setItems((current) => {
@@ -23,7 +23,7 @@ export function InAppNotificationsBell() {
         return [event.notification, ...rest].slice(0, 50);
       });
     });
-  }, [user?.role]);
+  }, [user]);
 
   useEffect(() => {
     const close = (event: MouseEvent) => {
@@ -33,7 +33,7 @@ export function InAppNotificationsBell() {
     return () => window.removeEventListener('mousedown', close);
   }, []);
 
-  if (user?.role !== 'admin') return null;
+  if (!user) return null;
   const unread = items.filter((item) => !item.read).length;
   async function markRead(item: InAppNotification) {
     if (item.read) return;

@@ -519,6 +519,15 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                             Seña
                           </span>
                         )}
+                        {t.source === 'egress' && t.affectsCashbox === false && (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0"
+                            style={{ color: '#6b5b73', backgroundColor: 'rgba(107,91,115,0.12)' }}
+                            title="Gasto externo: no salió de la caja física, no afecta el arqueo."
+                          >
+                            No afecta caja
+                          </span>
+                        )}
                         <span
                           className="flex-1 truncate text-xs"
                           style={{ color: 'var(--color-ciruela-oscuro)' }}

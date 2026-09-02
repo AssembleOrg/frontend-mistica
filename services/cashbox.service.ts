@@ -139,6 +139,9 @@ export interface SessionTransaction {
   // true cuando es seña: prepaid (saldo a favor) o venta con saldo pendiente
   // (status PARTIAL). Lo usa el chip "Seña" unificado del detalle de sesión.
   isSena?: boolean;
+  // Sólo en egresos. false = gasto externo: se muestra en la lista con un badge
+  // "no afecta caja", pero no bajó el efectivo esperado ni cuenta en los KPIs.
+  affectsCashbox?: boolean;
   // Marca manual del checkbox tipo Excel. Sólo estado; no afecta cálculos.
   checked?: boolean;
 }

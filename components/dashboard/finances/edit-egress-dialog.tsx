@@ -56,6 +56,9 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<typeof METHODS[number]['value']>('CASH');
   const [notes, setNotes] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  // false = gasto externo: se pagó con plata que no estaba en el cajón. Sólo
+  // aplica en efectivo. Editable para corregir un egreso mal marcado.
+  const [affectsCashbox, setAffectsCashbox] = useState(true);
 
   // Precarga los datos del egreso al abrir. Mientras el fetch está en vuelo el
   // form queda deshabilitado para no guardar valores vacíos.
@@ -76,6 +79,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
         );
         setNotes(egress.notes ?? '');
         setCategoryId(egress.categoryId ?? '');
+        setAffectsCashbox(egress.affectsCashbox ?? true);
       })
       .catch(() => {
         // toast manejado en el hook; cerramos para no dejar un form vacío.
@@ -98,6 +102,9 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
         type,
         paymentMethod,
         categoryId,
+        // El flag sólo tiene sentido en efectivo; con otro método siempre afecta
+        // caja (no hay "gasto externo del cajón" en tarjeta/transferencia).
+        affectsCashbox: paymentMethod === 'CASH' ? affectsCashbox : true,
         notes: notes.trim() || undefined,
       });
       onUpdated?.();
@@ -174,6 +181,36 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
               </SelectContent>
             </Select>
           </div>
+          {paymentMethod === 'CASH' && (
+            <button
+              type='button'
+              onClick={() => setAffectsCashbox(!affectsCashbox)}
+              disabled={busy}
+              className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition ${
+                affectsCashbox
+                  ? 'border-[#9d684e]/20 bg-white hover:bg-[#efcbb9]/10'
+                  : 'border-[#9d684e] bg-[#efcbb9]/30'
+              }`}
+            >
+              <span
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                  affectsCashbox
+                    ? 'border-[#9d684e]/40 bg-white'
+                    : 'border-[#9d684e] bg-[#9d684e] text-white'
+                }`}
+              >
+                {affectsCashbox ? '' : '✓'}
+              </span>
+              <span className='text-[13px] leading-snug text-[#455a54]'>
+                Gasto externo: no sale de la caja física
+                <span className='block text-[11px] text-[#455a54]/60'>
+                  Se pagó con plata que no estaba en el cajón (banco, cuenta
+                  del dueño). Cuenta en finanzas, no baja el esperado del
+                  arqueo.
+                </span>
+              </span>
+            </button>
+          )}
           <div className='space-y-1'>
             <Label className='text-xs'>Notas (opcional)</Label>
             <Textarea

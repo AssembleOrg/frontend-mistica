@@ -33,6 +33,11 @@ export function computeSessionKpis(transactions: SessionTransaction[]): SessionK
   const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0 };
 
   for (const t of transactions) {
+    // Gasto externo (affectsCashbox=false): se paga con plata que no estaba en el
+    // cajón. Se muestra en la lista pero no toca caja → no cuenta en NINGÚN KPI
+    // (ni egresos ni efectivo), así netBalance sigue reconciliando con el esperado.
+    if (t.source === 'egress' && t.affectsCashbox === false) continue;
+
     if (t.source === 'sale') { salesCount++; salesTotal += t.amount; }
     else if (t.source === 'egress') { egressCount++; egressTotal += t.amount; }
     else if (t.source === 'income') { incomeCount++; incomeTotal += t.amount; }

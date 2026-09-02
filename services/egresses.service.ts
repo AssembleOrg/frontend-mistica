@@ -65,6 +65,8 @@ export interface UpdateEgressRequest {
   currency?: 'USD' | 'EUR' | 'UYU' | 'ARS' | 'BRL';
   type?: 'WITHDRAWAL' | 'EXPENSE' | 'REFUND' | 'TRANSFER' | 'OTHER';
   paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
+  /** false = gasto externo: no descuenta del arqueo de la caja física. */
+  affectsCashbox?: boolean;
   notes?: string;
   authorizedBy?: string;
   [key: string]: unknown;

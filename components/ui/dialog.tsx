@@ -59,6 +59,20 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        // Los pickers (DatePicker, AsyncSelect…) portalean su panel al <body>
+        // vía PopoverPortal, fuera del árbol del Dialog. Sin esto, Radix trata
+        // el click/foco en ese panel como "afuera" y cierra el modal. Ignoramos
+        // los eventos externos cuyo target esté dentro de un panel portaleado.
+        onPointerDownOutside={(e) => {
+          if ((e.target as Element)?.closest?.("[data-popover-portal]")) {
+            e.preventDefault()
+          }
+        }}
+        onInteractOutside={(e) => {
+          if ((e.target as Element)?.closest?.("[data-popover-portal]")) {
+            e.preventDefault()
+          }
+        }}
         className={cn(
           // `max-h` + `overflow-y-auto`: si el contenido es más alto que la
           // ventana, scrollea dentro del modal. Sin esto se desborda fuera de

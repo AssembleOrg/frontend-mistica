@@ -66,6 +66,10 @@ export function PopoverPortal({
   return createPortal(
     <div
       ref={panelRef}
+      // Marca para que el DialogContent NO cierre cuando el click/foco cae en
+      // este panel portaleado (vive en <body>, fuera del árbol del Dialog, así
+      // que Radix lo tomaría como "afuera"). Ver dialog.tsx (onInteractOutside).
+      data-popover-portal=''
       style={{
         position: 'fixed',
         top: pos.top,

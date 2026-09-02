@@ -40,6 +40,7 @@ import {
   type PriceVariant,
 } from '@/services/reservations.admin.service';
 import { FilterChip, IconBtn, StatusBadge } from './_shared';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const EMPTY: CreateExperienceInput = {
   name: '',
@@ -72,6 +73,7 @@ function fmtDuration(min: number): string {
 type ExpFilter = 'all' | 'online' | 'coordinada';
 
 export function ExperienciasTab() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<AdminExperience[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<AdminExperience | null>(null);
@@ -149,7 +151,12 @@ export function ExperienciasTab() {
   }
 
   async function remove(e: AdminExperience) {
-    if (!confirm(`¿Dar de baja "${e.name}"?`)) return;
+    const ok = await confirm({
+      title: 'Dar de baja experiencia',
+      description: `¿Dar de baja "${e.name}"?`,
+      confirmLabel: 'Dar de baja',
+    });
+    if (!ok) return;
     try {
       await reservationsAdmin.deleteExperience(e._id);
       showToast.success('Experiencia dada de baja');

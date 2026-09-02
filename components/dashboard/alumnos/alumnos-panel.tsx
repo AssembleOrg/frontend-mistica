@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
+import { DateInput } from '@/components/ui/date-input';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
   tallerAdmin,
   WEEKDAY_SHORT,
   type CreateStudentInput,
+  type Group,
   type PaymentAlert,
   type Student,
   type StudentAdminProfile,
@@ -33,6 +34,14 @@ const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 const EMPTY: CreateStudentInput = { name: '', isActive: true };
+
+// Valores canónicos del sistema (ventas/caja usan estos), label en español.
+const PAYMENT_METHODS = [
+  { value: 'CASH', label: 'Efectivo' },
+  { value: 'TRANSFER', label: 'Transferencia' },
+  { value: 'CARD', label: 'Tarjeta' },
+  { value: 'MERCADOPAGO', label: 'Mercado Pago' },
+];
 
 function fmtDate(d?: string) {
   if (!d) return '—';
@@ -50,6 +59,7 @@ export function AlumnosPanel() {
   const isAdmin = user?.role === 'admin';
 
   const [students, setStudents] = useState<Student[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [alerts, setAlerts] = useState<PaymentAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -62,12 +72,14 @@ export function AlumnosPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [list, al] = await Promise.all([
+      const [list, al, gs] = await Promise.all([
         tallerAdmin.listStudents(showInactive),
         isAdmin ? tallerAdmin.paymentAlerts(7) : Promise.resolve([]),
+        tallerAdmin.listGroups(),
       ]);
       setStudents(list);
       setAlerts(al);
+      setGroups(gs);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar');
     } finally {
@@ -116,6 +128,16 @@ export function AlumnosPanel() {
     s.name.toLowerCase().includes(search.trim().toLowerCase()),
   );
 
+  // Mapa alumno → grupos (cruzando group.studentIds) para mostrar en la card.
+  const groupsByStudent = new Map<string, Group[]>();
+  for (const g of groups) {
+    for (const sid of g.studentIds) {
+      const arr = groupsByStudent.get(sid);
+      if (arr) arr.push(g);
+      else groupsByStudent.set(sid, [g]);
+    }
+  }
+
   return (
     <div className='flex flex-col gap-4'>
       {/* Situaciones administrativas: cuotas vencidas y por vencer */}
@@ -153,14 +175,17 @@ export function AlumnosPanel() {
             placeholder='Buscar alumno…'
             className={`${fieldCls} h-9 w-56`}
           />
+          {/* Filtro "Ver inactivos" oculto: hoy la baja borra (soft-delete) y no
+              se generan inactivos-no-eliminados, así que el toggle no aporta.
           <label className='flex items-center gap-2 text-sm text-[#7a6e6f]'>
             <Switch
               checked={showInactive}
               onCheckedChange={setShowInactive}
               className='data-[state=checked]:bg-[#455a54]'
             />
-            Ver bajas
+            Ver inactivos
           </label>
+          */}
         </div>
         {isAdmin && (
           <Button
@@ -211,6 +236,16 @@ export function AlumnosPanel() {
                 {s.guardianName ? ` · Resp.: ${s.guardianName}` : ''}
                 {s.phone ? ` · ${s.phone}` : ''}
               </p>
+              {(groupsByStudent.get(s._id)?.length ?? 0) > 0 && (
+                <div className='flex flex-col gap-0.5'>
+                  {groupsByStudent.get(s._id)!.map((g) => (
+                    <p key={g._id} className='text-[13px] text-[#455a54]'>
+                      {g.name}
+                      {g.professorName ? ` · Prof. ${g.professorName}` : ''}
+                    </p>
+                  ))}
+                </div>
+              )}
               <div className='flex items-center justify-end gap-1.5'>
                 <Button
                   type='button'
@@ -301,14 +336,13 @@ export function AlumnosPanel() {
               </Field>
               <div className='grid grid-cols-2 gap-3'>
                 <Field label='Nacimiento'>
-                  <DatePicker
+                  <DateInput
                     value={form.birthDate}
                     onChange={(birthDate) => setForm({ ...form, birthDate })}
-                    clearable
                   />
                 </Field>
                 <Field label='Incorporación'>
-                  <DatePicker
+                  <DateInput
                     value={form.joinedAt}
                     onChange={(joinedAt) => setForm({ ...form, joinedAt })}
                   />
@@ -666,24 +700,29 @@ function StudentDetailDialog({
                           : 'Cuota a cobrar'}
                       </button>
                       {payForm.status === 'PENDING' && (
-                        <DatePicker
+                        <DateInput
                           value={payForm.dueDate}
                           onChange={(dueDate) =>
                             setPayForm({ ...payForm, dueDate })
                           }
-                          placeholder='Vence'
-                          className='w-32'
+                          className='w-36'
                         />
                       )}
                       {payForm.status === 'PAID' && (
-                        <Input
+                        <select
                           value={payForm.method ?? ''}
                           onChange={(e) =>
                             setPayForm({ ...payForm, method: e.target.value })
                           }
-                          placeholder='Medio (efectivo…)'
-                          className={`${fieldCls} h-9 w-36`}
-                        />
+                          className={`${fieldCls} h-9 w-40 rounded-md border px-2 text-sm`}
+                        >
+                          <option value=''>Medio de pago…</option>
+                          {PAYMENT_METHODS.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
                       )}
                     </div>
                     <div className='flex justify-end gap-2'>

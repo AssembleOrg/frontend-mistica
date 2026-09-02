@@ -95,6 +95,14 @@ export interface StudentAdminProfile {
     overdueCount: number;
     overdueAmount: number;
   };
+  regularityHistory: Array<{
+    _id: string;
+    status: 'UP_TO_DATE' | 'OVERDUE';
+    overdueCount: number;
+    overdueAmount: number;
+    source: string;
+    createdAt: string;
+  }>;
 }
 
 export interface StudentPracticalProfile {

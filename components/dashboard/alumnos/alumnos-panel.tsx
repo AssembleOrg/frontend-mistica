@@ -231,11 +231,13 @@ export function AlumnosPanel() {
                   <StatusBadge label='Baja' bg='#f1efe9' fg='#7a6e6f' />
                 )}
               </div>
-              <p className='text-sm text-[#7a6e6f]'>
-                Desde {fmtDate(s.joinedAt)}
-                {s.guardianName ? ` · Resp.: ${s.guardianName}` : ''}
-                {s.phone ? ` · ${s.phone}` : ''}
-              </p>
+              {(isAdmin || s.joinedAt || s.guardianName || s.phone) && (
+                <p className='text-sm text-[#7a6e6f]'>
+                  {s.joinedAt && `Desde ${fmtDate(s.joinedAt)}`}
+                  {s.guardianName ? `${s.joinedAt ? ' · ' : ''}Resp.: ${s.guardianName}` : ''}
+                  {s.phone ? `${s.joinedAt || s.guardianName ? ' · ' : ''}${s.phone}` : ''}
+                </p>
+              )}
               {(groupsByStudent.get(s._id)?.length ?? 0) > 0 && (
                 <div className='flex flex-col gap-0.5'>
                   {groupsByStudent.get(s._id)!.map((g) => (
@@ -589,6 +591,35 @@ function StudentDetailDialog({
                   {adminData.regularity.upToDate
                     ? '✓ Al día con los pagos'
                     : `⚠ ${adminData.regularity.overdueCount} cuota(s) vencida(s) por ${fmtPrice(adminData.regularity.overdueAmount)}`}
+                </div>
+
+                <div className='flex flex-col gap-1.5'>
+                  <span className='text-sm font-semibold text-[#455a54]'>
+                    Historial de regularidad
+                  </span>
+                  {adminData.regularityHistory.length === 0 ? (
+                    <p className='text-xs text-[#7a6e6f]'>
+                      Se empezará a registrar con los próximos cambios de cuota.
+                    </p>
+                  ) : (
+                    <div className='flex flex-col gap-1'>
+                      {adminData.regularityHistory.map((event) => (
+                        <div
+                          key={event._id}
+                          className='flex items-center justify-between rounded-lg border border-[#e6dbcd] px-3 py-2 text-[12px]'
+                        >
+                          <span className={event.status === 'UP_TO_DATE' ? 'text-[#455a54]' : 'text-[#a33]'}>
+                            {event.status === 'UP_TO_DATE'
+                              ? '✓ Al día'
+                              : `⚠ ${event.overdueCount} cuota(s) vencida(s)`}
+                          </span>
+                          <span className='text-[#7a6e6f]'>
+                            {fmtDate(event.createdAt)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Historial de pagos */}

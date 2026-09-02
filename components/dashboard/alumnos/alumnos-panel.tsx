@@ -9,6 +9,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { DateInput } from '@/components/ui/date-input';
+import { AsyncSelect } from '@/components/ui/async-select';
+import { ClientsService, type Client } from '@/services/clients.service';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +60,8 @@ function fmtDate(d?: string) {
 export function AlumnosPanel() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const confirm = useConfirm();
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const [students, setStudents] = useState<Student[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -114,7 +119,7 @@ export function AlumnosPanel() {
   }
 
   async function remove(s: Student) {
-    if (!confirm(`¿Dar de baja a "${s.name}"? El historial se conserva.`)) return;
+    if (!(await confirm({ title: `¿Dar de baja a ${s.name}?`, description: 'El historial se conserva.', confirmLabel: 'Dar de baja' }))) return;
     try {
       await tallerAdmin.removeStudent(s._id);
       showToast.success('Alumno dado de baja');
@@ -193,6 +198,7 @@ export function AlumnosPanel() {
             variant='verde'
             onClick={() => {
               setEditing(null);
+              setSelectedClient(null);
               setForm({ ...EMPTY });
             }}
             className='gap-2'
@@ -266,8 +272,10 @@ export function AlumnosPanel() {
                       tone='verde'
                       onClick={() => {
                         setEditing(s);
+                        setSelectedClient(s.clientId ? { id: s.clientId, fullName: s.clientName ?? s.name, prepaid: 0, createdAt: '', updatedAt: '' } : null);
                         setForm({
                           name: s.name,
+                          clientId: s.clientId,
                           phone: s.phone,
                           email: s.email,
                           guardianName: s.guardianName,
@@ -303,6 +311,26 @@ export function AlumnosPanel() {
               </DialogTitle>
             </DialogHeader>
             <div className='flex flex-col gap-3'>
+              <Field label='Vincular a un cliente (opcional)'>
+                <AsyncSelect<Client>
+                  value={selectedClient}
+                  onChange={(client) => {
+                    setSelectedClient(client);
+                    if (client) setForm({ ...form, clientId: client.id, name: client.fullName, phone: client.phone ?? form.phone, email: client.email ?? form.email });
+                    else setForm({ ...form, clientId: undefined });
+                  }}
+                  fetcher={async (term, page, pageSize) => {
+                    const result = await new ClientsService().getClients(page, pageSize, { search: term });
+                    return { items: result.data.data, hasMore: result.data.meta.hasNextPage };
+                  }}
+                  getKey={(client) => client.id}
+                  getLabel={(client) => client.fullName}
+                  placeholder='Buscá un cliente por nombre…'
+                  noResultsLabel='No encontramos clientes'
+                  className='w-full'
+                />
+                <p className='mt-1 text-[11px] text-[#7a6e6f]'>Al elegirlo se completan sus datos y queda asociado al alumno.</p>
+              </Field>
               <Field label='Nombre y apellido'>
                 <Input
                   value={form.name}

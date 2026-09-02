@@ -40,6 +40,8 @@ export interface CreateGroupInput {
 export interface Student {
   _id: string;
   name: string;
+  clientId?: string;
+  clientName?: string;
   phone?: string;
   email?: string;
   guardianName?: string;
@@ -53,6 +55,7 @@ export interface Student {
 
 export interface CreateStudentInput {
   name: string;
+  clientId?: string;
   phone?: string;
   email?: string;
   guardianName?: string;
@@ -159,6 +162,7 @@ export interface StaffTask {
   description?: string;
   assigneeUserId?: string;
   assigneeName?: string;
+  assignees?: Array<{ userId: string; name: string }>;
   status: 'PENDING' | 'DONE';
   dueDate?: string;
   completedAt?: string;
@@ -288,7 +292,7 @@ export const tallerAdmin = {
   createTask: async (input: {
     title: string;
     description?: string;
-    assigneeUserId?: string;
+    assigneeUserIds?: string[];
     dueDate?: string;
   }) =>
     (await apiService.post<StaffTask>('/staff/tasks', input as unknown as Json))
@@ -298,7 +302,7 @@ export const tallerAdmin = {
     input: Partial<{
       title: string;
       description: string;
-      assigneeUserId: string;
+      assigneeUserIds: string[];
       dueDate: string;
       status: 'PENDING' | 'DONE';
     }>,

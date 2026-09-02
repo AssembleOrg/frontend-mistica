@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Edit, Check, X } from 'lucide-react';
 import { ClientNote, NOTE_COLORS, NOTE_COLOR_KEYS, NoteColor, formatNoteDate } from '@/lib/client-notes';
@@ -154,12 +155,7 @@ export function ClientNotesManager({ notes, onChange }: ClientNotesManagerProps)
 
           <div className='space-y-1'>
             <Label className='text-[#455a54] font-winter-solid text-xs'>Fecha</Label>
-            <input
-              type='date'
-              value={form.date}
-              onChange={(e) => setForm((prev) => ({ ...prev, date: e.target.value }))}
-              className='w-full h-8 rounded-md border border-[#9d684e]/20 bg-background px-3 text-sm focus:outline-none focus:border-[#9d684e] focus:ring-1 focus:ring-[#9d684e]/20'
-            />
+            <DatePicker value={form.date} onChange={(date) => setForm((prev) => ({ ...prev, date }))} className='w-full' />
           </div>
 
           <div className='space-y-1'>

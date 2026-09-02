@@ -15,6 +15,7 @@ import {
 } from '@/services/taller.admin.service';
 import { usersAdmin, type Account } from '@/services/users.admin.service';
 import { StatusBadge } from '../reservas/_shared';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -61,7 +62,8 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   const [showDone, setShowDone] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [assignee, setAssignee] = useState('');
+  const confirm = useConfirm();
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [creating, setCreating] = useState(false);
 
@@ -92,12 +94,12 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
       await tallerAdmin.createTask({
         title: title.trim(),
         description: description.trim() || undefined,
-        assigneeUserId: assignee || undefined,
+        assigneeUserIds: assigneeIds.length ? assigneeIds : undefined,
         dueDate: dueDate || undefined,
       });
       setTitle('');
       setDescription('');
-      setAssignee('');
+      setAssigneeIds([]);
       setDueDate('');
       await load();
       showToast.success('Tarea creada');
@@ -120,7 +122,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   }
 
   async function remove(t: StaffTask) {
-    if (!confirm(`¿Eliminar la tarea "${t.title}"?`)) return;
+    if (!(await confirm({ title: `¿Eliminar la tarea ${t.title}?`, description: 'Esta acción no se puede deshacer.' }))) return;
     try {
       await tallerAdmin.removeTask(t._id);
       await load();
@@ -144,18 +146,15 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
             placeholder='Nueva tarea (ej. "Hornear tanda de tazas")'
             className={`${fieldCls} h-9 min-w-56 flex-1`}
           />
-          <select
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-            className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
-          >
-            <option value=''>Sin asignar</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
+          <div className='flex min-h-9 flex-wrap items-center gap-1 rounded-md border border-[#e6dbcd] bg-[#fbf5ef] px-2 py-1'>
+            {accounts.length === 0 ? <span className='text-xs text-[#7a6e6f]'>Sin responsables</span> : accounts.map((a) => {
+              const selected = assigneeIds.includes(a.id);
+              return <button key={a.id} type='button' onClick={() => setAssigneeIds((ids) => selected ? ids.filter((id) => id !== a.id) : [...ids, a.id])}
+                className={`rounded px-2 py-1 text-xs transition ${selected ? 'bg-[#455a54] text-white' : 'bg-white text-[#455a54] hover:bg-[#f3e9df]'}`}>
                 {a.name || a.email}
-              </option>
-            ))}
-          </select>
+              </button>;
+            })}
+          </div>
           <DatePicker value={dueDate} onChange={setDueDate} placeholder='Límite' clearable className='w-36' />
           <Button
             type='button'
@@ -255,9 +254,9 @@ function TaskRow({
           <p className='text-sm text-[#7a6e6f]'>{t.description}</p>
         )}
         <div className='mt-1 flex flex-wrap items-center gap-1.5'>
-          {t.assigneeName && (
-            <StatusBadge label={t.assigneeName} bg='#E7F0EC' fg='#455a54' />
-          )}
+          {(t.assignees?.length ? t.assignees : (t.assigneeName ? [{ userId: t.assigneeUserId ?? '', name: t.assigneeName }] : [])).map((assignee) => (
+            <StatusBadge key={assignee.userId} label={assignee.name} bg='#E7F0EC' fg='#455a54' />
+          ))}
           {t.dueDate && (
             <StatusBadge
               label={`${overdue ? '⚠ ' : ''}límite ${fmtDate(t.dueDate)}`}

@@ -15,9 +15,11 @@ import { PageHeader } from '@/components/ui/page-header';
 import { KpiStrip } from '@/components/ui/kpi-strip';
 import { Plus } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 export default function ClientsPage() {
   const { canEdit, canDelete } = usePermissions();
+  const confirm = useConfirm();
   const {
     isLoading,
     clients,
@@ -120,7 +122,7 @@ export default function ClientsPage() {
       ? `"${client.fullName}" tiene una seña activa de ${formatCurrency(prepaidBalance)}. Al eliminar el cliente, la seña también se cancelará. ¿Confirmás?`
       : `¿Eliminar al cliente "${client.fullName}"?`;
 
-    if (window.confirm(message)) {
+    if (await confirm({ title: '¿Eliminar cliente?', description: message })) {
       try {
         await deleteClient(client.id);
         await loadClientsWithFilters(currentPage, pageSize);

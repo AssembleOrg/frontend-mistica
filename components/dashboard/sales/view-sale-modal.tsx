@@ -13,6 +13,7 @@ import { Sale } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { GeneratingPdfDialog } from '@/components/ui/generating-pdf-dialog';
 import { IssueCreditNoteDialog } from './issue-credit-note-dialog';
@@ -31,6 +32,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showCreditNote, setShowCreditNote] = useState(false);
   const { updateSale, getSaleById } = useSalesAPI();
+  const confirm = useConfirm();
   
   if (!sale) return null;
 
@@ -97,9 +99,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
   const handleCancelSale = async () => {
     if (!canEdit) return;
     
-    if (!confirm('¿Estás seguro de que deseas cancelar esta venta?')) {
-      return;
-    }
+    if (!(await confirm({ title: '¿Cancelar esta venta?' }))) return;
     
     setIsUpdating(true);
     try {

@@ -36,6 +36,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
 import { CashboxCta } from '@/components/dashboard/cashbox/cashbox-cta';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const SIDEBAR_STYLE = {
   '--sidebar-background': '#efcbb9',
@@ -74,9 +75,10 @@ const navigationItems = [
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { logout, user } = useAuth();
   const router = useRouter();
+  const confirm = useConfirm();
 
-  const handleLogout = () => {
-    if (confirm('¿Estás seguro que deseas cerrar sesión?')) {
+  const handleLogout = async () => {
+    if (await confirm({ title: '¿Cerrar sesión?', description: 'Vas a salir de tu cuenta.', variant: 'normal', confirmLabel: 'Cerrar sesión' })) {
       logout();
       router.push('/login');
       showToast.success('Sesión cerrada correctamente');

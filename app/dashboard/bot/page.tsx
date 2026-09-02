@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, LogOut, RefreshCw, RotateCw, Smartphone } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { botAdmin, type BotStatus } from '@/services/bot.admin.service';
 
 export default function BotControlPage() {
+  const confirm = useConfirm();
   const [status, setStatus] = useState<BotStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export default function BotControlPage() {
   }
 
   async function restart() {
-    if (!confirm('¿Reiniciar el bot?')) return;
+    if (!(await confirm({ title: '¿Reiniciar el bot?', description: 'La conexión se reiniciará.', variant: 'normal' }))) return;
     setActing(true);
     try {
       await botAdmin.restart();
@@ -59,7 +61,7 @@ export default function BotControlPage() {
   }
 
   async function logout() {
-    if (!confirm('¿Cerrar sesión del bot? Vas a tener que escanear el QR de nuevo.')) return;
+    if (!(await confirm({ title: '¿Cerrar sesión del bot?', description: 'Vas a tener que escanear el QR nuevamente.' }))) return;
     setActing(true);
     try {
       await botAdmin.logout();

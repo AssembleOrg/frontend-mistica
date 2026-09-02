@@ -17,6 +17,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
+      <ConfirmProvider>
       <AuthHydrator />
       <ViewGuard />
       <AutoClosureNotifier />
@@ -64,11 +65,10 @@ export default function DashboardLayout({
           className='flex flex-1 flex-col gap-4 p-2 sm:p-4 pt-2 sm:pt-4 overflow-x-clip'
           style={{ backgroundColor: '#efcbb9' }}
         >
-          <div className="container-mobile">
-            <ConfirmProvider>{children}</ConfirmProvider>
-          </div>
+          <div className="container-mobile">{children}</div>
         </div>
       </SidebarInset>
+      </ConfirmProvider>
     </SidebarProvider>
   );
 }

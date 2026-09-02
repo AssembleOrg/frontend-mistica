@@ -21,6 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { ASSIGNABLE_VIEWS, RESERVAS_TABS } from '@/lib/views';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,7 @@ const EMPTY: FormState = {
 };
 
 export function AccountsPanel() {
+  const confirm = useConfirm();
   const { user: me } = useAuth();
   const [items, setItems] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,9 +167,7 @@ export function AccountsPanel() {
     if (me && account.id === me.id) {
       return showToast.error('No podés eliminar tu propia cuenta.');
     }
-    if (!window.confirm(`¿Eliminar la cuenta de ${account.name} (${account.email})?`)) {
-      return;
-    }
+    if (!(await confirm({ title: `¿Eliminar la cuenta de ${account.name}?`, description: account.email }))) return;
     try {
       await usersAdmin.remove(account.id);
       showToast.success('Cuenta eliminada');

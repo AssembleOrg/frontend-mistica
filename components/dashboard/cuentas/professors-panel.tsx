@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,7 @@ interface FormState {
 const EMPTY: FormState = { name: '', phone: '', email: '', notes: '' };
 
 export function ProfessorsPanel() {
+  const confirm = useConfirm();
   const [items, setItems] = useState<Professor[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Professor | null>(null);
@@ -98,9 +100,7 @@ export function ProfessorsPanel() {
   }
 
   async function remove(prof: Professor) {
-    if (!window.confirm(`¿Eliminar al profesor ${prof.name}? Su cuenta de acceso (si tiene) no se borra: manejala desde Cuentas.`)) {
-      return;
-    }
+    if (!(await confirm({ title: `¿Eliminar al profesor ${prof.name}?`, description: 'Su cuenta de acceso, si tiene, no se borra.' }))) return;
     try {
       await professorsAdmin.remove(prof.id);
       showToast.success('Profesor eliminado');

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { DateInput } from '@/components/ui/date-input';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ const EMPTY: CreateGroupInput = { name: '', schedule: [], studentIds: [] };
 export function GruposPanel() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
+  const confirm = useConfirm();
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -57,6 +59,8 @@ export function GruposPanel() {
   const [editing, setEditing] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
   const [attendanceOf, setAttendanceOf] = useState<Group | null>(null);
+  const [studentSearch, setStudentSearch] = useState('');
+  const [debouncedStudentSearch, setDebouncedStudentSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +83,16 @@ export function GruposPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedStudentSearch(studentSearch.trim().toLocaleLowerCase('es-AR')), 250);
+    return () => window.clearTimeout(timer);
+  }, [studentSearch]);
+
+  const filteredStudents = useMemo(() => {
+    const term = debouncedStudentSearch;
+    return students.filter((student) => !term || student.name.toLocaleLowerCase('es-AR').includes(term)).slice(0, 20);
+  }, [students, debouncedStudentSearch]);
 
   const studentName = useMemo(
     () => new Map(students.map((s) => [s._id, s.name])),
@@ -108,7 +122,7 @@ export function GruposPanel() {
   }
 
   async function remove(g: Group) {
-    if (!confirm(`¿Eliminar el grupo "${g.name}"?`)) return;
+    if (!(await confirm({ title: `¿Eliminar el grupo ${g.name}?`, description: 'Esta acción no se puede deshacer.' }))) return;
     try {
       await tallerAdmin.removeGroup(g._id);
       showToast.success('Grupo eliminado');
@@ -131,6 +145,7 @@ export function GruposPanel() {
           variant='verde'
           onClick={() => {
             setEditing(null);
+            setStudentSearch('');
             setForm({ ...EMPTY, schedule: [], studentIds: [] });
           }}
           className='gap-2'
@@ -391,13 +406,20 @@ export function GruposPanel() {
                     }
                   />
                 </div>
-                <div className='flex flex-col gap-1 rounded-lg border border-[#e6dbcd] bg-white p-2'>
+                <Input
+                  value={studentSearch}
+                  onChange={(event) => setStudentSearch(event.target.value)}
+                  placeholder='Buscar alumno por nombre…'
+                  className={`${fieldCls} mb-2 h-9`}
+                />
+                <p className='mb-1 text-[11px] text-[#7a6e6f]'>Mostrando hasta 20 alumnos{studentSearch ? ' que coinciden con la búsqueda' : '. Escribí para filtrar.'}</p>
+                <div className='flex max-h-64 flex-col gap-1 overflow-y-auto rounded-lg border border-[#e6dbcd] bg-white p-2'>
                   {students.length === 0 && (
                     <p className='text-xs text-[#7a6e6f]'>
                       No hay alumnos activos cargados.
                     </p>
                   )}
-                  {students.map((s) => {
+                  {filteredStudents.map((s) => {
                     const on = form.studentIds?.includes(s._id) ?? false;
                     return (
                       <button

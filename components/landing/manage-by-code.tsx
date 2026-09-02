@@ -7,6 +7,7 @@ import {
   type ReservationView,
 } from '@/services/reservations.public.service';
 import { StatusText } from '@/components/landing/primitives';
+import { ConfirmProvider, useConfirm } from '@/components/ui/confirm-dialog';
 
 function fmtDate(iso: string) {
   const tz = 'America/Argentina/Buenos_Aires';
@@ -26,6 +27,11 @@ function fmtDate(iso: string) {
 }
 
 export function ManageByCode() {
+  return <ConfirmProvider><ManageByCodeContent /></ConfirmProvider>;
+}
+
+function ManageByCodeContent() {
+  const confirm = useConfirm();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +57,7 @@ export function ManageByCode() {
 
   async function cancel() {
     if (!reservation) return;
-    if (!confirm('¿Seguro que querés cancelar esta reserva?')) return;
+    if (!(await confirm({ title: '¿Cancelar esta reserva?' }))) return;
     setLoading(true);
     try {
       setReservation(await reservationsPublic.cancelByCode(reservation.code));

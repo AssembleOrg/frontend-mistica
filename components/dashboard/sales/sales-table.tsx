@@ -63,6 +63,7 @@ import { Input } from '@/components/ui/input';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { Sale, salesService } from '@/services/sales.service';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface SalesTableProps {
@@ -123,6 +124,7 @@ export function SalesTable({
   onRefresh,
   searchInputRef,
 }: SalesTableProps) {
+  const confirm = useConfirm();
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({
@@ -282,9 +284,7 @@ export function SalesTable({
         }
         onEditSale?.(sale);
       } else if (action === 'delete') {
-        if (confirm('¿Estás seguro de que quieres eliminar esta venta?')) {
-          onDeleteSale?.(saleId);
-        }
+        if (await confirm({ title: '¿Eliminar esta venta?' })) onDeleteSale?.(saleId);
       } else if (action === 'cancel') {
         if (sale.status !== 'PENDING') {
           showToast.error('Error', 'Solo se pueden cancelar ventas pendientes.');

@@ -196,7 +196,8 @@ export function AsyncSelect<T>({
               }
               if (!open) setOpen(true);
             }}
-            onFocus={() => !disabled && setOpen(true)}
+            // No cargamos ni desplegamos opciones sólo por abrir el modal o enfocar.
+            // La búsqueda empieza al escribir, evitando listas enormes inesperadas.
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}

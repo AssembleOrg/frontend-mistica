@@ -21,6 +21,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { ColorSwatchPicker } from '@/components/ui/color-swatch-picker';
 import { categoriesService } from '@/services/categories.service';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import type { Category } from '@/lib/types';
 
 interface FormState {
@@ -35,6 +36,7 @@ export default function CategoriesPage() {
   const router = useRouter();
   const { canManageCategories } = usePermissions();
   const { categories, isLoading, refresh } = useCategories();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!canManageCategories) router.replace('/dashboard');
@@ -89,7 +91,7 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = async (cat: Category) => {
-    if (!window.confirm(`¿Eliminar la categoría "${cat.name}"?`)) return;
+    if (!(await confirm({ title: `¿Eliminar la categoría ${cat.name}?` }))) return;
     setDeletingId(cat.id);
     try {
       await categoriesService.remove(cat.id);

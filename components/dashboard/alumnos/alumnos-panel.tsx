@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { DateInput } from '@/components/ui/date-input';
-import { AsyncSelect } from '@/components/ui/async-select';
 import { ClientsService, type Client } from '@/services/clients.service';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -41,6 +40,84 @@ const clientsService = new ClientsService();
 
 function clientIdOf(client: Client): string {
   return client.id || client._id || '';
+}
+
+
+function ClientPicker({ value, onChange }: Readonly<{
+  value: Client | null;
+  onChange: (client: Client | null) => void;
+}>) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const term = query.trim();
+    if (value || term.length < 2) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      try {
+        const response = await clientsService.getClients(1, 12, { search: term });
+        if (active) {
+          setResults(response.data.data.map((client) => ({ ...client, id: clientIdOf(client) })));
+        }
+      } catch {
+        if (active) setResults([]);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 250);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, value]);
+
+  if (value) {
+    return (
+      <div className='flex min-h-10 items-center gap-2 rounded-md border border-[#bfd2c9] bg-[#E7F0EC] px-3'>
+        <span className='min-w-0 flex-1 truncate text-sm font-medium text-[#455a54]'>{value.fullName}</span>
+        <button type='button' onClick={() => { onChange(null); setQuery(''); }} className='rounded p-1 text-[#6d7d77] hover:bg-white/70' aria-label='Cambiar cliente'>
+          <X className='h-4 w-4' />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className='relative'>
+      <Search className='pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#9d684e]/60' />
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder='Escribí al menos 2 letras para buscar…'
+        className={`${fieldCls} pl-9`}
+      />
+      {loading && <Loader2 className='absolute right-3 top-3 h-4 w-4 animate-spin text-[#9d684e]' />}
+      {query.trim().length >= 2 && !loading && (
+        <div className='mt-1 max-h-48 overflow-y-auto rounded-md border border-[#e6dbcd] bg-white p-1 shadow-sm'>
+          {results.length === 0 ? (
+            <p className='px-2 py-3 text-sm text-[#7a6e6f]'>No encontramos clientes.</p>
+          ) : results.map((client) => (
+            <button
+              key={clientIdOf(client)}
+              type='button'
+              onClick={() => { onChange(client); setQuery(''); setResults([]); }}
+              className='block w-full rounded px-2 py-2 text-left text-sm text-[#3d3338] hover:bg-[#fbf5ef]'
+            >
+              <span className='block font-medium'>{client.fullName}</span>
+              {(client.phone || client.email) && <span className='block text-xs text-[#7a6e6f]'>{[client.phone, client.email].filter(Boolean).join(' · ')}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Valores canónicos del sistema (ventas/caja usan estos), label en español.
@@ -317,37 +394,22 @@ export function AlumnosPanel() {
             </DialogHeader>
             <div className='flex flex-col gap-3'>
               <Field label='Vincular a un cliente (opcional)'>
-                <AsyncSelect<Client>
+                <ClientPicker
                   value={selectedClient}
                   onChange={(client) => {
-                    if (!client) {
-                      setSelectedClient(null);
-                      setForm((current) => current ? { ...current, clientId: undefined } : current);
-                      return;
-                    }
-                    const clientId = clientIdOf(client);
-                    const normalized = { ...client, id: clientId };
-                    setSelectedClient(normalized);
-                    setForm((current) => current ? {
-                      ...current,
-                      clientId,
-                      name: client.fullName,
-                      phone: client.phone ?? '',
-                      email: client.email ?? '',
-                    } : current);
+                    setSelectedClient(client);
+                    setForm((current) => {
+                      if (!current) return current;
+                      if (!client) return { ...current, clientId: undefined };
+                      return {
+                        ...current,
+                        clientId: clientIdOf(client),
+                        name: client.fullName,
+                        phone: client.phone ?? '',
+                        email: client.email ?? '',
+                      };
+                    });
                   }}
-                  fetcher={async (term, page, pageSize) => {
-                    const result = await clientsService.getClients(page, pageSize, { search: term });
-                    return {
-                      items: result.data.data.map((client) => ({ ...client, id: clientIdOf(client) })),
-                      hasMore: result.data.meta.hasNextPage,
-                    };
-                  }}
-                  getKey={clientIdOf}
-                  getLabel={(client) => client.fullName}
-                  placeholder='Buscá un cliente por nombre…'
-                  noResultsLabel='No encontramos clientes'
-                  className='w-full'
                 />
                 <p className='mt-1 text-[11px] text-[#7a6e6f]'>Al elegirlo se completan sus datos y queda asociado al alumno.</p>
               </Field>

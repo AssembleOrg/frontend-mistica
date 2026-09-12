@@ -35,6 +35,7 @@ export interface QuickCreateField {
 export const professorFields: QuickCreateField[] = [
   { key: 'name', label: 'Nombre', required: true },
   { key: 'phone', label: 'Teléfono', type: 'tel' },
+  { key: 'emergencyPhone', label: 'Teléfono de emergencia', type: 'tel' },
   { key: 'email', label: 'Email', type: 'email' },
 ];
 

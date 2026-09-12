@@ -180,6 +180,7 @@ export const reservationsAdmin = {
   // Turnos
   listSessions: async (params?: {
     experienceId?: string;
+    date?: string;
     status?: string;
     from?: string;
     to?: string;
@@ -187,6 +188,7 @@ export const reservationsAdmin = {
   }) => {
     const q = new URLSearchParams();
     if (params?.experienceId) q.set('experienceId', params.experienceId);
+    if (params?.date) q.set('date', params.date);
     if (params?.status) q.set('status', params.status);
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
@@ -236,6 +238,7 @@ export const reservationsAdmin = {
     status?: string;
     sessionId?: string;
     experienceId?: string;
+    date?: string;
     search?: string;
     page?: number;
     limit?: number;
@@ -244,6 +247,7 @@ export const reservationsAdmin = {
     if (params?.status) q.set('status', params.status);
     if (params?.sessionId) q.set('sessionId', params.sessionId);
     if (params?.experienceId) q.set('experienceId', params.experienceId);
+    if (params?.date) q.set('date', params.date);
     if (params?.search?.trim()) q.set('search', params.search.trim());
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));

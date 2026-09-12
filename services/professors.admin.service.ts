@@ -10,6 +10,7 @@ export interface Professor {
   id: string;
   name: string;
   phone?: string;
+  emergencyPhone?: string;
   email?: string;
   notes?: string;
   active: boolean;
@@ -22,6 +23,7 @@ export interface Professor {
 export interface ProfessorInput {
   name: string;
   phone?: string;
+  emergencyPhone?: string;
   email?: string;
   notes?: string;
   userId?: string;

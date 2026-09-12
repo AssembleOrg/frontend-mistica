@@ -32,6 +32,7 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
     email: employee?.email || '',
     role: employee?.role || 'cajero',
     phone: employee?.phone || '',
+    emergencyPhone: employee?.emergencyPhone || '',
     address: employee?.address || '',
     startDate: employee?.startDate ? new Date(employee.startDate) : new Date(),
   });
@@ -150,6 +151,20 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
                 type='tel'
                 value={formData.phone}
                 onChange={(e) => handleInputChange('phone', e.target.value)}
+                placeholder='+54 11 1234-5678'
+                className='border-[#9d684e]/20 focus:border-[#9d684e]'
+              />
+            </div>
+
+            <div className='space-y-2'>
+              <Label htmlFor='emergencyPhone' className='text-sm font-medium text-[#455a54]'>
+                Teléfono de emergencia
+              </Label>
+              <Input
+                id='emergencyPhone'
+                type='tel'
+                value={formData.emergencyPhone}
+                onChange={(e) => handleInputChange('emergencyPhone', e.target.value)}
                 placeholder='+54 11 1234-5678'
                 className='border-[#9d684e]/20 focus:border-[#9d684e]'
               />

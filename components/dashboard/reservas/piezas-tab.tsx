@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Camera, Plus, Search, Settings2, Trash2, X } from 'lucide-react';
+import { Camera, Plus, Search, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -28,27 +28,18 @@ import {
   PIECE_STATUS_ORDER,
   type PieceItem,
   type PieceStatusConfig,
-  type CreatePieceInput,
 } from '@/services/pieces.admin.service';
-import { tallerAdmin, type Student } from '@/services/taller.admin.service';
 import { ImageUploadButton } from '@/components/ui/image-upload-button';
 import {
   reservationsAdmin,
-  type AdminExperience,
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import {
   professorsAdmin,
   type Professor,
 } from '@/services/professors.admin.service';
-import {
-  QuickCreateSelect,
-  professorFields,
-  studentFields,
-} from '@/components/ui/quick-create-select';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/hooks/useAuth';
-import { normalizePhoneAR, phoneCoreAR } from '@/lib/utils/whatsapp';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 
 const LIMIT = 20;
@@ -85,7 +76,7 @@ function statusColors(
 }
 
 const COLS =
-  'grid grid-cols-[9rem_8.5rem_1fr_8rem_9.5rem_9rem_7rem_11.5rem] items-center gap-3';
+  'grid grid-cols-[10rem_8rem_1fr_8rem_9rem_7rem_14rem] items-center gap-3';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
@@ -151,8 +142,6 @@ export function PiezasTab() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   // Estados configurables del proceso (con fallback histórico hasta cargar).
   const [statusCfg, setStatusCfg] = useState<PieceStatusConfig[]>(FALLBACK_CFG);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [editingStatuses, setEditingStatuses] = useState(false);
   const [photosOf, setPhotosOf] = useState<PieceItem | null>(null);
 
   const loadCfg = useCallback(() => {
@@ -161,17 +150,9 @@ export function PiezasTab() {
       .then((cfg) => cfg.length && setStatusCfg(cfg))
       .catch(() => undefined);
   }, []);
-  const loadStudents = useCallback(async () => {
-    try {
-      setStudents(await tallerAdmin.listStudents(false));
-    } catch {
-      setStudents([]);
-    }
-  }, []);
   useEffect(() => {
     loadCfg();
-    void loadStudents();
-  }, [loadCfg, loadStudents]);
+  }, [loadCfg]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -217,32 +198,25 @@ export function PiezasTab() {
     load();
   }, [load]);
 
-  // Conteo por estado para los chips (patrón de reservas-tab): una request
-  // liviana por estado leyendo r.total, respetando búsqueda y profesor. Se
-  // recalcula tras cada recarga del listado (total cambia al mutar piezas).
+  // Un único agregado evita disparar una request por estado (React StrictMode
+  // duplicaba el efecto en desarrollo y podía alcanzar el límite concurrente).
   useEffect(() => {
     let alive = true;
-    const keys = ['', ...statusCfg.map((c) => c.key)];
-    Promise.all(
-      keys.map((k) =>
-        piecesAdmin
-          .list({
-            status: k || undefined,
-            search: search || undefined,
-            professorId: professorId || undefined,
-            page: 1,
-            limit: 1,
-          })
-          .then((r) => [k, r.total] as const)
-          .catch(() => [k, 0] as const),
-      ),
-    ).then((pairs) => {
-      if (alive) setCounts(Object.fromEntries(pairs));
-    });
+    piecesAdmin
+      .counts({
+        search: search || undefined,
+        professorId: professorId || undefined,
+      })
+      .then((result) => {
+        if (alive) setCounts({ '': result.total, ...result.byStatus });
+      })
+      .catch(() => {
+        if (alive) setCounts({});
+      });
     return () => {
       alive = false;
     };
-  }, [statusCfg, search, professorId, total]);
+  }, [search, professorId, total]);
 
   async function changeStatus(p: PieceItem, next: string) {
     if (next === p.status) return;
@@ -251,12 +225,25 @@ export function PiezasTab() {
       await piecesAdmin.update(p._id, { status: next });
       showToast.success(
         cfgOf(next, statusCfg)?.isReady
-          ? 'Pieza lista — se avisó al cliente'
+          ? 'Pieza marcada como lista para retirar'
           : 'Estado actualizado',
       );
       await load();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sendReadyNotice(p: PieceItem) {
+    setBusy(p._id);
+    try {
+      await piecesAdmin.notifyReady(p._id);
+      showToast.success('Aviso de retiro enviado');
+      await load();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo enviar el aviso');
     } finally {
       setBusy(null);
     }
@@ -281,6 +268,16 @@ export function PiezasTab() {
   }
 
   function statusSelect(p: PieceItem) {
+    if (!isAdmin) {
+      if (cfgOf(p.status, statusCfg)?.isReady || cfgOf(p.status, statusCfg)?.isFinal) {
+        return <StatusBadge label={labelOf(p.status, statusCfg)} bg='#dcebe1' fg='#2f4a40' />;
+      }
+      return (
+        <Button type='button' variant='verde' size='sm' onClick={() => changeStatus(p, 'LISTA')} disabled={busy === p._id} className='h-8 w-full text-xs'>
+          Marcar lista
+        </Button>
+      );
+    }
     return (
       <Select
         value={p.status}
@@ -369,18 +366,6 @@ export function PiezasTab() {
                 </SelectContent>
               </Select>
             )}
-            {isAdmin && (
-              <Button
-                type='button'
-                variant='ghost'
-                onClick={() => setEditingStatuses(true)}
-                title='Configurar los estados del proceso'
-                className='shrink-0 gap-1.5 border border-[#e6dbcd] bg-white px-2.5 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
-              >
-                <Settings2 className='h-4 w-4' />
-                Estados
-              </Button>
-            )}
             <Button
               type='button'
               variant='verde'
@@ -400,11 +385,10 @@ export function PiezasTab() {
           <div
             className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}
           >
-            <span>CLIENTE</span>
-            <span>EXPERIENCIA</span>
-            <span>PIEZA</span>
-            <span>PROFESOR</span>
-            <span>PROGRESO</span>
+            <span>PERSONA</span>
+            <span>RESERVA</span>
+            <span>FICHA DE PIEZA</span>
+            <span>PROFESORA</span>
             <span>ESTADO</span>
             <span>RETIRO</span>
             <span />
@@ -428,26 +412,22 @@ export function PiezasTab() {
                 >
                   <div className='min-w-0'>
                     <p className='truncate text-sm font-medium text-[#3d3338]'>
-                      {p.customerName || p.customerPhone || '—'}
+                      {p.personName || p.customerName || '—'}
                     </p>
                     <p className='truncate font-mono text-xs text-[#7a6e6f]'>
-                      {p.reservationCode
-                        ? `Reserva ${p.reservationCode}`
-                        : p.customerName
-                          ? p.customerPhone
-                          : ''}
+                      Firma: {p.signature || '—'}
                     </p>
                   </div>
                   <span className='truncate text-sm text-[#7a6e6f]'>
-                    {p.experienceName || '—'}
+                    {p.reservationCode || '—'}
                   </span>
-                  <span className='truncate text-sm text-[#3d3338]'>
-                    {p.notes || `${p.quantity} pieza(s)`}
-                  </span>
+                  <div className='min-w-0 text-sm text-[#3d3338]'>
+                    <p className='truncate font-medium'>{p.pieceType || 'Pieza sin detalle'}</p>
+                    <p className='truncate text-xs text-[#7a6e6f]'>Colores: {p.colorsUsed || '—'}</p>
+                  </div>
                   <span className='truncate text-sm text-[#7a6e6f]'>
                     {p.professorName || '—'}
                   </span>
-                  <ProgressStepper status={p.status} cfg={statusCfg} />
                   <div>
                     <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
                   </div>
@@ -467,6 +447,12 @@ export function PiezasTab() {
                       )}
                     </button>
                     <div className='w-[8rem]'>{statusSelect(p)}</div>
+                    {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                      <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar retiro</Button>
+                    )}
+                    {isAdmin && p.notifiedReadyAt && (
+                      <span className='text-[10px] text-[#455a54]'>Avisado</span>
+                    )}
                     {isAdmin && (
                       <IconBtn
                         icon={Trash2}
@@ -508,31 +494,31 @@ export function PiezasTab() {
                 <div className='flex items-start justify-between gap-2'>
                   <div className='min-w-0'>
                     <p className='truncate text-sm font-medium text-[#3d3338]'>
-                      {p.customerName || p.customerPhone}
+                      {p.personName || p.customerName || p.customerPhone}
                     </p>
-                    {p.customerName && (
+                    {p.signature && (
                       <p className='truncate font-mono text-xs text-[#7a6e6f]'>
-                        {p.customerPhone}
+                        Firma: {p.signature}
                       </p>
                     )}
                   </div>
                   <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
                 </div>
                 <p className='mt-2 text-sm text-[#3d3338]'>
-                  {p.notes || `${p.quantity} pieza(s)`}
+                  {p.pieceType || 'Pieza sin detalle'}
                 </p>
                 <p className='text-xs text-[#7a6e6f]'>
-                  {[p.experienceName, p.professorName && `Prof. ${p.professorName}`, p.reservationCode && `Reserva ${p.reservationCode}`]
+                  {[p.colorsUsed && `Colores: ${p.colorsUsed}`, p.professorName && `Prof. ${p.professorName}`, p.reservationCode && `Reserva ${p.reservationCode}`]
                     .filter(Boolean)
                     .join(' · ') || '—'}
                 </p>
-                <div className='mt-3'>
-                  <ProgressStepper status={p.status} cfg={statusCfg} />
-                </div>
                 <div className='mt-3 flex items-center justify-between gap-2'>
                   {retiroNode(p, statusCfg)}
                   <div className='flex items-center gap-2'>
                     <div className='w-[9rem]'>{statusSelect(p)}</div>
+                    {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                      <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar</Button>
+                    )}
                     {isAdmin && (
                       <IconBtn
                         icon={Trash2}
@@ -561,26 +547,10 @@ export function PiezasTab() {
 
       {creating && (
         <NewPieceModal
-          professors={professors}
-          students={students}
-          statusCfg={statusCfg}
-          onProfessorCreated={loadProfessors}
-          onStudentCreated={loadStudents}
           onClose={() => setCreating(false)}
           onDone={async () => {
             setCreating(false);
             await load();
-          }}
-        />
-      )}
-
-      {editingStatuses && (
-        <StatusesDialog
-          initial={statusCfg}
-          onClose={() => setEditingStatuses(false)}
-          onSaved={(cfg) => {
-            setStatusCfg(cfg);
-            setEditingStatuses(false);
           }}
         />
       )}
@@ -601,426 +571,198 @@ export function PiezasTab() {
 }
 
 function NewPieceModal({
-  professors,
-  students,
-  statusCfg,
-  onProfessorCreated,
-  onStudentCreated,
   onClose,
   onDone,
 }: Readonly<{
-  professors: Professor[];
-  students: Student[];
-  statusCfg: PieceStatusConfig[];
-  /** Recarga la lista de profesores tras crear uno inline (patrón CRM). */
-  onProfessorCreated: () => Promise<void>;
-  /** Recarga la lista de alumnos tras crear uno inline. */
-  onStudentCreated: () => Promise<void>;
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
-  // Camino NORMAL: la pieza se asigna a una RESERVA (el contacto ya está ahí)
-  // o a un ALUMNO del taller. El modo manual queda para piezas sin origen.
-  const [mode, setMode] = useState<'reserva' | 'alumno' | 'manual'>('reserva');
-  const [studentId, setStudentId] = useState('');
-
-  // Búsqueda de reserva por nombre / código / teléfono.
-  const [resSearch, setResSearch] = useState('');
-  const [resResults, setResResults] = useState<ReservationItem[]>([]);
-  const [resLoading, setResLoading] = useState(false);
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [classDate, setClassDate] = useState(todayKey);
+  const [search, setSearch] = useState('');
+  const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [reservation, setReservation] = useState<ReservationItem | null>(null);
-
-  const [professorId, setProfessorId] = useState('');
-  const [form, setForm] = useState<CreatePieceInput>({
-    customerPhone: '',
-    customerName: '',
-    experienceName: '',
-    quantity: 1,
-    status: statusCfg[0]?.key ?? 'SECADO',
-  });
-  const [qtyInput, setQtyInput] = useState('1');
-  const [notes, setNotes] = useState('');
-  const [experiences, setExperiences] = useState<AdminExperience[]>([]);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [entries, setEntries] = useState<Array<{
+    personName: string;
+    signature: string;
+    pieceType: string;
+    colorsUsed: string;
+  }>>([]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        setExperiences(await reservationsAdmin.listExperiences(false));
-      } catch {
-        /* si falla, el select queda vacío y se avisa en submit */
-      }
-    })();
-  }, []);
-
-  // Reservas que matchean la búsqueda (debounce corto).
-  useEffect(() => {
-    if (mode !== 'reserva' || reservation) return;
-    const term = resSearch.trim();
     let alive = true;
-    setResLoading(true);
-    const t = setTimeout(() => {
+    setLoading(true);
+    const timer = window.setTimeout(() => {
       reservationsAdmin
-        .listReservations({ search: term || undefined, limit: 8 })
-        .then((res) => {
-          if (alive) setResResults(res.items);
+        .listReservations({ date: classDate, search: search.trim() || undefined, limit: 50 })
+        .then((result) => {
+          if (alive) setReservations(result.items.filter((item) => item.status !== 'CANCELLED'));
         })
         .catch(() => {
-          if (alive) setResResults([]);
+          if (alive) setReservations([]);
         })
         .finally(() => {
-          if (alive) setResLoading(false);
+          if (alive) setLoading(false);
         });
-    }, 300);
+    }, 250);
     return () => {
       alive = false;
-      clearTimeout(t);
+      window.clearTimeout(timer);
     };
-  }, [resSearch, mode, reservation]);
+  }, [classDate, search]);
 
-  const phoneCore = useMemo(
-    () => phoneCoreAR(form.customerPhone ?? ''),
-    [form.customerPhone],
-  );
-  const phoneValid = phoneCore.length >= 6;
+  function selectReservation(item: ReservationItem) {
+    setReservation(item);
+    setEntries(
+      Array.from({ length: Math.max(1, item.quantity) }, (_, index) => ({
+        personName: item.quantity === 1 || index === 0 ? item.customerName : '',
+        signature: '',
+        pieceType: '',
+        colorsUsed: '',
+      })),
+    );
+  }
+
+  function updateEntry(index: number, key: keyof (typeof entries)[number], value: string) {
+    setEntries((current) => current.map((entry, i) => i === index ? { ...entry, [key]: value } : entry));
+  }
 
   async function submit() {
-    const quantity = Math.trunc(Number(qtyInput));
-    if (!Number.isFinite(quantity) || quantity < 1) {
-      showToast.error('La cantidad debe ser 1 o más');
-      return;
+    if (!reservation) return showToast.error('Seleccioná una reserva del día');
+    if (entries.some((entry) => Object.values(entry).some((value) => !value.trim()))) {
+      return showToast.error('Completá nombre, firma, pieza y colores de cada ficha');
     }
-
-    if (mode === 'reserva') {
-      if (!reservation) {
-        showToast.error('Elegí la reserva a la que pertenece la pieza');
-        return;
-      }
-    } else if (mode === 'alumno') {
-      if (!studentId) {
-        showToast.error('Elegí el alumno al que pertenece la pieza');
-        return;
-      }
-    } else {
-      if (!form.customerPhone?.trim()) {
-        showToast.error('El teléfono es obligatorio');
-        return;
-      }
-      if (!phoneValid) {
-        showToast.error('Teléfono inválido: revisá el número (área + abonado)');
-        return;
-      }
-      if (!form.experienceName?.trim()) {
-        showToast.error('Elegí una experiencia');
-        return;
-      }
-    }
-
     setSaving(true);
     try {
-      await piecesAdmin.create(
-        mode === 'reserva'
-          ? {
-              reservationId: reservation!._id,
-              professorId: professorId || undefined,
-              quantity,
-              status: form.status,
-              notes: notes.trim() || undefined,
-            }
-          : mode === 'alumno'
-            ? {
-                studentId,
-                professorId: professorId || undefined,
-                quantity,
-                status: form.status,
-                notes: notes.trim() || undefined,
-              }
-            : {
-                ...form,
-                customerPhone: normalizePhoneAR(form.customerPhone ?? ''),
-                professorId: professorId || undefined,
-                quantity,
-                notes: notes.trim() || undefined,
-              },
+      await piecesAdmin.createReservationBatch(
+        reservation._id,
+        entries.map((entry) => ({
+          personName: entry.personName.trim(),
+          signature: entry.signature.trim(),
+          pieceType: entry.pieceType.trim(),
+          colorsUsed: entry.colorsUsed.trim(),
+        })),
       );
-      showToast.success('Pieza cargada');
+      showToast.success(`${entries.length} ficha(s) anexadas a la reserva`);
       await onDone();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cargar');
+      showToast.error(e instanceof Error ? e.message : 'No se pudieron registrar las piezas');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-lg'>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className='sm:max-w-3xl'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
-            Nueva pieza
+            Registrar piezas de una reserva
           </DialogTitle>
         </DialogHeader>
 
-        <div className='flex flex-col gap-3'>
-          {/* Origen: reserva (normal) o carga manual */}
-          <div className='flex flex-wrap gap-1.5'>
-            <button
-              type='button'
-              onClick={() => setMode('reserva')}
-              className={cn(
-                'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
-                mode === 'reserva'
-                  ? 'border-[#455a54] bg-[#455a54] text-white'
-                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-              )}
-            >
-              Desde una reserva
-            </button>
-            <button
-              type='button'
-              onClick={() => setMode('alumno')}
-              className={cn(
-                'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
-                mode === 'alumno'
-                  ? 'border-[#455a54] bg-[#455a54] text-white'
-                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-              )}
-            >
-              De un alumno
-            </button>
-            <button
-              type='button'
-              onClick={() => setMode('manual')}
-              className={cn(
-                'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
-                mode === 'manual'
-                  ? 'border-[#455a54] bg-[#455a54] text-white'
-                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-              )}
-            >
-              Sin origen (manual)
-            </button>
-          </div>
-
-          {mode === 'reserva' ? (
-            reservation ? (
-              <div className='flex items-center justify-between gap-2 rounded-xl border border-[#455a54]/30 bg-[#E7F0EC] px-3.5 py-2.5'>
-                <div className='min-w-0'>
-                  <p className='truncate text-sm font-semibold text-[#3d3338]'>
-                    {reservation.customerName}
-                    <span className='ml-2 font-mono text-[11px] font-normal text-[#7a6e6f]'>
-                      {reservation.code}
-                    </span>
-                  </p>
-                  <p className='truncate text-[12px] text-[#7a6e6f]'>
-                    {reservation.experienceName}
-                    {reservation.customerPhone ? ` · ${reservation.customerPhone}` : ''}
-                  </p>
-                </div>
-                <button
-                  type='button'
-                  onClick={() => setReservation(null)}
-                  className='shrink-0 text-[12px] font-medium text-[#9d684e] underline-offset-2 hover:underline'
-                >
-                  Cambiar
-                </button>
-              </div>
-            ) : (
-              <Field label='Reserva (contacto y experiencia salen de acá)'>
+        <div className='flex flex-col gap-4'>
+          {!reservation ? (
+            <>
+              <div className='grid gap-2 sm:grid-cols-[12rem_1fr]'>
+                <DatePicker
+                  value={classDate}
+                  onChange={(value) => {
+                    setClassDate(value);
+                    setReservation(null);
+                  }}
+                  placeholder='Día de la reserva'
+                />
                 <div className='relative'>
                   <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
                   <Input
-                    value={resSearch}
-                    onChange={(e) => setResSearch(e.target.value)}
-                    placeholder='Buscá por nombre, código o teléfono'
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder='Filtrar las reservas de ese día'
                     className={cn('pl-9', fieldCls)}
                   />
                 </div>
-                <div className='rounded-xl border border-[#e6dbcd]'>
-                  {resLoading ? (
-                    <p className='p-3 text-sm text-[#7a6e6f]'>Buscando…</p>
-                  ) : resResults.length === 0 ? (
-                    <p className='p-3 text-sm text-[#7a6e6f]'>Sin reservas que coincidan.</p>
-                  ) : (
-                    resResults.map((r) => (
-                      <button
-                        key={r._id}
-                        type='button'
-                        onClick={() => setReservation(r)}
-                        className='flex w-full items-center justify-between gap-2 border-b border-[#e6dbcd] px-3 py-2 text-left last:border-0 hover:bg-[#fbf5ef]'
-                      >
-                        <span className='min-w-0'>
-                          <span className='block truncate text-sm font-medium text-[#3d3338]'>
-                            {r.customerName}
-                          </span>
-                          <span className='block truncate text-[12px] text-[#7a6e6f]'>
-                            {r.experienceName}
-                            {r.startAt ? ` · ${fmtDate(r.startAt)}` : ''}
-                          </span>
-                        </span>
-                        <span className='shrink-0 font-mono text-[11px] text-[#a99f92]'>
-                          {r.code}
-                        </span>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </Field>
-            )
-          ) : mode === 'alumno' ? (
-            <Field label='Alumno (el aviso de lista le llega a su contacto)'>
-              <QuickCreateSelect
-                value={studentId}
-                onChange={setStudentId}
-                options={students.map((st) => ({ id: st._id, name: st.name }))}
-                placeholder='Elegí el alumno'
-                createTitle='Nuevo alumno'
-                fields={studentFields}
-                onCreate={async (vals) => {
-                  const created = await tallerAdmin.createStudent({
-                    name: vals.name,
-                    phone: vals.phone,
-                  });
-                  await onStudentCreated();
-                  return { id: created._id, name: created.name };
-                }}
-              />
-            </Field>
+              </div>
+              <div className='max-h-72 overflow-y-auto rounded-xl border border-[#e6dbcd]'>
+                {loading ? (
+                  <p className='p-4 text-sm text-[#7a6e6f]'>Buscando reservas del día…</p>
+                ) : reservations.length === 0 ? (
+                  <p className='p-4 text-sm text-[#7a6e6f]'>No hay reservas para la fecha seleccionada.</p>
+                ) : reservations.map((item) => (
+                  <button
+                    key={item._id}
+                    type='button'
+                    onClick={() => selectReservation(item)}
+                    className='flex w-full items-center justify-between gap-3 border-b border-[#e6dbcd] px-4 py-3 text-left last:border-0 hover:bg-[#fbf5ef]'
+                  >
+                    <span>
+                      <span className='block text-sm font-semibold text-[#3d3338]'>{item.customerName}</span>
+                      <span className='block text-xs text-[#7a6e6f]'>{item.experienceName} · {fmtDate(item.startAt)} · {item.quantity} persona(s)</span>
+                    </span>
+                    <span className='font-mono text-xs text-[#9d684e]'>{item.code}</span>
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <>
-              <Field label='Teléfono del cliente'>
-                <Input
-                  value={form.customerPhone}
-                  onChange={(e) => setForm({ ...form, customerPhone: e.target.value })}
-                  placeholder='11 3456-7890'
-                  className={fieldCls}
-                />
-                {(form.customerPhone ?? '').trim() &&
-                  (phoneValid ? (
-                    <span className='font-mono text-[11px] text-[#7a6e6f]'>
-                      Se guarda como {normalizePhoneAR(form.customerPhone ?? '')}
-                    </span>
-                  ) : (
-                    <span className='text-[11px] text-[#b23b2e]'>
-                      Número incompleto — revisá área + abonado.
-                    </span>
-                  ))}
-              </Field>
-              <Field label='Nombre'>
-                <Input
-                  value={form.customerName}
-                  onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-                  className={fieldCls}
-                />
-              </Field>
-              <Field label='Experiencia'>
-                <Select
-                  value={form.experienceName || undefined}
-                  onValueChange={(v) => setForm({ ...form, experienceName: v })}
-                >
-                  <SelectTrigger className={fieldCls}>
-                    <SelectValue placeholder='Elegí una experiencia' />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {experiences.map((exp) => (
-                      <SelectItem key={exp._id} value={exp.name}>
-                        {exp.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+              <div className='flex items-center justify-between rounded-xl border border-[#455a54]/30 bg-[#E7F0EC] px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-[#3d3338]'>{reservation.customerName} · {reservation.code}</p>
+                  <p className='text-xs text-[#7a6e6f]'>{reservation.experienceName} · {fmtDate(reservation.startAt)}</p>
+                </div>
+                <button type='button' onClick={() => setReservation(null)} className='text-xs font-semibold text-[#9d684e] hover:underline'>Cambiar reserva</button>
+              </div>
+
+              <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>
+                {entries.map((entry, index) => (
+                  <div key={index} className='rounded-xl border border-[#e6dbcd] bg-white p-3'>
+                    <div className='mb-2 flex items-center justify-between'>
+                      <span className='text-sm font-semibold text-[#455a54]'>Ficha {index + 1}</span>
+                      {entries.length > 1 && (
+                        <button type='button' onClick={() => setEntries((current) => current.filter((_, i) => i !== index))} className='text-xs text-[#a33] hover:underline'>Quitar</button>
+                      )}
+                    </div>
+                    <div className='grid gap-2 sm:grid-cols-2'>
+                      <Field label='Nombre y apellido'>
+                        <Input value={entry.personName} onChange={(event) => updateEntry(index, 'personName', event.target.value)} className={fieldCls} />
+                      </Field>
+                      <Field label='Firma colocada en la pieza'>
+                        <Input value={entry.signature} onChange={(event) => updateEntry(index, 'signature', event.target.value)} placeholder='Ej. CH, estrella, iniciales…' className={fieldCls} />
+                      </Field>
+                      <Field label='Pieza elegida'>
+                        <Input value={entry.pieceType} onChange={(event) => updateEntry(index, 'pieceType', event.target.value)} placeholder='Ej. taza, bowl, plato…' className={fieldCls} />
+                      </Field>
+                      <Field label='Colores utilizados'>
+                        <Input value={entry.colorsUsed} onChange={(event) => updateEntry(index, 'colorsUsed', event.target.value)} placeholder='Ej. azul, blanco y rosa' className={fieldCls} />
+                      </Field>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() => setEntries((current) => [...current, { personName: '', signature: '', pieceType: '', colorsUsed: '' }])}
+                className='w-fit gap-1 border-[#e6dbcd] text-[#455a54]'
+              >
+                <Plus className='h-3.5 w-3.5' /> Agregar otra ficha
+              </Button>
             </>
           )}
-
-          <Field label='Profesor asignado'>
-            <QuickCreateSelect
-              value={professorId}
-              onChange={setProfessorId}
-              options={professors
-                .filter((pr) => pr.active)
-                .map((pr) => ({ id: pr.id, name: pr.name }))}
-              emptyLabel='Sin asignar'
-              placeholder='Sin asignar'
-              createTitle='Nuevo profesor'
-              fields={professorFields}
-              onCreate={async (vals) => {
-                const created = await professorsAdmin.create({
-                  name: vals.name,
-                  phone: vals.phone,
-                  email: vals.email,
-                });
-                await onProfessorCreated();
-                const id = created.id ?? created._id ?? '';
-                return { id, name: created.name };
-              }}
-            />
-          </Field>
-
-          <div className='grid grid-cols-2 gap-3'>
-            <Field label='Cantidad'>
-              <Input
-                type='number'
-                min={1}
-                step={1}
-                value={qtyInput}
-                onChange={(e) => setQtyInput(e.target.value)}
-                onBlur={() => {
-                  const n = Math.trunc(Number(qtyInput));
-                  setQtyInput(Number.isFinite(n) && n >= 1 ? String(n) : '1');
-                }}
-                className={fieldCls}
-              />
-            </Field>
-            <Field label='Estado inicial'>
-              <Select
-                value={form.status}
-                onValueChange={(v) => setForm({ ...form, status: v })}
-              >
-                <SelectTrigger className={fieldCls}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusCfg.map((c) => (
-                    <SelectItem key={c.key} value={c.key}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-          <Field label='Notas (qué pieza es)'>
-            <Input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder='Ej: bowl esmaltado azul'
-              className={fieldCls}
-            />
-          </Field>
-          <p className='text-[11px] text-[#7a6e6f]'>
-            El estado es la etapa actual de la pieza — es lo que el cliente ve
-            cuando la consulta por WhatsApp.
-          </p>
         </div>
 
         <DialogFooter>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={onClose}
-            className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Cancelar
-          </Button>
-          <Button
-            type='button'
-            variant='terracota'
-            onClick={submit}
-            disabled={saving}
-          >
-            {saving ? 'Guardando…' : 'Cargar pieza'}
-          </Button>
+          <Button type='button' variant='outline' onClick={onClose} className='border-[#e6dbcd] text-[#455a54]'>Cancelar</Button>
+          {reservation && (
+            <Button type='button' variant='terracota' onClick={submit} disabled={saving}>
+              {saving ? 'Guardando…' : 'Registrar fichas'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1176,151 +918,3 @@ function PhotosDialog({
  * (dispara el aviso al cliente). Cambiar los estados no toca piezas viejas:
  * conservan su clave aunque se renombre o borre.
  */
-function StatusesDialog({
-  initial,
-  onClose,
-  onSaved,
-}: Readonly<{
-  initial: PieceStatusConfig[];
-  onClose: () => void;
-  onSaved: (cfg: PieceStatusConfig[]) => void;
-}>) {
-  const [rows, setRows] = useState<PieceStatusConfig[]>(
-    initial.map((c) => ({ ...c })),
-  );
-  const [saving, setSaving] = useState(false);
-
-  function patch(i: number, part: Partial<PieceStatusConfig>) {
-    setRows(rows.map((r, idx) => (idx === i ? { ...r, ...part } : r)));
-  }
-
-  async function save() {
-    setSaving(true);
-    try {
-      const cfg = await piecesAdmin.setStatuses(rows);
-      showToast.success('Estados actualizados');
-      onSaved(cfg);
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-md'>
-        <DialogHeader className='text-left'>
-          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
-            Estados del proceso
-          </DialogTitle>
-        </DialogHeader>
-        <div className='flex flex-col gap-3'>
-          <p className='text-[12px] leading-relaxed text-[#7a6e6f]'>
-            El recorrido de una pieza, en orden del primero al último. Marcá cuál
-            avisa al cliente que está <strong>lista</strong> y cuál{' '}
-            <strong>cierra</strong> el ciclo (entregada).
-          </p>
-          <div className='flex flex-col'>
-            {rows.map((r, i) => (
-              <div key={i} className='flex gap-3'>
-                {/* Timeline: número + línea conectora */}
-                <div className='flex flex-col items-center'>
-                  <span className='flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#455a54] font-mono text-[11px] font-semibold text-white'>
-                    {i + 1}
-                  </span>
-                  {i < rows.length - 1 && (
-                    <span className='w-px flex-1 bg-[#e6dbcd]' />
-                  )}
-                </div>
-                <div className='mb-2 flex-1 rounded-xl border border-[#e6dbcd] bg-white p-3'>
-                  <div className='flex items-center gap-2'>
-                    <Input
-                      value={r.label}
-                      onChange={(e) => patch(i, { label: e.target.value })}
-                      placeholder='Nombre del estado'
-                      className={`${fieldCls} h-9 flex-1 text-sm font-medium`}
-                    />
-                    <button
-                      type='button'
-                      onClick={() =>
-                        setRows(rows.filter((_, idx) => idx !== i))
-                      }
-                      className='shrink-0 rounded-md p-1.5 text-[#a33] hover:bg-[#a33]/10'
-                      aria-label='Quitar estado'
-                    >
-                      <Trash2 className='h-4 w-4' />
-                    </button>
-                  </div>
-                  <div className='mt-2.5 flex flex-col gap-2'>
-                    <label className='flex items-center justify-between gap-2'>
-                      <span className='flex items-center gap-1.5 text-[13px] text-[#3d3338]'>
-                        Avisa que está lista
-                        {r.isReady && (
-                          <span className='rounded-full bg-[#E7F0EC] px-1.5 py-0.5 text-[10px] font-semibold text-[#455a54]'>
-                            aviso
-                          </span>
-                        )}
-                      </span>
-                      <Switch
-                        checked={!!r.isReady}
-                        onCheckedChange={(v) => patch(i, { isReady: v })}
-                      />
-                    </label>
-                    <label className='flex items-center justify-between gap-2'>
-                      <span className='flex items-center gap-1.5 text-[13px] text-[#3d3338]'>
-                        Cierra el ciclo
-                        {r.isFinal && (
-                          <span className='rounded-full bg-[#f3e9df] px-1.5 py-0.5 text-[10px] font-semibold text-[#9d684e]'>
-                            final
-                          </span>
-                        )}
-                      </span>
-                      <Switch
-                        checked={!!r.isFinal}
-                        onCheckedChange={(v) => patch(i, { isFinal: v })}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={() =>
-              setRows([
-                ...rows,
-                {
-                  key: `ESTADO_${rows.length + 1}`,
-                  label: '',
-                  isReady: false,
-                  isFinal: false,
-                },
-              ])
-            }
-            className='h-8 w-fit gap-1 border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            <Plus className='h-3 w-3' />
-            Agregar estado
-          </Button>
-        </div>
-        <DialogFooter>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={onClose}
-            className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Cancelar
-          </Button>
-          <Button type='button' variant='verde' onClick={save} disabled={saving}>
-            {saving ? 'Guardando…' : 'Guardar estados'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}

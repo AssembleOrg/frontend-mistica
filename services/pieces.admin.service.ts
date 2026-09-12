@@ -5,6 +5,7 @@
 import { apiService } from '@/services/api.service';
 
 export type PieceStatus =
+  | 'PENDIENTE'
   | 'SECADO'
   | 'PRIMERA_HORNEADA'
   | 'ESMALTADO'
@@ -13,15 +14,13 @@ export type PieceStatus =
   | 'RETIRADA';
 
 export const PIECE_STATUS_ORDER: PieceStatus[] = [
-  'SECADO',
-  'PRIMERA_HORNEADA',
-  'ESMALTADO',
-  'SEGUNDA_HORNEADA',
+  'PENDIENTE',
   'LISTA',
   'RETIRADA',
 ];
 
 export const PIECE_STATUS_LABEL: Record<PieceStatus, string> = {
+  PENDIENTE: 'En preparación',
   SECADO: 'En secado',
   PRIMERA_HORNEADA: 'Primera horneada',
   ESMALTADO: 'Esmaltado',
@@ -48,6 +47,10 @@ export interface PieceItem {
   /** Clave de estado (configurable: ver piecesAdmin.statuses()). */
   status: string;
   notes?: string;
+  personName?: string;
+  signature?: string;
+  pieceType?: string;
+  colorsUsed?: string;
   /** Reserva a la que está asignada la pieza (camino normal). */
   reservationId?: string;
   reservationCode?: string;
@@ -60,6 +63,7 @@ export interface PieceItem {
   /** Registro fotográfico (URLs). */
   photos?: string[];
   readyAt?: string;
+  notifiedReadyAt?: string;
   pickedUpAt?: string;
   createdAt: string;
 }
@@ -70,6 +74,11 @@ export interface PieceListResponse {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+export interface PieceCountsResponse {
+  total: number;
+  byStatus: Record<string, number>;
 }
 
 export interface CreatePieceInput {
@@ -86,6 +95,13 @@ export interface CreatePieceInput {
   quantity?: number;
   status?: string;
   notes?: string;
+}
+
+export interface ReservationPieceEntryInput {
+  personName: string;
+  signature: string;
+  pieceType: string;
+  colorsUsed: string;
 }
 
 export const piecesAdmin = {
@@ -107,11 +123,29 @@ export const piecesAdmin = {
     return (await apiService.get<PieceListResponse>(`/pieces?${q.toString()}`))
       .data;
   },
+  counts: async (params?: { search?: string; professorId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.search?.trim()) q.set('search', params.search.trim());
+    if (params?.professorId) q.set('professorId', params.professorId);
+    const suffix = q.size ? `?${q.toString()}` : '';
+    return (await apiService.get<PieceCountsResponse>(`/pieces/counts${suffix}`))
+      .data;
+  },
   create: async (input: CreatePieceInput) =>
     (
       await apiService.post<PieceItem>(
         '/pieces',
         input as unknown as Record<string, unknown>,
+      )
+    ).data,
+  createReservationBatch: async (
+    reservationId: string,
+    entries: ReservationPieceEntryInput[],
+  ) =>
+    (
+      await apiService.post<PieceItem[]>(
+        '/pieces/reservation-batch',
+        { reservationId, entries } as unknown as Record<string, unknown>,
       )
     ).data,
   update: async (
@@ -126,6 +160,8 @@ export const piecesAdmin = {
     ).data,
   remove: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/${id}`)).data,
+  notifyReady: async (id: string) =>
+    (await apiService.post<PieceItem>(`/pieces/${id}/notify-ready`, {})).data,
   /** Estados vigentes del proceso (configurables por el taller). */
   statuses: async () =>
     (await apiService.get<PieceStatusConfig[]>('/pieces/statuses')).data,

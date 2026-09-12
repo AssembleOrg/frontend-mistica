@@ -156,6 +156,17 @@ export function StaffMobileView({
                     </div>
                   </div>
                 )}
+                {employee.emergencyPhone && (
+                  <div>
+                    <div className='flex items-center gap-1 text-[#455a54]/60 mb-0.5'>
+                      <Phone className='w-3 h-3' />
+                      Emergencia
+                    </div>
+                    <div className='font-medium text-[#9d684e] tabular-nums'>
+                      {employee.emergencyPhone}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className='flex items-center gap-1 text-[#455a54]/60 mb-0.5'>
                     <Calendar className='w-3 h-3' />

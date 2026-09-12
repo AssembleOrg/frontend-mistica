@@ -1,12 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { DateInput } from '@/components/ui/date-input';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
@@ -39,7 +37,44 @@ import { IconBtn, StatusBadge } from '../reservas/_shared';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
-const EMPTY: CreateGroupInput = { name: '', schedule: [], studentIds: [] };
+const DEFAULT_SLOT = { weekday: 2, start: '18:00', end: '20:00' };
+const EMPTY: CreateGroupInput = {
+  name: '',
+  schedule: [{ ...DEFAULT_SLOT }],
+  studentIds: [],
+};
+
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function datesForMonth(slot: Group['schedule'][number] | undefined, month: Date) {
+  if (!slot) return [];
+  const result: string[] = [];
+  const year = month.getFullYear();
+  const monthIndex = month.getMonth();
+  const days = new Date(year, monthIndex + 1, 0).getDate();
+  for (let day = 1; day <= days; day += 1) {
+    const value = new Date(year, monthIndex, day);
+    const isoWeekday = value.getDay() === 0 ? 7 : value.getDay();
+    if (isoWeekday === slot.weekday) result.push(dateKey(value));
+  }
+  return result;
+}
+
+function displayClassDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat('es-AR', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  }).format(new Date(year, month - 1, day));
+}
+
+function monthLabel(value: Date) {
+  const label = new Intl.DateTimeFormat('es-AR', {
+    month: 'long', year: 'numeric',
+  }).format(value);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
 
 /**
  * Grupos / talleres / clases. Un profesor ve y administra los SUYOS (el
@@ -102,6 +137,11 @@ export function GruposPanel() {
   async function save() {
     if (!form) return;
     if (!form.name.trim()) return showToast.error('El nombre es obligatorio');
+    const slot = form.schedule?.[0];
+    if (!slot) return showToast.error('Definí el día y horario del grupo');
+    if (!slot.start || !slot.end || slot.start >= slot.end) {
+      return showToast.error('La hora de fin debe ser posterior a la de inicio');
+    }
     setSaving(true);
     try {
       if (editing) {
@@ -146,7 +186,7 @@ export function GruposPanel() {
           onClick={() => {
             setEditing(null);
             setStudentSearch('');
-            setForm({ ...EMPTY, schedule: [], studentIds: [] });
+            setForm({ ...EMPTY, schedule: [{ ...DEFAULT_SLOT }], studentIds: [] });
           }}
           className='gap-2'
         >
@@ -193,6 +233,11 @@ export function GruposPanel() {
                       .join(' · ')
                   : 'Sin horario cargado'}
               </p>
+              {g.schedule[0] && (
+                <p className='text-[12px] text-[#7a6e6f]'>
+                  Este mes: {datesForMonth(g.schedule[0], new Date()).map((d) => Number(d.slice(-2))).join(', ')} · {g.schedule[0].start}
+                </p>
+              )}
               <p className='text-sm text-[#7a6e6f]'>
                 {g.studentIds.length} alumno(s)
                 {g.professorName ? ` · Prof. ${g.professorName}` : ''}
@@ -216,11 +261,9 @@ export function GruposPanel() {
                     setEditing(g);
                     setForm({
                       name: g.name,
-                      description: g.description,
                       professorId: g.professorId,
-                      schedule: g.schedule.map((s) => ({ ...s })),
+                      schedule: [{ ...(g.schedule[0] ?? DEFAULT_SLOT) }],
                       studentIds: [...g.studentIds],
-                      notes: g.notes,
                       isActive: g.isActive,
                     });
                   }}
@@ -255,16 +298,6 @@ export function GruposPanel() {
                   className={fieldCls}
                 />
               </Field>
-              <Field label='Descripción'>
-                <Textarea
-                  value={form.description ?? ''}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                  rows={2}
-                  className={fieldCls}
-                />
-              </Field>
               {isAdmin && (
                 <Field label='Profesor a cargo'>
                   <QuickCreateSelect
@@ -281,6 +314,7 @@ export function GruposPanel() {
                       const created = await professorsAdmin.create({
                         name: vals.name,
                         phone: vals.phone,
+                        emergencyPhone: vals.emergencyPhone,
                         email: vals.email,
                       });
                       const id = created.id ?? created._id ?? '';
@@ -294,22 +328,17 @@ export function GruposPanel() {
                 </Field>
               )}
 
-              <Field label='Días y horarios'>
+              <Field label='Día y horario semanal'>
                 <div className='flex flex-col gap-1.5'>
-                  {(form.schedule ?? []).map((sl, i) => (
+                  {(form.schedule ?? [{ ...DEFAULT_SLOT }]).slice(0, 1).map((sl) => (
                     <div
-                      key={i}
+                      key='group-slot'
                       className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] bg-white p-2'
                     >
                       <select
                         value={sl.weekday}
                         onChange={(e) => {
-                          const schedule = [...(form.schedule ?? [])];
-                          schedule[i] = {
-                            ...sl,
-                            weekday: Number(e.target.value),
-                          };
-                          setForm({ ...form, schedule });
+                          setForm({ ...form, schedule: [{ ...sl, weekday: Number(e.target.value) }] });
                         }}
                         className={`${fieldCls} h-9 w-20 shrink-0 rounded-md border px-2 text-sm`}
                       >
@@ -324,9 +353,7 @@ export function GruposPanel() {
                           type='time'
                           value={sl.start}
                           onChange={(e) => {
-                            const schedule = [...(form.schedule ?? [])];
-                            schedule[i] = { ...sl, start: e.target.value };
-                            setForm({ ...form, schedule });
+                            setForm({ ...form, schedule: [{ ...sl, start: e.target.value }] });
                           }}
                           className={`${fieldCls} h-9 min-w-0 flex-1`}
                         />
@@ -335,48 +362,16 @@ export function GruposPanel() {
                           type='time'
                           value={sl.end}
                           onChange={(e) => {
-                            const schedule = [...(form.schedule ?? [])];
-                            schedule[i] = { ...sl, end: e.target.value };
-                            setForm({ ...form, schedule });
+                            setForm({ ...form, schedule: [{ ...sl, end: e.target.value }] });
                           }}
                           className={`${fieldCls} h-9 min-w-0 flex-1`}
                         />
                       </div>
-                      <button
-                        type='button'
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            schedule: (form.schedule ?? []).filter(
-                              (_, idx) => idx !== i,
-                            ),
-                          })
-                        }
-                        className='shrink-0 text-[#a33] hover:opacity-70'
-                        aria-label='Quitar horario'
-                      >
-                        <X className='h-4 w-4' />
-                      </button>
                     </div>
                   ))}
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        schedule: [
-                          ...(form.schedule ?? []),
-                          { weekday: 2, start: '18:00', end: '20:00' },
-                        ],
-                      })
-                    }
-                    className='h-8 w-fit gap-1 border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
-                  >
-                    <Plus className='h-3 w-3' />
-                    Agregar horario
-                  </Button>
+                  <p className='text-[11px] text-[#7a6e6f]'>
+                    Clases de {monthLabel(new Date()).toLocaleLowerCase('es-AR')}: {datesForMonth(form.schedule?.[0], new Date()).map(displayClassDate).join(' · ')}
+                  </p>
                 </div>
               </Field>
 
@@ -457,15 +452,6 @@ export function GruposPanel() {
                 </div>
               </Field>
 
-              <Field label='Información de la actividad'>
-                <Textarea
-                  value={form.notes ?? ''}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  rows={2}
-                  placeholder='Materiales, temario, particularidades…'
-                  className={fieldCls}
-                />
-              </Field>
             </div>
             <DialogFooter>
               <Button
@@ -492,6 +478,7 @@ export function GruposPanel() {
       {attendanceOf && (
         <AttendanceDialog
           group={attendanceOf}
+          allGroups={groups}
           allStudents={students}
           studentName={studentName}
           onClose={() => setAttendanceOf(null)}
@@ -529,24 +516,40 @@ const ATT_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
  */
 function AttendanceDialog({
   group,
+  allGroups,
   allStudents,
   studentName,
   onClose,
 }: Readonly<{
   group: Group;
+  allGroups: Group[];
   allStudents: Student[];
   studentName: Map<string, string>;
   onClose: () => void;
 }>) {
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const [date, setDate] = useState(todayKey);
+  const [month, setMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const initialDates = datesForMonth(group.schedule[0], today);
+  const todayKey = dateKey(today);
+  const [date, setDate] = useState(
+    initialDates.find((candidate) => candidate >= todayKey) ?? initialDates.at(-1) ?? todayKey,
+  );
   // status null = "sin marcar" (arranque de un día nuevo). Así el resaltado de
   // un botón SÍ significa "lo marcó el usuario", y no se confunde con un default.
   const [records, setRecords] = useState<
-    Array<{ studentId: string; status: AttendanceStatus | null }>
+    Array<{
+      studentId: string;
+      status: AttendanceStatus | null;
+      makeupForGroupId?: string;
+      makeupForDate?: string;
+      recoveredInGroupId?: string;
+      recoveredInDate?: string;
+      recoveredAt?: string;
+    }>
   >(group.studentIds.map((id) => ({ studentId: id, status: null })));
   const [extra, setExtra] = useState('');
+  const [extraSourceGroup, setExtraSourceGroup] = useState('');
+  const [extraSourceDate, setExtraSourceDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Si ya se tomó asistencia ese día, se carga para editar (no duplicar).
@@ -558,12 +561,23 @@ function AttendanceDialog({
         if (!alive) return;
         const doc = docs.find((d) => d.dateKey === date);
         if (doc) {
-          setRecords(
-            doc.records.map((r) => ({
+          const savedByStudent = new Map(doc.records.map((r) => [r.studentId, r]));
+          const orderedIds = [
+            ...group.studentIds,
+            ...doc.records.map((r) => r.studentId).filter((id) => !group.studentIds.includes(id)),
+          ];
+          setRecords(orderedIds.map((studentId) => {
+            const r = savedByStudent.get(studentId);
+            return r ? {
               studentId: r.studentId,
               status: r.status,
-            })),
-          );
+              makeupForGroupId: r.makeupForGroupId,
+              makeupForDate: r.makeupForDate,
+              recoveredInGroupId: r.recoveredInGroupId,
+              recoveredInDate: r.recoveredInDate,
+              recoveredAt: r.recoveredAt,
+            } : { studentId, status: null };
+          }));
         } else {
           setRecords(
             group.studentIds.map((id) => ({ studentId: id, status: null })),
@@ -577,6 +591,10 @@ function AttendanceDialog({
   }, [date, group._id, group.studentIds]);
 
   async function save() {
+    if (records.some((r) => r.status === 'MAKEUP' && (!r.makeupForGroupId || !r.makeupForDate))) {
+      showToast.error('Indicá qué clase recupera cada alumno marcado como Recupera');
+      return;
+    }
     setSaving(true);
     try {
       await tallerAdmin.saveAttendance({
@@ -586,6 +604,8 @@ function AttendanceDialog({
         records: records.map((r) => ({
           studentId: r.studentId,
           status: r.status ?? 'PRESENT',
+          makeupForGroupId: r.status === 'MAKEUP' ? r.makeupForGroupId : undefined,
+          makeupForDate: r.status === 'MAKEUP' ? r.makeupForDate : undefined,
         })),
       });
       showToast.success('Asistencia guardada');
@@ -600,6 +620,36 @@ function AttendanceDialog({
   const outsiders = allStudents.filter(
     (s) => !records.some((r) => r.studentId === s._id),
   );
+  const classDates = datesForMonth(group.schedule[0], month);
+
+  function changeMonth(offset: number) {
+    const next = new Date(month.getFullYear(), month.getMonth() + offset, 1);
+    setMonth(next);
+    const nextDates = datesForMonth(group.schedule[0], next);
+    if (nextDates[0]) setDate(nextDates[0]);
+  }
+
+  function sourceGroupsFor(studentId: string) {
+    const enrolled = allGroups.filter((candidate) => candidate.studentIds.includes(studentId));
+    return enrolled.length > 0 ? enrolled : allGroups;
+  }
+
+  function sourceDatesFor(sourceGroupId?: string) {
+    const source = allGroups.find((candidate) => candidate._id === sourceGroupId);
+    if (!source?.schedule[0]) return [];
+    const targetParts = date.split('-').map(Number);
+    const targetMonth = new Date(targetParts[0], targetParts[1] - 1, 1);
+    const options: string[] = [];
+    for (let offset = -6; offset <= 6; offset += 1) {
+      options.push(...datesForMonth(
+        source.schedule[0],
+        new Date(targetMonth.getFullYear(), targetMonth.getMonth() + offset, 1),
+      ));
+    }
+    return options
+      .filter((candidate) => !(sourceGroupId === group._id && candidate === date))
+      .sort((a, b) => a.localeCompare(b));
+  }
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -610,7 +660,29 @@ function AttendanceDialog({
           </DialogTitle>
         </DialogHeader>
         <div className='flex flex-col gap-3'>
-          <DateInput value={date} onChange={setDate} className='w-40' />
+          <div className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef]/50 p-2.5'>
+            <div className='mb-2 flex items-center justify-between'>
+              <button type='button' aria-label='Mes anterior' onClick={() => changeMonth(-1)} className='rounded-md p-1 text-[#455a54] hover:bg-white'>
+                <ChevronLeft className='h-4 w-4' />
+              </button>
+              <span className='text-sm font-medium text-[#455a54]'>Clases de {monthLabel(month)}</span>
+              <button type='button' aria-label='Mes siguiente' onClick={() => changeMonth(1)} className='rounded-md p-1 text-[#455a54] hover:bg-white'>
+                <ChevronRight className='h-4 w-4' />
+              </button>
+            </div>
+            <div className='flex flex-wrap gap-1.5'>
+              {classDates.map((classDate) => (
+                <button
+                  key={classDate}
+                  type='button'
+                  onClick={() => setDate(classDate)}
+                  className={`rounded-md border px-2 py-1 text-[12px] transition ${date === classDate ? 'border-[#455a54] bg-[#455a54] text-white' : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f7eee6]'}`}
+                >
+                  {displayClassDate(classDate)} · {group.schedule[0]?.start}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {records.length === 0 && (
             <p className='text-xs text-[#7a6e6f]'>El grupo no tiene alumnos.</p>
@@ -630,23 +702,33 @@ function AttendanceDialog({
             {records.map((r, i) => (
               <div
                 key={r.studentId}
-                className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                className={`flex flex-col gap-2 rounded-lg border px-3 py-2 ${
                   r.status === null
                     ? 'border-dashed border-[#d9cdbd] bg-[#fbf5ef]/40'
                     : 'border-[#e6dbcd]'
                 }`}
               >
-                <span className='text-[13px] font-medium text-[#3d3338]'>
-                  {studentName.get(r.studentId) ?? '(alumno)'}
-                </span>
-                <div className='flex gap-1'>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
+                  <span className='text-[13px] font-medium text-[#3d3338]'>
+                    {studentName.get(r.studentId) ?? '(alumno)'}
+                    {r.recoveredInDate && (
+                      <span className='ml-1.5 text-[11px] font-normal text-[#6d5a78]'>
+                        · recuperada el {displayClassDate(r.recoveredInDate)}
+                      </span>
+                    )}
+                  </span>
+                  <div className='flex gap-1'>
                   {ATT_OPTIONS.map((o) => (
                     <button
                       key={o.key}
                       type='button'
                       onClick={() => {
                         const next = [...records];
-                        next[i] = { ...r, status: o.key };
+                        next[i] = {
+                          ...r,
+                          status: o.key,
+                          ...(o.key === 'MAKEUP' ? {} : { makeupForGroupId: undefined, makeupForDate: undefined }),
+                        };
                         setRecords(next);
                       }}
                       className={`rounded-md border px-2 py-1 text-[11px] font-medium transition ${
@@ -662,17 +744,55 @@ function AttendanceDialog({
                       {o.label}
                     </button>
                   ))}
+                  </div>
                 </div>
+                {r.status === 'MAKEUP' && (
+                  <div className='grid grid-cols-1 gap-1.5 border-t border-[#eee4d8] pt-2 sm:grid-cols-2'>
+                    <select
+                      value={r.makeupForGroupId ?? ''}
+                      onChange={(e) => {
+                        const next = [...records];
+                        next[i] = { ...r, makeupForGroupId: e.target.value || undefined, makeupForDate: undefined };
+                        setRecords(next);
+                      }}
+                      className={`${fieldCls} h-9 rounded-md border px-2 text-xs`}
+                    >
+                      <option value=''>Grupo de la clase original…</option>
+                      {sourceGroupsFor(r.studentId).map((candidate) => (
+                        <option key={candidate._id} value={candidate._id}>{candidate.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={r.makeupForDate ?? ''}
+                      disabled={!r.makeupForGroupId}
+                      onChange={(e) => {
+                        const next = [...records];
+                        next[i] = { ...r, makeupForDate: e.target.value || undefined };
+                        setRecords(next);
+                      }}
+                      className={`${fieldCls} h-9 rounded-md border px-2 text-xs disabled:opacity-50`}
+                    >
+                      <option value=''>Fecha que recupera…</option>
+                      {sourceDatesFor(r.makeupForGroupId).map((sourceDate) => (
+                        <option key={sourceDate} value={sourceDate}>{displayClassDate(sourceDate)}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
           {/* Recuperando de otro grupo */}
-          <div className='flex items-center gap-2'>
+          <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef]/40 p-2.5'>
             <select
               value={extra}
-              onChange={(e) => setExtra(e.target.value)}
-              className={`${fieldCls} h-9 flex-1 rounded-md border px-2 text-sm`}
+              onChange={(e) => {
+                setExtra(e.target.value);
+                setExtraSourceGroup('');
+                setExtraSourceDate('');
+              }}
+              className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
             >
               <option value=''>Sumar alumno que recupera clase…</option>
               {outsiders.map((s) => (
@@ -681,18 +801,55 @@ function AttendanceDialog({
                 </option>
               ))}
             </select>
+            {extra && (
+              <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+                <select
+                  value={extraSourceGroup}
+                  onChange={(e) => {
+                    setExtraSourceGroup(e.target.value);
+                    setExtraSourceDate('');
+                  }}
+                  className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
+                >
+                  <option value=''>Grupo habitual…</option>
+                  {sourceGroupsFor(extra).map((candidate) => (
+                    <option key={candidate._id} value={candidate._id}>{candidate.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={extraSourceDate}
+                  disabled={!extraSourceGroup}
+                  onChange={(e) => setExtraSourceDate(e.target.value)}
+                  className={`${fieldCls} h-9 rounded-md border px-2 text-sm disabled:opacity-50`}
+                >
+                  <option value=''>Clase que recupera…</option>
+                  {sourceDatesFor(extraSourceGroup).map((sourceDate) => (
+                    <option key={sourceDate} value={sourceDate}>
+                      {displayClassDate(sourceDate)} · {allGroups.find((candidate) => candidate._id === extraSourceGroup)?.schedule[0]?.start}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <Button
               type='button'
               variant='outline'
               size='sm'
-              disabled={!extra}
+              disabled={!extra || !extraSourceGroup || !extraSourceDate}
               onClick={() => {
-                setRecords([...records, { studentId: extra, status: 'MAKEUP' }]);
+                setRecords([...records, {
+                  studentId: extra,
+                  status: 'MAKEUP',
+                  makeupForGroupId: extraSourceGroup,
+                  makeupForDate: extraSourceDate,
+                }]);
                 setExtra('');
+                setExtraSourceGroup('');
+                setExtraSourceDate('');
               }}
               className='border-[#e6dbcd] text-[#455a54]'
             >
-              Sumar
+              Incorporar a esta asistencia
             </Button>
           </div>
         </div>

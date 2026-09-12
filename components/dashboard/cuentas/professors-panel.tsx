@@ -3,8 +3,8 @@
 // Profesores del taller: CRUD + creación de su cuenta de acceso en un paso.
 //
 // Cada pieza se asigna a un profesor (ver pestaña Piezas de Reservas). Desde
-// acá se le puede crear la cuenta de acceso al panel con la vista de Piezas
-// como única habilitada; después, desde Cuentas, el admin puede sumarle o
+// acá se le puede crear la cuenta de acceso al panel con Piezas y
+// Alumnos y grupos habilitados; después, desde Cuentas, el admin puede sumarle o
 // quitarle pestañas una por una.
 
 import { useCallback, useEffect, useState } from 'react';
@@ -40,11 +40,12 @@ const fieldCls =
 interface FormState {
   name: string;
   phone: string;
+  emergencyPhone: string;
   email: string;
   notes: string;
 }
 
-const EMPTY: FormState = { name: '', phone: '', email: '', notes: '' };
+const EMPTY: FormState = { name: '', phone: '', emergencyPhone: '', email: '', notes: '' };
 
 export function ProfessorsPanel() {
   const confirm = useConfirm();
@@ -79,6 +80,7 @@ export function ProfessorsPanel() {
       const base = {
         name: form.name.trim(),
         phone: form.phone.trim() || undefined,
+        emergencyPhone: form.emergencyPhone.trim() || undefined,
         email: form.email.trim() || undefined,
         notes: form.notes.trim() || undefined,
       };
@@ -152,7 +154,7 @@ export function ProfessorsPanel() {
                 )}
               </span>
               <span className='block truncate text-sm text-[#7a6e6f]'>
-                {[p.phone, p.email].filter(Boolean).join(' · ') || 'sin contacto'}
+                {[p.phone, p.emergencyPhone && `Emergencia: ${p.emergencyPhone}`, p.email].filter(Boolean).join(' · ') || 'sin contacto'}
               </span>
             </div>
 
@@ -180,6 +182,7 @@ export function ProfessorsPanel() {
                   setForm({
                     name: p.name,
                     phone: p.phone ?? '',
+                    emergencyPhone: p.emergencyPhone ?? '',
                     email: p.email ?? '',
                     notes: p.notes ?? '',
                   });
@@ -238,6 +241,15 @@ export function ProfessorsPanel() {
               />
             </div>
             <div className='space-y-1.5'>
+              <Label className='text-sm text-[#455a54]'>Teléfono de emergencia</Label>
+              <Input
+                value={form.emergencyPhone}
+                onChange={(e) => setForm({ ...form, emergencyPhone: e.target.value })}
+                placeholder='Opcional'
+                className={fieldCls}
+              />
+            </div>
+            <div className='space-y-1.5'>
               <Label className='text-sm text-[#455a54]'>Email de contacto</Label>
               <Input
                 value={form.email}
@@ -290,14 +302,14 @@ export function ProfessorsPanel() {
 
       <p className='border-t border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-sm text-[#7a6e6f]'>
         Las piezas se asignan a un profesor desde la pestaña Piezas de Reservas.
-        La cuenta de acceso se crea con <strong>sólo la pestaña Piezas</strong>{' '}
-        habilitada; podés sumarle o quitarle vistas desde Cuentas.
+        La cuenta de acceso se crea con <strong>Piezas y Alumnos y grupos</strong>{' '}
+        habilitados; podés sumarle o quitarle vistas desde Cuentas.
       </p>
     </section>
   );
 }
 
-/** Alta de la cuenta de acceso del profesor: email + contraseña, vista Piezas. */
+/** Alta de la cuenta de acceso del profesor: email + contraseña y vistas del taller. */
 function AccountForProfessor({
   professor,
   onDone,
@@ -324,9 +336,8 @@ function AccountForProfessor({
         email: email.trim().toLowerCase(),
         password,
         role: 'user',
-        // Única vista habilitada: la pestaña Piezas de Reservas. El admin
-        // puede activarle más pestañas después, desde Cuentas.
-        allowedViews: ['reservas:piezas'],
+        // Las profesoras necesitan sus piezas y sus grupos/alumnos.
+        allowedViews: ['reservas:piezas', 'alumnos'],
       });
       await professorsAdmin.update(professor.id, { userId: account.id });
       showToast.success(
@@ -401,8 +412,8 @@ function AccountForProfessor({
         </button>
       </div>
       <p className='mt-2 text-sm text-[#7a6e6f]'>
-        Se crea como cuenta común con <strong>sólo la pestaña Piezas</strong> de
-        Reservas habilitada.
+        Se crea como cuenta común con <strong>Piezas y Alumnos y grupos</strong>{' '}
+        habilitados.
       </p>
       <div className='mt-3 flex items-center gap-2'>
         <Button type='button' variant='verde' size='sm' disabled={saving} onClick={create}>

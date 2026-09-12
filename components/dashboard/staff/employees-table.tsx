@@ -276,8 +276,12 @@ export function EmployeesTable({
       ),
       cell: ({ row }) => {
         const phone = row.getValue('phone') as string;
-        return phone ? (
-          <div className='text-[13px] text-[#455a54]/80 tabular-nums'>{phone}</div>
+        const emergencyPhone = row.original.emergencyPhone;
+        return phone || emergencyPhone ? (
+          <div className='text-[13px] text-[#455a54]/80 tabular-nums'>
+            {phone && <div>{phone}</div>}
+            {emergencyPhone && <div className='text-[11px] text-[#9d684e]'>Emergencia: {emergencyPhone}</div>}
+          </div>
         ) : (
           <div className='text-[#455a54]/35 text-[13px]'>—</div>
         );

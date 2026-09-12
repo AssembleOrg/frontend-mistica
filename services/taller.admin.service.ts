@@ -119,7 +119,16 @@ export interface StudentPracticalProfile {
   attendance: Array<{
     groupId: string;
     dateKey: string;
-    record?: { studentId: string; status: AttendanceStatus; notes?: string };
+    record?: {
+      studentId: string;
+      status: AttendanceStatus;
+      makeupForGroupId?: string;
+      makeupForDate?: string;
+      recoveredInGroupId?: string;
+      recoveredInDate?: string;
+      recoveredAt?: string;
+      notes?: string;
+    };
   }>;
   pieces: Array<{
     _id: string;
@@ -141,6 +150,11 @@ export interface AttendanceDoc {
   records: Array<{
     studentId: string;
     status: AttendanceStatus;
+    makeupForGroupId?: string;
+    makeupForDate?: string;
+    recoveredInGroupId?: string;
+    recoveredInDate?: string;
+    recoveredAt?: string;
     notes?: string;
   }>;
 }
@@ -166,6 +180,13 @@ export interface StaffTask {
   status: 'PENDING' | 'DONE';
   dueDate?: string;
   completedAt?: string;
+  comments?: Array<{
+    _id: string;
+    authorUserId?: string;
+    authorName: string;
+    body: string;
+    createdAt: string;
+  }>;
   createdAt: string;
 }
 
@@ -266,6 +287,8 @@ export const tallerAdmin = {
     records: Array<{
       studentId: string;
       status: AttendanceStatus;
+      makeupForGroupId?: string;
+      makeupForDate?: string;
       notes?: string;
     }>;
   }) =>
@@ -315,6 +338,13 @@ export const tallerAdmin = {
     ).data,
   removeTask: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/staff/tasks/${id}`)).data,
+  addTaskComment: async (id: string, body: string) =>
+    (
+      await apiService.post<StaffTask>(
+        `/staff/tasks/${id}/comments`,
+        { body } as unknown as Json,
+      )
+    ).data,
 
   // Lista de compras
   listShopping: async (status?: 'PENDING' | 'BOUGHT') =>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { Check, Plus, Send, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -131,6 +131,11 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     }
   }
 
+  async function addComment(t: StaffTask, body: string) {
+    await tallerAdmin.addTaskComment(t._id, body);
+    await load();
+  }
+
   const pending = tasks.filter((t) => t.status === 'PENDING');
   const done = tasks.filter((t) => t.status === 'DONE');
 
@@ -190,7 +195,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
           )}
           <div className='flex flex-col gap-2'>
             {pending.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={remove} />
+              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={remove} onComment={addComment} />
             ))}
           </div>
           {done.length > 0 && (
@@ -204,7 +209,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
           )}
           {showDone &&
             done.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={remove} />
+              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={remove} onComment={addComment} />
             ))}
         </>
       )}
@@ -216,13 +221,31 @@ function TaskRow({
   task: t,
   onToggle,
   onRemove,
+  onComment,
 }: Readonly<{
   task: StaffTask;
   onToggle: (t: StaffTask) => void;
   onRemove: (t: StaffTask) => void;
+  onComment: (t: StaffTask, body: string) => Promise<void>;
 }>) {
+  const [comment, setComment] = useState('');
+  const [commenting, setCommenting] = useState(false);
   const overdue =
     t.status === 'PENDING' && t.dueDate && new Date(t.dueDate) < new Date();
+  async function submitComment() {
+    const body = comment.trim();
+    if (!body || commenting) return;
+    setCommenting(true);
+    try {
+      await onComment(t, body);
+      setComment('');
+      showToast.success('Actualización agregada');
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo agregar el comentario');
+    } finally {
+      setCommenting(false);
+    }
+  }
   return (
     <div
       className={`flex items-start gap-3 rounded-xl border bg-white px-4 py-3 ${
@@ -273,6 +296,30 @@ function TaskRow({
             </span>
           )}
         </div>
+        {(t.comments?.length ?? 0) > 0 && (
+          <div className='mt-2 flex flex-col gap-1.5 border-l-2 border-[#e6dbcd] pl-2.5'>
+            {t.comments!.map((entry) => (
+              <div key={entry._id} className='text-[12px] text-[#455a54]'>
+                <span className='font-semibold'>{entry.authorName}</span>
+                <span className='text-[#7a6e6f]'> · {fmtDate(entry.createdAt)}</span>
+                <p className='whitespace-pre-wrap text-[#3d3338]'>{entry.body}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className='mt-2 flex items-end gap-1.5'>
+          <Textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={1}
+            placeholder='Agregar progreso, necesidad u observación…'
+            className={`${fieldCls} min-h-9 resize-none text-xs`}
+          />
+          <Button type='button' variant='outline' size='sm' onClick={submitComment} disabled={!comment.trim() || commenting} className='h-9 shrink-0 border-[#e6dbcd] px-2 text-[#455a54]'>
+            <Send className='h-3.5 w-3.5' />
+            <span className='sr-only'>Agregar comentario</span>
+          </Button>
+        </div>
       </div>
       <button
         type='button'
@@ -293,7 +340,8 @@ function ComprasTab() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [qty, setQty] = useState('');
-  const [showBought, setShowBought] = useState(false);
+  const [showBought, setShowBought] = useState(true);
+  const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -341,6 +389,7 @@ function ComprasTab() {
   }
 
   async function remove(it: ShoppingItem) {
+    if (!(await confirm({ title: `¿Eliminar definitivamente ${it.name}?`, description: 'Se quitará también del historial de compras.' }))) return;
     try {
       await tallerAdmin.removeShoppingItem(it._id);
       await load();
@@ -402,7 +451,7 @@ function ComprasTab() {
               onClick={() => setShowBought(!showBought)}
               className='w-fit text-[12px] font-medium text-[#7a6e6f] underline'
             >
-              {showBought ? 'Ocultar' : 'Ver'} ya compradas ({bought.length})
+              {showBought ? 'Ocultar' : 'Ver'} Resueltos ({bought.length})
             </button>
           )}
           {showBought &&
@@ -438,7 +487,7 @@ function ShoppingRow({
             ? 'border-[#455a54] bg-[#455a54] text-white'
             : 'border-[#c9bfb0] bg-white hover:border-[#455a54]'
         }`}
-        aria-label={it.status === 'BOUGHT' ? 'Volver a pendiente' : 'Marcar comprado'}
+        aria-label={it.status === 'BOUGHT' ? 'Volver a pendiente' : 'Mover a Resueltos'}
       >
         {it.status === 'BOUGHT' && <Check className='h-3.5 w-3.5' />}
       </button>

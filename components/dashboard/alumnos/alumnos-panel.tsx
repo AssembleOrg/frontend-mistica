@@ -974,7 +974,11 @@ function StudentDetailDialog({
                         title={a.record?.notes}
                       >
                         {fmtDate(a.dateKey)} ·{' '}
-                        {ATT_LABEL[a.record?.status ?? 'PRESENT']}
+                        {a.record?.recoveredInDate
+                          ? `Recuperada el ${fmtDate(a.record.recoveredInDate)}`
+                          : a.record?.status === 'MAKEUP' && a.record.makeupForDate
+                          ? `Recupera ${practical.groups.find((g) => g._id === a.record?.makeupForGroupId)?.name ?? 'otra clase'} del ${fmtDate(a.record.makeupForDate)}`
+                          : ATT_LABEL[a.record?.status ?? 'PRESENT']}
                       </span>
                     ))}
                   </div>

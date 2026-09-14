@@ -240,7 +240,7 @@ export const reservationsPublic = {
     }),
 
   getStatus: (reservationId: string) =>
-    req<ReservationView>(`/reservations/${reservationId}/status`),
+    req<ReservationView>(`/reservations/${encodeURIComponent(reservationId)}/status`),
 
   getByCode: (code: string) =>
     req<ReservationView>(`/reservations/code/${encodeURIComponent(code)}`),

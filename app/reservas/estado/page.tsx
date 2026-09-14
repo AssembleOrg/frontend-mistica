@@ -39,7 +39,9 @@ function prettyCode(code: string) {
 
 function EstadoInner() {
   const params = useSearchParams();
-  const ref = params.get('ref');
+  // Sólo IDs de Mongo: evita que un ?ref= armado altere la ruta del API.
+  const rawRef = params.get('ref');
+  const ref = rawRef && /^[a-f0-9]{24}$/i.test(rawRef) ? rawRef : null;
   const [reservation, setReservation] = useState<ReservationView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(!!ref);

@@ -94,6 +94,7 @@ export interface HoldResponse {
   whatsapp: string;
 }
 
+// Vista pública (sin datos personales): el código o el id se pueden adivinar.
 export interface ReservationView {
   reservationId: string;
   code: string;
@@ -107,15 +108,9 @@ export interface ReservationView {
   totalAmount: number;
   balanceDue: number;
   paymentMethod: string;
-  source: string;
-  customerName: string;
-  customerEmail?: string;
-  customerPhone?: string;
   expiresAt?: string;
   confirmedAt?: string;
   cancelledAt?: string;
-  notes?: string;
-  createdAt: string;
 }
 
 export interface CreateHoldInput {

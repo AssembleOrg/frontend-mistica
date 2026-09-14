@@ -30,6 +30,7 @@ import {
   type StudentAdminProfile,
   type StudentPracticalProfile,
 } from '@/services/taller.admin.service';
+import { PIECE_STATUS_LABEL, type PieceStatus } from '@/services/pieces.admin.service';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
 
 const fieldCls =
@@ -130,7 +131,10 @@ const PAYMENT_METHODS = [
 
 function fmtDate(d?: string) {
   if (!d) return '—';
-  const date = new Date(d);
+  // 'YYYY-MM-DD' (fecha de clase) se interpreta como día local: new Date()
+  // lo tomaría como medianoche UTC y en Argentina mostraría el día anterior.
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  const date = ymd ? new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])) : new Date(d);
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
 }
 
@@ -995,10 +999,14 @@ function StudentDetailDialog({
                         className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] px-3 py-2 text-[13px] text-[#3d3338]'
                       >
                         <span className='font-medium'>
-                          {p.notes || p.experienceName || 'Pieza'}
+                          {p.pieceType || p.notes || p.experienceName || 'Pieza'}
                         </span>
-                        <span className='text-[#7a6e6f]'>×{p.quantity}</span>
-                        <StatusBadge label={p.status} bg='#f3e7db' fg='#9d684e' />
+                        {p.colorsUsed ? (
+                          <span className='text-[#7a6e6f]'>{p.colorsUsed}</span>
+                        ) : (
+                          <span className='text-[#7a6e6f]'>×{p.quantity}</span>
+                        )}
+                        <StatusBadge label={PIECE_STATUS_LABEL[p.status as PieceStatus] ?? p.status} bg='#f3e7db' fg='#9d684e' />
                         {(p.photos?.length ?? 0) > 0 && (
                           <span className='text-[11px] text-[#7a6e6f]'>
                             📷 {p.photos!.length}

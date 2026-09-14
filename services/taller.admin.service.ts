@@ -137,6 +137,8 @@ export interface StudentPracticalProfile {
     experienceName?: string;
     photos?: string[];
     notes?: string;
+    pieceType?: string;
+    colorsUsed?: string;
     createdAt: string;
   }>;
 }

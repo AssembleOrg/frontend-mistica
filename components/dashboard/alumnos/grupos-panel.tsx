@@ -509,6 +509,12 @@ const ATT_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
   { key: 'MAKEUP', label: 'Recupera' },
 ];
 
+// Para quien vino de otro grupo: presente = recuperó la clase original.
+const GUEST_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
+  { key: 'MAKEUP', label: 'Presente' },
+  { key: 'ABSENT', label: 'Ausente' },
+];
+
 /**
  * Asistencia de una clase: se elige el día, cada alumno del grupo arranca
  * PRESENTE y se marca ausente/recuperando con un toque. También se puede
@@ -601,12 +607,18 @@ function AttendanceDialog({
         groupId: group._id,
         date,
         // Sin marcar → Presente (si tomaste asistencia y no lo tocaste, vino).
-        records: records.map((r) => ({
-          studentId: r.studentId,
-          status: r.status ?? 'PRESENT',
-          makeupForGroupId: r.status === 'MAKEUP' ? r.makeupForGroupId : undefined,
-          makeupForDate: r.status === 'MAKEUP' ? r.makeupForDate : undefined,
-        })),
+        // Un alumno sumado para recuperar sin marcar → vino a recuperar.
+        records: records.map((r) => {
+          const recovering = isRecoveringGuest(r);
+          const status = r.status ?? (recovering ? 'MAKEUP' : 'PRESENT');
+          const keepRef = status === 'MAKEUP' || (recovering && status === 'ABSENT');
+          return {
+            studentId: r.studentId,
+            status,
+            makeupForGroupId: keepRef ? r.makeupForGroupId : undefined,
+            makeupForDate: keepRef ? r.makeupForDate : undefined,
+          };
+        }),
       });
       showToast.success('Asistencia guardada');
       onClose();
@@ -615,6 +627,11 @@ function AttendanceDialog({
     } finally {
       setSaving(false);
     }
+  }
+
+  // Alumno de otro grupo incorporado sólo para recuperar una clase.
+  function isRecoveringGuest(r: { studentId: string; makeupForGroupId?: string; makeupForDate?: string }) {
+    return !group.studentIds.includes(r.studentId) && !!r.makeupForGroupId && !!r.makeupForDate;
   }
 
   const outsiders = allStudents.filter(
@@ -718,7 +735,7 @@ function AttendanceDialog({
                     )}
                   </span>
                   <div className='flex gap-1'>
-                  {ATT_OPTIONS.map((o) => (
+                  {(isRecoveringGuest(r) ? GUEST_OPTIONS : ATT_OPTIONS).map((o) => (
                     <button
                       key={o.key}
                       type='button'
@@ -727,7 +744,7 @@ function AttendanceDialog({
                         next[i] = {
                           ...r,
                           status: o.key,
-                          ...(o.key === 'MAKEUP' ? {} : { makeupForGroupId: undefined, makeupForDate: undefined }),
+                          ...(o.key === 'MAKEUP' || isRecoveringGuest(r) ? {} : { makeupForGroupId: undefined, makeupForDate: undefined }),
                         };
                         setRecords(next);
                       }}
@@ -744,9 +761,25 @@ function AttendanceDialog({
                       {o.label}
                     </button>
                   ))}
+                  {isRecoveringGuest(r) && (
+                    <button
+                      type='button'
+                      aria-label='Quitar de esta asistencia'
+                      onClick={() => setRecords(records.filter((_, j) => j !== i))}
+                      className='rounded-md border border-[#e6dbcd] bg-white px-2 py-1 text-[11px] text-[#a33] hover:bg-[#fbe4e4]'
+                    >
+                      Quitar
+                    </button>
+                  )}
                   </div>
                 </div>
-                {r.status === 'MAKEUP' && (
+                {isRecoveringGuest(r) && (
+                  <p className='text-[11px] text-[#6d5a78]'>
+                    Recupera {allGroups.find((candidate) => candidate._id === r.makeupForGroupId)?.name ?? 'otra clase'} del {displayClassDate(r.makeupForDate!)}
+                    {r.status === 'ABSENT' ? ' · no vino: la clase original sigue pendiente' : ' · al guardarlo presente, la clase original queda recuperada'}
+                  </p>
+                )}
+                {r.status === 'MAKEUP' && !isRecoveringGuest(r) && (
                   <div className='grid grid-cols-1 gap-1.5 border-t border-[#eee4d8] pt-2 sm:grid-cols-2'>
                     <select
                       value={r.makeupForGroupId ?? ''}
@@ -839,7 +872,7 @@ function AttendanceDialog({
               onClick={() => {
                 setRecords([...records, {
                   studentId: extra,
-                  status: 'MAKEUP',
+                  status: null,
                   makeupForGroupId: extraSourceGroup,
                   makeupForDate: extraSourceDate,
                 }]);

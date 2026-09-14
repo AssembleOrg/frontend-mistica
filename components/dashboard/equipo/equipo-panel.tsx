@@ -446,13 +446,18 @@ function ComprasTab() {
             ))}
           </div>
           {bought.length > 0 && (
-            <button
-              type='button'
-              onClick={() => setShowBought(!showBought)}
-              className='w-fit text-[12px] font-medium text-[#7a6e6f] underline'
-            >
-              {showBought ? 'Ocultar' : 'Ver'} Resueltos ({bought.length})
-            </button>
+            <div className='flex items-center justify-between gap-2 border-t border-[#e6dbcd] pt-3'>
+              <h3 className='text-sm font-semibold text-[#455a54]'>
+                Resueltos ({bought.length})
+              </h3>
+              <button
+                type='button'
+                onClick={() => setShowBought(!showBought)}
+                className='text-[12px] font-medium text-[#7a6e6f] underline'
+              >
+                {showBought ? 'Ocultar historial' : 'Ver historial'}
+              </button>
+            </div>
           )}
           {showBought &&
             bought.map((it) => (
@@ -502,11 +507,13 @@ function ShoppingRow({
         )}
         {it.notes && <span className='text-[#7a6e6f]'> · {it.notes}</span>}
       </span>
-      {it.addedByName && (
-        <span className='hidden text-[11px] text-[#7a6e6f] sm:inline'>
-          {it.addedByName}
-        </span>
-      )}
+      <span className='shrink-0 text-right text-[11px] leading-tight text-[#7a6e6f]'>
+        Pedido {fmtDate(it.createdAt)}
+        {it.addedByName && <span className='hidden sm:inline'> · {it.addedByName}</span>}
+        {it.status === 'BOUGHT' && it.boughtAt && (
+          <span className='block'>Resuelto {fmtDate(it.boughtAt)}</span>
+        )}
+      </span>
       <button
         type='button'
         onClick={() => onRemove(it)}

@@ -140,6 +140,9 @@ export function PiezasTab() {
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  // Se incrementa en cada recarga para refrescar los contadores por estado
+  // (cambiar el estado de una pieza no altera el total de la lista).
+  const [countsKey, setCountsKey] = useState(0);
   // Estados configurables del proceso (con fallback histórico hasta cargar).
   const [statusCfg, setStatusCfg] = useState<PieceStatusConfig[]>(FALLBACK_CFG);
   const [photosOf, setPhotosOf] = useState<PieceItem | null>(null);
@@ -187,6 +190,7 @@ export function PiezasTab() {
       setItems(res.items);
       setTotalPages(res.totalPages);
       setTotal(res.total);
+      setCountsKey((k) => k + 1);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar');
     } finally {
@@ -216,7 +220,7 @@ export function PiezasTab() {
     return () => {
       alive = false;
     };
-  }, [search, professorId, total]);
+  }, [search, professorId, countsKey]);
 
   async function changeStatus(p: PieceItem, next: string) {
     if (next === p.status) return;
@@ -519,6 +523,9 @@ export function PiezasTab() {
                     {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
                       <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar</Button>
                     )}
+                    {isAdmin && p.notifiedReadyAt && (
+                      <span className='text-[10px] text-[#455a54]'>Avisado</span>
+                    )}
                     {isAdmin && (
                       <IconBtn
                         icon={Trash2}
@@ -599,7 +606,7 @@ function NewPieceModal({
       reservationsAdmin
         .listReservations({ date: classDate, search: search.trim() || undefined, limit: 50 })
         .then((result) => {
-          if (alive) setReservations(result.items.filter((item) => item.status !== 'CANCELLED'));
+          if (alive) setReservations(result.items.filter((item) => item.status !== 'CANCELLED' && item.status !== 'EXPIRED'));
         })
         .catch(() => {
           if (alive) setReservations([]);
@@ -824,7 +831,7 @@ function PhotosDialog({
       <DialogContent className='sm:max-w-md'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
-            Fotos · {piece.notes || piece.customerName || 'Pieza'}
+            Fotos · {piece.pieceType || piece.personName || piece.customerName || 'Pieza'}
           </DialogTitle>
         </DialogHeader>
         <div className='flex flex-col gap-3'>

@@ -129,7 +129,7 @@ export function AnotadosModal({
           <div className='overflow-hidden rounded-lg border border-[#e6dbcd]'>
             <div className='grid grid-cols-[auto_1fr_auto_auto] gap-2 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#455a54]/60'>
               <span>{verDetalle ? 'CÓDIGO' : ''}</span>
-              <span>{verDetalle ? 'CLIENTE' : 'RESTRICCIONES'}</span>
+              <span>CLIENTE</span>
               <span>PERS.</span>
               <span>ESTADO</span>
             </div>
@@ -147,15 +147,15 @@ export function AnotadosModal({
                     {verDetalle ? prettyCode(r.code) : ''}
                   </span>
                   <div className='flex flex-col gap-1'>
+                    {/* El nombre se ve siempre (para saber quién viene). El
+                        contacto sólo con acceso completo a Reservas. */}
+                    <p className='text-sm font-medium text-[#455a54]'>
+                      {r.customerName ?? '—'}
+                    </p>
                     {verDetalle && (
-                      <>
-                        <p className='text-sm font-medium text-[#455a54]'>
-                          {r.customerName}
-                        </p>
-                        <p className='text-xs text-[#455a54]/60'>
-                          {r.customerEmail ?? r.customerPhone ?? '—'}
-                        </p>
-                      </>
+                      <p className='text-xs text-[#455a54]/60'>
+                        {r.customerEmail ?? r.customerPhone ?? '—'}
+                      </p>
                     )}
                     <DietaryTags
                       tags={r.dietaryTags}

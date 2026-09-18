@@ -416,15 +416,18 @@ function TurnoCard({
             </span>
           </span>
         </div>
-        {verDetalle && shown.length > 0 && (
+        {shown.length > 0 && (
           <div className='flex flex-wrap items-center gap-1.5'>
             {shown.map((a, i) => (
               <span
                 key={i}
                 className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1 text-xs font-medium text-[#3d3338]'
               >
-                {a.saldo && <span className='h-1.5 w-1.5 rounded-full bg-[#9d684e]' />}
-                {a.name}
+                {/* El punto marca saldo pendiente; sólo con acceso a importes. */}
+                {verDetalle && a.saldo && (
+                  <span className='h-1.5 w-1.5 rounded-full bg-[#9d684e]' />
+                )}
+                {a.name ?? '—'}
               </span>
             ))}
             {extra > 0 && (

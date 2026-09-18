@@ -106,6 +106,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     });
   }, [userRole, allowedViews]);
 
+  // El CTA de caja pega a /cashbox/current al montar. El backend exige la vista
+  // 'sales' o 'finances', así que una cuenta sin ellas (cocina, taller) recibe
+  // 403 y vería un botón "Abrir caja" que no puede usar. Lo ocultamos salvo que
+  // la cuenta pueda operar la caja (admin, whitelist vacía = acceso estándar, o
+  // con 'sales'/'finances').
+  const canUseCashbox =
+    userRole === 'admin' ||
+    allowedViews.length === 0 ||
+    allowedViews.includes('sales') ||
+    allowedViews.includes('finances');
+
   return (
     <Sidebar
       collapsible='icon'
@@ -124,11 +135,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             priority
           />
         </div>
-        <div className='px-3 pb-3 group-data-[collapsible=icon]:hidden'>
-          <div className='rounded-xl border border-[#9d684e]/30 bg-[#9d684e]/10 p-2'>
-            <CashboxCta />
+        {canUseCashbox && (
+          <div className='px-3 pb-3 group-data-[collapsible=icon]:hidden'>
+            <div className='rounded-xl border border-[#9d684e]/30 bg-[#9d684e]/10 p-2'>
+              <CashboxCta />
+            </div>
           </div>
-        </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent>

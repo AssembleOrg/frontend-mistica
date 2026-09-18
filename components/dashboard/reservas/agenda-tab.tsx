@@ -180,7 +180,11 @@ export function AgendaTab() {
 
   // Resumen del día: turnos, personas y saldo por cobrar en el local.
   const stats = useMemo(() => {
-    const personas = dayTurnos.reduce((n, s) => n + s.seatsTaken, 0);
+    // La Agenda cuenta sólo personas confirmadas (sin holds pendientes).
+    const personas = dayTurnos.reduce(
+      (n, s) => n + (s.confirmedSeats ?? s.seatsTaken),
+      0,
+    );
     let porCobrar = 0;
     for (const s of dayTurnos) {
       for (const r of attendees[s.id] ?? []) {
@@ -384,15 +388,19 @@ function TurnoCard({
   verDetalle: boolean;
   onVer: () => void;
 }) {
-  const names = reservations.map((r) => ({ name: r.customerName, saldo: (r.balanceDue ?? 0) > 0 }));
+  // La Agenda es la fuente de verdad del negocio: sólo lo confirmado. Las
+  // reservas pendientes (holds del bot/landing) no cuentan ni se muestran acá.
+  const confirmadas = reservations.filter((r) => r.status === 'CONFIRMED');
+  const seats = s.confirmedSeats ?? s.seatsTaken;
+  const names = confirmadas.map((r) => ({
+    name: r.customerName,
+    saldo: (r.balanceDue ?? 0) > 0,
+  }));
   const shown = names.slice(0, 3);
-  const extra = Math.max(0, s.seatsTaken - shown.length);
-  const porCobrar = reservations.reduce(
-    (n, r) => n + (r.status === 'CONFIRMED' ? r.balanceDue ?? 0 : 0),
-    0,
-  );
+  const extra = Math.max(0, seats - shown.length);
+  const porCobrar = confirmadas.reduce((n, r) => n + (r.balanceDue ?? 0), 0);
   // Para cocina: sólo cuántas personas y qué restricciones traen.
-  const dietas = reservations
+  const dietas = confirmadas
     .filter((r) => (r.dietaryTags?.length ?? 0) > 0 || !!r.dietaryNotes)
     .map((r) => ({ quantity: r.quantity, tags: r.dietaryTags, notes: r.dietaryNotes }));
 
@@ -412,7 +420,7 @@ function TurnoCard({
           <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
             <Users className='h-3.5 w-3.5 text-[#455a54]' />
             <span className='font-mono text-xs font-semibold text-[#3d3338]'>
-              {s.seatsTaken}/{s.capacity}
+              {seats}/{s.capacity}
             </span>
           </span>
         </div>
@@ -452,7 +460,7 @@ function TurnoCard({
           {!verDetalle ? (
             <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#455a54]'>
               <Users className='h-[15px] w-[15px]' />
-              {s.seatsTaken} persona(s) anotada(s)
+              {seats} persona(s) anotada(s)
             </span>
           ) : porCobrar > 0 ? (
             <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#9d684e]'>
@@ -541,7 +549,7 @@ function WeekAgenda({
                         {s.experienceName}
                       </p>
                       <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
-                        <span>{s.seatsTaken}/{s.capacity} pers.</span>
+                        <span>{s.confirmedSeats ?? s.seatsTaken}/{s.capacity} pers.</span>
                         <span className='font-mono uppercase tracking-wide'>
                           {SESSION_STATUS_LABEL[s.status] ?? s.status}
                         </span>

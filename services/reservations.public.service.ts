@@ -63,6 +63,9 @@ export interface PublicSession {
   endAt: string;
   capacity: number;
   seatsTaken: number;
+  // Personas CONFIRMADAS del turno (sin holds pendientes). La Agenda cuenta
+  // esto; `seatsTaken` sigue incluyendo pendientes para no sobrevender.
+  confirmedSeats?: number;
   seatsAvailable: number;
   status: string;
   notes?: string;

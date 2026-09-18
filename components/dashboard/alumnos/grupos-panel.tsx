@@ -28,9 +28,7 @@ import {
 } from '@/services/professors.admin.service';
 import {
   QuickCreateSelect,
-  QuickCreateButton,
   professorFields,
-  studentFields,
 } from '@/components/ui/quick-create-select';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
 
@@ -376,42 +374,18 @@ export function GruposPanel() {
               </Field>
 
               <Field label={`Alumnos (${form.studentIds?.length ?? 0})`}>
-                <div className='mb-1.5 flex justify-end'>
-                  <QuickCreateButton
-                    label='Nuevo alumno'
-                    createTitle='Nuevo alumno'
-                    fields={studentFields}
-                    onCreate={async (vals) => {
-                      const created = await tallerAdmin.createStudent({
-                        name: vals.name,
-                        phone: vals.phone,
-                      });
-                      setStudents((prev) => [...prev, created]);
-                      return { id: created._id, name: created.name };
-                    }}
-                    onCreated={(created) =>
-                      setForm((f) =>
-                        f
-                          ? {
-                              ...f,
-                              studentIds: [...(f.studentIds ?? []), created.id],
-                            }
-                          : f,
-                      )
-                    }
-                  />
-                </div>
                 <Input
                   value={studentSearch}
                   onChange={(event) => setStudentSearch(event.target.value)}
                   placeholder='Buscar alumno por nombre…'
                   className={`${fieldCls} mb-2 h-9`}
                 />
-                <p className='mb-1 text-[11px] text-[#7a6e6f]'>Mostrando hasta 20 alumnos{studentSearch ? ' que coinciden con la búsqueda' : '. Escribí para filtrar.'}</p>
+                <p className='mb-1 text-[11px] text-[#7a6e6f]'>Mostrando hasta 20 alumnos{studentSearch ? ' que coinciden con la búsqueda' : '. Escribí para filtrar.'} Los alumnos se dan de alta en la pestaña Alumnos, donde se los vincula con su cliente.</p>
                 <div className='flex max-h-64 flex-col gap-1 overflow-y-auto rounded-lg border border-[#e6dbcd] bg-white p-2'>
                   {students.length === 0 && (
                     <p className='text-xs text-[#7a6e6f]'>
-                      No hay alumnos activos cargados.
+                      No hay alumnos activos cargados. Creálos primero en la
+                      pestaña Alumnos.
                     </p>
                   )}
                   {filteredStudents.map((s) => {

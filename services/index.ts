@@ -7,7 +7,7 @@ export { appService, AppService } from './app.service';
 export { egressesService, EgressesService } from './egresses.service';
 
 export type { ApiResponse, ApiError } from './api.service';
-export type { AuthResponse, User, LoginRequest, RegisterRequest } from './auth.service';
+export type { AuthResponse, User, LoginRequest } from './auth.service';
 export type { CreateProductRequest, UpdateProductRequest, PaginatedResponse } from './products.service';
 export type { HealthResponse, DatabaseInfoResponse } from './app.service';
 export type { Egress, CreateEgressRequest, UpdateEgressRequest, EgressFilters, EgressStatistics } from './egresses.service';

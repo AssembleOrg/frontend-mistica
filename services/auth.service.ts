@@ -5,7 +5,6 @@ import type { paths } from '@/lib/api-types';
 
 // Extract types from OpenAPI schema
 type LoginRequest = paths['/auth/login']['post']['requestBody']['content']['application/json'];
-type RegisterRequest = paths['/auth/register']['post']['requestBody']['content']['application/json'];
 type AdminRegisterRequest = paths['/auth/admin/register']['post']['requestBody']['content']['application/json'];
 
 // Response del login: el `access_token` ya no se devuelve en el body — se
@@ -41,11 +40,6 @@ export class AuthService {
   }
 
   // Register new user
-  async register(userData: RegisterRequest): Promise<ApiResponse<AuthResponse>> {
-    return apiService.post<AuthResponse>('/auth/register', userData);
-  }
-
-  // Register admin user (requires authentication)
   async registerAdmin(userData: AdminRegisterRequest): Promise<ApiResponse<AuthResponse>> {
     return apiService.post<AuthResponse>('/auth/admin/register', userData);
   }
@@ -123,4 +117,4 @@ export class AuthService {
 export const authService = new AuthService();
 
 // Export types for external use
-export type { LoginRequest, RegisterRequest, AdminRegisterRequest };
+export type { LoginRequest, AdminRegisterRequest };

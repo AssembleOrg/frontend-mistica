@@ -7,7 +7,6 @@ import {
   authService,
   type AdminRegisterRequest,
   type LoginRequest,
-  type RegisterRequest,
 } from '@/services/auth.service';
 import type { ApiError } from '@/services/api.service';
 import { showToast } from '@/lib/toast';
@@ -51,24 +50,6 @@ export function useAuth() {
       }
     },
     [setUser, handleApiError]
-  );
-
-  const register = useCallback(
-    async (userData: RegisterRequest) => {
-      setState({ loading: true, error: null });
-      try {
-        const response = await authService.register(userData);
-        // Tras registrarse el flujo es ir a login (el backend no auto-loguea).
-        showToast.success('¡Cuenta creada! Iniciá sesión para continuar.');
-        return response.data;
-      } catch (error) {
-        handleApiError(error, 'crear cuenta');
-        throw error;
-      } finally {
-        setState((prev) => ({ ...prev, loading: false }));
-      }
-    },
-    [handleApiError]
   );
 
   const registerAdmin = useCallback(
@@ -126,7 +107,6 @@ export function useAuth() {
     error: state.error,
 
     login,
-    register,
     registerAdmin,
     logout,
     refreshUser,

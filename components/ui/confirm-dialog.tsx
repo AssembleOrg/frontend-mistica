@@ -57,7 +57,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       {children}
       <Dialog open={opts !== null} onOpenChange={(o) => !o && settle(false)}>
         {opts && (
-          <DialogContent className='sm:max-w-sm'>
+          <DialogContent className='max-w-[calc(100%-2rem)] sm:max-w-md md:max-w-md lg:max-w-md xl:max-w-md'>
             <DialogHeader className='text-left'>
               <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
                 {opts.title}

@@ -27,12 +27,14 @@ export interface ReservationItem {
   experienceName: string;
   startAt: string;
   quantity: number;
-  unitPrice: number;
-  amount: number;
+  // Datos personales e importes: NO llegan a las cuentas que sólo tienen
+  // alguna pestaña de Reservas (p. ej. cocina), el backend los recorta.
+  unitPrice?: number;
+  amount?: number;
   depositAmount?: number;
   totalAmount?: number;
   balanceDue?: number;
-  customerName: string;
+  customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   sessionId: string;

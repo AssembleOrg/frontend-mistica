@@ -72,7 +72,7 @@ export function ReservationDetailPanel({
   const r = reservation;
 
   const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? ['#f1ede6', '#7a6e6f'];
-  const total = r.totalAmount ?? r.amount;
+  const total = r.totalAmount ?? r.amount ?? 0;
   const deposit = r.depositAmount;
   const balance = r.balanceDue;
   const pct =
@@ -114,7 +114,7 @@ export function ReservationDetailPanel({
           </div>
 
           <Section title='CLIENTE'>
-            <KV k='Nombre' v={r.customerName} />
+            <KV k='Nombre' v={r.customerName ?? '—'} />
             {r.customerPhone && <KV k='Teléfono' v={r.customerPhone} />}
             {r.customerEmail && <KV k='Email' v={r.customerEmail} />}
           </Section>

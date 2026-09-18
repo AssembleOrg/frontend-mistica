@@ -86,3 +86,18 @@ export function allowedReservasTabs(
   if (allowedViews.includes('reservas')) return all;
   return all.filter((k) => allowedViews.includes(`reservas:${k}`));
 }
+
+/**
+ * ¿La cuenta ve los datos personales y los importes de las reservas? Los admin
+ * y quien tenga la vista Reservas completa, sí. Una cuenta con sólo alguna
+ * pestaña suelta (cocina con 'reservas:agenda') ve turnos, cantidad de
+ * personas y restricciones alimentarias, nada más. El backend recorta igual.
+ */
+export function canSeeReservationDetails(
+  role: string | null | undefined,
+  allowedViews: string[] | null | undefined,
+): boolean {
+  if (role === 'admin') return true;
+  const views = allowedViews ?? [];
+  return views.length === 0 || views.includes('reservas');
+}

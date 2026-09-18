@@ -209,6 +209,9 @@ type Json = Record<string, unknown>;
 
 export const tallerAdmin = {
   // Grupos (profesor: sólo los suyos; admin: todos)
+  /** Clases del día con cuántos alumnos hay anotados (sin nombres). */
+  groupsOfDay: async (date: string) =>
+    (await apiService.get<GroupDayClass[]>(`/groups/agenda?date=${date}`)).data,
   listGroups: async (includeInactive = false) =>
     (
       await apiService.get<Group[]>(
@@ -385,5 +388,14 @@ export const tallerAdmin = {
     (await apiService.delete<{ success: boolean }>(`/staff/shopping/${id}`))
       .data,
 };
+
+export interface GroupDayClass {
+  groupId: string;
+  name: string;
+  professorName?: string;
+  start: string;
+  end: string;
+  students: number;
+}
 
 export const WEEKDAY_SHORT = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];

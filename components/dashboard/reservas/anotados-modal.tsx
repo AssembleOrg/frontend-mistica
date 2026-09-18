@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { DietaryTags } from './dietary-badge';
+import { useAuth } from '@/hooks/useAuth';
+import { canSeeReservationDetails } from '@/lib/views';
 import {
   fmtDateTime,
   fmtPrice,
@@ -44,6 +46,9 @@ export function AnotadosModal({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { user } = useAuth();
+  // Cocina: sólo cantidad de personas y restricciones, sin datos del cliente.
+  const verDetalle = canSeeReservationDetails(user?.role, user?.allowedViews);
   const [session, setSession] = useState<AdminSession | null>(null);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,8 +128,8 @@ export function AnotadosModal({
           {/* Lista de anotados */}
           <div className='overflow-hidden rounded-lg border border-[#e6dbcd]'>
             <div className='grid grid-cols-[auto_1fr_auto_auto] gap-2 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#455a54]/60'>
-              <span>CÓDIGO</span>
-              <span>CLIENTE</span>
+              <span>{verDetalle ? 'CÓDIGO' : ''}</span>
+              <span>{verDetalle ? 'CLIENTE' : 'RESTRICCIONES'}</span>
               <span>PERS.</span>
               <span>ESTADO</span>
             </div>
@@ -139,20 +144,31 @@ export function AnotadosModal({
                   className='grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-t border-[#e6dbcd] px-4 py-3'
                 >
                   <span className='font-mono text-sm font-semibold text-[#9d684e]'>
-                    {prettyCode(r.code)}
+                    {verDetalle ? prettyCode(r.code) : ''}
                   </span>
                   <div className='flex flex-col gap-1'>
-                    <p className='text-sm font-medium text-[#455a54]'>
-                      {r.customerName}
-                    </p>
-                    <p className='text-xs text-[#455a54]/60'>
-                      {r.customerEmail ?? r.customerPhone ?? '—'}
-                    </p>
+                    {verDetalle && (
+                      <>
+                        <p className='text-sm font-medium text-[#455a54]'>
+                          {r.customerName}
+                        </p>
+                        <p className='text-xs text-[#455a54]/60'>
+                          {r.customerEmail ?? r.customerPhone ?? '—'}
+                        </p>
+                      </>
+                    )}
                     <DietaryTags
                       tags={r.dietaryTags}
                       notes={r.dietaryNotes}
                       compact
                     />
+                    {!verDetalle &&
+                      (r.dietaryTags?.length ?? 0) === 0 &&
+                      !r.dietaryNotes && (
+                        <span className='text-xs text-[#455a54]/60'>
+                          Sin restricciones
+                        </span>
+                      )}
                   </div>
                   <span className='text-sm text-[#455a54]'>{r.quantity}</span>
                   <span className='text-xs text-[#455a54]/60'>
@@ -163,8 +179,13 @@ export function AnotadosModal({
             )}
           </div>
 
-          {/* Alta de reserva */}
-          <div className='flex flex-col gap-3 rounded-lg border border-[#e6dbcd] p-4'>
+          {/* Alta de reserva (sólo admin: el endpoint pide rol admin) */}
+          <div
+            className={cn(
+              'flex-col gap-3 rounded-lg border border-[#e6dbcd] p-4',
+              user?.role === 'admin' ? 'flex' : 'hidden',
+            )}
+          >
             <div className='flex items-center gap-2'>
               <UserPlus className='h-4 w-4 text-[#9d684e]' />
               <h3 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>

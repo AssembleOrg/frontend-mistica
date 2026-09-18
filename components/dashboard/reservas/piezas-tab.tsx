@@ -625,7 +625,7 @@ function NewPieceModal({
     setReservation(item);
     setEntries(
       Array.from({ length: Math.max(1, item.quantity) }, (_, index) => ({
-        personName: item.quantity === 1 || index === 0 ? item.customerName : '',
+        personName: (item.quantity === 1 || index === 0 ? item.customerName : '') ?? '',
         signature: '',
         pieceType: '',
         colorsUsed: '',

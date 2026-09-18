@@ -28,6 +28,10 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { AnotadosModal } from './anotados-modal';
+import { DietaryTags } from './dietary-badge';
+import { useAuth } from '@/hooks/useAuth';
+import { canSeeReservationDetails } from '@/lib/views';
+import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -83,12 +87,17 @@ function chipClasses(status: string): string {
 }
 
 export function AgendaTab() {
+  const { user } = useAuth();
+  // Cocina y cuentas con pestañas sueltas: cuántas personas y qué restricciones,
+  // sin nombres de clientes ni importes (el backend tampoco los manda).
+  const verDetalle = canSeeReservationDetails(user?.role, user?.allowedViews);
   const [mode, setMode] = useState<'day' | 'week'>('day');
   const [anchor, setAnchor] = useState<string>(todayYmd());
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [attendees, setAttendees] = useState<Record<string, ReservationItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [anotados, setAnotados] = useState<string | null>(null);
+  const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
   const hoy = todayYmd();
@@ -136,6 +145,20 @@ export function AgendaTab() {
       setLoading(false);
     }
   }, [from, to, mode]);
+
+  // Clases del taller del día (sólo cantidad de alumnos, sin nombres). Si la
+  // cuenta no tiene acceso, la sección simplemente no se muestra.
+  useEffect(() => {
+    if (mode !== 'day') return setClases([]);
+    let alive = true;
+    tallerAdmin
+      .groupsOfDay(anchor)
+      .then((rows) => alive && setClases(rows))
+      .catch(() => alive && setClases([]));
+    return () => {
+      alive = false;
+    };
+  }, [mode, anchor]);
 
   useEffect(() => {
     load();
@@ -241,13 +264,15 @@ export function AgendaTab() {
           <div className='flex items-stretch divide-x divide-[#e6dbcd] overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
             <Stat icon={Ticket} value={String(stats.turnos)} label='turnos' />
             <Stat icon={Users} value={String(stats.personas)} label='personas' />
-            <Stat
-              icon={Wallet}
-              value={fmtPriceCompact(stats.porCobrar)}
-              title={fmtPrice(stats.porCobrar)}
-              label='por cobrar'
-              color='#9d684e'
-            />
+            {verDetalle && (
+              <Stat
+                icon={Wallet}
+                value={fmtPriceCompact(stats.porCobrar)}
+                title={fmtPrice(stats.porCobrar)}
+                label='por cobrar'
+                color='#9d684e'
+              />
+            )}
           </div>
 
           {/* Turnos del día */}
@@ -262,9 +287,47 @@ export function AgendaTab() {
                   key={s.id}
                   session={s}
                   reservations={attendees[s.id] ?? []}
+                  verDetalle={verDetalle}
                   onVer={() => setAnotados(s.id)}
                 />
               ))}
+            </div>
+          )}
+          {clases.length > 0 && (
+            <div className='flex flex-col gap-2.5'>
+              <div className='flex items-baseline justify-between gap-3'>
+                <h3 className='font-tan-nimbus text-[17px] font-semibold text-[#3d3338]'>
+                  Taller de este día
+                </h3>
+                <span className='text-[13px] text-[#7a6e6f]'>
+                  {clases.reduce((n, c) => n + c.students, 0)} alumno(s) en{' '}
+                  {clases.length} clase(s)
+                </span>
+              </div>
+              <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2'>
+                {clases.map((c) => (
+                  <div
+                    key={c.groupId}
+                    className='flex items-center justify-between gap-3 rounded-2xl border border-[#e6dbcd] bg-white px-4 py-3'
+                  >
+                    <span className='flex min-w-0 flex-col leading-tight'>
+                      <span className='truncate text-sm font-semibold text-[#3d3338]'>
+                        {c.name}
+                      </span>
+                      <span className='text-xs text-[#7a6e6f]'>
+                        {c.start}–{c.end}
+                        {c.professorName ? ` · ${c.professorName}` : ''}
+                      </span>
+                    </span>
+                    <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
+                      <Users className='h-3.5 w-3.5 text-[#455a54]' />
+                      <span className='font-mono text-xs font-semibold text-[#3d3338]'>
+                        {c.students}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </>
@@ -313,10 +376,12 @@ function Stat({
 function TurnoCard({
   session: s,
   reservations,
+  verDetalle,
   onVer,
 }: {
   session: AdminSession;
   reservations: ReservationItem[];
+  verDetalle: boolean;
   onVer: () => void;
 }) {
   const names = reservations.map((r) => ({ name: r.customerName, saldo: (r.balanceDue ?? 0) > 0 }));
@@ -326,6 +391,10 @@ function TurnoCard({
     (n, r) => n + (r.status === 'CONFIRMED' ? r.balanceDue ?? 0 : 0),
     0,
   );
+  // Para cocina: sólo cuántas personas y qué restricciones traen.
+  const dietas = reservations
+    .filter((r) => (r.dietaryTags?.length ?? 0) > 0 || !!r.dietaryNotes)
+    .map((r) => ({ quantity: r.quantity, tags: r.dietaryTags, notes: r.dietaryNotes }));
 
   return (
     <div className='flex overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
@@ -347,7 +416,7 @@ function TurnoCard({
             </span>
           </span>
         </div>
-        {shown.length > 0 && (
+        {verDetalle && shown.length > 0 && (
           <div className='flex flex-wrap items-center gap-1.5'>
             {shown.map((a, i) => (
               <span
@@ -363,9 +432,26 @@ function TurnoCard({
             )}
           </div>
         )}
+        {!verDetalle && dietas.length > 0 && (
+          <div className='flex flex-col gap-1'>
+            {dietas.map((d, i) => (
+              <div key={i} className='flex items-center gap-2'>
+                <span className='shrink-0 font-mono text-xs text-[#7a6e6f]'>
+                  {d.quantity} pers.
+                </span>
+                <DietaryTags tags={d.tags} notes={d.notes} compact />
+              </div>
+            ))}
+          </div>
+        )}
         <div className='h-px w-full bg-[#e6dbcd]' />
         <div className='flex items-center justify-between gap-2'>
-          {porCobrar > 0 ? (
+          {!verDetalle ? (
+            <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#455a54]'>
+              <Users className='h-[15px] w-[15px]' />
+              {s.seatsTaken} persona(s) anotada(s)
+            </span>
+          ) : porCobrar > 0 ? (
             <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#9d684e]'>
               <Wallet className='h-[15px] w-[15px]' />
               Por cobrar {fmtPrice(porCobrar)} en el local

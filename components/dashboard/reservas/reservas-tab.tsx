@@ -397,7 +397,7 @@ export function ReservasTab() {
                       </div>
                       <span className='text-center text-sm text-[#455a54]'>{r.quantity}</span>
                       <div className='text-sm'>
-                        <p className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</p>
+                        <p className='font-medium text-[#3d3338]'>{fmtPrice(r.amount ?? 0)}</p>
                         {r.balanceDue != null && r.balanceDue > 0 && (
                           <p className='text-[11px] text-[#7a6e6f]'>
                             saldo {fmtPrice(r.balanceDue)}
@@ -471,7 +471,7 @@ export function ReservasTab() {
                     <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
                       <span className='text-[#455a54]'>{r.quantity} pers.</span>
                       <span className='text-[#c3b7a4]'>·</span>
-                      <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount)}</span>
+                      <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount ?? 0)}</span>
                       {r.balanceDue != null && r.balanceDue > 0 && (
                         <span className='text-[11px] text-[#9d684e]'>
                           (saldo {fmtPrice(r.balanceDue)})

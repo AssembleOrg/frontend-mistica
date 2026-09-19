@@ -1,10 +1,12 @@
 'use client';
 
-// Charlas con una persona del equipo.
+// Consultas: bandeja de TODAS las charlas por WhatsApp.
 //
-// Cuando un cliente pide hablar con alguien real, el bot se calla en ese chat y
-// la conversación aparece acá. El equipo responde desde el panel (sale por
-// WhatsApp) y, cuando la da por terminada, el bot vuelve a atender.
+// Cada consulta que atiende el bot queda acá, turno a turno (constancia). Si el
+// cliente pide hablar con alguien real —o el equipo responde una charla del
+// bot— el bot se calla en ese chat y lo toma una persona; al terminarla, el bot
+// vuelve a atender. El tema de cada consulta (cumpleaños, reserva…) aparece
+// como etiqueta.
 //
 // Los avisos llegan por SSE, no por polling: la bandeja se actualiza sola.
 
@@ -13,6 +15,9 @@ import {
   AlertTriangle,
   Bot,
   Check,
+  Download,
+  FileText,
+  Headset,
   MessageCircle,
   Send,
   User,
@@ -53,7 +58,7 @@ function cuando(iso: string): string {
   });
 }
 
-type Filtro = 'abiertas' | 'WAITING' | 'CLOSED';
+type Filtro = 'abiertas' | 'WAITING' | 'BOT' | 'CLOSED';
 
 export function ConversacionesTab() {
   const confirm = useConfirm();
@@ -124,6 +129,10 @@ export function ConversacionesTab() {
               authorName: event.message!.authorName,
               body: event.message!.body,
               createdAt: event.message!.createdAt,
+              mediaKind: event.message!.mediaKind,
+              mediaMime: event.message!.mediaMime,
+              mediaName: event.message!.mediaName,
+              mediaUrl: event.message!.mediaUrl,
             },
           ]);
         }
@@ -151,16 +160,23 @@ export function ConversacionesTab() {
   }, [items, filtro]);
 
   const esperando = items.filter((c) => c.status === 'WAITING').length;
+  const conBot = items.filter((c) => c.status === 'BOT').length;
 
-  async function abrir(c: Conversation) {
+  // Abrir es sólo leer: nunca toma la charla. El equipo la toma cuando quiere,
+  // con el botón "Tomar" (o al responder).
+  function abrir(c: Conversation) {
     setSelectedId(c.id);
-    if (c.status === 'WAITING') {
-      try {
-        await conversationsAdmin.take(c.id);
-        await loadInbox();
-      } catch {
-        /* si falla, igual puede leer y responder */
-      }
+  }
+
+  async function tomar() {
+    if (!selected) return;
+    try {
+      await conversationsAdmin.take(selected.id);
+      showToast.success('Tomaste la charla. El bot deja de responder este chat.');
+      await loadInbox();
+      await loadMessages(selected.id);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo tomar la charla');
     }
   }
 
@@ -175,6 +191,8 @@ export function ConversacionesTab() {
         showToast.error('Se guardó, pero WhatsApp no lo pudo entregar.');
       }
       await loadMessages(selectedId);
+      // Responder una charla del bot la toma el equipo: refrescamos el estado.
+      await loadInbox();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudo enviar');
     } finally {
@@ -220,6 +238,12 @@ export function ConversacionesTab() {
             onClick={() => setFiltro('WAITING')}
           />
           <FilterChip
+            label='Con el bot'
+            count={conBot}
+            active={filtro === 'BOT'}
+            onClick={() => setFiltro('BOT')}
+          />
+          <FilterChip
             label='Cerradas'
             active={filtro === 'CLOSED'}
             onClick={() => setFiltro('CLOSED')}
@@ -246,7 +270,7 @@ export function ConversacionesTab() {
         <div className='flex max-h-[560px] flex-col gap-2 overflow-y-auto'>
           {visibles.length === 0 ? (
             <p className='rounded-2xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] p-4 text-center text-sm text-[#7a6e6f]'>
-              No hay charlas acá.
+              No hay consultas acá.
             </p>
           ) : (
             visibles.map((c) => (
@@ -270,6 +294,16 @@ export function ConversacionesTab() {
                       espera
                     </span>
                   )}
+                  {c.status === 'HUMAN' && (
+                    <span className='rounded-full bg-[#455a54] px-2 py-0.5 text-xs font-bold uppercase text-white'>
+                      equipo
+                    </span>
+                  )}
+                  {c.status === 'BOT' && (
+                    <span className='inline-flex items-center gap-1 rounded-full bg-[#eef4f1] px-2 py-0.5 text-xs font-semibold text-[#455a54]'>
+                      <Bot className='h-3 w-3' /> bot
+                    </span>
+                  )}
                   {c.status === 'CLOSED' && (
                     <span className='rounded-full bg-[#e6dbcd] px-2 py-0.5 text-xs font-semibold text-[#7a6e6f]'>
                       cerrada
@@ -279,6 +313,11 @@ export function ConversacionesTab() {
                     {cuando(c.lastMessageAt)}
                   </span>
                 </div>
+                {c.intent && (
+                  <span className='w-fit rounded-full bg-[#f4ead9] px-2 py-0.5 text-xs font-semibold text-[#9d684e]'>
+                    {c.intent}
+                  </span>
+                )}
                 {c.reason && (
                   <span className='truncate text-sm italic text-[#9d684e]'>
                     {c.reason}
@@ -318,7 +357,11 @@ export function ConversacionesTab() {
                     {selected.takenByName ? ` · atiende ${selected.takenByName}` : ''}
                   </span>
                 </div>
-                {selected.status !== 'CLOSED' ? (
+                {selected.status === 'CLOSED' ? (
+                  <span className='rounded-full bg-[#e6dbcd] px-3 py-1 text-xs font-semibold text-[#7a6e6f]'>
+                    Cerrada · la atiende el bot
+                  </span>
+                ) : selected.status === 'HUMAN' ? (
                   <Button
                     type='button'
                     variant='ghost'
@@ -329,9 +372,23 @@ export function ConversacionesTab() {
                     Terminar y devolver al bot
                   </Button>
                 ) : (
-                  <span className='rounded-full bg-[#e6dbcd] px-3 py-1 text-xs font-semibold text-[#7a6e6f]'>
-                    Cerrada · la atiende el bot
-                  </span>
+                  // BOT o WAITING: se puede tomar cuando se quiera.
+                  <div className='flex items-center gap-2'>
+                    {selected.status === 'BOT' && (
+                      <span className='inline-flex items-center gap-1.5 rounded-full bg-[#eef4f1] px-2.5 py-1 text-xs font-semibold text-[#455a54]'>
+                        <Bot className='h-3.5 w-3.5' /> La atiende el bot
+                      </span>
+                    )}
+                    <Button
+                      type='button'
+                      variant='verde'
+                      onClick={() => void tomar()}
+                      className='gap-2'
+                    >
+                      <Headset className='h-4 w-4' />
+                      Tomar la charla
+                    </Button>
+                  </div>
                 )}
               </header>
 
@@ -343,7 +400,14 @@ export function ConversacionesTab() {
               </div>
 
               {selected.status !== 'CLOSED' && (
-                <div className='flex items-end gap-2 border-t border-[#e6dbcd] p-3'>
+                <div className='flex flex-col gap-2 border-t border-[#e6dbcd] p-3'>
+                  {selected.status === 'BOT' && (
+                    <p className='text-xs text-[#9d684e]'>
+                      La atiende el bot. Si respondés, tomás vos la charla y el
+                      bot deja de contestar este chat.
+                    </p>
+                  )}
+                  <div className='flex items-end gap-2'>
                   <Textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -367,6 +431,7 @@ export function ConversacionesTab() {
                     <Send className='h-4 w-4' />
                     {sending ? 'Enviando…' : 'Enviar'}
                   </Button>
+                  </div>
                 </div>
               )}
             </>
@@ -418,8 +483,55 @@ function Burbuja({ m }: { m: ConversationMessage }) {
             </span>
           )}
         </div>
-        <p className='whitespace-pre-wrap text-sm leading-relaxed'>{m.body}</p>
+        {m.mediaKind && <Adjunto m={m} />}
+        {m.body && (
+          <p className='whitespace-pre-wrap text-sm leading-relaxed'>{m.body}</p>
+        )}
       </div>
     </div>
+  );
+}
+
+// Imagen o documento que mandó el cliente. La URL es firmada y de corta vida:
+// si venció (o falló la subida), mostramos un aviso en vez de un roto.
+function Adjunto({ m }: { m: ConversationMessage }) {
+  if (!m.mediaUrl) {
+    return (
+      <div className='mb-1 flex items-center gap-1.5 rounded-lg border border-dashed border-[#e6dbcd] bg-white/60 px-2.5 py-1.5 text-xs text-[#7a6e6f]'>
+        <AlertTriangle className='h-3.5 w-3.5' />
+        {m.mediaKind === 'image' ? 'Imagen' : m.mediaName || 'Archivo'} no
+        disponible
+      </div>
+    );
+  }
+  if (m.mediaKind === 'image') {
+    return (
+      <a
+        href={m.mediaUrl}
+        target='_blank'
+        rel='noopener noreferrer'
+        className='mb-1 block'
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={m.mediaUrl}
+          alt={m.mediaName || 'Imagen del cliente'}
+          className='max-h-64 w-auto max-w-full rounded-lg border border-black/5 object-contain'
+        />
+      </a>
+    );
+  }
+  return (
+    <a
+      href={m.mediaUrl}
+      target='_blank'
+      rel='noopener noreferrer'
+      download={m.mediaName || true}
+      className='mb-1 flex items-center gap-2 rounded-lg border border-[#e6dbcd] bg-white px-2.5 py-2 text-sm text-[#455a54] hover:bg-[#fbf5ef]'
+    >
+      <FileText className='h-4 w-4 shrink-0' />
+      <span className='truncate'>{m.mediaName || 'Documento'}</span>
+      <Download className='ml-auto h-3.5 w-3.5 shrink-0 opacity-70' />
+    </a>
   );
 }

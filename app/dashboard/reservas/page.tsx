@@ -5,7 +5,6 @@ import {
   CalendarRange,
   Grid2x2,
   MessageCircle,
-  Headset,
   Palette,
   Ticket,
   Flame,
@@ -19,7 +18,6 @@ import { AgendaTab } from '@/components/dashboard/reservas/agenda-tab';
 import { MesasTab } from '@/components/dashboard/reservas/mesas-tab';
 import { ConversacionesTab } from '@/components/dashboard/reservas/conversaciones-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
-import { ConsultasTab } from '@/components/dashboard/reservas/consultas-tab';
 import { PiezasTab } from '@/components/dashboard/reservas/piezas-tab';
 
 type Tab =
@@ -28,7 +26,6 @@ type Tab =
   | 'experiencias'
   | 'reservas'
   | 'consultas'
-  | 'charlas'
   | 'piezas';
 
 const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
@@ -37,7 +34,6 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
   { key: 'experiencias', label: 'Experiencias', icon: Palette },
   { key: 'reservas', label: 'Reservas', icon: Ticket },
   { key: 'consultas', label: 'Consultas', icon: MessageCircle },
-  { key: 'charlas', label: 'Charlas', icon: Headset },
   { key: 'piezas', label: 'Piezas', icon: Flame },
 ];
 
@@ -90,8 +86,7 @@ export default function ReservasAdminPage() {
       {active === 'mesas' && <MesasTab />}
       {active === 'experiencias' && <ExperienciasTab />}
       {active === 'reservas' && <ReservasTab />}
-      {active === 'consultas' && <ConsultasTab />}
-      {active === 'charlas' && <ConversacionesTab />}
+      {active === 'consultas' && <ConversacionesTab />}
       {active === 'piezas' && <PiezasTab />}
     </div>
   );

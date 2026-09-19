@@ -45,7 +45,6 @@ export const RESERVAS_TABS = [
   { key: 'experiencias', label: 'Experiencias' },
   { key: 'reservas', label: 'Reservas' },
   { key: 'consultas', label: 'Consultas' },
-  { key: 'charlas', label: 'Charlas' },
   { key: 'piezas', label: 'Piezas' },
 ] as const;
 
@@ -84,7 +83,12 @@ export function allowedReservasTabs(
   if (role === 'admin') return all;
   if (!allowedViews || allowedViews.length === 0) return all;
   if (allowedViews.includes('reservas')) return all;
-  return all.filter((k) => allowedViews.includes(`reservas:${k}`));
+  return all.filter(
+    (k) =>
+      allowedViews.includes(`reservas:${k}`) ||
+      // Compat: 'reservas:charlas' (bandeja vieja) ahora es 'consultas'.
+      (k === 'consultas' && allowedViews.includes('reservas:charlas')),
+  );
 }
 
 /**

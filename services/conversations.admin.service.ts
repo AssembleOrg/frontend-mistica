@@ -9,7 +9,7 @@
 import { apiService } from '@/services/api.service';
 import { getApiBaseUrl } from '@/lib/api/base-url';
 
-export type ConversationStatus = 'WAITING' | 'HUMAN' | 'CLOSED';
+export type ConversationStatus = 'BOT' | 'WAITING' | 'HUMAN' | 'CLOSED';
 export type MessageAuthor = 'CLIENT' | 'BOT' | 'ADMIN';
 
 export interface Conversation {
@@ -17,6 +17,10 @@ export interface Conversation {
   phone: string;
   customerName?: string;
   status: ConversationStatus;
+  /** Tema detectado de la consulta (ej. "Cumpleaños", "Reserva"). */
+  intent?: string;
+  /** Etiquetas para filtrar la bandeja. */
+  tags?: string[];
   reason?: string;
   requestedAt: string;
   takenByName?: string;
@@ -27,6 +31,8 @@ export interface Conversation {
   unreadForAdmin: number;
 }
 
+export type MediaKind = 'image' | 'document';
+
 export interface ConversationMessage {
   id: string;
   author: MessageAuthor;
@@ -35,6 +41,12 @@ export interface ConversationMessage {
   /** Sólo en los del equipo: false = WhatsApp rechazó el envío. */
   delivered?: boolean;
   createdAt: string;
+  /** Adjunto que mandó el cliente (imagen/documento), si hay. */
+  mediaKind?: MediaKind;
+  mediaMime?: string;
+  mediaName?: string;
+  /** URL firmada de corta vida para ver/descargar el adjunto. */
+  mediaUrl?: string;
 }
 
 export interface ConversationEvent {
@@ -46,6 +58,10 @@ export interface ConversationEvent {
     authorName?: string;
     body: string;
     createdAt: string;
+    mediaKind?: MediaKind;
+    mediaMime?: string;
+    mediaName?: string;
+    mediaUrl?: string;
   };
   conversation?: Conversation;
 }

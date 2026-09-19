@@ -104,6 +104,31 @@ export interface ReservationPieceEntryInput {
   colorsUsed: string;
 }
 
+/** Una ficha por alumno del grupo. */
+export interface GroupPieceEntryInput {
+  studentId: string;
+  personName: string;
+  signature: string;
+  pieceType: string;
+  colorsUsed: string;
+}
+
+/** Campos editables de una pieza ya cargada. */
+export interface UpdatePieceInput {
+  status?: string;
+  quantity?: number;
+  personName?: string;
+  signature?: string;
+  pieceType?: string;
+  colorsUsed?: string;
+  customerName?: string;
+  experienceName?: string;
+  notes?: string;
+  professorId?: string;
+  studentId?: string;
+  photos?: string[];
+}
+
 export const piecesAdmin = {
   list: async (params?: {
     status?: string;
@@ -148,10 +173,14 @@ export const piecesAdmin = {
         { reservationId, entries } as unknown as Record<string, unknown>,
       )
     ).data,
-  update: async (
-    id: string,
-    input: Partial<CreatePieceInput> & { status?: string },
-  ) =>
+  createGroupBatch: async (groupId: string, entries: GroupPieceEntryInput[]) =>
+    (
+      await apiService.post<PieceItem[]>(
+        '/pieces/group-batch',
+        { groupId, entries } as unknown as Record<string, unknown>,
+      )
+    ).data,
+  update: async (id: string, input: UpdatePieceInput) =>
     (
       await apiService.patch<PieceItem>(
         `/pieces/${id}`,

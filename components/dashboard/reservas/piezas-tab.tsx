@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Camera, Plus, Search, Trash2, X } from 'lucide-react';
+import { Camera, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,11 @@ import {
   professorsAdmin,
   type Professor,
 } from '@/services/professors.admin.service';
+import {
+  tallerAdmin,
+  type Group,
+  type Student,
+} from '@/services/taller.admin.service';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
@@ -139,6 +144,7 @@ export function PiezasTab() {
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const [counts, setCounts] = useState<Record<string, number>>({});
   // Se incrementa en cada recarga para refrescar los contadores por estado
   // (cambiar el estado de una pieza no altera el total de la lista).
@@ -146,6 +152,7 @@ export function PiezasTab() {
   // Estados configurables del proceso (con fallback histórico hasta cargar).
   const [statusCfg, setStatusCfg] = useState<PieceStatusConfig[]>(FALLBACK_CFG);
   const [photosOf, setPhotosOf] = useState<PieceItem | null>(null);
+  const [editing, setEditing] = useState<PieceItem | null>(null);
 
   const loadCfg = useCallback(() => {
     piecesAdmin
@@ -377,7 +384,16 @@ export function PiezasTab() {
               className='shrink-0 gap-2'
             >
               <Plus className='h-4 w-4' />
-              Nueva pieza
+              Piezas de reserva
+            </Button>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => setCreatingGroup(true)}
+              className='shrink-0 gap-2 border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+            >
+              <Users className='h-4 w-4' />
+              Piezas de grupo
             </Button>
           </div>
         </div>
@@ -459,6 +475,14 @@ export function PiezasTab() {
                     )}
                     {isAdmin && (
                       <IconBtn
+                        icon={Pencil}
+                        title='Editar ficha'
+                        disabled={busy === p._id}
+                        onClick={() => setEditing(p)}
+                      />
+                    )}
+                    {isAdmin && (
+                      <IconBtn
                         icon={Trash2}
                         title='Eliminar'
                         tone='rojo'
@@ -528,6 +552,14 @@ export function PiezasTab() {
                     )}
                     {isAdmin && (
                       <IconBtn
+                        icon={Pencil}
+                        title='Editar ficha'
+                        disabled={busy === p._id}
+                        onClick={() => setEditing(p)}
+                      />
+                    )}
+                    {isAdmin && (
+                      <IconBtn
                         icon={Trash2}
                         title='Eliminar'
                         tone='rojo'
@@ -562,6 +594,28 @@ export function PiezasTab() {
         />
       )}
 
+      {creatingGroup && (
+        <GroupPieceModal
+          onClose={() => setCreatingGroup(false)}
+          onDone={async () => {
+            setCreatingGroup(false);
+            await load();
+          }}
+        />
+      )}
+
+      {editing && (
+        <EditPieceModal
+          piece={editing}
+          professors={professors}
+          onClose={() => setEditing(null)}
+          onDone={async () => {
+            setEditing(null);
+            await load();
+          }}
+        />
+      )}
+
       {photosOf && (
         <PhotosDialog
           piece={photosOf}
@@ -574,6 +628,119 @@ export function PiezasTab() {
         />
       )}
     </div>
+  );
+}
+
+// Editar la ficha de una pieza ya cargada (admin). Campos que antes sólo se
+// cargaban en el batch: nombre, firma, tipo, colores; más cantidad, profesor y
+// notas. El estado y las fotos se manejan desde la fila.
+function EditPieceModal({
+  piece,
+  professors,
+  onClose,
+  onDone,
+}: Readonly<{
+  piece: PieceItem;
+  professors: Professor[];
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}>) {
+  const [personName, setPersonName] = useState(piece.personName ?? '');
+  const [signature, setSignature] = useState(piece.signature ?? '');
+  const [pieceType, setPieceType] = useState(piece.pieceType ?? '');
+  const [colorsUsed, setColorsUsed] = useState(piece.colorsUsed ?? '');
+  const [quantity, setQuantity] = useState(String(piece.quantity ?? 1));
+  const [professorId, setProfessorId] = useState(piece.professorId ?? '');
+  const [notes, setNotes] = useState(piece.notes ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    setSaving(true);
+    try {
+      await piecesAdmin.update(piece._id, {
+        personName: personName.trim(),
+        signature: signature.trim(),
+        pieceType: pieceType.trim(),
+        colorsUsed: colorsUsed.trim(),
+        quantity: qty,
+        professorId: professorId || undefined,
+        notes: notes.trim(),
+      });
+      showToast.success('Ficha actualizada');
+      await onDone();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const field =
+    'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className='sm:max-w-lg'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
+            Editar ficha de la pieza
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className='grid gap-3 sm:grid-cols-2'>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
+            Persona / autor
+            <Input value={personName} onChange={(e) => setPersonName(e.target.value)} className={field} />
+          </label>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
+            Firma
+            <Input value={signature} onChange={(e) => setSignature(e.target.value)} className={field} />
+          </label>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
+            Tipo de pieza
+            <Input value={pieceType} onChange={(e) => setPieceType(e.target.value)} className={field} />
+          </label>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
+            Colores
+            <Input value={colorsUsed} onChange={(e) => setColorsUsed(e.target.value)} className={field} />
+          </label>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
+            Cantidad
+            <Input type='number' min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} className={field} />
+          </label>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
+            Profesor
+            <Select value={professorId || 'none'} onValueChange={(v) => setProfessorId(v === 'none' ? '' : v)}>
+              <SelectTrigger className={cn('h-9 text-sm', field)}>
+                <SelectValue placeholder='Sin asignar' />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='none'>Sin asignar</SelectItem>
+                {professors.map((pr) => (
+                  <SelectItem key={pr.id} value={pr.id}>
+                    {pr.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className='flex flex-col gap-1 text-xs text-[#7a6e6f] sm:col-span-2'>
+            Notas internas
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} className={field} />
+          </label>
+        </div>
+
+        <DialogFooter>
+          <Button type='button' variant='ghost' onClick={onClose} className='border border-[#e6dbcd] bg-white text-[#455a54]'>
+            Cancelar
+          </Button>
+          <Button type='button' variant='verde' onClick={() => void save()} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar cambios'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -768,6 +935,274 @@ function NewPieceModal({
           {reservation && (
             <Button type='button' variant='terracota' onClick={submit} disabled={saving}>
               {saving ? 'Guardando…' : 'Registrar fichas'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Cargar piezas para los alumnos de un grupo de taller: una ficha por alumno.
+function GroupPieceModal({
+  onClose,
+  onDone,
+}: Readonly<{
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}>) {
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [studentsById, setStudentsById] = useState<Map<string, Student>>(
+    new Map(),
+  );
+  const [group, setGroup] = useState<Group | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [entries, setEntries] = useState<
+    Array<{
+      studentId: string;
+      personName: string;
+      signature: string;
+      pieceType: string;
+      colorsUsed: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([tallerAdmin.listGroups(), tallerAdmin.listStudents()])
+      .then(([gs, ss]) => {
+        if (!alive) return;
+        setGroups(gs.filter((g) => g.isActive));
+        setStudentsById(new Map(ss.map((s) => [s._id, s])));
+      })
+      .catch(() => {
+        if (alive) showToast.error('No se pudieron cargar los grupos');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  function selectGroup(g: Group) {
+    setGroup(g);
+    setEntries(
+      g.studentIds.map((id) => ({
+        studentId: id,
+        personName: studentsById.get(id)?.name ?? '',
+        signature: '',
+        pieceType: '',
+        colorsUsed: '',
+      })),
+    );
+  }
+
+  function updateEntry(
+    index: number,
+    key: 'personName' | 'signature' | 'pieceType' | 'colorsUsed',
+    value: string,
+  ) {
+    setEntries((cur) =>
+      cur.map((e, i) => (i === index ? { ...e, [key]: value } : e)),
+    );
+  }
+
+  async function submit() {
+    if (!group) return showToast.error('Elegí un grupo');
+    if (!entries.length)
+      return showToast.error('El grupo no tiene alumnos cargados');
+    if (
+      entries.some((e) =>
+        [e.personName, e.signature, e.pieceType, e.colorsUsed].some(
+          (v) => !v.trim(),
+        ),
+      )
+    ) {
+      return showToast.error(
+        'Completá nombre, firma, pieza y colores de cada ficha (o quitá los alumnos que no hicieron pieza)',
+      );
+    }
+    setSaving(true);
+    try {
+      await piecesAdmin.createGroupBatch(
+        group._id,
+        entries.map((e) => ({
+          studentId: e.studentId,
+          personName: e.personName.trim(),
+          signature: e.signature.trim(),
+          pieceType: e.pieceType.trim(),
+          colorsUsed: e.colorsUsed.trim(),
+        })),
+      );
+      showToast.success(`${entries.length} ficha(s) cargadas al grupo`);
+      await onDone();
+    } catch (e) {
+      showToast.error(
+        e instanceof Error ? e.message : 'No se pudieron registrar las piezas',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className='sm:max-w-3xl'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
+            Registrar piezas de un grupo
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className='flex flex-col gap-4'>
+          {!group ? (
+            <div className='max-h-72 overflow-y-auto rounded-xl border border-[#e6dbcd]'>
+              {loading ? (
+                <p className='p-4 text-sm text-[#7a6e6f]'>Cargando grupos…</p>
+              ) : groups.length === 0 ? (
+                <p className='p-4 text-sm text-[#7a6e6f]'>
+                  No hay grupos activos.
+                </p>
+              ) : (
+                groups.map((g) => (
+                  <button
+                    key={g._id}
+                    type='button'
+                    onClick={() => selectGroup(g)}
+                    className='flex w-full items-center justify-between gap-3 border-b border-[#e6dbcd] px-4 py-3 text-left last:border-0 hover:bg-[#fbf5ef]'
+                  >
+                    <span>
+                      <span className='block text-sm font-semibold text-[#3d3338]'>
+                        {g.name}
+                      </span>
+                      <span className='block text-xs text-[#7a6e6f]'>
+                        {g.professorName ? `${g.professorName} · ` : ''}
+                        {g.studentIds.length} alumno(s)
+                      </span>
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          ) : (
+            <>
+              <div className='flex items-center justify-between rounded-xl border border-[#455a54]/30 bg-[#E7F0EC] px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-[#3d3338]'>
+                    {group.name}
+                  </p>
+                  <p className='text-xs text-[#7a6e6f]'>
+                    {group.professorName ?? 'Sin profesor'} ·{' '}
+                    {entries.length} ficha(s)
+                  </p>
+                </div>
+                <button
+                  type='button'
+                  onClick={() => setGroup(null)}
+                  className='text-xs font-semibold text-[#9d684e] hover:underline'
+                >
+                  Cambiar grupo
+                </button>
+              </div>
+
+              {entries.length === 0 ? (
+                <p className='rounded-xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] p-4 text-sm text-[#7a6e6f]'>
+                  Este grupo no tiene alumnos cargados. Agregá alumnos al grupo
+                  desde Alumnos.
+                </p>
+              ) : (
+                <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>
+                  {entries.map((entry, index) => (
+                    <div
+                      key={entry.studentId}
+                      className='rounded-xl border border-[#e6dbcd] bg-white p-3'
+                    >
+                      <div className='mb-2 flex items-center justify-between'>
+                        <span className='text-sm font-semibold text-[#455a54]'>
+                          {studentsById.get(entry.studentId)?.name ??
+                            `Ficha ${index + 1}`}
+                        </span>
+                        <button
+                          type='button'
+                          onClick={() =>
+                            setEntries((cur) =>
+                              cur.filter((_, i) => i !== index),
+                            )
+                          }
+                          className='text-xs text-[#a33] hover:underline'
+                        >
+                          No hizo pieza
+                        </button>
+                      </div>
+                      <div className='grid gap-2 sm:grid-cols-2'>
+                        <Field label='Nombre y apellido'>
+                          <Input
+                            value={entry.personName}
+                            onChange={(e) =>
+                              updateEntry(index, 'personName', e.target.value)
+                            }
+                            className={fieldCls}
+                          />
+                        </Field>
+                        <Field label='Firma colocada en la pieza'>
+                          <Input
+                            value={entry.signature}
+                            onChange={(e) =>
+                              updateEntry(index, 'signature', e.target.value)
+                            }
+                            placeholder='Ej. CH, estrella, iniciales…'
+                            className={fieldCls}
+                          />
+                        </Field>
+                        <Field label='Pieza elegida'>
+                          <Input
+                            value={entry.pieceType}
+                            onChange={(e) =>
+                              updateEntry(index, 'pieceType', e.target.value)
+                            }
+                            placeholder='Ej. taza, bowl, plato…'
+                            className={fieldCls}
+                          />
+                        </Field>
+                        <Field label='Colores utilizados'>
+                          <Input
+                            value={entry.colorsUsed}
+                            onChange={(e) =>
+                              updateEntry(index, 'colorsUsed', e.target.value)
+                            }
+                            placeholder='Ej. azul, blanco y rosa'
+                            className={fieldCls}
+                          />
+                        </Field>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type='button'
+            variant='ghost'
+            onClick={onClose}
+            className='border border-[#e6dbcd] bg-white text-[#455a54]'
+          >
+            Cancelar
+          </Button>
+          {group && (
+            <Button
+              type='button'
+              variant='verde'
+              onClick={() => void submit()}
+              disabled={saving || entries.length === 0}
+            >
+              {saving ? 'Guardando…' : 'Cargar piezas del grupo'}
             </Button>
           )}
         </DialogFooter>

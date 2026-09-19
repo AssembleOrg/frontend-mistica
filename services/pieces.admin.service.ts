@@ -135,6 +135,7 @@ export const piecesAdmin = {
     search?: string;
     professorId?: string;
     studentId?: string;
+    reservationId?: string;
     page?: number;
     limit?: number;
   }) => {
@@ -143,6 +144,7 @@ export const piecesAdmin = {
     if (params?.search?.trim()) q.set('search', params.search.trim());
     if (params?.professorId) q.set('professorId', params.professorId);
     if (params?.studentId) q.set('studentId', params.studentId);
+    if (params?.reservationId) q.set('reservationId', params.reservationId);
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));
     return (await apiService.get<PieceListResponse>(`/pieces?${q.toString()}`))

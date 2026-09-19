@@ -27,6 +27,9 @@ import {
 } from '@/lib/reservas-format';
 import { StatusBadge } from './_shared';
 import type { ReservationItem } from '@/services/reservations.admin.service';
+import { ReservationPiecesSection } from './reservation-pieces-section';
+import { useAuth } from '@/hooks/useAuth';
+import { allowedReservasTabs } from '@/lib/views';
 
 const PAYMENT_LABEL: Record<string, string> = {
   MERCADOPAGO: 'MercadoPago',
@@ -61,6 +64,8 @@ export function ReservationDetailPanel({
   onCancel: (r: ReservationItem) => void;
   busy?: boolean;
 }) {
+  const { user } = useAuth();
+
   useEffect(() => {
     if (!reservation) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -82,6 +87,9 @@ export function ReservationDetailPanel({
   const canCollect = balance != null && balance > 0 && r.status === 'CONFIRMED';
   const canReschedule = r.status === 'CONFIRMED';
   const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
+  const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes(
+    'piezas',
+  );
 
   return (
     <div className='fixed inset-0 z-50 flex justify-end'>
@@ -170,6 +178,13 @@ export function ReservationDetailPanel({
               </span>
             </div>
           </Section>
+
+          {canPieces && (
+            <>
+              <div className='h-px w-full bg-[#e6dbcd]' />
+              <ReservationPiecesSection reservation={r} />
+            </>
+          )}
 
           {(canConfirm || canCollect || canReschedule || canCancel) && (
             <>

@@ -14,7 +14,13 @@ import {
 import { cn } from '@/lib/utils';
 import { DietaryTags } from './dietary-badge';
 import { useAuth } from '@/hooks/useAuth';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { canSeeReservationDetails } from '@/lib/views';
+import { ReservationDetailPanel } from './reservation-detail-panel';
+import {
+  CollectBalanceModal,
+  RescheduleModal,
+} from './reservas-tab';
 import {
   fmtDateTime,
   fmtPrice,
@@ -47,11 +53,17 @@ export function AnotadosModal({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const confirm = useConfirm();
   // Cocina: sólo cantidad de personas y restricciones, sin datos del cliente.
   const verDetalle = canSeeReservationDetails(user?.role, user?.allowedViews);
   const [session, setSession] = useState<AdminSession | null>(null);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Gestión de una reserva del turno (panel + acciones), sin salir de la Agenda.
+  const [detail, setDetail] = useState<ReservationItem | null>(null);
+  const [collect, setCollect] = useState<ReservationItem | null>(null);
+  const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
@@ -110,7 +122,49 @@ export function AnotadosModal({
     }
   }
 
+  // Tras una acción sobre la reserva: refresca el turno y avisa a la Agenda.
+  async function afterChange() {
+    await load();
+    onChanged();
+  }
+
+  async function doCancel(r: ReservationItem) {
+    const ok = await confirm({
+      title: 'Cancelar reserva',
+      description: `¿Cancelar la reserva de ${r.customerName ?? r.code}? Se libera el cupo.`,
+      confirmLabel: 'Cancelar reserva',
+      variant: 'normal',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await reservationsAdmin.cancelReservation(r._id);
+      showToast.success('Reserva cancelada');
+      setDetail(null);
+      await afterChange();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function doConfirm(r: ReservationItem) {
+    setBusy(true);
+    try {
+      await reservationsAdmin.resolveReservation(r._id, 'confirm');
+      showToast.success('Reserva confirmada');
+      setDetail(null);
+      await afterChange();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo confirmar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
+    <>
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-3xl'>
         <DialogHeader className='border-b border-[#e6dbcd] px-6 py-4 text-left'>
@@ -141,7 +195,23 @@ export function AnotadosModal({
               reservations.map((r) => (
                 <div
                   key={r._id}
-                  className='grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-t border-[#e6dbcd] px-4 py-3'
+                  role={verDetalle ? 'button' : undefined}
+                  tabIndex={verDetalle ? 0 : undefined}
+                  onClick={verDetalle ? () => setDetail(r) : undefined}
+                  onKeyDown={
+                    verDetalle
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setDetail(r);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={cn(
+                    'grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-t border-[#e6dbcd] px-4 py-3',
+                    verDetalle && 'cursor-pointer hover:bg-[#fbf5ef]',
+                  )}
                 >
                   <span className='font-mono text-sm font-semibold text-[#9d684e]'>
                     {verDetalle ? prettyCode(r.code) : ''}
@@ -277,5 +347,45 @@ export function AnotadosModal({
         </div>
       </DialogContent>
     </Dialog>
+
+      {/* Gestión de una reserva del turno, sin salir de la Agenda. */}
+      <ReservationDetailPanel
+        reservation={detail}
+        busy={busy}
+        onClose={() => setDetail(null)}
+        onCollect={(r) => {
+          setDetail(null);
+          setCollect(r);
+        }}
+        onReschedule={(r) => {
+          setDetail(null);
+          setReschedule(r);
+        }}
+        onConfirm={(r) => void doConfirm(r)}
+        onCancel={(r) => void doCancel(r)}
+      />
+
+      {collect && (
+        <CollectBalanceModal
+          reservation={collect}
+          onClose={() => setCollect(null)}
+          onDone={async () => {
+            setCollect(null);
+            await afterChange();
+          }}
+        />
+      )}
+
+      {reschedule && (
+        <RescheduleModal
+          reservation={reschedule}
+          onClose={() => setReschedule(null)}
+          onDone={async () => {
+            setReschedule(null);
+            await afterChange();
+          }}
+        />
+      )}
+    </>
   );
 }

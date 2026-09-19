@@ -989,7 +989,7 @@ function NewReservationModal({
 
 // ─────────────────────────── Reprogramar (sin cambios de lógica) ───────────────────────────
 
-function RescheduleModal({
+export function RescheduleModal({
   reservation,
   onClose,
   onDone,
@@ -1124,7 +1124,7 @@ function RescheduleModal({
 
 // ─────────────────────────── Cobrar saldo (sin cambios de lógica) ───────────────────────────
 
-function CollectBalanceModal({
+export function CollectBalanceModal({
   reservation,
   onClose,
   onDone,

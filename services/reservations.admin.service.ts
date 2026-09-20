@@ -241,6 +241,11 @@ export const reservationsAdmin = {
     sessionId?: string;
     experienceId?: string;
     date?: string;
+    /** Rango por fecha de turno (YYYY-MM-DD), inclusive. */
+    from?: string;
+    to?: string;
+    /** 'created' (recientes, default) | 'startAt' (por fecha de turno). */
+    sort?: 'created' | 'startAt';
     search?: string;
     page?: number;
     limit?: number;
@@ -250,6 +255,9 @@ export const reservationsAdmin = {
     if (params?.sessionId) q.set('sessionId', params.sessionId);
     if (params?.experienceId) q.set('experienceId', params.experienceId);
     if (params?.date) q.set('date', params.date);
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.sort) q.set('sort', params.sort);
     if (params?.search?.trim()) q.set('search', params.search.trim());
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));

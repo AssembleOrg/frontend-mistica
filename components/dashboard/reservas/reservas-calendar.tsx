@@ -157,8 +157,17 @@ export function ReservasCalendar({
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      // Traemos por rango de fecha de turno el mes visible con una semana de
+      // margen a cada lado (la grilla muestra días de los meses vecinos). Así
+      // el calendario no depende de un límite alto ni del orden de creación.
+      const first = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const from = addYmd(first, -7);
+      const to = addYmd(addYmd(first, 31), 7);
       const res = await reservationsAdmin.listReservations({
         experienceId: experienceId || undefined,
+        from,
+        to,
+        sort: 'startAt',
         limit: 500,
       });
       setItems(res.items);
@@ -167,7 +176,7 @@ export function ReservasCalendar({
     } finally {
       setLoading(false);
     }
-  }, [experienceId]);
+  }, [experienceId, year, month]);
 
   useEffect(() => {
     load();

@@ -79,7 +79,7 @@ function monthLabel(value: Date) {
  * backend liga su cuenta al profesor); el admin ve todos y puede asignar
  * profesor. Desde acá también se toma la asistencia de cada clase.
  */
-export function GruposPanel() {
+export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
   const confirm = useConfirm();
@@ -92,6 +92,8 @@ export function GruposPanel() {
   const [editing, setEditing] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
   const [attendanceOf, setAttendanceOf] = useState<Group | null>(null);
+  // Deep-link desde la Agenda: abrir la asistencia del grupo indicado una vez.
+  const [focusHandled, setFocusHandled] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [debouncedStudentSearch, setDebouncedStudentSearch] = useState('');
 
@@ -116,6 +118,15 @@ export function GruposPanel() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Cuando llegamos con ?group=<id> (desde la Agenda), abrir su asistencia
+  // apenas los grupos estén cargados. Sólo una vez.
+  useEffect(() => {
+    if (focusHandled || !focusGroupId || groups.length === 0) return;
+    const g = groups.find((x) => x._id === focusGroupId);
+    if (g) setAttendanceOf(g);
+    setFocusHandled(true);
+  }, [focusGroupId, focusHandled, groups]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedStudentSearch(studentSearch.trim().toLocaleLowerCase('es-AR')), 250);

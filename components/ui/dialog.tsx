@@ -83,7 +83,11 @@ function DialogContent({
           // clase group). Header/footer son shrink-0 y tocan los bordes reales del
           // modal (arriba/abajo de todo) — sin hueco de padding donde se filtre
           // contenido por detrás. El body scrollea entre ellos.
-          "dialog-shell bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex flex-col w-full max-w-[calc(100%-1rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-lg border border-[#9d684e]/20 shadow-xl duration-200 sm:max-w-[calc(100%-2rem)] md:max-w-2xl lg:max-w-4xl xl:max-w-6xl",
+          // Mobile: la clase `dialog-sheet` + el CSS global lo anclan abajo como
+          // bottom-sheet con slide-up. El centrado (top/left/translate) y el
+          // zoom/fade de Radix se limitan a sm+ (desktop): en mobile pelearían
+          // con el anclado del sheet y lo dejaban corrido 50% (desfasado).
+          "dialog-shell dialog-sheet bg-white sm:data-[state=open]:animate-in sm:data-[state=closed]:animate-out sm:data-[state=closed]:fade-out-0 sm:data-[state=open]:fade-in-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 fixed z-50 flex flex-col w-full max-h-[calc(100dvh-2rem)] overflow-hidden border border-[#9d684e]/20 shadow-xl duration-200 sm:top-[50%] sm:left-[50%] sm:max-w-[calc(100%-2rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg md:max-w-2xl lg:max-w-4xl xl:max-w-6xl",
           className
         )}
         {...props}

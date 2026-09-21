@@ -5,7 +5,7 @@
 // saldo destacado, método de seña y acciones. Overlay propio (sin Radix) para
 // comportarse como slide-over a la derecha, responsive (full en mobile).
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { DietaryTags } from './dietary-badge';
 import {
   Ban,
@@ -13,11 +13,16 @@ import {
   CalendarClock,
   CheckCircle2,
   CreditCard,
+  Flame,
   Landmark,
+  Pencil,
   Wallet,
   X,
 } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   fmtDateTime,
   fmtPrice,
@@ -26,10 +31,11 @@ import {
   RESERVATION_STATUS_LABEL,
 } from '@/lib/reservas-format';
 import { StatusBadge } from './_shared';
-import type { ReservationItem } from '@/services/reservations.admin.service';
-import { ReservationPiecesSection } from './reservation-pieces-section';
-import { useAuth } from '@/hooks/useAuth';
-import { allowedReservasTabs } from '@/lib/views';
+import {
+  reservationsAdmin,
+  type ReservationItem,
+} from '@/services/reservations.admin.service';
+import { NewPieceModal } from './piezas-tab';
 
 const PAYMENT_LABEL: Record<string, string> = {
   MERCADOPAGO: 'MercadoPago',
@@ -54,6 +60,7 @@ export function ReservationDetailPanel({
   onReschedule,
   onConfirm,
   onCancel,
+  onUpdated,
   busy,
 }: {
   reservation: ReservationItem | null;
@@ -62,19 +69,38 @@ export function ReservationDetailPanel({
   onReschedule: (r: ReservationItem) => void;
   onConfirm: (r: ReservationItem) => void;
   onCancel: (r: ReservationItem) => void;
+  /** Se llama tras editar el cliente o cargar piezas, para refrescar la lista. */
+  onUpdated?: () => void;
   busy?: boolean;
 }) {
-  const { user } = useAuth();
+  const [loadPieces, setLoadPieces] = useState(false);
+  const [editingClient, setEditingClient] = useState(false);
 
   useEffect(() => {
     if (!reservation) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // Bloquear el scroll del fondo mientras el panel está abierto: sin esto, en
+    // mobile el gesto de scroll movía la página de atrás en vez del panel.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [reservation, onClose]);
+
+  // Al cambiar de reserva, cerrar cualquier modo/modal abierto.
+  useEffect(() => {
+    setLoadPieces(false);
+    setEditingClient(false);
+  }, [reservation?._id]);
 
   if (!reservation) return null;
   const r = reservation;
+  // Editar datos e insertar piezas sólo cuando la cuenta ve los detalles: si
+  // vienen recortados (cocina) no hay nombre/contacto ni sentido de editar.
+  const canEdit = r.customerName != null;
 
   const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? ['#f1ede6', '#7a6e6f'];
   const total = r.totalAmount ?? r.amount ?? 0;
@@ -87,17 +113,20 @@ export function ReservationDetailPanel({
   const canCollect = balance != null && balance > 0 && r.status === 'CONFIRMED';
   const canReschedule = r.status === 'CONFIRMED';
   const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
-  const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes(
-    'piezas',
-  );
 
   return (
-    <div className='fixed inset-0 z-50 flex justify-end'>
+    <div className='fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end'>
       <div
-        className='absolute inset-0 bg-[#3d3338]/30 backdrop-blur-[1px]'
+        className='animate-in fade-in-0 absolute inset-0 bg-[#3d3338]/30 backdrop-blur-[1px] duration-200'
         onClick={onClose}
       />
-      <aside className='relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-xl'>
+      {/* Mobile: sube desde abajo como bottom-sheet (100dvh-aware + safe-area).
+          Desktop: slide-over desde la derecha. */}
+      <aside className='animate-in slide-in-from-bottom sm:slide-in-from-right relative flex max-h-[92dvh] w-full max-w-full flex-col overflow-y-auto overscroll-contain rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-xl duration-300 sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none sm:pb-0'>
+        {/* Grab-handle sólo en mobile (afordancia de gesto del sheet). */}
+        <div className='flex shrink-0 justify-center pt-2.5 sm:hidden'>
+          <span className='h-1 w-9 rounded-full bg-[#e6dbcd]' />
+        </div>
         <div className='flex flex-col gap-5 p-6'>
           {/* Cabecera */}
           <div className='flex items-start justify-between'>
@@ -121,10 +150,37 @@ export function ReservationDetailPanel({
             </button>
           </div>
 
-          <Section title='CLIENTE'>
-            <KV k='Nombre' v={r.customerName ?? '—'} />
-            {r.customerPhone && <KV k='Teléfono' v={r.customerPhone} />}
-            {r.customerEmail && <KV k='Email' v={r.customerEmail} />}
+          <Section
+            title='CLIENTE'
+            action={
+              canEdit && !editingClient ? (
+                <button
+                  type='button'
+                  onClick={() => setEditingClient(true)}
+                  className='inline-flex items-center gap-1 text-xs font-semibold text-[#9d684e] hover:underline'
+                >
+                  <Pencil className='h-3 w-3' /> Editar
+                </button>
+              ) : undefined
+            }
+          >
+            {editingClient ? (
+              <ClientEditor
+                reservation={r}
+                onCancel={() => setEditingClient(false)}
+                onSaved={() => {
+                  setEditingClient(false);
+                  onUpdated?.();
+                }}
+              />
+            ) : (
+              <>
+                <KV k='Nombre' v={r.customerName ?? '—'} />
+                {r.customerPhone && <KV k='Teléfono' v={r.customerPhone} />}
+                {r.customerEmail && <KV k='Email' v={r.customerEmail} />}
+                {r.notes && <KV k='Notas' v={r.notes} />}
+              </>
+            )}
           </Section>
 
           <Section title='EXPERIENCIA'>
@@ -179,10 +235,17 @@ export function ReservationDetailPanel({
             </div>
           </Section>
 
-          {canPieces && (
+          {canEdit && (
             <>
               <div className='h-px w-full bg-[#e6dbcd]' />
-              <ReservationPiecesSection reservation={r} />
+              <button
+                type='button'
+                onClick={() => setLoadPieces(true)}
+                className='inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#e6dbcd] bg-white px-4 py-3 text-[15px] font-semibold text-[#9d684e] transition-colors hover:bg-[#fbf5ef]'
+              >
+                <Flame className='h-[17px] w-[17px]' />
+                Cargar piezas de esta reserva
+              </button>
             </>
           )}
 
@@ -237,17 +300,105 @@ export function ReservationDetailPanel({
           )}
         </div>
       </aside>
+
+      {loadPieces && (
+        <NewPieceModal
+          reservation={r}
+          onClose={() => setLoadPieces(false)}
+          onDone={() => {
+            setLoadPieces(false);
+            onUpdated?.();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className='flex flex-col gap-2.5'>
-      <span className='font-mono text-[11px] font-medium tracking-wider text-[#7a6e6f]'>
-        {title}
-      </span>
+      <div className='flex items-center justify-between gap-2'>
+        <span className='font-mono text-[11px] font-medium tracking-wider text-[#7a6e6f]'>
+          {title}
+        </span>
+        {action}
+      </div>
       {children}
+    </div>
+  );
+}
+
+// Edición inline del cliente dentro de la ficha (patrón "abrir → editar sin
+// salir"). Guarda con PATCH /admin/reservations/:id (updateReservation).
+function ClientEditor({
+  reservation,
+  onCancel,
+  onSaved,
+}: {
+  reservation: ReservationItem;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(reservation.customerName ?? '');
+  const [phone, setPhone] = useState(reservation.customerPhone ?? '');
+  const [email, setEmail] = useState(reservation.customerEmail ?? '');
+  const [notes, setNotes] = useState(reservation.notes ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const field =
+    'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+  async function save() {
+    if (name.trim().length < 2) {
+      showToast.error('Ingresá el nombre del cliente');
+      return;
+    }
+    setSaving(true);
+    try {
+      await reservationsAdmin.updateReservation(reservation._id, {
+        customerName: name.trim(),
+        customerPhone: phone.trim() || undefined,
+        customerEmail: email.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      showToast.success('Datos actualizados');
+      onSaved();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className='flex flex-col gap-2'>
+      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder='Nombre y apellido' className={field} />
+      <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder='Teléfono' className={field} />
+      <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder='Email' className={field} />
+      <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder='Notas internas' className={field} />
+      <div className='mt-1 flex gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={onCancel}
+          className='flex-1 border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+        >
+          Cancelar
+        </Button>
+        <Button type='button' variant='verde' size='sm' onClick={save} disabled={saving} className='flex-1'>
+          {saving ? 'Guardando…' : 'Guardar'}
+        </Button>
+      </div>
     </div>
   );
 }

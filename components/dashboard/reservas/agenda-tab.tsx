@@ -1,11 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
   CalendarCheck,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Loader2,
   Ticket,
   Users,
@@ -88,6 +90,7 @@ function chipClasses(status: string): string {
 
 export function AgendaTab() {
   const { user } = useAuth();
+  const router = useRouter();
   // Cocina y cuentas con pestañas sueltas: cuántas personas y qué restricciones,
   // sin nombres de clientes ni importes (el backend tampoco los manda).
   const verDetalle = canSeeReservationDetails(user?.role, user?.allowedViews);
@@ -285,7 +288,7 @@ export function AgendaTab() {
               No hay turnos este día.
             </div>
           ) : (
-            <div className='flex flex-col gap-3.5'>
+            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
               {dayTurnos.map((s) => (
                 <TurnoCard
                   key={s.id}
@@ -310,9 +313,16 @@ export function AgendaTab() {
               </div>
               <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2'>
                 {clases.map((c) => (
-                  <div
+                  <button
                     key={c.groupId}
-                    className='flex items-center justify-between gap-3 rounded-2xl border border-[#e6dbcd] bg-white px-4 py-3'
+                    type='button'
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/alumnos?tab=grupos&group=${c.groupId}`,
+                      )
+                    }
+                    title='Abrir el grupo y su asistencia'
+                    className='group flex items-center justify-between gap-3 rounded-2xl border border-[#e6dbcd] bg-white px-4 py-3 text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
                   >
                     <span className='flex min-w-0 flex-col leading-tight'>
                       <span className='truncate text-sm font-semibold text-[#3d3338]'>
@@ -323,13 +333,19 @@ export function AgendaTab() {
                         {c.professorName ? ` · ${c.professorName}` : ''}
                       </span>
                     </span>
-                    <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
-                      <Users className='h-3.5 w-3.5 text-[#455a54]' />
-                      <span className='font-mono text-xs font-semibold text-[#3d3338]'>
-                        {c.students}
+                    <span className='flex shrink-0 items-center gap-2'>
+                      <span className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
+                        <Users className='h-3.5 w-3.5 text-[#455a54]' />
+                        <span className='font-mono text-xs font-semibold text-[#3d3338]'>
+                          {c.students}
+                        </span>
+                      </span>
+                      <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
+                        <ClipboardList className='h-3.5 w-3.5' />
+                        <ArrowRight className='h-3.5 w-3.5' />
                       </span>
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -388,9 +404,14 @@ function TurnoCard({
   verDetalle: boolean;
   onVer: () => void;
 }) {
-  // La Agenda es la fuente de verdad del negocio: sólo lo confirmado. Las
-  // reservas pendientes (holds del bot/landing) no cuentan ni se muestran acá.
+  // La Agenda es la fuente de verdad del negocio: el conteo y el cupo cuentan
+  // sólo lo confirmado. Las pendientes (holds del bot/landing) se muestran
+  // aparte, señaladas, para que el equipo sepa que hay gente esperando cerrar.
   const confirmadas = reservations.filter((r) => r.status === 'CONFIRMED');
+  const pendientes = reservations.filter(
+    (r) => r.status === 'PENDING' || r.status === 'NEEDS_REVIEW',
+  );
+  const pendPersonas = pendientes.reduce((n, r) => n + r.quantity, 0);
   const seats = s.confirmedSeats ?? s.seatsTaken;
   const names = confirmadas.map((r) => ({
     name: r.customerName,
@@ -404,34 +425,56 @@ function TurnoCard({
     .filter((r) => (r.dietaryTags?.length ?? 0) > 0 || !!r.dietaryNotes)
     .map((r) => ({ quantity: r.quantity, tags: r.dietaryTags, notes: r.dietaryNotes }));
 
+  const color = s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
+  const full = seats >= s.capacity;
+
   return (
-    <div className='flex overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
-      <div className='flex w-[120px] shrink-0 flex-col justify-center gap-0.5 border-r border-[#e6dbcd] bg-[#fbf5ef] p-[18px]'>
-        <span className='font-tan-nimbus text-2xl font-semibold text-[#455a54]'>
-          {hourAR(s.startAt)}
+    <button
+      type='button'
+      onClick={onVer}
+      className='group flex flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
+    >
+      {/* Cabecera: hora + ocupación. Acento de color de la experiencia como
+          punto sutil, no como barra lateral. */}
+      <div className='flex items-center justify-between gap-2 border-b border-[#f1ede6] bg-[#fbf5ef] px-4 py-2.5'>
+        <span className='inline-flex items-baseline gap-1.5'>
+          <span className='font-tan-nimbus text-lg font-semibold text-[#455a54]'>
+            {hourAR(s.startAt)}
+          </span>
+          <span className='text-xs text-[#7a6e6f]'>a {hourAR(s.endAt)}</span>
         </span>
-        <span className='text-xs text-[#7a6e6f]'>a {hourAR(s.endAt)}</span>
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs font-semibold',
+            full
+              ? 'border-[#455a54]/30 bg-[#E7F0EC] text-[#455a54]'
+              : 'border-[#e6dbcd] bg-white text-[#3d3338]',
+          )}
+          title={full ? 'Turno completo' : 'Lugares ocupados'}
+        >
+          <Users className='h-3.5 w-3.5' />
+          {seats}/{s.capacity}
+        </span>
       </div>
-      <div className='flex min-w-0 flex-1 flex-col gap-2.5 p-4'>
-        <div className='flex items-center justify-between gap-3'>
-          <span className='truncate font-tan-nimbus text-[17px] font-semibold text-[#3d3338]'>
+
+      <div className='flex min-w-0 flex-1 flex-col gap-2 p-4'>
+        <span className='flex min-w-0 items-center gap-2'>
+          <span
+            className='h-2.5 w-2.5 shrink-0 rounded-full'
+            style={{ backgroundColor: color }}
+          />
+          <span className='truncate font-tan-nimbus text-[15px] font-semibold text-[#3d3338]'>
             {s.experienceName}
           </span>
-          <span className='inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
-            <Users className='h-3.5 w-3.5 text-[#455a54]' />
-            <span className='font-mono text-xs font-semibold text-[#3d3338]'>
-              {seats}/{s.capacity}
-            </span>
-          </span>
-        </div>
+        </span>
+
         {shown.length > 0 && (
           <div className='flex flex-wrap items-center gap-1.5'>
             {shown.map((a, i) => (
               <span
                 key={i}
-                className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1 text-xs font-medium text-[#3d3338]'
+                className='inline-flex items-center gap-1.5 rounded-full bg-[#fbf5ef] px-2 py-0.5 text-xs font-medium text-[#3d3338]'
               >
-                {/* El punto marca saldo pendiente; sólo con acceso a importes. */}
                 {verDetalle && a.saldo && (
                   <span className='h-1.5 w-1.5 rounded-full bg-[#9d684e]' />
                 )}
@@ -442,6 +485,12 @@ function TurnoCard({
               <span className='text-xs font-medium text-[#7a6e6f]'>+{extra} más</span>
             )}
           </div>
+        )}
+        {pendientes.length > 0 && (
+          <span className='inline-flex w-fit items-center gap-1.5 rounded-full border border-dashed border-[#cc844a]/50 bg-[#F6E9DC] px-2 py-0.5 text-xs font-medium text-[#cc844a]'>
+            <span className='h-1.5 w-1.5 rounded-full bg-[#cc844a]' />
+            {pendPersonas} sin confirmar
+          </span>
         )}
         {!verDetalle && dietas.length > 0 && (
           <div className='flex flex-col gap-1'>
@@ -455,35 +504,31 @@ function TurnoCard({
             ))}
           </div>
         )}
-        <div className='h-px w-full bg-[#e6dbcd]' />
-        <div className='flex items-center justify-between gap-2'>
+
+        <div className='mt-auto flex items-center justify-between gap-2 pt-1'>
           {!verDetalle ? (
-            <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#455a54]'>
-              <Users className='h-[15px] w-[15px]' />
-              {seats} persona(s) anotada(s)
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#455a54]'>
+              <Users className='h-[14px] w-[14px]' />
+              {seats} anotada(s)
             </span>
           ) : porCobrar > 0 ? (
-            <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#9d684e]'>
-              <Wallet className='h-[15px] w-[15px]' />
-              Por cobrar {fmtPrice(porCobrar)} en el local
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#9d684e]'>
+              <Wallet className='h-[14px] w-[14px]' />
+              Por cobrar {fmtPrice(porCobrar)}
             </span>
           ) : (
-            <span className='inline-flex items-center gap-1.5 text-[13px] font-medium text-[#455a54]'>
-              <CalendarCheck className='h-[15px] w-[15px]' />
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#455a54]'>
+              <CalendarCheck className='h-[14px] w-[14px]' />
               Todo cobrado
             </span>
           )}
-          <button
-            type='button'
-            onClick={onVer}
-            className='inline-flex items-center gap-1.5 rounded-[9px] border border-[#e6dbcd] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[#455a54] hover:bg-[#fbf5ef]'
-          >
+          <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
             Ver turno
             <ArrowRight className='h-3.5 w-3.5' />
-          </button>
+          </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -501,7 +546,44 @@ function WeekAgenda({
   onVer: (sessionId: string) => void;
 }) {
   return (
-    <div className='overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white'>
+    <>
+    {/* Mobile: días apilados (sólo con turnos), sin scroll horizontal. */}
+    <div className='flex flex-col gap-3 sm:hidden'>
+      {gridDays.every((d) => (byDay.get(d) ?? []).length === 0) ? (
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-8 text-center text-sm text-[#7a6e6f]'>
+          No hay turnos esta semana.
+        </div>
+      ) : (
+        gridDays.map((ymd, i) => {
+          const turnos = byDay.get(ymd) ?? [];
+          if (turnos.length === 0) return null;
+          const isToday = ymd === hoy;
+          return (
+            <div key={ymd} className='flex flex-col gap-2'>
+              <div className='flex items-center gap-2'>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                    isToday ? 'bg-[#455a54] text-white' : 'bg-[#fbf5ef] text-[#455a54]',
+                  )}
+                >
+                  {DIAS_CORTOS[i]} {Number(ymd.slice(8, 10))}/{Number(ymd.slice(5, 7))}
+                </span>
+                <span className='text-xs text-[#7a6e6f]'>{turnos.length} turno(s)</span>
+              </div>
+              <div className='flex flex-col gap-2'>
+                {turnos.map((s) => (
+                  <WeekTurnoChip key={s.id} session={s} onVer={onVer} />
+                ))}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+
+    {/* Desktop/tablet: grilla semanal de 7 columnas. */}
+    <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white sm:block'>
       <div className='grid min-w-[64rem] grid-cols-7'>
         {gridDays.map((ymd, i) => {
           const turnos = byDay.get(ymd) ?? [];
@@ -529,39 +611,54 @@ function WeekAgenda({
                 {turnos.length === 0 && (
                   <p className='px-1 py-2 text-center text-[11px] text-[#455a54]/35'>—</p>
                 )}
-                {turnos.map((s) => {
-                  const color = s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
-                  return (
-                    <button
-                      key={s.id}
-                      type='button'
-                      onClick={() => onVer(s.id)}
-                      className={cn(
-                        'rounded-lg border border-[#f1ede6] border-l-4 p-1.5 text-left',
-                        chipClasses(s.status),
-                      )}
-                      style={{ borderLeftColor: color, backgroundColor: `${color}14` }}
-                    >
-                      <p className='font-mono text-[11px] text-[#455a54]'>
-                        {hourAR(s.startAt)}–{hourAR(s.endAt)}
-                      </p>
-                      <p className='truncate text-xs font-medium text-[#3d3338]' title={s.experienceName}>
-                        {s.experienceName}
-                      </p>
-                      <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
-                        <span>{s.confirmedSeats ?? s.seatsTaken}/{s.capacity} pers.</span>
-                        <span className='font-mono uppercase tracking-wide'>
-                          {SESSION_STATUS_LABEL[s.status] ?? s.status}
-                        </span>
-                      </p>
-                    </button>
-                  );
-                })}
+                {turnos.map((s) => (
+                  <WeekTurnoChip key={s.id} session={s} onVer={onVer} />
+                ))}
               </div>
             </div>
           );
         })}
       </div>
     </div>
+    </>
+  );
+}
+
+// Chip de un turno en la vista semana (reusado por la grilla desktop y la lista
+// apilada de mobile).
+function WeekTurnoChip({
+  session: s,
+  onVer,
+}: {
+  session: AdminSession;
+  onVer: (sessionId: string) => void;
+}) {
+  const color = s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
+  return (
+    <button
+      type='button'
+      onClick={() => onVer(s.id)}
+      className={cn(
+        'rounded-xl border border-[#e6dbcd] bg-white p-2 text-left transition-shadow hover:shadow-[0_2px_10px_rgba(69,90,84,0.08)]',
+        chipClasses(s.status),
+      )}
+    >
+      <p className='flex items-center gap-1.5 font-mono text-[11px] text-[#455a54]'>
+        <span
+          className='h-2 w-2 shrink-0 rounded-full'
+          style={{ backgroundColor: color }}
+        />
+        {hourAR(s.startAt)}–{hourAR(s.endAt)}
+      </p>
+      <p className='mt-1 truncate text-xs font-medium text-[#3d3338]' title={s.experienceName}>
+        {s.experienceName}
+      </p>
+      <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
+        <span>{s.confirmedSeats ?? s.seatsTaken}/{s.capacity} pers.</span>
+        <span className='font-mono uppercase tracking-wide'>
+          {SESSION_STATUS_LABEL[s.status] ?? s.status}
+        </span>
+      </p>
+    </button>
   );
 }

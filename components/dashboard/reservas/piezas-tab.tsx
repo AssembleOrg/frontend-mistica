@@ -744,10 +744,14 @@ function EditPieceModal({
   );
 }
 
-function NewPieceModal({
+export function NewPieceModal({
+  reservation: fixedReservation,
   onClose,
   onDone,
 }: Readonly<{
+  /** Si viene, se saltea el buscador y se cargan las fichas de esa reserva
+   *  directamente (acceso desde la ficha de reserva). */
+  reservation?: ReservationItem;
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
@@ -756,7 +760,11 @@ function NewPieceModal({
   const [classDate, setClassDate] = useState(todayKey);
   const [search, setSearch] = useState('');
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
-  const [reservation, setReservation] = useState<ReservationItem | null>(null);
+  const [reservation, setReservation] = useState<ReservationItem | null>(
+    fixedReservation ?? null,
+  );
+  // Con una reserva fija no se puede volver al buscador (se abrió desde su ficha).
+  const locked = !!fixedReservation;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [entries, setEntries] = useState<Array<{
@@ -764,9 +772,23 @@ function NewPieceModal({
     signature: string;
     pieceType: string;
     colorsUsed: string;
-  }>>([]);
+  }>>(
+    fixedReservation
+      ? Array.from({ length: Math.max(1, fixedReservation.quantity) }, (_, index) => ({
+          personName:
+            (fixedReservation.quantity === 1 || index === 0
+              ? fixedReservation.customerName
+              : '') ?? '',
+          signature: '',
+          pieceType: '',
+          colorsUsed: '',
+        }))
+      : [],
+  );
 
   useEffect(() => {
+    // Con reserva fija no hace falta buscar.
+    if (locked) return;
     let alive = true;
     setLoading(true);
     const timer = window.setTimeout(() => {
@@ -786,7 +808,7 @@ function NewPieceModal({
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [classDate, search]);
+  }, [classDate, search, locked]);
 
   function selectReservation(item: ReservationItem) {
     setReservation(item);
@@ -888,7 +910,9 @@ function NewPieceModal({
                   <p className='text-sm font-semibold text-[#3d3338]'>{reservation.customerName} · {reservation.code}</p>
                   <p className='text-xs text-[#7a6e6f]'>{reservation.experienceName} · {fmtDate(reservation.startAt)}</p>
                 </div>
-                <button type='button' onClick={() => setReservation(null)} className='text-xs font-semibold text-[#9d684e] hover:underline'>Cambiar reserva</button>
+                {!locked && (
+                  <button type='button' onClick={() => setReservation(null)} className='text-xs font-semibold text-[#9d684e] hover:underline'>Cambiar reserva</button>
+                )}
               </div>
 
               <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>

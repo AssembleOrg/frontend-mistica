@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import {
   professorsAdmin,
   type Professor,
 } from '@/services/professors.admin.service';
+import { ClientsService, type Client } from '@/services/clients.service';
 import {
   QuickCreateSelect,
   professorFields,
@@ -41,6 +42,11 @@ const EMPTY: CreateGroupInput = {
   schedule: [{ ...DEFAULT_SLOT }],
   studentIds: [],
 };
+const clientsService = new ClientsService();
+
+function clientIdOf(client: Client): string {
+  return client.id || client._id || '';
+}
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -79,7 +85,7 @@ function monthLabel(value: Date) {
  * backend liga su cuenta al profesor); el admin ve todos y puede asignar
  * profesor. Desde acá también se toma la asistencia de cada clase.
  */
-export function GruposPanel() {
+export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === 'admin';
   const confirm = useConfirm();
@@ -92,8 +98,14 @@ export function GruposPanel() {
   const [editing, setEditing] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
   const [attendanceOf, setAttendanceOf] = useState<Group | null>(null);
+  // Deep-link desde la Agenda: abrir la asistencia del grupo indicado una vez.
+  const [focusHandled, setFocusHandled] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [debouncedStudentSearch, setDebouncedStudentSearch] = useState('');
+  // Clientes elegidos que todavía no son alumnos: se dan de alta al guardar.
+  const [pendingClients, setPendingClients] = useState<Client[]>([]);
+  // Resultados junto al término que los trajo: si no coincide, sigue buscando.
+  const [clientResults, setClientResults] = useState<{ term: string; rows: Client[] }>({ term: '', rows: [] });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,20 +129,107 @@ export function GruposPanel() {
     load();
   }, [load]);
 
+  // Cuando llegamos con ?group=<id> (desde la Agenda), abrir su asistencia
+  // apenas los grupos estén cargados. Sólo una vez.
+  useEffect(() => {
+    if (focusHandled || !focusGroupId || groups.length === 0) return;
+    const g = groups.find((x) => x._id === focusGroupId);
+    if (g) setAttendanceOf(g);
+    setFocusHandled(true);
+  }, [focusGroupId, focusHandled, groups]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedStudentSearch(studentSearch.trim().toLocaleLowerCase('es-AR')), 250);
     return () => window.clearTimeout(timer);
   }, [studentSearch]);
 
+  // Sin búsqueda no se ofrece a nadie: quien se sacó del grupo no reaparece solo.
   const filteredStudents = useMemo(() => {
     const term = debouncedStudentSearch;
-    return students.filter((student) => !term || student.name.toLocaleLowerCase('es-AR').includes(term)).slice(0, 20);
+    if (term.length < 2) return [];
+    return students.filter((student) => student.name.toLocaleLowerCase('es-AR').includes(term)).slice(0, 20);
   }, [students, debouncedStudentSearch]);
 
   const studentName = useMemo(
     () => new Map(students.map((s) => [s._id, s.name])),
     [students],
   );
+
+  // Con 2+ letras la misma búsqueda también trae clientes del servidor.
+  const formOpen = form !== null;
+  useEffect(() => {
+    const term = debouncedStudentSearch;
+    if (!formOpen || term.length < 2) return;
+    let active = true;
+    clientsService
+      .getClients(1, 12, { search: term })
+      .then((response) => {
+        if (active) {
+          setClientResults({ term, rows: response.data.data.map((client) => ({ ...client, id: clientIdOf(client) })) });
+        }
+      })
+      .catch(() => {
+        if (active) setClientResults({ term, rows: [] });
+      });
+    return () => {
+      active = false;
+    };
+  }, [debouncedStudentSearch, formOpen]);
+  const searchingClients =
+    debouncedStudentSearch.length >= 2 && clientResults.term !== debouncedStudentSearch;
+
+  // Un cliente que ya es alumno se suma como ese alumno, no se duplica.
+  const studentByClient = useMemo(
+    () => new Map(students.filter((s) => s.clientId).map((s) => [s.clientId as string, s])),
+    [students],
+  );
+  const clientRows = (searchingClients ? [] : clientResults.rows).filter((client) => {
+    const linked = studentByClient.get(client.id);
+    return !linked || !filteredStudents.some((s) => s._id === linked._id);
+  });
+
+  // El profesor del grupo pudo ser eliminado: se lo lista igual para que el
+  // select no quede en blanco mientras el grupo lo sigue teniendo asignado.
+  const professorOptions = professors.map((p) => ({ id: p.id, name: p.name }));
+  if (editing?.professorId && !professors.some((p) => p.id === editing.professorId)) {
+    professorOptions.push({
+      id: editing.professorId,
+      name: `${editing.professorName ?? 'Profesor'} (eliminado)`,
+    });
+  }
+
+  function openForm(group?: Group) {
+    setEditing(group ?? null);
+    setStudentSearch('');
+    setDebouncedStudentSearch('');
+    setPendingClients([]);
+    setForm(
+      group
+        ? {
+            name: group.name,
+            professorId: group.professorId,
+            schedule: [{ ...(group.schedule[0] ?? DEFAULT_SLOT) }],
+            studentIds: [...group.studentIds],
+            isActive: group.isActive,
+          }
+        : { ...EMPTY, schedule: [{ ...DEFAULT_SLOT }], studentIds: [] },
+    );
+  }
+
+  function toggleStudent(id: string) {
+    if (!form) return;
+    const current = form.studentIds ?? [];
+    setForm({
+      ...form,
+      studentIds: current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+    });
+  }
+
+  function toggleClient(client: Client) {
+    setPendingClients((prev) =>
+      prev.some((p) => p.id === client.id) ? prev.filter((p) => p.id !== client.id) : [...prev, client],
+    );
+  }
 
   async function save() {
     if (!form) return;
@@ -142,11 +241,12 @@ export function GruposPanel() {
     }
     setSaving(true);
     try {
+      const input = { ...form, clientIds: pendingClients.map((client) => client.id) };
       if (editing) {
-        await tallerAdmin.updateGroup(editing._id, form);
+        await tallerAdmin.updateGroup(editing._id, input);
         showToast.success('Grupo actualizado');
       } else {
-        await tallerAdmin.createGroup(form);
+        await tallerAdmin.createGroup(input);
         showToast.success('Grupo creado');
       }
       setForm(null);
@@ -181,11 +281,7 @@ export function GruposPanel() {
         <Button
           type='button'
           variant='verde'
-          onClick={() => {
-            setEditing(null);
-            setStudentSearch('');
-            setForm({ ...EMPTY, schedule: [{ ...DEFAULT_SLOT }], studentIds: [] });
-          }}
+          onClick={() => openForm()}
           className='gap-2'
         >
           <Plus className='h-4 w-4' />
@@ -255,16 +351,7 @@ export function GruposPanel() {
                   icon={Pencil}
                   title='Editar'
                   tone='verde'
-                  onClick={() => {
-                    setEditing(g);
-                    setForm({
-                      name: g.name,
-                      professorId: g.professorId,
-                      schedule: [{ ...(g.schedule[0] ?? DEFAULT_SLOT) }],
-                      studentIds: [...g.studentIds],
-                      isActive: g.isActive,
-                    });
-                  }}
+                  onClick={() => openForm(g)}
                 />
                 <IconBtn
                   icon={Trash2}
@@ -303,7 +390,7 @@ export function GruposPanel() {
                     onChange={(id) =>
                       setForm({ ...form, professorId: id || undefined })
                     }
-                    options={professors.map((p) => ({ id: p.id, name: p.name }))}
+                    options={professorOptions}
                     emptyLabel='Sin asignar'
                     placeholder='Sin asignar'
                     createTitle='Nuevo profesor'
@@ -373,57 +460,77 @@ export function GruposPanel() {
                 </div>
               </Field>
 
-              <Field label={`Alumnos (${form.studentIds?.length ?? 0})`}>
+              <Field label={`Alumnos (${(form.studentIds?.length ?? 0) + pendingClients.length})`}>
+                {(form.studentIds?.length ?? 0) + pendingClients.length === 0 ? (
+                  <p className='mb-2 text-xs text-[#7a6e6f]'>El grupo todavía no tiene alumnos.</p>
+                ) : (
+                  <div className='mb-2 flex flex-wrap gap-1.5'>
+                    {(form.studentIds ?? []).map((id) => (
+                      <MemberChip
+                        key={id}
+                        name={studentName.get(id) ?? '(alumno inactivo)'}
+                        onRemove={() => toggleStudent(id)}
+                      />
+                    ))}
+                    {pendingClients.map((client) => (
+                      <MemberChip
+                        key={client.id}
+                        name={client.fullName}
+                        tag='cliente'
+                        onRemove={() => toggleClient(client)}
+                      />
+                    ))}
+                  </div>
+                )}
                 <Input
                   value={studentSearch}
                   onChange={(event) => setStudentSearch(event.target.value)}
-                  placeholder='Buscar alumno por nombre…'
+                  placeholder='Buscar alumno o cliente por nombre…'
                   className={`${fieldCls} mb-2 h-9`}
                 />
-                <p className='mb-1 text-[11px] text-[#7a6e6f]'>Mostrando hasta 20 alumnos{studentSearch ? ' que coinciden con la búsqueda' : '. Escribí para filtrar.'} Los alumnos se dan de alta en la pestaña Alumnos, donde se los vincula con su cliente.</p>
-                <div className='flex max-h-64 flex-col gap-1 overflow-y-auto rounded-lg border border-[#e6dbcd] bg-white p-2'>
-                  {students.length === 0 && (
-                    <p className='text-xs text-[#7a6e6f]'>
-                      No hay alumnos activos cargados. Creálos primero en la
-                      pestaña Alumnos.
-                    </p>
-                  )}
-                  {filteredStudents.map((s) => {
-                    const on = form.studentIds?.includes(s._id) ?? false;
-                    return (
-                      <button
+                <p className='mb-1 text-[11px] text-[#7a6e6f]'>
+                  Escribí al menos 2 letras para buscar entre alumnos y clientes. Al guardar, el cliente queda vinculado como alumno del grupo.
+                </p>
+                {debouncedStudentSearch.length >= 2 && (
+                  <div className='flex max-h-64 flex-col gap-1 overflow-y-auto rounded-lg border border-[#e6dbcd] bg-white p-2'>
+                    {filteredStudents.map((s) => (
+                      <PickRow
                         key={s._id}
-                        type='button'
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            studentIds: on
-                              ? (form.studentIds ?? []).filter(
-                                  (id) => id !== s._id,
-                                )
-                              : [...(form.studentIds ?? []), s._id],
-                          })
-                        }
-                        className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] transition ${
-                          on
-                            ? 'bg-[#E7F0EC] text-[#455a54]'
-                            : 'text-[#3d3338] hover:bg-[#fbf5ef]'
-                        }`}
-                      >
-                        <span
-                          className={`flex h-4 w-4 items-center justify-center rounded border text-xs ${
-                            on
-                              ? 'border-[#455a54] bg-[#455a54] text-white'
-                              : 'border-[#c9bfb0]'
-                          }`}
-                        >
-                          {on ? '✓' : ''}
-                        </span>
-                        {s.name}
-                      </button>
-                    );
-                  })}
-                </div>
+                        on={form.studentIds?.includes(s._id) ?? false}
+                        label={s.name}
+                        onClick={() => toggleStudent(s._id)}
+                      />
+                    ))}
+                    {(searchingClients || clientRows.length > 0) && (
+                      <p className='mt-1 px-2 text-[11px] font-medium uppercase tracking-wide text-[#9d684e]'>
+                        Clientes
+                      </p>
+                    )}
+                    {searchingClients ? (
+                      <p className='px-2 text-xs text-[#7a6e6f]'>Buscando clientes…</p>
+                    ) : (
+                      clientRows.map((client) => {
+                        const linked = studentByClient.get(client.id);
+                        return (
+                          <PickRow
+                            key={client.id}
+                            on={
+                              linked
+                                ? (form.studentIds?.includes(linked._id) ?? false)
+                                : pendingClients.some((p) => p.id === client.id)
+                            }
+                            label={client.fullName}
+                            hint={[linked ? 'ya es alumno' : '', client.phone, client.email].filter(Boolean).join(' · ')}
+                            onClick={() => (linked ? toggleStudent(linked._id) : toggleClient(client))}
+                          />
+                        );
+                      })
+                    )}
+                    {!searchingClients && filteredStudents.length === 0 && clientRows.length === 0 && (
+                      <p className='px-2 text-xs text-[#7a6e6f]'>No encontramos alumnos ni clientes con esa búsqueda.</p>
+                    )}
+                  </div>
+                )}
               </Field>
 
             </div>
@@ -474,6 +581,57 @@ function Field({
       <span className='text-sm font-medium text-[#455a54]'>{label}</span>
       {children}
     </div>
+  );
+}
+
+/** Integrante ya elegido del grupo, con su botón para quitarlo. */
+function MemberChip({ name, tag, onRemove }: Readonly<{
+  name: string;
+  tag?: string;
+  onRemove: () => void;
+}>) {
+  return (
+    <span className='inline-flex items-center gap-1 rounded-full border border-[#bfd2c9] bg-[#E7F0EC] py-0.5 pl-2.5 pr-1 text-[12px] text-[#455a54]'>
+      {name}
+      {tag && <span className='text-[10px] text-[#6d7d77]'>· {tag}</span>}
+      <button
+        type='button'
+        aria-label={`Quitar a ${name}`}
+        onClick={onRemove}
+        className='rounded-full p-0.5 text-[#6d7d77] hover:bg-white/70'
+      >
+        <X className='h-3 w-3' />
+      </button>
+    </span>
+  );
+}
+
+function PickRow({ on, label, hint, onClick }: Readonly<{
+  on: boolean;
+  label: string;
+  hint?: string;
+  onClick: () => void;
+}>) {
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      className={`flex items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] transition ${
+        on ? 'bg-[#E7F0EC] text-[#455a54]' : 'text-[#3d3338] hover:bg-[#fbf5ef]'
+      }`}
+    >
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-xs ${
+          on ? 'border-[#455a54] bg-[#455a54] text-white' : 'border-[#c9bfb0]'
+        }`}
+      >
+        {on ? '✓' : ''}
+      </span>
+      <span className='min-w-0'>
+        {label}
+        {hint && <span className='block truncate text-[11px] text-[#7a6e6f]'>{hint}</span>}
+      </span>
+    </button>
   );
 }
 

@@ -529,6 +529,86 @@ html:has([data-slot='sheet-content'][data-state='open']) body {
   }
 }
 
+/*
+ * Feeling nativo en mobile: los modales (Radix Dialog) que llevan .dialog-shell
+ * suben desde abajo como bottom-sheet, ocupan el ancho completo, redondean sólo
+ * arriba, respetan el home indicator (safe-area) y animan con slide-up. En
+ * >=640px NO aplica: el modal sigue centrado como siempre.
+ */
+@media (max-width: 639px) {
+  .dialog-shell.dialog-sheet {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    transform: none;
+    max-height: 92dvh;
+    border-bottom: 0;
+    border-top-left-radius: 1.25rem;
+    border-top-right-radius: 1.25rem;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  /* Grab-handle: afordancia de gesto arriba del sheet. */
+  .dialog-shell.dialog-sheet::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2.25rem;
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: #e6dbcd;
+    z-index: 2;
+  }
+  /* El header deja lugar al handle. */
+  .dialog-shell.dialog-sheet > [data-slot='dialog-header'] {
+    padding-top: 1.15rem;
+  }
+  /* El cuerpo scrolleable respeta la safe-area inferior. */
+  .dialog-shell.dialog-sheet
+    > :not([data-slot='dialog-header']):not(
+      [data-slot='dialog-footer']
+    ):not([data-slot='dialog-close']) {
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+  .dialog-shell.dialog-sheet > [data-slot='dialog-footer'] {
+    padding-bottom: calc(0.875rem + env(safe-area-inset-bottom));
+  }
+  /* Entrada/salida deslizando desde abajo (más nativa que el zoom). */
+  .dialog-shell.dialog-sheet[data-state='open'] {
+    animation: sheet-up 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .dialog-shell.dialog-sheet[data-state='closed'] {
+    animation: sheet-down 0.2s ease-in;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes sheet-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-shell.dialog-sheet[data-state='open'],
+  .dialog-shell.dialog-sheet[data-state='closed'] {
+    animation: none;
+  }
+}
+
 /* Overlay del menú mobile: fade del fondo + entrada escalonada de los links. */
 @keyframes overlay-in {
   from {

@@ -1,11 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AlumnosPanel } from '@/components/dashboard/alumnos/alumnos-panel';
 import { GruposPanel } from '@/components/dashboard/alumnos/grupos-panel';
 
 export default function AlumnosPage() {
-  const [tab, setTab] = useState<'alumnos' | 'grupos'>('alumnos');
+  return (
+    <Suspense fallback={null}>
+      <AlumnosPageInner />
+    </Suspense>
+  );
+}
+
+function AlumnosPageInner() {
+  const params = useSearchParams();
+  // Deep-link desde la Agenda: ?tab=grupos&group=<id> abre grupos y su grupo.
+  const initialTab = params.get('tab') === 'grupos' ? 'grupos' : 'alumnos';
+  const focusGroup = params.get('group') || undefined;
+  const [tab, setTab] = useState<'alumnos' | 'grupos'>(initialTab);
+
+  useEffect(() => {
+    if (params.get('tab') === 'grupos') setTab('grupos');
+  }, [params]);
   const chip = (on: boolean) =>
     `rounded-lg border px-4 py-2 text-sm font-semibold transition ${
       on
@@ -32,7 +49,7 @@ export default function AlumnosPage() {
           Grupos y clases
         </button>
       </div>
-      {tab === 'alumnos' ? <AlumnosPanel /> : <GruposPanel />}
+      {tab === 'alumnos' ? <AlumnosPanel /> : <GruposPanel focusGroupId={focusGroup} />}
     </div>
   );
 }

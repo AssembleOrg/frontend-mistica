@@ -363,6 +363,7 @@ export function AnotadosModal({
         }}
         onConfirm={(r) => void doConfirm(r)}
         onCancel={(r) => void doCancel(r)}
+        onUpdated={() => void afterChange()}
       />
 
       {collect && (

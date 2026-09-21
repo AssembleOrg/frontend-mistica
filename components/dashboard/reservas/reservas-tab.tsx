@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
+  AR_TZ,
   fmtDateTime,
   fmtPrice,
   prettyCode,
@@ -69,12 +70,21 @@ const FILTERS: { key: string; label: string; color: string; tint: string }[] = [
 
 type View = 'list' | 'calendar';
 
+// 'YYYY-MM-DD' de hoy en hora de Argentina (para el orden "Próximas").
+function todayYmdAR(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: AR_TZ });
+}
+
 export function ReservasTab() {
   const confirm = useConfirm();
   const [view, setView] = useState<View>('list');
   const [items, setItems] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
+  // Orden del listado: 'created' = recientes (default histórico); 'upcoming' =
+  // por fecha de turno, próximas primero (desde hoy). Resuelve "no encuentro la
+  // reserva que pidieron por WhatsApp para tal día".
+  const [order, setOrder] = useState<'created' | 'upcoming'>('created');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -116,6 +126,9 @@ export function ReservasTab() {
         status: status || undefined,
         search: search || undefined,
         experienceId: expFilter || undefined,
+        ...(order === 'upcoming'
+          ? { sort: 'startAt' as const, from: todayYmdAR() }
+          : {}),
         page,
         limit: LIMIT,
       });
@@ -127,7 +140,7 @@ export function ReservasTab() {
     } finally {
       setLoading(false);
     }
-  }, [status, search, expFilter, page]);
+  }, [status, search, expFilter, order, page]);
 
   useEffect(() => {
     if (view === 'list') load();
@@ -144,6 +157,8 @@ export function ReservasTab() {
             status: k || undefined,
             search: search || undefined,
             experienceId: expFilter || undefined,
+            // Coherente con la lista: si mostramos próximas, contamos desde hoy.
+            ...(order === 'upcoming' ? { from: todayYmdAR() } : {}),
             page: 1,
             limit: 1,
           })
@@ -156,7 +171,7 @@ export function ReservasTab() {
     return () => {
       alive = false;
     };
-  }, [search, expFilter, tick]);
+  }, [search, expFilter, order, tick]);
 
   async function doCancel(r: ReservationItem) {
     const ok = await confirm({
@@ -321,14 +336,47 @@ export function ReservasTab() {
                 />
               ))}
             </div>
-            <div className='relative w-full sm:ml-auto sm:w-72'>
-              <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
-              <Input
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder='Buscar por código, nombre o teléfono'
-                className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
-              />
+            <div className='flex w-full items-center gap-2.5 sm:ml-auto sm:w-auto'>
+              {/* Orden: recientes vs por fecha de turno. "Próximas" muestra
+                  las reservas de hoy en adelante ordenadas por su día — así se
+                  encuentran las cargadas por WhatsApp para una fecha futura. */}
+              <div className='inline-flex shrink-0 items-center rounded-[11px] border border-[#e6dbcd] bg-[#fbf5ef] p-1'>
+                {(
+                  [
+                    ['created', 'Recientes'],
+                    ['upcoming', 'Próximas'],
+                  ] as const
+                ).map(([key, label]) => {
+                  const on = order === key;
+                  return (
+                    <button
+                      key={key}
+                      type='button'
+                      onClick={() => {
+                        setOrder(key);
+                        setPage(1);
+                      }}
+                      className={cn(
+                        'rounded-lg px-3 py-2 text-[13px] font-medium transition-colors',
+                        on
+                          ? 'bg-[#455a54] text-white'
+                          : 'text-[#7a6e6f] hover:text-[#455a54]',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className='relative w-full sm:w-72'>
+                <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
+                <Input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder='Buscar por código, nombre o teléfono'
+                  className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
+                />
+              </div>
             </div>
           </div>
 
@@ -521,6 +569,10 @@ export function ReservasTab() {
         }}
         onConfirm={(r) => doResolve(r, 'confirm')}
         onCancel={doCancel}
+        onUpdated={() => {
+          setDetail(null);
+          refresh();
+        }}
         busy={busy != null}
       />
 

@@ -33,6 +33,8 @@ export interface CreateGroupInput {
   professorId?: string;
   schedule?: GroupSlot[];
   studentIds?: string[];
+  /** Clientes a sumar: el backend los da de alta como alumnos vinculados. */
+  clientIds?: string[];
   notes?: string;
   isActive?: boolean;
 }

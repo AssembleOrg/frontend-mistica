@@ -67,10 +67,25 @@ export interface ConversationEvent {
 }
 
 export const conversationsAdmin = {
-  list: async (status?: ConversationStatus) =>
+  /**
+   * Bandeja paginada. `status` acepta uno o varios separados por coma
+   * (ej. "BOT,WAITING,HUMAN" para las abiertas). Sin status trae todas.
+   */
+  list: async (opts: { status?: string; limit?: number; page?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.limit) q.set('limit', String(opts.limit));
+    if (opts.page) q.set('page', String(opts.page));
+    const qs = q.toString();
+    return (
+      await apiService.get<Conversation[]>(`/conversations${qs ? `?${qs}` : ''}`)
+    ).data;
+  },
+
+  counts: async () =>
     (
-      await apiService.get<Conversation[]>(
-        `/conversations${status ? `?status=${status}` : ''}`,
+      await apiService.get<Record<ConversationStatus, number>>(
+        '/conversations/counts',
       )
     ).data,
 

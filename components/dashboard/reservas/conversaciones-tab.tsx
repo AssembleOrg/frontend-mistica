@@ -32,6 +32,7 @@ import {
   conversationsAdmin,
   type Conversation,
   type ConversationMessage,
+  type ConversationStatus,
 } from '@/services/conversations.admin.service';
 import { FilterChip } from './_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -60,10 +61,27 @@ function cuando(iso: string): string {
 
 type Filtro = 'abiertas' | 'WAITING' | 'BOT' | 'CLOSED';
 
+// Qué estados pide cada chip al backend.
+const FILTRO_STATUS: Record<Filtro, string> = {
+  abiertas: 'BOT,WAITING,HUMAN',
+  WAITING: 'WAITING',
+  BOT: 'BOT',
+  CLOSED: 'CLOSED',
+};
+
+const PAGE_SIZE = 40;
+
+type Counts = Partial<Record<ConversationStatus, number>>;
+
 export function ConversacionesTab() {
   const confirm = useConfirm();
   const [items, setItems] = useState<Conversation[]>([]);
   const [filtro, setFiltro] = useState<Filtro>('abiertas');
+  const [counts, setCounts] = useState<Counts>({});
+  // Paginado de la bandeja: de a 40, "cargar más" al pie.
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [draft, setDraft] = useState('');
@@ -73,14 +91,56 @@ export function ConversacionesTab() {
   // El id seleccionado dentro del handler de SSE, sin re-suscribir en cada cambio.
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedId;
+  const filtroRef = useRef<Filtro>(filtro);
+  filtroRef.current = filtro;
 
+  const loadCounts = useCallback(async () => {
+    try {
+      setCounts(await conversationsAdmin.counts());
+    } catch {
+      // Los contadores son decorativos: si fallan, la bandeja sigue.
+    }
+  }, []);
+
+  // Recarga la primera página del filtro actual (y los contadores).
   const loadInbox = useCallback(async () => {
     try {
-      setItems(await conversationsAdmin.list());
+      const rows = await conversationsAdmin.list({
+        status: FILTRO_STATUS[filtro],
+        limit: PAGE_SIZE,
+        page: 1,
+      });
+      setItems(rows);
+      setPage(1);
+      setHasMore(rows.length === PAGE_SIZE);
+      void loadCounts();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar las charlas');
     }
-  }, []);
+  }, [filtro, loadCounts]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const rows = await conversationsAdmin.list({
+        status: FILTRO_STATUS[filtro],
+        limit: PAGE_SIZE,
+        page: next,
+      });
+      setItems((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...rows.filter((c) => !seen.has(c.id))];
+      });
+      setPage(next);
+      setHasMore(rows.length === PAGE_SIZE);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'Error al cargar más charlas');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [filtro, page, hasMore, loadingMore]);
 
   const loadMessages = useCallback(async (id: string) => {
     try {
@@ -103,12 +163,17 @@ export function ConversacionesTab() {
         // La bandeja siempre se refresca: cambió el orden, el estado o el
         // contador de sin leer.
         if (event.conversation) {
+          const conv = event.conversation;
+          const wanted = FILTRO_STATUS[filtroRef.current].split(',');
           setItems((prev) => {
             const rest = prev.filter((c) => c.id !== event.conversationId);
-            return [event.conversation!, ...rest].sort(
+            // Si cambió de estado y ya no entra en el filtro, sale de la lista.
+            if (!wanted.includes(conv.status)) return rest;
+            return [conv, ...rest].sort(
               (a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt),
             );
           });
+          void loadCounts();
         } else {
           void loadInbox();
         }
@@ -140,7 +205,7 @@ export function ConversacionesTab() {
       () => setLive(false),
     );
     return stop;
-  }, [loadInbox]);
+  }, [loadInbox, loadCounts]);
 
   useEffect(() => {
     if (selectedId) void loadMessages(selectedId);
@@ -153,14 +218,15 @@ export function ConversacionesTab() {
 
   const selected = items.find((c) => c.id === selectedId) ?? null;
 
+  // La lista ya viene filtrada del backend; acá sólo se descarta lo que
+  // cambió de estado en vivo (ej. una charla que se cerró estando abierta).
   const visibles = useMemo(() => {
-    if (filtro === 'abiertas')
-      return items.filter((c) => c.status !== 'CLOSED');
-    return items.filter((c) => c.status === filtro);
+    const wanted = FILTRO_STATUS[filtro].split(',');
+    return items.filter((c) => wanted.includes(c.status));
   }, [items, filtro]);
 
-  const esperando = items.filter((c) => c.status === 'WAITING').length;
-  const conBot = items.filter((c) => c.status === 'BOT').length;
+  const abiertas =
+    (counts.BOT ?? 0) + (counts.WAITING ?? 0) + (counts.HUMAN ?? 0);
 
   // Abrir es sólo leer: nunca toma la charla. El equipo la toma cuando quiere,
   // con el botón "Tomar" (o al responder).
@@ -225,13 +291,13 @@ export function ConversacionesTab() {
         <div className='flex flex-wrap items-center gap-2'>
           <FilterChip
             label='Abiertas'
-            count={items.filter((c) => c.status !== 'CLOSED').length}
+            count={abiertas}
             active={filtro === 'abiertas'}
             onClick={() => setFiltro('abiertas')}
           />
           <FilterChip
             label='Esperando'
-            count={esperando}
+            count={counts.WAITING ?? 0}
             active={filtro === 'WAITING'}
             color='#9d684e'
             tint='#f4ead9'
@@ -239,12 +305,13 @@ export function ConversacionesTab() {
           />
           <FilterChip
             label='Con el bot'
-            count={conBot}
+            count={counts.BOT ?? 0}
             active={filtro === 'BOT'}
             onClick={() => setFiltro('BOT')}
           />
           <FilterChip
             label='Cerradas'
+            count={counts.CLOSED ?? 0}
             active={filtro === 'CLOSED'}
             onClick={() => setFiltro('CLOSED')}
           />
@@ -333,6 +400,16 @@ export function ConversacionesTab() {
                 )}
               </button>
             ))
+          )}
+          {hasMore && (
+            <button
+              type='button'
+              onClick={() => void loadMore()}
+              disabled={loadingMore}
+              className='rounded-xl border border-dashed border-[#c3b7a4] py-2 text-sm font-medium text-[#455a54] hover:bg-[#fbf5ef] disabled:opacity-60'
+            >
+              {loadingMore ? 'Cargando…' : `Cargar ${PAGE_SIZE} más`}
+            </button>
           )}
         </div>
 

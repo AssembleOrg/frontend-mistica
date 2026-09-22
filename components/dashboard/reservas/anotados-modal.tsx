@@ -180,11 +180,21 @@ export function AnotadosModal({
 
         <div className='grid flex-1 gap-5 overflow-y-auto p-6 md:grid-cols-[1fr_300px]'>
           {/* Lista de anotados */}
-          <div className='overflow-hidden rounded-lg border border-[#e6dbcd]'>
-            <div className='grid grid-cols-[auto_1fr_auto_auto] gap-2 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#455a54]/60'>
-              <span>{verDetalle ? 'CÓDIGO' : ''}</span>
+          {/* self-start: la lista no se estira a la altura del formulario de
+              alta (quedaba un cajón vacío enorme). Columnas fijas para que el
+              encabezado y las filas queden alineados. */}
+          <div className='self-start overflow-hidden rounded-lg border border-[#e6dbcd]'>
+            <div
+              className={cn(
+                'grid gap-3 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#455a54]/60',
+                verDetalle
+                  ? 'grid-cols-[84px_1fr_48px_96px]'
+                  : 'grid-cols-[1fr_48px_96px]',
+              )}
+            >
+              {verDetalle && <span>CÓDIGO</span>}
               <span>CLIENTE</span>
-              <span>PERS.</span>
+              <span className='text-right'>PERS.</span>
               <span>ESTADO</span>
             </div>
             {loading ? (
@@ -209,22 +219,27 @@ export function AnotadosModal({
                       : undefined
                   }
                   className={cn(
-                    'grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 border-t border-[#e6dbcd] px-4 py-3',
+                    'grid items-center gap-3 border-t border-[#e6dbcd] px-4 py-3',
+                    verDetalle
+                      ? 'grid-cols-[84px_1fr_48px_96px]'
+                      : 'grid-cols-[1fr_48px_96px]',
                     verDetalle && 'cursor-pointer hover:bg-[#fbf5ef]',
                   )}
                 >
-                  <span className='font-mono text-sm font-semibold text-[#9d684e]'>
-                    {verDetalle ? prettyCode(r.code) : ''}
-                  </span>
-                  <div className='flex flex-col gap-1'>
+                  {verDetalle && (
+                    <span className='font-mono text-sm font-semibold text-[#9d684e]'>
+                      {prettyCode(r.code)}
+                    </span>
+                  )}
+                  <div className='flex min-w-0 flex-col gap-0.5'>
                     {/* El nombre se ve siempre (para saber quién viene). El
                         contacto sólo con acceso completo a Reservas. */}
-                    <p className='text-sm font-medium text-[#455a54]'>
+                    <p className='truncate text-sm font-medium text-[#455a54]'>
                       {r.customerName ?? '—'}
                     </p>
-                    {verDetalle && (
-                      <p className='text-xs text-[#455a54]/60'>
-                        {r.customerEmail ?? r.customerPhone ?? '—'}
+                    {verDetalle && (r.customerEmail || r.customerPhone) && (
+                      <p className='truncate text-xs text-[#455a54]/60'>
+                        {r.customerEmail ?? r.customerPhone}
                       </p>
                     )}
                     <DietaryTags
@@ -240,8 +255,10 @@ export function AnotadosModal({
                         </span>
                       )}
                   </div>
-                  <span className='text-sm text-[#455a54]'>{r.quantity}</span>
-                  <span className='text-xs text-[#455a54]/60'>
+                  <span className='text-right text-sm text-[#455a54]'>
+                    {r.quantity}
+                  </span>
+                  <span className='truncate text-xs text-[#455a54]/60'>
                     {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                   </span>
                 </div>

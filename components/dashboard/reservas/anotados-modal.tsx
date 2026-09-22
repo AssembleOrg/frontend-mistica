@@ -20,7 +20,7 @@ import { ReservationDetailPanel } from './reservation-detail-panel';
 import {
   CollectBalanceModal,
   RescheduleModal,
-} from './reservas-tab';
+} from './reservas-list';
 import {
   fmtDateTime,
   fmtPrice,

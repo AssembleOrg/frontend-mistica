@@ -23,7 +23,7 @@ import {
 import { showToast } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
-import { ASSIGNABLE_VIEWS, RESERVAS_TABS } from '@/lib/views';
+import { ASSIGNABLE_VIEWS, RESERVAS_TABS, normalizeViewKey, normalizeViewKeys } from '@/lib/views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,7 +39,8 @@ const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 /** Etiqueta legible de una clave de vista (incluye las granulares). */
-function viewLabel(key: string): string {
+function viewLabel(rawKey: string): string {
+  const key = normalizeViewKey(rawKey);
   if (key.startsWith('reservas:')) {
     const tab = RESERVAS_TABS.find((t) => t.key === key.slice('reservas:'.length));
     return tab ? `Reservas · ${tab.label}` : key;
@@ -109,7 +110,7 @@ export function AccountsPanel() {
       name: account.name,
       email: account.email,
       role: account.role,
-      allowedViews: account.allowedViews ?? [],
+      allowedViews: normalizeViewKeys(account.allowedViews ?? []),
       password: '',
     });
   }
@@ -246,7 +247,7 @@ function AccountRow({
   onRemove: () => void;
 }) {
   const admin = account.role === 'admin';
-  const views = account.allowedViews ?? [];
+  const views = normalizeViewKeys(account.allowedViews ?? []);
   return (
     <div className='flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3'>
       <span

@@ -1,600 +1,413 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Ban,
-  CalendarClock,
-  CalendarDays,
-  CheckCircle2,
-  List,
+  ArrowRight,
+  CalendarCheck,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Loader2,
   Plus,
-  Search,
+  Ticket,
+  Users,
   Wallet,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useConfirm } from '@/components/ui/confirm-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import {
   AR_TZ,
-  fmtDateTime,
+  arDayEndISO,
+  arDayStartISO,
   fmtPrice,
-  prettyCode,
-  RESERVATION_STATUS_COLOR,
-  RESERVATION_STATUS_LABEL,
+  fmtPriceCompact,
+  SESSION_STATUS_LABEL,
 } from '@/lib/reservas-format';
+import { DEFAULT_EXPERIENCE_COLOR } from '@/lib/experience-colors';
 import {
   reservationsAdmin,
   type AdminExperience,
   type AdminSession,
   type ReservationItem,
-  type ReservationPaymentMethod,
 } from '@/services/reservations.admin.service';
-import {
-  reservationsPublic,
-  type AvailableShift,
-} from '@/services/reservations.public.service';
-import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
+import { AnotadosModal } from './anotados-modal';
+import { NewReservationModal, ReservasListado } from './reservas-list';
 import { DietaryTags } from './dietary-badge';
-import { ReservasCalendar } from './reservas-calendar';
-import { ReservationDetailPanel } from './reservation-detail-panel';
+import { useAuth } from '@/hooks/useAuth';
+import { canSeeReservationDetails } from '@/lib/views';
+import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
 
-const LIMIT = 20;
+// ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
-// Política del local: las modificaciones se aceptan hasta 48 hs antes del turno.
-const RESCHEDULE_MIN_HOURS = 48;
-
-const PAY_METHODS: { key: ReservationPaymentMethod; label: string }[] = [
-  { key: 'CASH', label: 'Efectivo' },
-  { key: 'TRANSFER', label: 'Transferencia' },
-  { key: 'CARD', label: 'Tarjeta' },
-];
-
-// Filtros de estado con su acento (color) y tinte (fondo suave) del .pen.
-const FILTERS: { key: string; label: string; color: string; tint: string }[] = [
-  { key: '', label: 'Todas', color: '#455a54', tint: '#E7F0EC' },
-  { key: 'CONFIRMED', label: 'Confirmadas', color: '#455a54', tint: '#E7F0EC' },
-  { key: 'PENDING', label: 'Pendientes', color: '#cc844a', tint: '#F6E9DC' },
-  { key: 'NEEDS_REVIEW', label: 'Revisión', color: '#b23b2e', tint: '#F6E0DA' },
-  { key: 'CANCELLED', label: 'Canceladas', color: '#7a6e6f', tint: '#f1ede6' },
-];
-
-type View = 'list' | 'calendar';
-
-// 'YYYY-MM-DD' de hoy en hora de Argentina (para el orden "Próximas").
-function todayYmdAR(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: AR_TZ });
+function ymdInAR(iso: string | Date): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: AR_TZ });
+}
+function todayYmd(): string {
+  return ymdInAR(new Date());
+}
+function atNoonUTC(ymd: string): Date {
+  return new Date(`${ymd}T12:00:00Z`);
+}
+function addDays(ymd: string, days: number): string {
+  const d = atNoonUTC(ymd);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+function mondayOf(ymd: string): string {
+  const dow = atNoonUTC(ymd).getUTCDay();
+  return addDays(ymd, dow === 0 ? -6 : 1 - dow);
+}
+function hourAR(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: AR_TZ,
+  });
 }
 
+const MESES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DIAS_CORTOS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+
+function longDayLabel(ymd: string): string {
+  const dt = atNoonUTC(ymd);
+  return `${DIAS[dt.getUTCDay()]} ${Number(ymd.slice(8, 10))} de ${MESES[Number(ymd.slice(5, 7)) - 1]}`;
+}
+
+function chipClasses(status: string): string {
+  switch (status) {
+    case 'OPEN':
+      return 'opacity-100';
+    case 'CLOSED':
+      return 'opacity-55';
+    case 'DRAFT':
+      return 'opacity-70 border-dashed';
+    default:
+      return 'opacity-40 line-through';
+  }
+}
+
+type Mode = 'day' | 'week' | 'list';
+
+/**
+ * Pestaña Reservas: una sola vista para todo. Día y Semana son la agenda
+ * (turnos, cupos, anotados y acciones sobre cada reserva); Lista es el
+ * listado completo con buscador, filtros e historial. "Nueva reserva" está
+ * siempre a mano.
+ */
 export function ReservasTab() {
-  const confirm = useConfirm();
-  const [view, setView] = useState<View>('list');
-  const [items, setItems] = useState<ReservationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('');
-  // Orden del listado: 'created' = recientes (default histórico); 'upcoming' =
-  // por fecha de turno, próximas primero (desde hoy). Resuelve "no encuentro la
-  // reserva que pidieron por WhatsApp para tal día".
-  const [order, setOrder] = useState<'created' | 'upcoming'>('created');
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [collect, setCollect] = useState<ReservationItem | null>(null);
-  const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
-  const [detail, setDetail] = useState<ReservationItem | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
+  // Cocina y cuentas con pestañas sueltas: cuántas personas y qué restricciones,
+  // sin nombres de clientes ni importes (el backend tampoco los manda). Tampoco
+  // ven el listado completo ni cargan reservas.
+  const verDetalle = canSeeReservationDetails(user?.role, user?.allowedViews);
+  const [mode, setMode] = useState<Mode>('day');
   const [newOpen, setNewOpen] = useState(false);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
-  const [expFilter, setExpFilter] = useState('');
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [anchor, setAnchor] = useState<string>(todayYmd());
+  const [sessions, setSessions] = useState<AdminSession[]>([]);
+  const [attendees, setAttendees] = useState<Record<string, ReservationItem[]>>({});
+  const [loading, setLoading] = useState(true);
+  const [anotados, setAnotados] = useState<string | null>(null);
+  const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
-  const refresh = () => setTick((t) => t + 1);
+  const hoy = todayYmd();
 
-  // Debounce del buscador: espera 350 ms tras la última tecla y vuelve a página 1.
+  // Experiencias para el alta manual (una vez, sólo si puede cargar).
   useEffect(() => {
-    const t = setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
-    }, 350);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  // Experiencias para el filtro (una vez).
-  useEffect(() => {
+    if (!verDetalle) return;
     reservationsAdmin
       .listExperiences(false)
       .then(setExperiences)
       .catch(() => {});
-  }, []);
+  }, [verDetalle]);
+
+  const { from, to, gridDays } = useMemo(() => {
+    if (mode !== 'week') {
+      return { from: anchor, to: anchor, gridDays: [anchor] };
+    }
+    const start = mondayOf(anchor);
+    const end = addDays(start, 6);
+    const days: string[] = [];
+    for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
+    return { from: start, to: end, gridDays: days };
+  }, [mode, anchor]);
 
   const load = useCallback(async () => {
+    // En Lista, el listado carga lo suyo.
+    if (mode === 'list') return;
     setLoading(true);
     try {
-      const res = await reservationsAdmin.listReservations({
-        status: status || undefined,
-        search: search || undefined,
-        experienceId: expFilter || undefined,
-        ...(order === 'upcoming'
-          ? { sort: 'startAt' as const, from: todayYmdAR() }
-          : {}),
-        page,
-        limit: LIMIT,
+      const list = await reservationsAdmin.listSessions({
+        // Límites del día AR como instante UTC, derivados de la zona IANA
+        // (mismo mecanismo que el resto de la app, sin offset hardcodeado).
+        from: arDayStartISO(from),
+        to: arDayEndISO(to),
+        includePast: true,
       });
-      setItems(res.items);
-      setTotalPages(res.totalPages);
-      setTotal(res.total);
+      setSessions(list);
+      // En vista día, traemos los anotados de cada turno para mostrar nombres y
+      // el saldo por cobrar. Son pocos turnos por día, así que es liviano.
+      if (mode === 'day') {
+        const pairs = await Promise.all(
+          list.map((s) =>
+            reservationsAdmin
+              .attendees(s.id)
+              .then((r) => [s.id, r.reservations] as const)
+              .catch(() => [s.id, [] as ReservationItem[]] as const),
+          ),
+        );
+        setAttendees(Object.fromEntries(pairs));
+      } else {
+        setAttendees({});
+      }
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(e instanceof Error ? e.message : 'Error al cargar la agenda');
     } finally {
       setLoading(false);
     }
-  }, [status, search, expFilter, order, page]);
+  }, [from, to, mode]);
 
+  // Clases del taller del día (sólo cantidad de alumnos, sin nombres). Si la
+  // cuenta no tiene acceso, la sección simplemente no se muestra.
   useEffect(() => {
-    if (view === 'list') load();
-  }, [load, view, tick]);
-
-  // Contadores por estado (para los chips). Respetan la búsqueda y la experiencia.
-  useEffect(() => {
+    if (mode !== 'day') return setClases([]);
     let alive = true;
-    const keys = ['', 'CONFIRMED', 'PENDING', 'NEEDS_REVIEW', 'CANCELLED'];
-    Promise.all(
-      keys.map((k) =>
-        reservationsAdmin
-          .listReservations({
-            status: k || undefined,
-            search: search || undefined,
-            experienceId: expFilter || undefined,
-            // Coherente con la lista: si mostramos próximas, contamos desde hoy.
-            ...(order === 'upcoming' ? { from: todayYmdAR() } : {}),
-            page: 1,
-            limit: 1,
-          })
-          .then((r) => [k, r.total] as const)
-          .catch(() => [k, 0] as const),
-      ),
-    ).then((pairs) => {
-      if (alive) setCounts(Object.fromEntries(pairs));
-    });
+    tallerAdmin
+      .groupsOfDay(anchor)
+      .then((rows) => alive && setClases(rows))
+      .catch(() => alive && setClases([]));
     return () => {
       alive = false;
     };
-  }, [search, expFilter, order, tick]);
+  }, [mode, anchor]);
 
-  async function doCancel(r: ReservationItem) {
-    const ok = await confirm({
-      title: 'Cancelar reserva',
-      description: `¿Cancelar la reserva ${prettyCode(r.code)}? Libera el cupo y reembolsa si fue MercadoPago.`,
-      confirmLabel: 'Cancelar reserva',
-    });
-    if (!ok) return;
-    setBusy(r._id);
-    try {
-      await reservationsAdmin.cancelReservation(r._id);
-      showToast.success('Reserva cancelada');
-      setDetail(null);
-      refresh();
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
-    } finally {
-      setBusy(null);
+  useEffect(() => {
+    load();
+  }, [load, tick]);
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, AdminSession[]>();
+    for (const s of sessions) {
+      const key = ymdInAR(s.startAt);
+      const arr = map.get(key) ?? [];
+      arr.push(s);
+      map.set(key, arr);
     }
-  }
+    for (const arr of map.values()) arr.sort((a, b) => a.startAt.localeCompare(b.startAt));
+    return map;
+  }, [sessions]);
 
-  async function doResolve(r: ReservationItem, action: 'confirm' | 'cancel') {
-    setBusy(r._id);
-    try {
-      await reservationsAdmin.resolveReservation(r._id, action);
-      showToast.success(action === 'confirm' ? 'Reserva confirmada' : 'Reserva cancelada');
-      setDetail(null);
-      refresh();
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo resolver');
-    } finally {
-      setBusy(null);
-    }
-  }
+  const dayTurnos = byDay.get(anchor) ?? [];
 
-  function renderActions(r: ReservationItem) {
-    const canConfirm = r.status === 'NEEDS_REVIEW';
-    const canCollect =
-      r.balanceDue != null && r.balanceDue > 0 && r.status === 'CONFIRMED';
-    const canReschedule = r.status === 'CONFIRMED';
-    const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
-    if (!canConfirm && !canCollect && !canReschedule && !canCancel)
-      return <span className='text-sm text-[#7a6e6f]'>—</span>;
-    return (
-      <div className='flex items-center justify-end gap-1.5'>
-        {canReschedule && (
-          <IconBtn
-            icon={CalendarClock}
-            title='Reprogramar'
-            disabled={busy === r._id}
-            onClick={() => setReschedule(r)}
-          />
-        )}
-        {canConfirm && (
-          <IconBtn
-            icon={CheckCircle2}
-            title='Confirmar'
-            disabled={busy === r._id}
-            onClick={() => doResolve(r, 'confirm')}
-          />
-        )}
-        {canCollect && (
-          <IconBtn
-            icon={Wallet}
-            title='Cobrar saldo'
-            tone='terracota'
-            disabled={busy === r._id}
-            onClick={() => setCollect(r)}
-          />
-        )}
-        {canCancel && (
-          <IconBtn
-            icon={Ban}
-            title='Cancelar'
-            tone='rojo'
-            disabled={busy === r._id}
-            onClick={() => doCancel(r)}
-          />
-        )}
-      </div>
+  // Resumen del día: turnos, personas y saldo por cobrar en el local.
+  const stats = useMemo(() => {
+    // La Agenda cuenta sólo personas confirmadas (sin holds pendientes).
+    const personas = dayTurnos.reduce(
+      (n, s) => n + (s.confirmedSeats ?? s.seatsTaken),
+      0,
     );
-  }
+    let porCobrar = 0;
+    for (const s of dayTurnos) {
+      for (const r of attendees[s.id] ?? []) {
+        if (r.status === 'CONFIRMED' && r.balanceDue) porCobrar += r.balanceDue;
+      }
+    }
+    return { turnos: dayTurnos.length, personas, porCobrar };
+  }, [dayTurnos, attendees]);
 
-  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
-  const to = (page - 1) * LIMIT + items.length;
+  function move(delta: number) {
+    setAnchor(mode === 'day' ? addDays(anchor, delta) : addDays(mondayOf(anchor), delta * 7));
+  }
 
   return (
     <div className='flex flex-col gap-5'>
-      {/* Fila de controles: vista + experiencia + nueva reserva */}
+      {/* Barra: navegación de fecha (agenda) + toggle Día/Semana/Lista + alta */}
       <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='inline-flex items-center rounded-[11px] border border-[#e6dbcd] bg-[#fbf5ef] p-1'>
-          {(
-            [
-              ['list', 'Lista', List],
-              ['calendar', 'Calendario', CalendarDays],
-            ] as const
-          ).map(([key, label, Icon]) => {
-            const on = view === key;
-            return (
+        {mode === 'list' ? (
+          <h2 className='font-tan-nimbus text-xl font-semibold text-[#455a54] sm:text-[22px]'>
+            Todas las reservas
+          </h2>
+        ) : (
+        <div className='flex items-center gap-2.5'>
+          <button
+            type='button'
+            onClick={() => move(-1)}
+            className='inline-flex size-8 items-center justify-center rounded-lg border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+            aria-label='Anterior'
+          >
+            <ChevronLeft className='h-4 w-4' />
+          </button>
+          <button
+            type='button'
+            onClick={() => move(1)}
+            className='inline-flex size-8 items-center justify-center rounded-lg border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+            aria-label='Siguiente'
+          >
+            <ChevronRight className='h-4 w-4' />
+          </button>
+          <h2 className='font-tan-nimbus text-xl font-semibold capitalize text-[#455a54] sm:text-[22px]'>
+            {mode === 'day'
+              ? longDayLabel(anchor)
+              : `Semana del ${Number(from.slice(8, 10))}/${Number(from.slice(5, 7))}`}
+          </h2>
+          <button
+            type='button'
+            onClick={() => setAnchor(todayYmd())}
+            className='rounded-lg border border-[#e6dbcd] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[#3d3338] hover:bg-[#fbf5ef]'
+          >
+            Hoy
+          </button>
+          {/* Spinner con ancho fijo: no empuja el layout al aparecer/desaparecer. */}
+          <Loader2
+            className={cn(
+              'h-4 w-4 shrink-0 animate-spin text-[#9d684e] transition-opacity',
+              loading ? 'opacity-100' : 'opacity-0',
+            )}
+            aria-hidden={!loading}
+          />
+        </div>
+        )}
+        <div className='flex items-center gap-2.5'>
+          <div className='inline-flex items-center rounded-[11px] border border-[#e6dbcd] bg-[#fbf5ef] p-1'>
+            {(
+              [
+                ['day', 'Día'],
+                ['week', 'Semana'],
+                ...(verDetalle ? ([['list', 'Lista']] as const) : []),
+              ] as const
+            ).map(([m, label]) => (
               <button
-                key={key}
+                key={m}
                 type='button'
-                onClick={() => setView(key)}
+                onClick={() => setMode(m)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-colors',
-                  on ? 'bg-[#455a54] text-white' : 'text-[#7a6e6f] hover:text-[#455a54]',
+                  'rounded-lg px-4 py-2 text-[13px] font-medium transition-colors',
+                  mode === m ? 'bg-[#455a54] text-white' : 'text-[#7a6e6f] hover:text-[#455a54]',
                 )}
               >
-                <Icon className='h-[15px] w-[15px]' />
                 {label}
               </button>
-            );
-          })}
-        </div>
-        <div className='flex w-full items-center gap-2.5 sm:w-auto'>
-          <select
-            value={expFilter}
-            onChange={(e) => {
-              setExpFilter(e.target.value);
-              setPage(1);
-            }}
-            className='h-10 min-w-0 flex-1 rounded-[10px] border border-[#e6dbcd] bg-white px-3 text-[13px] font-medium text-[#3d3338] focus-visible:border-[#9d684e] focus-visible:outline-none sm:h-9 sm:flex-none'
-          >
-            <option value=''>Todas las experiencias</option>
-            {experiences.map((e) => (
-              <option key={e._id} value={e._id}>
-                {e.name}
-              </option>
             ))}
-          </select>
-          <Button type='button' variant='verde' className='shrink-0 gap-2' onClick={() => setNewOpen(true)}>
-            <Plus className='h-4 w-4' />
-            <span className='sm:inline'>Nueva reserva</span>
-          </Button>
+          </div>
+          {verDetalle && (
+            <Button
+              type='button'
+              variant='verde'
+              className='shrink-0 gap-2'
+              onClick={() => setNewOpen(true)}
+            >
+              <Plus className='h-4 w-4' />
+              Nueva reserva
+            </Button>
+          )}
         </div>
       </div>
 
-      {view === 'calendar' ? (
-        <ReservasCalendar
-          experienceId={expFilter || undefined}
-          onOpen={setDetail}
-          refreshKey={tick}
-        />
-      ) : (
+      {mode === 'list' ? (
+        <ReservasListado refreshKey={tick} />
+      ) : mode === 'day' ? (
         <>
-          {/* Filtros de estado con contador + búsqueda. Mobile: buscador arriba,
-              chips en tira scrollable debajo. Desktop: chips a la izq, buscador a la der. */}
-          <div className='flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center'>
-            <div className='-mx-4 order-last flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-none sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0'>
-              {FILTERS.map((f) => (
-                <FilterChip
-                  key={f.key || 'all'}
-                  label={f.label}
-                  count={counts[f.key]}
-                  active={f.key === status}
-                  color={f.color}
-                  tint={f.tint}
-                  onClick={() => {
-                    setStatus(f.key);
-                    setPage(1);
-                  }}
-                />
-              ))}
-            </div>
-            <div className='flex w-full items-center gap-2.5 sm:ml-auto sm:w-auto'>
-              {/* Orden: recientes vs por fecha de turno. "Próximas" muestra
-                  las reservas de hoy en adelante ordenadas por su día — así se
-                  encuentran las cargadas por WhatsApp para una fecha futura. */}
-              <div className='inline-flex shrink-0 items-center rounded-[11px] border border-[#e6dbcd] bg-[#fbf5ef] p-1'>
-                {(
-                  [
-                    ['created', 'Recientes'],
-                    ['upcoming', 'Próximas'],
-                  ] as const
-                ).map(([key, label]) => {
-                  const on = order === key;
-                  return (
-                    <button
-                      key={key}
-                      type='button'
-                      onClick={() => {
-                        setOrder(key);
-                        setPage(1);
-                      }}
-                      className={cn(
-                        'rounded-lg px-3 py-2 text-[13px] font-medium transition-colors',
-                        on
-                          ? 'bg-[#455a54] text-white'
-                          : 'text-[#7a6e6f] hover:text-[#455a54]',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className='relative w-full sm:w-72'>
-                <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a99]' />
-                <Input
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder='Buscar por código, nombre o teléfono'
-                  className='rounded-full border-[#e6dbcd] bg-white pl-9 text-[#455a54] placeholder:text-[#a99] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Desktop: tabla */}
-          <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
-            <div className='min-w-[56rem]'>
-              <div className='grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_8.5rem] items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
-                <span>CÓDIGO</span>
-                <span>CLIENTE</span>
-                <span>EXPERIENCIA · TURNO</span>
-                <span className='text-center'>PERS.</span>
-                <span>MONTO</span>
-                <span>ORIGEN</span>
-                <span>ESTADO</span>
-                <span className='text-right'>ACCIONES</span>
-              </div>
-              {loading ? (
-                <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
-              ) : items.length === 0 ? (
-                <div className='p-6 text-sm text-[#7a6e6f]'>
-                  {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
-                </div>
-              ) : (
-                items.map((r) => {
-                  const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
-                    '#f1ede6',
-                    '#7a6e6f',
-                  ];
-                  return (
-                    <div
-                      key={r._id}
-                      className={cn(
-                        'grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_8.5rem] items-center gap-3 border-b border-[#e6dbcd] px-5 py-3.5 last:border-0 transition-colors hover:bg-[#fbf5ef]/50',
-                        r.status === 'CANCELLED' && 'opacity-55',
-                      )}
-                    >
-                      <button
-                        type='button'
-                        onClick={() => setDetail(r)}
-                        className='text-left font-mono text-sm font-semibold text-[#9d684e] hover:underline'
-                      >
-                        {prettyCode(r.code)}
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => setDetail(r)}
-                        className='truncate text-left text-sm font-medium text-[#455a54]'
-                      >
-                        {r.customerName}
-                      </button>
-                      <div className='min-w-0'>
-                        <p className='truncate text-sm text-[#3d3338]'>
-                          {r.experienceName}
-                          {r.isBirthday && (
-                            <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
-                          )}
-                        </p>
-                        <p className='font-mono text-xs text-[#7a6e6f]'>
-                          {fmtDateTime(r.startAt)}
-                        </p>
-                        <DietaryTags
-                          tags={r.dietaryTags}
-                          notes={r.dietaryNotes}
-                          compact
-                        />
-                      </div>
-                      <span className='text-center text-sm text-[#455a54]'>{r.quantity}</span>
-                      <div className='text-sm'>
-                        <p className='font-medium text-[#3d3338]'>{fmtPrice(r.amount ?? 0)}</p>
-                        {r.balanceDue != null && r.balanceDue > 0 && (
-                          <p className='text-[11px] text-[#7a6e6f]'>
-                            saldo {fmtPrice(r.balanceDue)}
-                          </p>
-                        )}
-                      </div>
-                      <span className='inline-flex w-fit rounded-md border border-[#e6dbcd] px-2 py-1 font-mono text-[11px] text-[#7a6e6f]'>
-                        {r.source === 'ADMIN' ? 'Admin' : 'Público'}
-                      </span>
-                      <div>
-                        <StatusBadge
-                          label={RESERVATION_STATUS_LABEL[r.status] ?? r.status}
-                          bg={bg}
-                          fg={fg}
-                        />
-                      </div>
-                      {renderActions(r)}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Mobile: tarjetas */}
-          <div className='flex flex-col gap-3 md:hidden'>
-            {loading ? (
-              <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
-                Cargando…
-              </div>
-            ) : items.length === 0 ? (
-              <div className='rounded-xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
-                {search ? `Sin resultados para “${search}”.` : 'Sin reservas.'}
-              </div>
-            ) : (
-              items.map((r) => {
-                const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? [
-                  '#f1ede6',
-                  '#7a6e6f',
-                ];
-                const actions = renderActions(r);
-                return (
-                  <div
-                    key={r._id}
-                    className='rounded-2xl border border-[#e6dbcd] bg-white p-4'
-                    onClick={() => setDetail(r)}
-                  >
-                    <div className='flex items-center justify-between gap-2'>
-                      <span className='font-mono text-sm font-semibold text-[#9d684e]'>
-                        {prettyCode(r.code)}
-                      </span>
-                      <StatusBadge
-                        label={RESERVATION_STATUS_LABEL[r.status] ?? r.status}
-                        bg={bg}
-                        fg={fg}
-                      />
-                    </div>
-                    <p className='mt-1.5 text-sm font-semibold text-[#3d3338]'>
-                      {r.customerName}
-                    </p>
-                    <p className='mt-1.5 text-sm text-[#3d3338]'>
-                      {r.experienceName}
-                      {r.isBirthday && (
-                        <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
-                      )}
-                      <span className='ml-1.5 font-mono text-xs text-[#7a6e6f]'>
-                        · {fmtDateTime(r.startAt)}
-                      </span>
-                    </p>
-                    {/* Meta condensada: personas · monto (saldo) · origen, en una línea. */}
-                    <div className='mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm'>
-                      <span className='text-[#455a54]'>{r.quantity} pers.</span>
-                      <span className='text-[#c3b7a4]'>·</span>
-                      <span className='font-medium text-[#3d3338]'>{fmtPrice(r.amount ?? 0)}</span>
-                      {r.balanceDue != null && r.balanceDue > 0 && (
-                        <span className='text-[11px] text-[#9d684e]'>
-                          (saldo {fmtPrice(r.balanceDue)})
-                        </span>
-                      )}
-                      <span className='ml-auto rounded-md border border-[#e6dbcd] px-2 py-0.5 font-mono text-[11px] text-[#7a6e6f]'>
-                        {r.source === 'ADMIN' ? 'Admin' : 'Público'}
-                      </span>
-                      <DietaryTags
-                        tags={r.dietaryTags}
-                        notes={r.dietaryNotes}
-                        compact
-                      />
-                    </div>
-                    {actions && (
-                      <div className='mt-3' onClick={(e) => e.stopPropagation()}>
-                        {actions}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+          {/* Resumen del día: una sola barra segmentada, condensada. */}
+          <div className='flex items-stretch divide-x divide-[#e6dbcd] overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
+            <Stat icon={Ticket} value={String(stats.turnos)} label='turnos' />
+            <Stat icon={Users} value={String(stats.personas)} label='personas' />
+            {verDetalle && (
+              <Stat
+                icon={Wallet}
+                value={fmtPriceCompact(stats.porCobrar)}
+                title={fmtPrice(stats.porCobrar)}
+                label='por cobrar'
+                color='#9d684e'
+              />
             )}
           </div>
 
-          <Pager
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            from={from}
-            to={to}
-            onPage={setPage}
-          />
+          {/* Turnos del día */}
+          {dayTurnos.length === 0 ? (
+            <div className='rounded-2xl border border-[#e6dbcd] bg-white p-8 text-center text-sm text-[#7a6e6f]'>
+              No hay turnos este día.
+            </div>
+          ) : (
+            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
+              {dayTurnos.map((s) => (
+                <TurnoCard
+                  key={s.id}
+                  session={s}
+                  reservations={attendees[s.id] ?? []}
+                  verDetalle={verDetalle}
+                  onVer={() => setAnotados(s.id)}
+                />
+              ))}
+            </div>
+          )}
+          {clases.length > 0 && (
+            <div className='flex flex-col gap-2.5'>
+              <div className='flex items-baseline justify-between gap-3'>
+                <h3 className='font-tan-nimbus text-[17px] font-semibold text-[#3d3338]'>
+                  Taller de este día
+                </h3>
+                <span className='text-[13px] text-[#7a6e6f]'>
+                  {clases.reduce((n, c) => n + c.students, 0)} alumno(s) en{' '}
+                  {clases.length} clase(s)
+                </span>
+              </div>
+              <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2'>
+                {clases.map((c) => (
+                  <button
+                    key={c.groupId}
+                    type='button'
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/alumnos?tab=grupos&group=${c.groupId}`,
+                      )
+                    }
+                    title='Abrir el grupo y su asistencia'
+                    className='group flex items-center justify-between gap-3 rounded-2xl border border-[#e6dbcd] bg-white px-4 py-3 text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
+                  >
+                    <span className='flex min-w-0 flex-col leading-tight'>
+                      <span className='truncate text-sm font-semibold text-[#3d3338]'>
+                        {c.name}
+                      </span>
+                      <span className='text-xs text-[#7a6e6f]'>
+                        {c.start}–{c.end}
+                        {c.professorName ? ` · ${c.professorName}` : ''}
+                      </span>
+                    </span>
+                    <span className='flex shrink-0 items-center gap-2'>
+                      <span className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
+                        <Users className='h-3.5 w-3.5 text-[#455a54]' />
+                        <span className='font-mono text-xs font-semibold text-[#3d3338]'>
+                          {c.students}
+                        </span>
+                      </span>
+                      <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
+                        <ClipboardList className='h-3.5 w-3.5' />
+                        <ArrowRight className='h-3.5 w-3.5' />
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </>
+      ) : (
+        <WeekAgenda gridDays={gridDays} byDay={byDay} hoy={hoy} onVer={setAnotados} />
       )}
 
-      <ReservationDetailPanel
-        reservation={detail}
-        onClose={() => setDetail(null)}
-        onCollect={(r) => {
-          setDetail(null);
-          setCollect(r);
-        }}
-        onReschedule={(r) => {
-          setDetail(null);
-          setReschedule(r);
-        }}
-        onConfirm={(r) => doResolve(r, 'confirm')}
-        onCancel={doCancel}
-        onUpdated={() => {
-          setDetail(null);
-          refresh();
-        }}
-        busy={busy != null}
-      />
-
-      {collect && (
-        <CollectBalanceModal
-          reservation={collect}
-          onClose={() => setCollect(null)}
-          onDone={() => {
-            setCollect(null);
-            refresh();
-          }}
-        />
-      )}
-
-      {reschedule && (
-        <RescheduleModal
-          reservation={reschedule}
-          onClose={() => setReschedule(null)}
-          onDone={() => {
-            setReschedule(null);
-            refresh();
-          }}
+      {anotados && (
+        <AnotadosModal
+          sessionId={anotados}
+          onClose={() => setAnotados(null)}
+          onChanged={() => setTick((t) => t + 1)}
         />
       )}
 
@@ -604,7 +417,7 @@ export function ReservasTab() {
           onClose={() => setNewOpen(false)}
           onDone={() => {
             setNewOpen(false);
-            refresh();
+            setTick((t) => t + 1);
           }}
         />
       )}
@@ -612,660 +425,299 @@ export function ReservasTab() {
   );
 }
 
-// ─────────────────────────── Nueva reserva (admin) ───────────────────────────
-
-function NewReservationModal({
-  experiences,
-  onClose,
-  onDone,
+// Un segmento del resumen: ícono + valor + label, condensado y responsive.
+function Stat({
+  icon: Icon,
+  value,
+  label,
+  title,
+  color = '#455a54',
 }: {
-  experiences: AdminExperience[];
-  onClose: () => void;
-  onDone: () => void | Promise<void>;
+  icon: typeof Ticket;
+  value: string;
+  label: string;
+  title?: string;
+  color?: string;
 }) {
-  // Ventana del salón (espejo de BUSINESS_OPEN/CLOSE del backend, que valida).
-  const OPEN = '15:00';
-  const CLOSE = '20:00';
-  const toMin = (hhmm: string) => {
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-  };
-  const fromMin = (min: number) =>
-    `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-
-  const [expId, setExpId] = useState('');
-  const [slots, setSlots] = useState<AvailableShift[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [day, setDay] = useState('');
-  /** Hora elegida: una sugerida del día o la libre tipeada. */
-  const [time, setTime] = useState('');
-  const [freeTime, setFreeTime] = useState('');
-  const [check, setCheck] = useState<{
-    status: 'idle' | 'checking' | 'ok' | 'no';
-    maxPartySize?: number;
-    message?: string;
-  }>({ status: 'idle' });
-
-  const [qty, setQty] = useState('1');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
-  // Cumpleaños: el backend aplica los beneficios (regalos, lugares
-  // bonificados) sobre el precio de la experiencia elegida.
-  const [isBday, setIsBday] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const exp = experiences.find((e) => e._id === expId) ?? null;
-  const duration = exp?.durationMinutes ?? 120;
-  const latestStart = fromMin(toMin(CLOSE) - duration);
-
-  // Días y horarios sugeridos con lugar, agrupados por día.
-  useEffect(() => {
-    if (!expId) {
-      setSlots([]);
-      setDay('');
-      return;
-    }
-    let alive = true;
-    setSlotsLoading(true);
-    reservationsPublic
-      .availability(expId, 21)
-      .then((rows) => {
-        if (!alive) return;
-        setSlots(rows);
-        setDay((d) => d || rows[0]?.dateKey || '');
-      })
-      .catch(() => {
-        if (alive) setSlots([]);
-      })
-      .finally(() => {
-        if (alive) setSlotsLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [expId]);
-
-  useEffect(() => {
-    setTime('');
-    setFreeTime('');
-    setCheck({ status: 'idle' });
-  }, [expId, day]);
-
-  const days = useMemo(() => {
-    const seen = new Map<string, AvailableShift>();
-    for (const sl of slots) {
-      if (!seen.has(sl.dateKey)) seen.set(sl.dateKey, sl);
-    }
-    return [...seen.values()];
-  }, [slots]);
-  const daySlots = useMemo(
-    () => slots.filter((sl: AvailableShift) => sl.dateKey === day),
-    [slots, day],
-  );
-  const selectedSlot = daySlots.find((sl) => sl.startTime === time) ?? null;
-
-  // Hora libre: verificación EN VIVO contra las mesas (con limpieza y cierre).
-  useEffect(() => {
-    if (!expId || !day || !freeTime) {
-      if (!time) setCheck({ status: 'idle' });
-      return;
-    }
-    if (toMin(freeTime) < toMin(OPEN) || freeTime > latestStart) {
-      setCheck({
-        status: 'no',
-        message: `Podés empezar entre las ${OPEN} y las ${latestStart} (dura ${duration} min, cerramos ${CLOSE}).`,
-      });
-      return;
-    }
-    let alive = true;
-    setCheck({ status: 'checking' });
-    const t = setTimeout(() => {
-      reservationsPublic
-        .previewTables({
-          experienceId: expId,
-          date: day,
-          startTime: freeTime,
-          quantity: 1,
-        })
-        .then((res) => {
-          if (!alive) return;
-          if (res.fits) {
-            setCheck({ status: 'ok', maxPartySize: res.maxPartySize });
-            setTime(freeTime);
-          } else {
-            setCheck({
-              status: 'no',
-              message: 'A esa hora no quedan mesas. Probá otro horario.',
-            });
-          }
-        })
-        .catch(() => {
-          if (alive)
-            setCheck({ status: 'no', message: 'No se pudo verificar ese horario.' });
-        });
-    }, 350);
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [freeTime, expId, day, duration, latestStart]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const quantity = Math.max(1, Number(qty) || 1);
-  const maxParty = selectedSlot
-    ? selectedSlot.maxPartySize
-    : check.status === 'ok'
-      ? (check.maxPartySize ?? 12)
-      : null;
-  const unit = selectedSlot?.price ?? exp?.basePrice ?? 0;
-  const total = unit * quantity;
-
-  const fmtDayChip = (dateKey: string) => {
-    const d = new Date(`${dateKey}T12:00:00Z`);
-    const wd = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'][d.getUTCDay()];
-    return `${wd} ${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
-  };
-
-  async function submit() {
-    if (!expId) return showToast.error('Elegí una experiencia');
-    if (!day || !time) return showToast.error('Elegí día y horario');
-    if (name.trim().length < 2) return showToast.error('Ingresá el nombre del cliente');
-    if (maxParty != null && quantity > maxParty)
-      return showToast.error(`A esa hora entran hasta ${maxParty} personas`);
-    setSaving(true);
-    try {
-      await reservationsAdmin.createReservation({
-        experienceId: expId,
-        date: day,
-        startTime: time,
-        quantity,
-        customerName: name.trim(),
-        customerPhone: phone.trim() || undefined,
-        paymentMethod: method,
-        isBirthday: isBday || undefined,
-      });
-      showToast.success('Reserva creada');
-      await onDone();
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo crear la reserva');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const field =
-    'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
-  const chip = (on: boolean) =>
-    cn(
-      'rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors',
-      on
-        ? 'border-[#455a54] bg-[#455a54] text-white'
-        : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-    );
-
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-lg'>
-        <DialogHeader>
-          <DialogTitle>Nueva reserva</DialogTitle>
-          <DialogDescription>
-            El horario es libre entre las {OPEN} y las {CLOSE}; los destacados
-            son los turnos sugeridos.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className='space-y-3'>
-          {/* 1 · Experiencia */}
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>
-              1 · Experiencia
-            </label>
-            <select
-              value={expId}
-              onChange={(e) => setExpId(e.target.value)}
-              className={cn('h-10 w-full rounded-md border px-3 text-sm sm:h-9', field)}
-            >
-              <option value=''>Elegí una experiencia…</option>
-              {experiences
-                .filter((e) => e.bookableOnline !== false)
-                .map((e) => (
-                  <option key={e._id} value={e._id}>
-                    {e.name} · {e.durationMinutes} min
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {/* 2 · Día */}
-          {expId && (
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>2 · Día</label>
-              {slotsLoading ? (
-                <p className='text-sm text-[#7a6e6f]'>Buscando fechas…</p>
-              ) : days.length === 0 ? (
-                <p className='text-sm text-[#7a6e6f]'>
-                  Sin fechas con lugar en las próximas semanas.
-                </p>
-              ) : (
-                <div className='flex gap-1.5 overflow-x-auto pb-1'>
-                  {days.map((d) => (
-                    <button
-                      key={d.dateKey}
-                      type='button'
-                      onClick={() => setDay(d.dateKey)}
-                      className={cn(chip(d.dateKey === day), 'shrink-0 font-mono text-[12px]')}
-                    >
-                      {fmtDayChip(d.dateKey)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 3 · Horario: sugeridos + hora libre */}
-          {expId && day && (
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>
-                3 · Horario
-              </label>
-              <div className='flex flex-wrap items-center gap-1.5'>
-                {daySlots.map((sl) => (
-                  <button
-                    key={sl.startTime}
-                    type='button'
-                    onClick={() => {
-                      setTime(sl.startTime);
-                      setFreeTime('');
-                      setCheck({ status: 'idle' });
-                    }}
-                    className={chip(time === sl.startTime && !freeTime)}
-                    title={`${sl.shiftName ?? 'Horario sugerido'} · hasta ${sl.maxPartySize} personas`}
-                  >
-                    {sl.startTime}
-                    <span className='ml-1.5 text-xs font-normal opacity-70'>
-                      {sl.shiftName ?? 'sugerido'}
-                    </span>
-                  </button>
-                ))}
-                <span className='mx-1 text-[12px] text-[#a99f92]'>u otra hora:</span>
-                <Input
-                  type='time'
-                  value={freeTime}
-                  min={OPEN}
-                  max={latestStart}
-                  step={300}
-                  onChange={(e) => setFreeTime(e.target.value)}
-                  className={cn('h-9 w-28', field)}
-                />
-              </div>
-              {selectedSlot && !freeTime && (
-                <p className='text-[12px] font-medium text-[#455a54]'>
-                  {selectedSlot.startTime}–
-                  {fromMin(toMin(selectedSlot.startTime) + duration)} · entran
-                  hasta {selectedSlot.maxPartySize} personas
-                </p>
-              )}
-              {check.status === 'checking' && (
-                <p className='text-[12px] text-[#7a6e6f]'>Verificando mesas…</p>
-              )}
-              {check.status === 'ok' && freeTime && (
-                <p className='text-[12px] font-medium text-[#455a54]'>
-                  ¡Hay lugar! {freeTime}–{fromMin(toMin(freeTime) + duration)} ·
-                  entran hasta {check.maxPartySize} personas
-                </p>
-              )}
-              {check.status === 'no' && (
-                <p className='text-[12px] font-medium text-[#a33]'>{check.message}</p>
-              )}
-            </div>
-          )}
-
-          {/* 4 · Personas y datos */}
-          <div className='grid grid-cols-2 gap-3'>
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>
-                Personas{maxParty != null ? ` (hasta ${maxParty})` : ''}
-              </label>
-              <Input
-                type='number'
-                min={1}
-                max={maxParty ?? undefined}
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                className={field}
-              />
-            </div>
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>Teléfono</label>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder='Opcional'
-                className={field}
-              />
-            </div>
-          </div>
-
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>Nombre y apellido</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} className={field} />
-          </div>
-
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>Cómo abona</label>
-            <div className='grid grid-cols-3 gap-2'>
-              {PAY_METHODS.map((m) => {
-                const on = m.key === method;
-                return (
-                  <Button
-                    key={m.key}
-                    type='button'
-                    variant={on ? 'verde' : 'outline'}
-                    size='sm'
-                    onClick={() => setMethod(m.key)}
-                    className={cn(
-                      !on &&
-                        'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
-                    )}
-                  >
-                    {m.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            type='button'
-            onClick={() => setIsBday(!isBday)}
-            className={cn(
-              'flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-sm transition',
-              isBday
-                ? 'border-[#6d5a78] bg-[#efe6f2] text-[#6d5a78]'
-                : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-            )}
-          >
-            <span
-              className={cn(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px]',
-                isBday
-                  ? 'border-[#6d5a78] bg-[#6d5a78] text-white'
-                  : 'border-[#c9bfb0] bg-white',
-              )}
-            >
-              {isBday ? '✓' : ''}
-            </span>
-            <span>
-              Es un cumpleaños 🎉
-              <span className='block text-[11px] text-[#7a6e6f]'>
-                Se aplican los beneficios del festejo sobre el precio de la
-                experiencia (regalos, lugares bonificados).
-              </span>
-            </span>
-          </button>
-
-          {total > 0 && (
-            <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>
-              Total: <strong>{fmtPrice(total)}</strong>{' '}
-              <span className='text-[#7a6e6f]'>
-                ({quantity} × {fmtPrice(unit)})
-              </span>
-              {isBday && (
-                <span className='block text-[12px] text-[#6d5a78]'>
-                  Es estimado: si un beneficio de cumpleaños aplica (ej. lugar
-                  bonificado), el total real se calcula al crear.
-                </span>
-              )}
-            </p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={onClose}
-            className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            Cancelar
-          </Button>
-          <Button type='button' variant='verde' onClick={submit} disabled={saving}>
-            {saving ? 'Creando…' : 'Crear reserva'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <div className='flex min-w-0 flex-1 items-center gap-2.5 px-3 py-3 sm:px-4' title={title}>
+      <Icon className='h-4 w-4 shrink-0 sm:h-[18px] sm:w-[18px]' style={{ color }} />
+      <span className='flex min-w-0 flex-col leading-tight'>
+        <span className='truncate font-tan-nimbus text-lg font-semibold text-[#3d3338] sm:text-xl'>
+          {value}
+        </span>
+        <span className='truncate text-[11px] text-[#7a6e6f] sm:text-xs'>{label}</span>
+      </span>
+    </div>
   );
 }
 
-// ─────────────────────────── Reprogramar (sin cambios de lógica) ───────────────────────────
-
-export function RescheduleModal({
-  reservation,
-  onClose,
-  onDone,
+function TurnoCard({
+  session: s,
+  reservations,
+  verDetalle,
+  onVer,
 }: {
-  reservation: ReservationItem;
-  onClose: () => void;
-  onDone: () => void | Promise<void>;
+  session: AdminSession;
+  reservations: ReservationItem[];
+  verDetalle: boolean;
+  onVer: () => void;
 }) {
-  const confirm = useConfirm();
-  const [sessions, setSessions] = useState<AdminSession[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string>('');
-  const [saving, setSaving] = useState(false);
+  // La Agenda es la fuente de verdad del negocio: el conteo y el cupo cuentan
+  // sólo lo confirmado. Las pendientes (holds del bot/landing) se muestran
+  // aparte, señaladas, para que el equipo sepa que hay gente esperando cerrar.
+  const confirmadas = reservations.filter((r) => r.status === 'CONFIRMED');
+  const pendientes = reservations.filter(
+    (r) => r.status === 'PENDING' || r.status === 'NEEDS_REVIEW',
+  );
+  const pendPersonas = pendientes.reduce((n, r) => n + r.quantity, 0);
+  const seats = s.confirmedSeats ?? s.seatsTaken;
+  const names = confirmadas.map((r) => ({
+    name: r.customerName,
+    saldo: (r.balanceDue ?? 0) > 0,
+  }));
+  const shown = names.slice(0, 3);
+  const extra = Math.max(0, seats - shown.length);
+  const porCobrar = confirmadas.reduce((n, r) => n + (r.balanceDue ?? 0), 0);
+  // Para cocina: sólo cuántas personas y qué restricciones traen.
+  const dietas = confirmadas
+    .filter((r) => (r.dietaryTags?.length ?? 0) > 0 || !!r.dietaryNotes)
+    .map((r) => ({ quantity: r.quantity, tags: r.dietaryTags, notes: r.dietaryNotes }));
 
-  const insideWindow =
-    new Date(reservation.startAt).getTime() - Date.now() <
-    RESCHEDULE_MIN_HOURS * 3600_000;
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const all = await reservationsAdmin.listSessions({
-          experienceId: reservation.experienceId,
-        });
-        setSessions(all.filter((s) => s.id !== reservation.sessionId));
-      } catch (e) {
-        showToast.error(e instanceof Error ? e.message : 'Error al cargar turnos');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [reservation]);
-
-  async function submit() {
-    if (!selected) {
-      showToast.error('Elegí el nuevo turno');
-      return;
-    }
-    if (insideWindow) {
-      const ok = await confirm({
-        title: 'Reprogramar dentro de la ventana',
-        description:
-          `Faltan menos de ${RESCHEDULE_MIN_HOURS} hs para el turno original. ` +
-          '¿Reprogramar igual (override admin)?',
-        confirmLabel: 'Reprogramar igual',
-        variant: 'normal',
-      });
-      if (!ok) return;
-    }
-    setSaving(true);
-    try {
-      await reservationsAdmin.rescheduleReservation(reservation._id, selected, insideWindow);
-      showToast.success('Reserva reprogramada; se avisó al cliente');
-      await onDone();
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo reprogramar');
-    } finally {
-      setSaving(false);
-    }
-  }
+  const color = s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
+  const full = seats >= s.capacity;
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-md'>
-        <DialogHeader>
-          <DialogTitle>Reprogramar reserva</DialogTitle>
-          <DialogDescription>
-            {reservation.experienceName} · {prettyCode(reservation.code)} ·{' '}
-            {reservation.quantity} pers. · actual: {fmtDateTime(reservation.startAt)}
-          </DialogDescription>
-        </DialogHeader>
+    <button
+      type='button'
+      onClick={onVer}
+      className='group flex flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
+    >
+      {/* Cabecera: hora + ocupación. Acento de color de la experiencia como
+          punto sutil, no como barra lateral. */}
+      <div className='flex items-center justify-between gap-2 border-b border-[#f1ede6] bg-[#fbf5ef] px-4 py-2.5'>
+        <span className='inline-flex items-baseline gap-1.5'>
+          <span className='font-tan-nimbus text-lg font-semibold text-[#455a54]'>
+            {hourAR(s.startAt)}
+          </span>
+          <span className='text-xs text-[#7a6e6f]'>a {hourAR(s.endAt)}</span>
+        </span>
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs font-semibold',
+            full
+              ? 'border-[#455a54]/30 bg-[#E7F0EC] text-[#455a54]'
+              : 'border-[#e6dbcd] bg-white text-[#3d3338]',
+          )}
+          title={full ? 'Turno completo' : 'Lugares ocupados'}
+        >
+          <Users className='h-3.5 w-3.5' />
+          {seats}/{s.capacity}
+        </span>
+      </div>
 
-        {insideWindow && (
-          <p className='rounded-lg border border-[#e0b98a] bg-[#fdf6ec] px-3 py-2 text-xs text-[#8a5a2a]'>
-            Faltan menos de {RESCHEDULE_MIN_HOURS} hs para el turno: por política no se
-            aceptan modificaciones. Podés forzarla como admin.
-          </p>
+      <div className='flex min-w-0 flex-1 flex-col gap-2 p-4'>
+        <span className='flex min-w-0 items-center gap-2'>
+          <span
+            className='h-2.5 w-2.5 shrink-0 rounded-full'
+            style={{ backgroundColor: color }}
+          />
+          <span className='truncate font-tan-nimbus text-[15px] font-semibold text-[#3d3338]'>
+            {s.experienceName}
+          </span>
+        </span>
+
+        {shown.length > 0 && (
+          <div className='flex flex-wrap items-center gap-1.5'>
+            {shown.map((a, i) => (
+              <span
+                key={i}
+                className='inline-flex items-center gap-1.5 rounded-full bg-[#fbf5ef] px-2 py-0.5 text-xs font-medium text-[#3d3338]'
+              >
+                {verDetalle && a.saldo && (
+                  <span className='h-1.5 w-1.5 rounded-full bg-[#9d684e]' />
+                )}
+                {a.name ?? '—'}
+              </span>
+            ))}
+            {extra > 0 && (
+              <span className='text-xs font-medium text-[#7a6e6f]'>+{extra} más</span>
+            )}
+          </div>
+        )}
+        {pendientes.length > 0 && (
+          <span className='inline-flex w-fit items-center gap-1.5 rounded-full border border-dashed border-[#cc844a]/50 bg-[#F6E9DC] px-2 py-0.5 text-xs font-medium text-[#cc844a]'>
+            <span className='h-1.5 w-1.5 rounded-full bg-[#cc844a]' />
+            {pendPersonas} sin confirmar
+          </span>
+        )}
+        {!verDetalle && dietas.length > 0 && (
+          <div className='flex flex-col gap-1'>
+            {dietas.map((d, i) => (
+              <div key={i} className='flex items-center gap-2'>
+                <span className='shrink-0 font-mono text-xs text-[#7a6e6f]'>
+                  {d.quantity} pers.
+                </span>
+                <DietaryTags tags={d.tags} notes={d.notes} compact />
+              </div>
+            ))}
+          </div>
         )}
 
-        <div className='max-h-72 space-y-1.5 overflow-y-auto'>
-          {loading ? (
-            <p className='p-3 text-sm text-[#7a6e6f]'>Cargando turnos…</p>
-          ) : sessions.length === 0 ? (
-            <p className='p-3 text-sm text-[#7a6e6f]'>
-              No hay otros turnos de esta experiencia.
-            </p>
+        <div className='mt-auto flex items-center justify-between gap-2 pt-1'>
+          {!verDetalle ? (
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#455a54]'>
+              <Users className='h-[14px] w-[14px]' />
+              {seats} anotada(s)
+            </span>
+          ) : porCobrar > 0 ? (
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#9d684e]'>
+              <Wallet className='h-[14px] w-[14px]' />
+              Por cobrar {fmtPrice(porCobrar)}
+            </span>
           ) : (
-            sessions.map((s) => {
-              const noSeats = s.seatsAvailable < reservation.quantity;
-              const otherPrice = s.price !== reservation.unitPrice;
-              const disabled = noSeats || otherPrice;
-              const on = selected === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type='button'
-                  disabled={disabled}
-                  onClick={() => setSelected(s.id)}
-                  className={cn(
-                    'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-                    on
-                      ? 'border-[#455a54] bg-[#E7F0EC] text-[#455a54]'
-                      : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-                    disabled && 'cursor-not-allowed opacity-50',
-                  )}
-                >
-                  <span className='font-mono text-xs'>{fmtDateTime(s.startAt)}</span>
-                  <span className='text-xs text-[#7a6e6f]'>
-                    {noSeats ? 'sin cupo' : otherPrice ? 'otro precio' : `${s.seatsAvailable} lugares`}
-                  </span>
-                </button>
-              );
-            })
+            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#455a54]'>
+              <CalendarCheck className='h-[14px] w-[14px]' />
+              Todo cobrado
+            </span>
           )}
+          <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
+            Ver turno
+            <ArrowRight className='h-3.5 w-3.5' />
+          </span>
         </div>
-
-        <DialogFooter>
-          <Button
-            type='button'
-            variant='terracota'
-            onClick={submit}
-            disabled={saving || !selected}
-            className='w-full'
-          >
-            {saving ? 'REPROGRAMANDO…' : 'REPROGRAMAR'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </button>
   );
 }
 
-// ─────────────────────────── Cobrar saldo (sin cambios de lógica) ───────────────────────────
+// ─────────────────────────────── Vista SEMANA ───────────────────────────────
 
-export function CollectBalanceModal({
-  reservation,
-  onClose,
-  onDone,
+function WeekAgenda({
+  gridDays,
+  byDay,
+  hoy,
+  onVer,
 }: {
-  reservation: ReservationItem;
-  onClose: () => void;
-  onDone: () => void | Promise<void>;
+  gridDays: string[];
+  byDay: Map<string, AdminSession[]>;
+  hoy: string;
+  onVer: (sessionId: string) => void;
 }) {
-  const balance = reservation.balanceDue ?? 0;
-  const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
-  const [amount, setAmount] = useState<string>(String(balance));
-  const [saving, setSaving] = useState(false);
-
-  async function submit() {
-    const value = Number(amount);
-    if (!value || value <= 0) {
-      showToast.error('Ingresá un monto válido');
-      return;
-    }
-    setSaving(true);
-    try {
-      await reservationsAdmin.collectBalance(reservation._id, [{ method, amount: value }]);
-      showToast.success('Saldo cobrado');
-      await onDone();
-    } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cobrar el saldo');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-sm'>
-        <DialogHeader>
-          <DialogTitle>Cobrar saldo</DialogTitle>
-          <DialogDescription>
-            {reservation.experienceName} · {prettyCode(reservation.code)} · saldo{' '}
-            {fmtPrice(balance)}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className='space-y-3'>
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>Medio de pago</label>
-            <div className='grid grid-cols-3 gap-2'>
-              {PAY_METHODS.map((m) => {
-                const on = m.key === method;
-                return (
-                  <Button
-                    key={m.key}
-                    type='button'
-                    variant={on ? 'terracota' : 'outline'}
-                    size='sm'
-                    onClick={() => setMethod(m.key)}
-                    className={cn(
-                      !on &&
-                        'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
-                    )}
-                  >
-                    {m.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>Monto a cobrar</label>
-            <Input
-              type='number'
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
-            />
-          </div>
+    <>
+    {/* Mobile: días apilados (sólo con turnos), sin scroll horizontal. */}
+    <div className='flex flex-col gap-3 sm:hidden'>
+      {gridDays.every((d) => (byDay.get(d) ?? []).length === 0) ? (
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-8 text-center text-sm text-[#7a6e6f]'>
+          No hay turnos esta semana.
         </div>
+      ) : (
+        gridDays.map((ymd, i) => {
+          const turnos = byDay.get(ymd) ?? [];
+          if (turnos.length === 0) return null;
+          const isToday = ymd === hoy;
+          return (
+            <div key={ymd} className='flex flex-col gap-2'>
+              <div className='flex items-center gap-2'>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                    isToday ? 'bg-[#455a54] text-white' : 'bg-[#fbf5ef] text-[#455a54]',
+                  )}
+                >
+                  {DIAS_CORTOS[i]} {Number(ymd.slice(8, 10))}/{Number(ymd.slice(5, 7))}
+                </span>
+                <span className='text-xs text-[#7a6e6f]'>{turnos.length} turno(s)</span>
+              </div>
+              <div className='flex flex-col gap-2'>
+                {turnos.map((s) => (
+                  <WeekTurnoChip key={s.id} session={s} onVer={onVer} />
+                ))}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
 
-        <DialogFooter>
-          <Button
-            type='button'
-            variant='terracota'
-            onClick={submit}
-            disabled={saving}
-            className='w-full'
-          >
-            {saving ? 'COBRANDO…' : 'CONFIRMAR COBRO'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    {/* Desktop/tablet: grilla semanal de 7 columnas. */}
+    <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white sm:block'>
+      <div className='grid min-w-[64rem] grid-cols-7'>
+        {gridDays.map((ymd, i) => {
+          const turnos = byDay.get(ymd) ?? [];
+          const isToday = ymd === hoy;
+          return (
+            <div
+              key={ymd}
+              className={cn(
+                'flex min-h-[16rem] flex-col border-r border-[#f1ede6] last:border-r-0',
+                isToday && 'bg-[#E7F0EC]/40',
+              )}
+            >
+              <div
+                className={cn(
+                  'border-b border-[#e6dbcd] px-2 py-2 text-center',
+                  isToday ? 'bg-[#455a54] text-white' : 'bg-[#fbf5ef] text-[#455a54]',
+                )}
+              >
+                <p className='font-mono text-[11px] tracking-wider'>{DIAS_CORTOS[i]}</p>
+                <p className='text-sm font-semibold'>
+                  {Number(ymd.slice(8, 10))}/{Number(ymd.slice(5, 7))}
+                </p>
+              </div>
+              <div className='flex flex-col gap-1.5 p-1.5'>
+                {turnos.length === 0 && (
+                  <p className='px-1 py-2 text-center text-[11px] text-[#455a54]/35'>—</p>
+                )}
+                {turnos.map((s) => (
+                  <WeekTurnoChip key={s.id} session={s} onVer={onVer} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+    </>
+  );
+}
+
+// Chip de un turno en la vista semana (reusado por la grilla desktop y la lista
+// apilada de mobile).
+function WeekTurnoChip({
+  session: s,
+  onVer,
+}: {
+  session: AdminSession;
+  onVer: (sessionId: string) => void;
+}) {
+  const color = s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
+  return (
+    <button
+      type='button'
+      onClick={() => onVer(s.id)}
+      className={cn(
+        'rounded-xl border border-[#e6dbcd] bg-white p-2 text-left transition-shadow hover:shadow-[0_2px_10px_rgba(69,90,84,0.08)]',
+        chipClasses(s.status),
+      )}
+    >
+      <p className='flex items-center gap-1.5 font-mono text-[11px] text-[#455a54]'>
+        <span
+          className='h-2 w-2 shrink-0 rounded-full'
+          style={{ backgroundColor: color }}
+        />
+        {hourAR(s.startAt)}–{hourAR(s.endAt)}
+      </p>
+      <p className='mt-1 truncate text-xs font-medium text-[#3d3338]' title={s.experienceName}>
+        {s.experienceName}
+      </p>
+      <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
+        <span>{s.confirmedSeats ?? s.seatsTaken}/{s.capacity} pers.</span>
+        <span className='font-mono uppercase tracking-wide'>
+          {SESSION_STATUS_LABEL[s.status] ?? s.status}
+        </span>
+      </p>
+    </button>
   );
 }

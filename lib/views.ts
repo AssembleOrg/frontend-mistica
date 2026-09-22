@@ -40,15 +40,34 @@ export const ASSIGNABLE_VIEWS = PANEL_VIEWS.filter((v) => !v.adminOnly);
  * profesor con SOLO 'reservas:piezas' entra al panel y ve únicamente Piezas.
  */
 export const RESERVAS_TABS = [
-  { key: 'agenda', label: 'Agenda' },
+  // Reservas = agenda (día/semana) + lista completa. Antes eran dos pestañas
+  // ('agenda' y 'reservas'); se fusionaron para no multiplicar vistas.
+  { key: 'reservas', label: 'Reservas' },
   { key: 'mesas', label: 'Mesas' },
   { key: 'experiencias', label: 'Experiencias' },
-  { key: 'reservas', label: 'Reservas' },
   { key: 'consultas', label: 'Consultas' },
   { key: 'piezas', label: 'Piezas' },
 ] as const;
 
 export type ReservasTabKey = (typeof RESERVAS_TABS)[number]['key'];
+
+/**
+ * Claves granulares viejas que siguen guardadas en cuentas existentes.
+ * 'reservas:agenda' → 'reservas:reservas' (la agenda vive en Reservas),
+ * 'reservas:charlas' → 'reservas:consultas' (bandeja vieja).
+ */
+const LEGACY_VIEW_KEYS: Record<string, string> = {
+  'reservas:agenda': 'reservas:reservas',
+  'reservas:charlas': 'reservas:consultas',
+};
+
+export function normalizeViewKey(key: string): string {
+  return LEGACY_VIEW_KEYS[key] ?? key;
+}
+
+export function normalizeViewKeys(keys: string[]): string[] {
+  return Array.from(new Set(keys.map(normalizeViewKey)));
+}
 
 /**
  * ¿Esta cuenta puede ver esta vista? Los admin siempre; una cuenta común con
@@ -83,12 +102,8 @@ export function allowedReservasTabs(
   if (role === 'admin') return all;
   if (!allowedViews || allowedViews.length === 0) return all;
   if (allowedViews.includes('reservas')) return all;
-  return all.filter(
-    (k) =>
-      allowedViews.includes(`reservas:${k}`) ||
-      // Compat: 'reservas:charlas' (bandeja vieja) ahora es 'consultas'.
-      (k === 'consultas' && allowedViews.includes('reservas:charlas')),
-  );
+  const granted = normalizeViewKeys(allowedViews);
+  return all.filter((k) => granted.includes(`reservas:${k}`));
 }
 
 /**

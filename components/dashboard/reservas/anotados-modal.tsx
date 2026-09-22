@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { DietaryTags } from './dietary-badge';
+import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
+import type { Client } from '@/services/clients.service';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeeReservationDetails } from '@/lib/views';
 import { ReservationManager } from './reservation-manager';
@@ -56,6 +58,10 @@ export function AnotadosModal({
   // Gestión de una reserva del turno (panel + acciones), sin salir de la Agenda.
   const [detail, setDetail] = useState<ReservationItem | null>(null);
 
+  // Cliente: se busca entre los existentes; "nuevo" (nombre + contacto a
+  // mano) sólo si no está en el sistema.
+  const [client, setClient] = useState<Client | null>(null);
+  const [manual, setManual] = useState(false);
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [qty, setQty] = useState(1);
@@ -85,8 +91,8 @@ export function AnotadosModal({
 
   async function create() {
     if (!session) return;
-    if (name.trim().length < 2) {
-      showToast.error('Ingresá el nombre del cliente');
+    if (!client && name.trim().length < 2) {
+      showToast.error('Elegí un cliente o ingresá el nombre');
       return;
     }
     const emailLike = contact.includes('@');
@@ -95,12 +101,23 @@ export function AnotadosModal({
       await reservationsAdmin.createReservation({
         sessionId: session.id,
         quantity: qty,
-        customerName: name.trim(),
-        customerEmail: emailLike ? contact.trim() : undefined,
-        customerPhone: emailLike ? undefined : contact.trim() || undefined,
+        ...(client
+          ? {
+              clientId: clientIdOf(client),
+              customerName: client.fullName,
+              customerEmail: client.email || undefined,
+              customerPhone: client.phone || undefined,
+            }
+          : {
+              customerName: name.trim(),
+              customerEmail: emailLike ? contact.trim() : undefined,
+              customerPhone: emailLike ? undefined : contact.trim() || undefined,
+            }),
         paymentMethod: method,
       });
       showToast.success('Reserva creada');
+      setClient(null);
+      setManual(false);
       setName('');
       setContact('');
       setQty(1);
@@ -246,18 +263,45 @@ export function AnotadosModal({
                 Agregar reserva
               </h3>
             </div>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder='Nombre y apellido'
-              className={fieldCls}
-            />
-            <Input
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-              placeholder='Teléfono o email'
-              className={fieldCls}
-            />
+            {manual ? (
+              <>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder='Nombre y apellido'
+                  className={fieldCls}
+                  autoFocus
+                />
+                <Input
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                  placeholder='Teléfono o email'
+                  className={fieldCls}
+                />
+                <button
+                  type='button'
+                  onClick={() => {
+                    setManual(false);
+                    setName('');
+                    setContact('');
+                  }}
+                  className='self-start text-xs font-medium text-[#9d684e] hover:underline'
+                >
+                  ← Buscar un cliente existente
+                </button>
+              </>
+            ) : (
+              <ClientPicker
+                value={client}
+                onChange={setClient}
+                placeholder='Buscar cliente por nombre o teléfono…'
+                onCreateNew={(q) => {
+                  setClient(null);
+                  setName(q);
+                  setManual(true);
+                }}
+              />
+            )}
             <div className='flex items-center gap-3'>
               <div className='flex items-center overflow-hidden rounded-lg border border-[#e6dbcd]'>
                 <Button

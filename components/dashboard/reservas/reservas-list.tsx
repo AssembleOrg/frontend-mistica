@@ -36,6 +36,8 @@ import {
 } from '@/services/reservations.public.service';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 import { DietaryTags } from './dietary-badge';
+import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
+import type { Client } from '@/services/clients.service';
 import { ReservationDetailPanel } from './reservation-detail-panel';
 
 const LIMIT = 20;
@@ -598,6 +600,9 @@ export function NewReservationModal({
   }>({ status: 'idle' });
 
   const [qty, setQty] = useState('1');
+  // Cliente existente (buscador) o, si no está, nombre + teléfono a mano.
+  const [client, setClient] = useState<Client | null>(null);
+  const [manual, setManual] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
@@ -723,8 +728,8 @@ export function NewReservationModal({
   async function submit() {
     if (!expId) return showToast.error('Elegí una experiencia');
     if (!day || !time) return showToast.error('Elegí día y horario');
-    if (name.trim().length < 2)
-      return showToast.error('Ingresá el nombre del cliente');
+    if (!client && name.trim().length < 2)
+      return showToast.error('Elegí un cliente o ingresá el nombre');
     if (maxParty != null && quantity > maxParty)
       return showToast.error(`A esa hora entran hasta ${maxParty} personas`);
     setSaving(true);
@@ -734,8 +739,17 @@ export function NewReservationModal({
         date: day,
         startTime: time,
         quantity,
-        customerName: name.trim(),
-        customerPhone: phone.trim() || undefined,
+        ...(client
+          ? {
+              clientId: clientIdOf(client),
+              customerName: client.fullName,
+              customerEmail: client.email || undefined,
+              customerPhone: client.phone || undefined,
+            }
+          : {
+              customerName: name.trim(),
+              customerPhone: phone.trim() || undefined,
+            }),
         paymentMethod: method,
         isBirthday: isBday || undefined,
       });
@@ -905,28 +919,58 @@ export function NewReservationModal({
                 className={field}
               />
             </div>
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>
-                Teléfono
-              </label>
-              <Input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder='Opcional'
-                className={field}
-              />
-            </div>
+            {manual && (
+              <div className='space-y-1.5'>
+                <label className='text-[13px] font-medium text-[#455a54]'>
+                  Teléfono
+                </label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder='Opcional'
+                  className={field}
+                />
+              </div>
+            )}
           </div>
 
           <div className='space-y-1.5'>
             <label className='text-[13px] font-medium text-[#455a54]'>
-              Nombre y apellido
+              Cliente
             </label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={field}
-            />
+            {manual ? (
+              <>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder='Nombre y apellido'
+                  className={field}
+                  autoFocus
+                />
+                <button
+                  type='button'
+                  onClick={() => {
+                    setManual(false);
+                    setName('');
+                    setPhone('');
+                  }}
+                  className='text-xs font-medium text-[#9d684e] hover:underline'
+                >
+                  ← Buscar un cliente existente
+                </button>
+              </>
+            ) : (
+              <ClientPicker
+                value={client}
+                onChange={setClient}
+                placeholder='Buscar cliente por nombre o teléfono…'
+                onCreateNew={(q) => {
+                  setClient(null);
+                  setName(q);
+                  setManual(true);
+                }}
+              />
+            )}
           </div>
 
           <div className='space-y-1.5'>

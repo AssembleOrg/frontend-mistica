@@ -121,7 +121,11 @@ export function AnotadosModal({
 
   return (
     <>
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    {/* Mientras el panel de una reserva está abierto encima, este modal deja
+        de ser "modal": Radix bloquea el scroll (react-remove-scroll) y los
+        eventos fuera de su contenido, y el panel quedaba sin poder scrollear.
+        El panel trae su propio fondo, así que visualmente no cambia nada. */}
+    <Dialog open modal={!detail} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className='max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-3xl'
         // Con el panel de una reserva abierto por encima, ni el click afuera

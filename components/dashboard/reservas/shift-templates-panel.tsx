@@ -8,9 +8,10 @@
 // experiencias distintas, porque lo que se comparte es el salón (las mesas).
 
 import { useCallback, useEffect, useState } from 'react';
-import { Clock, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Clock, Pencil, Plus, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -228,21 +229,12 @@ export function ShiftTemplatesPanel() {
       )}
 
       {form && (
-        <div className='flex flex-col gap-3 rounded-xl border-2 border-[#9d684e]/40 bg-[#fbf5ef] p-4'>
-          <div className='flex items-center justify-between'>
-            <span className='font-tan-nimbus text-[15px] font-semibold text-[#455a54]'>
-              {editing ? `Editar ${editing.name}` : 'Nuevo turno'}
-            </span>
-            <button
-              type='button'
-              onClick={() => setForm(null)}
-              className='inline-flex size-7 items-center justify-center rounded-lg text-[#7a6e6f] hover:bg-[#e6dbcd]'
-              aria-label='Cerrar'
-            >
-              <X className='h-4 w-4' />
-            </button>
-          </div>
-
+        <BottomSheet
+          open
+          onClose={() => setForm(null)}
+          title={editing ? `Editar ${editing.name}` : 'Nuevo turno'}
+        >
+        <div className='flex flex-col gap-3'>
           <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
             <TplField label='Clave'>
               <Input
@@ -361,6 +353,7 @@ export function ShiftTemplatesPanel() {
             </Button>
           </div>
         </div>
+        </BottomSheet>
       )}
     </div>
   );

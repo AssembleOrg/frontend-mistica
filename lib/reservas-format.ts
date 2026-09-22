@@ -48,6 +48,24 @@ export function fmtDate(iso: string): string {
   });
 }
 
+// Tiempo relativo compacto en español: "hace 2 h", "hace 3 días", "recién".
+// Nativo (Intl.RelativeTimeFormat), sin dependencias. Para inbox de consultas.
+const REL_FMT = new Intl.RelativeTimeFormat('es-AR', { numeric: 'auto' });
+export function fmtRelative(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const sec = Math.round(diffMs / 1000);
+  if (sec < 60) return 'recién';
+  const min = Math.round(sec / 60);
+  if (min < 60) return REL_FMT.format(-min, 'minute');
+  const hr = Math.round(min / 60);
+  if (hr < 24) return REL_FMT.format(-hr, 'hour');
+  const day = Math.round(hr / 24);
+  if (day < 30) return REL_FMT.format(-day, 'day');
+  const month = Math.round(day / 30);
+  if (month < 12) return REL_FMT.format(-month, 'month');
+  return REL_FMT.format(-Math.round(month / 12), 'year');
+}
+
 // 'YYYY-MM-DD' (string plano, sin hora) -> 'DD/MM/YYYY'. Se hace por string,
 // SIN new Date(), para no correr el día por interpretación UTC.
 export function fmtYmd(ymd: string): string {

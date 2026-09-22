@@ -179,8 +179,9 @@ export function ExperienciasTab() {
   return (
     <div className='flex flex-col gap-4'>
       {/* Toolbar: filtros + nueva experiencia */}
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex flex-wrap items-center gap-2'>
+      <div className='flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between'>
+        {/* Chips en una fila con scroll horizontal (no envuelven en mobile). */}
+        <div className='-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden'>
           <FilterChip
             label='Todas'
             count={items.length}
@@ -210,7 +211,7 @@ export function ExperienciasTab() {
           type='button'
           variant='verde'
           onClick={openNew}
-          className='gap-2'
+          className='shrink-0 gap-2'
         >
           <Plus className='h-4 w-4' />
           Nueva experiencia

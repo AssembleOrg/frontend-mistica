@@ -351,12 +351,18 @@ export function MesasTab() {
         </section>
       )}
 
-      <p className='rounded-2xl border border-[#e6dbcd] bg-[#fbf5ef] px-4 py-3 text-[13px] text-[#7a6e6f]'>
-        El horario es libre: una reserva puede arrancar a cualquier hora entre la
-        apertura y el cierre. Cada mesa queda ocupada hasta el fin de la
-        experiencia más {agenda?.cleaningMinutes ?? 10} minutos de limpieza. Los
-        turnos de abajo son sugerencias para ordenar la oferta, no un límite.
-      </p>
+      <details className='group rounded-2xl border border-[#e6dbcd] bg-[#fbf5ef] px-4 text-[13px] text-[#7a6e6f]'>
+        <summary className='flex cursor-pointer list-none items-center gap-2 py-3 font-medium text-[#455a54] marker:content-none'>
+          <ChevronRight className='h-4 w-4 shrink-0 transition-transform group-open:rotate-90' />
+          ¿Cómo funciona el horario y la limpieza?
+        </summary>
+        <p className='pb-3 pl-6'>
+          El horario es libre: una reserva puede arrancar a cualquier hora entre la
+          apertura y el cierre. Cada mesa queda ocupada hasta el fin de la
+          experiencia más {agenda?.cleaningMinutes ?? 10} minutos de limpieza. Los
+          turnos de abajo son sugerencias para ordenar la oferta, no un límite.
+        </p>
+      </details>
 
       <RecurringBlocksPanel />
 

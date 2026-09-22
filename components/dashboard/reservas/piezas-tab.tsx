@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { cn } from '@/lib/utils';
 import { fmtDate } from '@/lib/reservas-format';
 import {
@@ -107,19 +108,13 @@ function ProgressStepper({
   );
 }
 
-// Texto de la columna "Retiro".
+// Texto de la columna "Retiro". El estado ya se muestra en la columna ESTADO
+// (badge), así que acá sólo aportamos la fecha de retiro cuando la pieza ya se
+// entregó; no repetimos el nombre del estado.
 function retiroNode(p: PieceItem, cfg: PieceStatusConfig[]) {
   const c = cfgOf(p.status, cfg);
-  if (c?.isFinal) {
-    return (
-      <span className='text-xs text-[#7a6e6f]'>
-        {c.label}
-        {p.pickedUpAt ? ` · ${fmtDate(p.pickedUpAt)}` : ''}
-      </span>
-    );
-  }
-  if (c?.isReady) {
-    return <span className='text-xs text-[#455a54]'>{c.label}</span>;
+  if (c?.isFinal && p.pickedUpAt) {
+    return <span className='text-xs text-[#7a6e6f]'>{fmtDate(p.pickedUpAt)}</span>;
   }
   return <span className='text-xs text-[#7a6e6f]'>—</span>;
 }
@@ -381,19 +376,21 @@ export function PiezasTab() {
               type='button'
               variant='verde'
               onClick={() => setCreating(true)}
+              title='Piezas de reserva'
               className='shrink-0 gap-2'
             >
               <Plus className='h-4 w-4' />
-              Piezas de reserva
+              <span className='hidden sm:inline'>Piezas de reserva</span>
             </Button>
             <Button
               type='button'
               variant='outline'
               onClick={() => setCreatingGroup(true)}
+              title='Piezas de grupo'
               className='shrink-0 gap-2 border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
             >
               <Users className='h-4 w-4' />
-              Piezas de grupo
+              <span className='hidden sm:inline'>Piezas de grupo</span>
             </Button>
           </div>
         </div>
@@ -431,7 +428,7 @@ export function PiezasTab() {
                   )}
                 >
                   <div className='min-w-0'>
-                    <p className='truncate text-sm font-medium text-[#3d3338]'>
+                    <p className='line-clamp-2 text-sm font-medium leading-tight text-[#3d3338]'>
                       {p.personName || p.customerName || '—'}
                     </p>
                     <p className='truncate font-mono text-xs text-[#7a6e6f]'>
@@ -452,12 +449,12 @@ export function PiezasTab() {
                     <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
                   </div>
                   <div>{retiroNode(p, statusCfg)}</div>
-                  <div className='flex items-center justify-end gap-2'>
+                  <div className='flex items-start justify-end gap-2'>
                     <button
                       type='button'
                       onClick={() => setPhotosOf(p)}
                       title={`Fotos (${p.photos?.length ?? 0})`}
-                      className='relative text-[#7a6e6f] hover:text-[#455a54]'
+                      className='relative mt-1.5 text-[#7a6e6f] hover:text-[#455a54]'
                     >
                       <Camera className='h-4 w-4' />
                       {(p.photos?.length ?? 0) > 0 && (
@@ -466,29 +463,31 @@ export function PiezasTab() {
                         </span>
                       )}
                     </button>
-                    <div className='w-[8rem]'>{statusSelect(p)}</div>
-                    {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
-                      <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar retiro</Button>
-                    )}
-                    {isAdmin && p.notifiedReadyAt && (
-                      <span className='text-[10px] text-[#455a54]'>Avisado</span>
-                    )}
+                    <div className='flex w-[8rem] flex-col gap-1'>
+                      {statusSelect(p)}
+                      {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                        <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-7 w-full px-2 text-[11px]'>Avisar retiro</Button>
+                      )}
+                      {isAdmin && p.notifiedReadyAt && (
+                        <span className='text-center text-[10px] text-[#455a54]'>Avisado ✓</span>
+                      )}
+                    </div>
                     {isAdmin && (
-                      <IconBtn
-                        icon={Pencil}
-                        title='Editar ficha'
-                        disabled={busy === p._id}
-                        onClick={() => setEditing(p)}
-                      />
-                    )}
-                    {isAdmin && (
-                      <IconBtn
-                        icon={Trash2}
-                        title='Eliminar'
-                        tone='rojo'
-                        disabled={busy === p._id}
-                        onClick={() => remove(p)}
-                      />
+                      <div className='mt-1 flex items-center gap-2'>
+                        <IconBtn
+                          icon={Pencil}
+                          title='Editar ficha'
+                          disabled={busy === p._id}
+                          onClick={() => setEditing(p)}
+                        />
+                        <IconBtn
+                          icon={Trash2}
+                          title='Eliminar'
+                          tone='rojo'
+                          disabled={busy === p._id}
+                          onClick={() => remove(p)}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
@@ -521,7 +520,7 @@ export function PiezasTab() {
               >
                 <div className='flex items-start justify-between gap-2'>
                   <div className='min-w-0'>
-                    <p className='truncate text-sm font-medium text-[#3d3338]'>
+                    <p className='line-clamp-2 text-sm font-medium leading-tight text-[#3d3338]'>
                       {p.personName || p.customerName || p.customerPhone}
                     </p>
                     {p.signature && (
@@ -530,18 +529,37 @@ export function PiezasTab() {
                       </p>
                     )}
                   </div>
-                  <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
+                  <div className='flex shrink-0 items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setPhotosOf(p)}
+                      title={`Fotos (${p.photos?.length ?? 0})`}
+                      className='relative text-[#7a6e6f] hover:text-[#455a54]'
+                    >
+                      <Camera className='h-4 w-4' />
+                      {(p.photos?.length ?? 0) > 0 && (
+                        <span className='absolute -right-2 -top-1.5 rounded-full bg-[#9d684e] px-1 text-[9px] font-bold text-white'>
+                          {p.photos!.length}
+                        </span>
+                      )}
+                    </button>
+                    <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
+                  </div>
                 </div>
                 <p className='mt-2 text-sm text-[#3d3338]'>
                   {p.pieceType || 'Pieza sin detalle'}
                 </p>
                 <p className='text-xs text-[#7a6e6f]'>
-                  {[p.colorsUsed && `Colores: ${p.colorsUsed}`, p.professorName && `Prof. ${p.professorName}`, p.reservationCode && `Reserva ${p.reservationCode}`]
+                  {[
+                    p.colorsUsed && `Colores: ${p.colorsUsed}`,
+                    p.professorName && `Prof. ${p.professorName}`,
+                    p.reservationCode && `Reserva ${p.reservationCode}`,
+                    cfgOf(p.status, statusCfg)?.isFinal && p.pickedUpAt && `Retirada ${fmtDate(p.pickedUpAt)}`,
+                  ]
                     .filter(Boolean)
                     .join(' · ') || '—'}
                 </p>
-                <div className='mt-3 flex items-center justify-between gap-2'>
-                  {retiroNode(p, statusCfg)}
+                <div className='mt-3 flex flex-wrap items-center gap-2'>
                   <div className='flex items-center gap-2'>
                     <div className='w-[9rem]'>{statusSelect(p)}</div>
                     {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
@@ -550,15 +568,15 @@ export function PiezasTab() {
                     {isAdmin && p.notifiedReadyAt && (
                       <span className='text-[10px] text-[#455a54]'>Avisado</span>
                     )}
-                    {isAdmin && (
+                  </div>
+                  {isAdmin && (
+                    <div className='ml-auto flex items-center gap-4'>
                       <IconBtn
                         icon={Pencil}
                         title='Editar ficha'
                         disabled={busy === p._id}
                         onClick={() => setEditing(p)}
                       />
-                    )}
-                    {isAdmin && (
                       <IconBtn
                         icon={Trash2}
                         title='Eliminar'
@@ -566,8 +584,8 @@ export function PiezasTab() {
                         disabled={busy === p._id}
                         onClick={() => remove(p)}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1286,77 +1304,74 @@ function PhotosDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-md'>
-        <DialogHeader className='text-left'>
-          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
-            Fotos · {piece.pieceType || piece.personName || piece.customerName || 'Pieza'}
-          </DialogTitle>
-        </DialogHeader>
-        <div className='flex flex-col gap-3'>
-          {photos.length === 0 ? (
-            <p className='text-sm text-[#7a6e6f]'>Sin fotos todavía.</p>
-          ) : (
-            <div className='grid grid-cols-3 gap-2'>
-              {photos.map((url) => (
-                <div key={url} className='relative'>
-                  <a href={url} target='_blank' rel='noreferrer'>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt=''
-                      className='h-24 w-full rounded-lg border border-[#e6dbcd] object-cover'
-                    />
-                  </a>
-                  {canManage && (
-                    <button
-                      type='button'
-                      onClick={() => setPhotos(photos.filter((x) => x !== url))}
-                      className='absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#a33] text-white'
-                      aria-label='Quitar foto'
-                    >
-                      <X className='h-3 w-3' />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {canManage && (
-            <div className='flex flex-wrap items-center gap-2'>
-              <ImageUploadButton
-                folder='piezas'
-                onUploaded={(url) => setPhotos((prev) => [...prev, url])}
-              />
-              <span className='text-[11px] text-[#a99f92]'>o pegá una URL:</span>
-              <Input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && valid) {
-                    setPhotos([...photos, draft.trim()]);
-                    setDraft('');
-                  }
-                }}
-                placeholder='https://…'
-                className={`${fieldCls} h-9 min-w-40 flex-1`}
-              />
-              <Button
-                type='button'
-                variant='ghost'
-                disabled={!valid}
-                onClick={() => {
+    <BottomSheet
+      open
+      onClose={onClose}
+      title={`Fotos · ${piece.pieceType || piece.personName || piece.customerName || 'Pieza'}`}
+    >
+      <div className='flex flex-col gap-4'>
+        {photos.length === 0 ? (
+          <p className='text-sm text-[#7a6e6f]'>Sin fotos todavía.</p>
+        ) : (
+          <div className='grid grid-cols-2 gap-3 sm:grid-cols-3'>
+            {photos.map((url) => (
+              <div key={url} className='relative'>
+                <a href={url} target='_blank' rel='noreferrer'>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt=''
+                    className='aspect-square w-full rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] object-cover'
+                  />
+                </a>
+                {canManage && (
+                  <button
+                    type='button'
+                    onClick={() => setPhotos(photos.filter((x) => x !== url))}
+                    className='absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#a33] text-white'
+                    aria-label='Quitar foto'
+                  >
+                    <X className='h-3.5 w-3.5' />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {canManage && (
+          <div className='flex flex-wrap items-center gap-2'>
+            <ImageUploadButton
+              folder='piezas'
+              onUploaded={(url) => setPhotos((prev) => [...prev, url])}
+            />
+            <span className='text-[11px] text-[#a99f92]'>o pegá una URL:</span>
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && valid) {
                   setPhotos([...photos, draft.trim()]);
                   setDraft('');
-                }}
-                className='shrink-0 border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
-              >
-                Agregar
-              </Button>
-            </div>
-          )}
-        </div>
-        <DialogFooter>
+                }
+              }}
+              placeholder='https://…'
+              className={`${fieldCls} h-9 min-w-40 flex-1`}
+            />
+            <Button
+              type='button'
+              variant='ghost'
+              disabled={!valid}
+              onClick={() => {
+                setPhotos([...photos, draft.trim()]);
+                setDraft('');
+              }}
+              className='shrink-0 border border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+            >
+              Agregar
+            </Button>
+          </div>
+        )}
+        <div className='flex justify-end gap-2 pt-1'>
           <Button
             type='button'
             variant='outline'
@@ -1370,9 +1385,9 @@ function PhotosDialog({
               {saving ? 'Guardando…' : 'Guardar fotos'}
             </Button>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </BottomSheet>
   );
 }
 

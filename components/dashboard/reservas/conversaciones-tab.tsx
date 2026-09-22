@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
   Bot,
   Check,
   Download,
@@ -287,8 +288,10 @@ export function ConversacionesTab() {
 
   return (
     <div className='flex flex-col gap-4'>
-      <div className='flex flex-wrap items-center justify-between gap-3'>
-        <div className='flex flex-wrap items-center gap-2'>
+      {/* Filtros: una sola fila con scroll horizontal (no envuelven en mobile).
+          El estado "en vivo" queda pegado a la derecha, fuera del scroll. */}
+      <div className='flex items-center gap-2'>
+        <div className='-mx-4 flex flex-1 items-center gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden'>
           <FilterChip
             label='Abiertas'
             count={abiertas}
@@ -318,7 +321,7 @@ export function ConversacionesTab() {
         </div>
         <span
           className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
             live ? 'bg-[#E7F0EC] text-[#455a54]' : 'bg-[#f6e2e2] text-[#a33]',
           )}
           title={
@@ -328,13 +331,25 @@ export function ConversacionesTab() {
           }
         >
           {live ? <Wifi className='h-3.5 w-3.5' /> : <WifiOff className='h-3.5 w-3.5' />}
-          {live ? 'en vivo' : 'reconectando…'}
+          <span className='hidden sm:inline'>{live ? 'en vivo' : 'reconectando…'}</span>
         </span>
       </div>
 
-      <div className='grid gap-4 lg:grid-cols-[320px_1fr]'>
-        {/* Bandeja */}
-        <div className='flex max-h-[560px] flex-col gap-2 overflow-y-auto'>
+      {/* Desktop: dos columnas. Mobile: una vista por vez — la lista, o el chat
+          a pantalla completa cuando hay una charla abierta (con "← Volver"). */}
+      <div
+        className={cn(
+          'grid gap-4 lg:grid-cols-[320px_1fr]',
+          selected && 'max-lg:grid-cols-1',
+        )}
+      >
+        {/* Bandeja. En mobile se oculta mientras hay una charla abierta. */}
+        <div
+          className={cn(
+            'flex max-h-[70vh] flex-col gap-2 overflow-y-auto lg:max-h-[560px]',
+            selected && 'hidden lg:flex',
+          )}
+        >
           {visibles.length === 0 ? (
             <p className='rounded-2xl border border-dashed border-[#e6dbcd] bg-[#fbf5ef] p-4 text-center text-sm text-[#7a6e6f]'>
               No hay consultas acá.
@@ -413,8 +428,14 @@ export function ConversacionesTab() {
           )}
         </div>
 
-        {/* Charla */}
-        <div className='flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
+        {/* Charla. En mobile sólo aparece cuando hay una elegida (ocupa la vista);
+            en desktop está siempre, con su placeholder. */}
+        <div
+          className={cn(
+            'flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white',
+            !selected && 'hidden lg:flex',
+          )}
+        >
           {!selected ? (
             <div className='flex flex-1 items-center justify-center p-8 text-center text-sm text-[#7a6e6f]'>
               <span className='flex flex-col items-center gap-2'>
@@ -425,14 +446,24 @@ export function ConversacionesTab() {
           ) : (
             <>
               <header className='flex flex-wrap items-center justify-between gap-2 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-3'>
-                <div className='flex flex-col'>
-                  <span className='font-tan-nimbus text-[16px] font-semibold text-[#455a54]'>
+                <div className='flex min-w-0 items-center gap-2'>
+                  <button
+                    type='button'
+                    onClick={() => setSelectedId(null)}
+                    className='-ml-1 inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-[#455a54] hover:bg-[#efe7db] lg:hidden'
+                    aria-label='Volver a la bandeja'
+                  >
+                    <ArrowLeft className='h-5 w-5' />
+                  </button>
+                  <div className='flex min-w-0 flex-col'>
+                  <span className='truncate font-tan-nimbus text-[16px] font-semibold text-[#455a54]'>
                     {selected.customerName ?? selected.phone}
                   </span>
-                  <span className='font-mono text-xs text-[#7a6e6f]'>
+                  <span className='truncate font-mono text-xs text-[#7a6e6f]'>
                     {selected.phone}
                     {selected.takenByName ? ` · atiende ${selected.takenByName}` : ''}
                   </span>
+                  </div>
                 </div>
                 {selected.status === 'CLOSED' ? (
                   <span className='rounded-full bg-[#e6dbcd] px-3 py-1 text-xs font-semibold text-[#7a6e6f]'>

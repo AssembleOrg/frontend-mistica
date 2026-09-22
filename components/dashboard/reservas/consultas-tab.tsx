@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { fmtRelative } from '@/lib/reservas-format';
 import { getWhatsAppLink } from '@/lib/utils/whatsapp';
 import {
   leadsAdmin,
@@ -59,9 +60,9 @@ function isComprobante(l: LeadItem): boolean {
 }
 
 // Columnas explícitas (sin `auto`) para alinear header y filas. Sólo desktop;
-// en mobile se usan tarjetas.
+// en mobile se usan tarjetas. RECIBIDA usa createdAt (tiempo relativo).
 const COLS =
-  'grid grid-cols-[1fr_1.2fr_1fr_9rem_4rem_7rem_8.5rem] items-center gap-3';
+  'grid grid-cols-[1.3fr_1.1fr_1fr_8rem_6rem_7rem_8rem] items-center gap-3';
 
 export function ConsultasTab() {
   const [items, setItems] = useState<LeadItem[]>([]);
@@ -179,24 +180,30 @@ export function ConsultasTab() {
   const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
   const to = (page - 1) * LIMIT + items.length;
 
+  const empty = !loading && items.length === 0;
+
   return (
-    <div className='flex flex-col gap-5'>
-      {/* Filtros de estado con contador */}
-      <div className='flex flex-wrap items-center gap-2'>
-        {FILTERS.map((f) => (
-          <FilterChip
-            key={f.key || 'all'}
-            label={f.label}
-            count={counts[f.key] ?? null}
-            active={f.key === status}
-            color={f.color}
-            tint={f.tint}
-            onClick={() => {
-              setStatus(f.key);
-              setPage(1);
-            }}
-          />
-        ))}
+    <div className='flex flex-col gap-4'>
+      {/* Header sticky y compacto: chips de estado en una fila (scroll horizontal
+          en mobile). Se queda fijo al scrollear la lista para no perder los
+          filtros. */}
+      <div className='sticky top-0 z-10 -mx-4 border-b border-[#e6dbcd] bg-[#f7f1ea]/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-[#f7f1ea]/80 sm:mx-0 sm:rounded-2xl sm:border sm:px-3'>
+        <div className='flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'>
+          {FILTERS.map((f) => (
+            <FilterChip
+              key={f.key || 'all'}
+              label={f.label}
+              count={counts[f.key] ?? null}
+              active={f.key === status}
+              color={f.color}
+              tint={f.tint}
+              onClick={() => {
+                setStatus(f.key);
+                setPage(1);
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Desktop: tabla */}
@@ -207,14 +214,14 @@ export function ConsultasTab() {
             <span>CLIENTE</span>
             <span>CONTACTO</span>
             <span>FECHA TENTATIVA</span>
-            <span className='text-center'>PERS.</span>
+            <span>RECIBIDA</span>
             <span>ESTADO</span>
             <span className='text-right'>ACCIONES</span>
           </div>
           {loading ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
-          ) : items.length === 0 ? (
-            <div className='p-6 text-sm text-[#7a6e6f]'>Sin consultas.</div>
+            <TableSkeleton />
+          ) : empty ? (
+            <EmptyState status={status} />
           ) : (
             items.map((l) => {
               const comp = isComprobante(l);
@@ -222,25 +229,42 @@ export function ConsultasTab() {
                 <div
                   key={l._id}
                   className={cn(
-                    `${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`,
-                    comp && 'bg-[#fbf5ef]',
+                    `${COLS} group border-b border-[#e6dbcd] px-5 py-3.5 transition-colors last:border-0 hover:bg-[#fbf9f6]`,
+                    comp && 'bg-[#fbf5ef]/60',
                   )}
                 >
-                  <div className='flex min-w-0 items-center gap-1.5'>
+                  <div className='flex min-w-0 items-center gap-2'>
                     {comp && (
-                      <Receipt className='h-3.5 w-3.5 shrink-0 text-[#9d684e]' />
+                      <span
+                        title='Comprobante de transferencia'
+                        className='inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-[#f3e2d0] text-[#9d684e]'
+                      >
+                        <Receipt className='h-3.5 w-3.5' />
+                      </span>
                     )}
                     <p className='truncate text-sm font-medium text-[#3d3338]'>
                       {l.service}
                     </p>
                   </div>
-                  <p className='truncate text-sm text-[#3d3338]'>{l.customerName}</p>
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-medium text-[#3d3338]'>
+                      {l.customerName}
+                    </p>
+                    {l.quantity ? (
+                      <p className='text-xs text-[#7a6e6f]'>{l.quantity} pers.</p>
+                    ) : null}
+                  </div>
                   <p className='truncate font-mono text-xs text-[#7a6e6f]'>
                     {l.customerPhone ?? l.customerEmail ?? '—'}
                   </p>
-                  <p className='text-sm text-[#7a6e6f]'>{l.preferredDate || '—'}</p>
-                  <span className='text-center text-sm text-[#455a54]'>
-                    {l.quantity ?? '—'}
+                  <p className='truncate text-sm text-[#7a6e6f]'>
+                    {l.preferredDate || '—'}
+                  </p>
+                  <span
+                    className='text-xs text-[#a99f92]'
+                    title={new Date(l.createdAt).toLocaleString('es-AR')}
+                  >
+                    {fmtRelative(l.createdAt)}
                   </span>
                   <div>{leadBadge(l)}</div>
                   {renderLeadActions(l)}
@@ -252,44 +276,65 @@ export function ConsultasTab() {
       </div>
 
       {/* Mobile: tarjetas */}
-      <div className='flex flex-col gap-3 md:hidden'>
+      <div className='flex flex-col gap-2.5 md:hidden'>
         {loading ? (
-          <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
-            Cargando…
-          </div>
-        ) : items.length === 0 ? (
-          <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
-            Sin consultas.
+          <CardsSkeleton />
+        ) : empty ? (
+          <div className='rounded-2xl border border-[#e6dbcd] bg-white'>
+            <EmptyState status={status} />
           </div>
         ) : (
           items.map((l) => {
             const comp = isComprobante(l);
+            const href = contactHref(l);
             return (
               <div
                 key={l._id}
                 className={cn(
                   'rounded-2xl border border-[#e6dbcd] bg-white p-4',
-                  comp && 'bg-[#fbf5ef]',
+                  comp && 'border-[#e7cfb5] bg-[#fbf5ef]',
                 )}
               >
                 <div className='flex items-start justify-between gap-2'>
-                  <div className='flex min-w-0 items-center gap-1.5'>
+                  <div className='flex min-w-0 items-start gap-2'>
                     {comp && (
-                      <Receipt className='h-3.5 w-3.5 shrink-0 text-[#9d684e]' />
+                      <span className='mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-[#f3e2d0] text-[#9d684e]'>
+                        <Receipt className='h-3.5 w-3.5' />
+                      </span>
                     )}
-                    <p className='text-sm font-medium text-[#3d3338]'>{l.service}</p>
+                    <div className='min-w-0'>
+                      <p className='truncate text-sm font-semibold text-[#3d3338]'>
+                        {l.customerName}
+                      </p>
+                      <p className='truncate text-xs text-[#7a6e6f]'>{l.service}</p>
+                    </div>
                   </div>
                   {leadBadge(l)}
                 </div>
-                <p className='mt-2 text-sm text-[#3d3338]'>{l.customerName}</p>
-                <p className='font-mono text-xs text-[#7a6e6f]'>
-                  {l.customerPhone ?? l.customerEmail ?? '—'}
-                </p>
+
+                <div className='mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7a6e6f]'>
+                  {href ? (
+                    <a
+                      href={href}
+                      target={l.source === 'WHATSAPP' ? '_blank' : undefined}
+                      rel='noopener noreferrer'
+                      className='font-mono text-[#455a54] underline-offset-2 hover:underline'
+                    >
+                      {l.customerPhone ?? l.customerEmail}
+                    </a>
+                  ) : (
+                    <span className='font-mono'>
+                      {l.customerEmail ?? 'Sin contacto'}
+                    </span>
+                  )}
+                  {l.preferredDate ? <span>· {l.preferredDate}</span> : null}
+                  {l.quantity ? <span>· {l.quantity} pers.</span> : null}
+                </div>
+
                 <div className='mt-3 flex items-center justify-between gap-2 border-t border-[#e6dbcd] pt-3'>
-                  <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7a6e6f]'>
-                    <span>{l.preferredDate || '—'}</span>
-                    {l.quantity ? <span>{l.quantity} pers.</span> : null}
-                  </div>
+                  <span className='text-xs text-[#a99f92]'>
+                    {fmtRelative(l.createdAt)}
+                  </span>
                   {renderLeadActions(l)}
                 </div>
               </div>
@@ -308,7 +353,7 @@ export function ConsultasTab() {
       />
 
       <p className='flex items-center gap-2 text-xs text-[#7a6e6f]'>
-        <MessageCircle className='h-3.5 w-3.5 text-[#9d684e]' />
+        <MessageCircle className='h-3.5 w-3.5 shrink-0 text-[#9d684e]' />
         Consultas de servicios que se coordinan (cumpleaños, talleres, escuelita,
         facilitadores). El bot y la web las cargan acá.
       </p>
@@ -324,6 +369,59 @@ export function ConsultasTab() {
         />
       )}
     </div>
+  );
+}
+
+// Vacío con contexto según el filtro activo (una bandeja limpia no es un error).
+function EmptyState({ status }: { status: string }) {
+  const msg =
+    status === 'NEW'
+      ? 'No hay consultas nuevas. Todo al día.'
+      : status === 'CONTACTED'
+        ? 'Nada en seguimiento por ahora.'
+        : status === 'CLOSED'
+          ? 'Todavía no cerraste consultas.'
+          : 'Sin consultas. Cuando el bot o la web reciban una, aparece acá.';
+  return (
+    <div className='flex flex-col items-center gap-2 px-6 py-12 text-center'>
+      <MessageCircle className='h-6 w-6 text-[#cbb79f]' />
+      <p className='text-sm text-[#7a6e6f]'>{msg}</p>
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div className='divide-y divide-[#e6dbcd]'>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className={`${COLS} px-5 py-3.5`}>
+          <div className='h-4 w-28 animate-pulse rounded bg-[#efe7db]' />
+          <div className='h-4 w-24 animate-pulse rounded bg-[#efe7db]' />
+          <div className='h-4 w-20 animate-pulse rounded bg-[#efe7db]' />
+          <div className='h-4 w-16 animate-pulse rounded bg-[#efe7db]' />
+          <div className='h-4 w-12 animate-pulse rounded bg-[#efe7db]' />
+          <div className='h-6 w-20 animate-pulse rounded-full bg-[#efe7db]' />
+          <div className='ml-auto h-8 w-24 animate-pulse rounded bg-[#efe7db]' />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CardsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className='rounded-2xl border border-[#e6dbcd] bg-white p-4'
+        >
+          <div className='h-4 w-32 animate-pulse rounded bg-[#efe7db]' />
+          <div className='mt-2 h-3 w-24 animate-pulse rounded bg-[#efe7db]' />
+          <div className='mt-4 h-8 w-full animate-pulse rounded bg-[#efe7db]' />
+        </div>
+      ))}
+    </>
   );
 }
 

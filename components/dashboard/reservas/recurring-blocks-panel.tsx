@@ -8,9 +8,10 @@
 // al bot en ese rango, y la agenda del día los muestra como "fijos".
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarClock, Pencil, Plus, Repeat, Trash2, X } from 'lucide-react';
+import { CalendarClock, Pencil, Plus, Repeat, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -326,21 +327,11 @@ function BlockEditor({
   }
 
   return (
-    <div className='border-t-2 border-[#9d684e]/40 bg-[#fbf5ef] px-4 py-4'>
-      <div className='mb-3 flex items-center justify-between'>
-        <h4 className='text-sm font-semibold text-[#455a54]'>
-          {editing ? 'Editar bloqueo fijo' : 'Nuevo bloqueo fijo'}
-        </h4>
-        <button
-          type='button'
-          onClick={onCancel}
-          className='text-[#7a6e6f] hover:text-[#3d3338]'
-          aria-label='Cerrar'
-        >
-          <X className='h-4 w-4' />
-        </button>
-      </div>
-
+    <BottomSheet
+      open
+      onClose={onCancel}
+      title={editing ? 'Editar bloqueo fijo' : 'Nuevo bloqueo fijo'}
+    >
       <div className='flex flex-col gap-4'>
         <div className='grid gap-3 sm:grid-cols-2'>
           <div className='space-y-1.5'>
@@ -521,6 +512,6 @@ function BlockEditor({
           </Button>
         </div>
       </div>
-    </div>
+    </BottomSheet>
   );
 }

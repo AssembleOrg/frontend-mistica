@@ -6,6 +6,7 @@
 // comportarse como slide-over a la derecha, responsive (full en mobile).
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DietaryTags } from './dietary-badge';
 import {
   Ban,
@@ -114,8 +115,12 @@ export function ReservationDetailPanel({
   const canReschedule = r.status === 'CONFIRMED';
   const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(r.status);
 
-  return (
-    <div className='fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end'>
+  // Portal al body: así queda ENCIMA de cualquier Dialog abierto (misma z,
+  // pero más al final del DOM). `pointer-events-auto` porque Radix deja el
+  // body con pointer-events:none mientras un Dialog modal está abierto.
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className='pointer-events-auto fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end'>
       <div
         className='animate-in fade-in-0 absolute inset-0 bg-[#3d3338]/30 backdrop-blur-[1px] duration-200'
         onClick={onClose}
@@ -311,7 +316,8 @@ export function ReservationDetailPanel({
           }}
         />
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

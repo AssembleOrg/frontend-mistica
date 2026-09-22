@@ -34,6 +34,8 @@ import {
 } from '@/services/reservations.admin.service';
 import { AnotadosModal } from './anotados-modal';
 import { NewReservationModal, ReservasListado } from './reservas-list';
+import { ReservasCalendar } from './reservas-calendar';
+import { ReservationManager } from './reservation-manager';
 import { DietaryTags } from './dietary-badge';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeeReservationDetails } from '@/lib/views';
@@ -92,7 +94,15 @@ function chipClasses(status: string): string {
   }
 }
 
-type Mode = 'day' | 'week' | 'list';
+type Mode = 'day' | 'week' | 'month' | 'list';
+
+// Mismo día del mes ±N meses (anclado al 1 para no desbordar meses cortos).
+function addMonths(ymd: string, delta: number): string {
+  const y = Number(ymd.slice(0, 4));
+  const m = Number(ymd.slice(5, 7)) - 1 + delta;
+  const d = new Date(Date.UTC(y, m, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+}
 
 /**
  * Pestaña Reservas: una sola vista para todo. Día y Semana son la agenda
@@ -110,6 +120,8 @@ export function ReservasTab() {
   const [mode, setMode] = useState<Mode>('day');
   const [newOpen, setNewOpen] = useState(false);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
+  // Reserva abierta desde el calendario mensual.
+  const [detail, setDetail] = useState<ReservationItem | null>(null);
   const [anchor, setAnchor] = useState<string>(todayYmd());
   const [sessions, setSessions] = useState<AdminSession[]>([]);
   const [attendees, setAttendees] = useState<Record<string, ReservationItem[]>>({});
@@ -141,8 +153,8 @@ export function ReservasTab() {
   }, [mode, anchor]);
 
   const load = useCallback(async () => {
-    // En Lista, el listado carga lo suyo.
-    if (mode === 'list') return;
+    // En Lista y Mes, cada vista carga lo suyo.
+    if (mode === 'list' || mode === 'month') return;
     setLoading(true);
     try {
       const list = await reservationsAdmin.listSessions({
@@ -224,8 +236,11 @@ export function ReservasTab() {
   }, [dayTurnos, attendees]);
 
   function move(delta: number) {
+    if (mode === 'month') return setAnchor(addMonths(anchor, delta));
     setAnchor(mode === 'day' ? addDays(anchor, delta) : addDays(mondayOf(anchor), delta * 7));
   }
+
+  const monthLabel = `${MESES[Number(anchor.slice(5, 7)) - 1]} ${anchor.slice(0, 4)}`;
 
   return (
     <div className='flex flex-col gap-5'>
@@ -256,7 +271,9 @@ export function ReservasTab() {
           <h2 className='font-tan-nimbus text-xl font-semibold capitalize text-[#455a54] sm:text-[22px]'>
             {mode === 'day'
               ? longDayLabel(anchor)
-              : `Semana del ${Number(from.slice(8, 10))}/${Number(from.slice(5, 7))}`}
+              : mode === 'month'
+                ? monthLabel
+                : `Semana del ${Number(from.slice(8, 10))}/${Number(from.slice(5, 7))}`}
           </h2>
           <button
             type='button'
@@ -281,6 +298,7 @@ export function ReservasTab() {
               [
                 ['day', 'Día'],
                 ['week', 'Semana'],
+                ['month', 'Mes'],
                 ...(verDetalle ? ([['list', 'Lista']] as const) : []),
               ] as const
             ).map(([m, label]) => (
@@ -313,6 +331,13 @@ export function ReservasTab() {
 
       {mode === 'list' ? (
         <ReservasListado refreshKey={tick} />
+      ) : mode === 'month' ? (
+        <ReservasCalendar
+          anchor={anchor}
+          hideHeader
+          refreshKey={tick}
+          onOpen={verDetalle ? setDetail : undefined}
+        />
       ) : mode === 'day' ? (
         <>
           {/* Resumen del día: una sola barra segmentada, condensada. */}
@@ -410,6 +435,12 @@ export function ReservasTab() {
           onChanged={() => setTick((t) => t + 1)}
         />
       )}
+
+      <ReservationManager
+        reservation={detail}
+        onClose={() => setDetail(null)}
+        onChanged={() => setTick((t) => t + 1)}
+      />
 
       {newOpen && (
         <NewReservationModal

@@ -95,6 +95,12 @@ export interface PriceVariant {
   active?: boolean;
 }
 
+/** Un horario propio: día ISO (1=lunes..7=domingo) + hora de inicio 'HH:mm'. */
+export interface OwnSlot {
+  weekday: number;
+  start: string;
+}
+
 export interface CreateExperienceInput {
   name: string;
   description?: string;
@@ -106,6 +112,12 @@ export interface CreateExperienceInput {
   aliases?: string[];
   /** Variantes de precio (modalidades y tiers por cantidad). */
   priceVariants?: PriceVariant[];
+  /**
+   * HORARIO PROPIO: si tiene alguno, la experiencia se ofrece SÓLO en estos
+   * días y horas, no en los turnos generales (ej. Escuelita: miércoles 18:00).
+   * Vacío = turnos generales.
+   */
+  ownSchedule?: OwnSlot[];
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;

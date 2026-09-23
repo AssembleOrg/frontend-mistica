@@ -37,8 +37,16 @@ import {
   reservationsAdmin,
   type AdminExperience,
   type CreateExperienceInput,
+  type OwnSlot,
   type PriceVariant,
 } from '@/services/reservations.admin.service';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { FilterChip, IconBtn, StatusBadge } from './_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
@@ -48,6 +56,7 @@ const EMPTY: CreateExperienceInput = {
   aliases: [],
   images: [],
   priceVariants: [],
+  ownSchedule: [],
   durationMinutes: 120,
   basePrice: 0,
   defaultCapacity: 8,
@@ -109,6 +118,7 @@ export function ExperienciasTab() {
       aliases: e.aliases ?? [],
       images: e.images ?? [],
       priceVariants: e.priceVariants ?? [],
+      ownSchedule: e.ownSchedule ?? [],
       durationMinutes: e.durationMinutes,
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
@@ -441,6 +451,14 @@ export function ExperienciasTab() {
                   anotados.
                 </p>
               </Field>
+              {(form.bookableOnline ?? true) && !form.isBirthday && (
+                <Field label='Horario propio'>
+                  <OwnScheduleEditor
+                    value={form.ownSchedule ?? []}
+                    onChange={(ownSchedule) => setForm({ ...form, ownSchedule })}
+                  />
+                </Field>
+              )}
               <Field label='Imágenes (URLs)'>
                 <ImagesEditor
                   value={form.images ?? []}
@@ -1343,6 +1361,75 @@ function VariantForm({
               : 'Elegí las fechas en las que rige.'}
         </p>
       )}
+    </div>
+  );
+}
+
+// Día en singular para el selector del horario propio.
+const DAY_LABEL = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+/**
+ * Horario propio de la experiencia (ej. Escuelita: miércoles 18:00). Si tiene
+ * alguno, se ofrece SÓLO en esos días y horas y no en los turnos generales; ahí
+ * el lugar es el cupo de la experiencia (el espacio lo aparta un bloqueo
+ * semanal de mesas).
+ */
+function OwnScheduleEditor({
+  value,
+  onChange,
+}: {
+  value: OwnSlot[];
+  onChange: (v: OwnSlot[]) => void;
+}) {
+  const update = (i: number, patch: Partial<OwnSlot>) =>
+    onChange(value.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  return (
+    <div className='flex flex-col gap-2'>
+      {value.map((slot, i) => (
+        <div key={i} className='flex items-center gap-2'>
+          <Select
+            value={String(slot.weekday)}
+            onValueChange={(v) => update(i, { weekday: Number(v) })}
+          >
+            <SelectTrigger className={`w-40 ${fieldCls}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WEEKDAYS.map((d) => (
+                <SelectItem key={d.iso} value={String(d.iso)}>
+                  {DAY_LABEL[d.iso]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type='time'
+            value={slot.start}
+            onChange={(ev) => update(i, { start: ev.target.value })}
+            className={`w-32 ${fieldCls}`}
+          />
+          <IconBtn
+            icon={X}
+            title='Quitar horario'
+            tone='rojo'
+            onClick={() => onChange(value.filter((_, j) => j !== i))}
+          />
+        </div>
+      ))}
+      <Button
+        type='button'
+        variant='outline'
+        size='sm'
+        className='w-fit border-[#e6dbcd] text-[#455a54]'
+        onClick={() => onChange([...value, { weekday: 3, start: '18:00' }])}
+      >
+        <Plus className='mr-1 h-4 w-4' /> Agregar horario
+      </Button>
+      <p className='text-xs text-[#455a54]/60'>
+        Vacío = se reserva en los turnos generales del salón. Si cargás al menos
+        un horario, la experiencia se ofrece SÓLO en esos días y horas (ej.
+        Escuelita: miércoles 18:00) y el lugar es su cupo, no las mesas.
+      </p>
     </div>
   );
 }

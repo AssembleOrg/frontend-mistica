@@ -31,6 +31,12 @@ export interface PublicExperience {
    * experiencia elegida (hereda precio/duración) y aporta beneficios.
    */
   isBirthday?: boolean;
+  /**
+   * HORARIO PROPIO: si tiene alguno, la experiencia se ofrece SÓLO en estos
+   * días y horas, no en los turnos generales (ej. Escuelita: miércoles 18:00).
+   * weekday ISO: 1=lunes … 7=domingo.
+   */
+  ownSchedule?: Array<{ weekday: number; start: string }>;
   /** Variantes de precio (modalidades, tiers por cantidad y promos por día/fecha). */
   priceVariants?: Array<{
     name: string;

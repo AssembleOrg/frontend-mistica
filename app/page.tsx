@@ -23,8 +23,6 @@ import {
 
 const WA_MISTICA =
   'https://api.whatsapp.com/send/?phone=5491138207230&text=Hola+M%C3%ADstica%2C+quiero+coordinar+un+evento.&type=phone_number&app_absent=0';
-const WA_PISTECH =
-  'https://api.whatsapp.com/send/?phone=5491138207230&text=Hola+Pistech%2C+me+comunico+a+trav%C3%A9s+de+mistica+web.+Me+gustar%C3%ADa+saber+m%C3%A1s+sobre+sus+servicios+digitales.&type=phone_number&app_absent=0';
 const MAPS = 'https://www.google.com/maps/search/?api=1&query=Videla+57+Quilmes';
 const IG = 'https://www.instagram.com/mistica.autentica/';
 
@@ -531,7 +529,7 @@ export default function LandingPage() {
               © 2025 Mística Auténtica
             </span>
             <a
-              href={WA_PISTECH}
+              href="https://pistech.com.ar"
               target='_blank'
               rel='noopener noreferrer'
               className='flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.1em] text-arena/50 hover:text-white'

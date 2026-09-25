@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
+  Bot,
   CalendarRange,
   Grid2x2,
   MessageCircle,
@@ -17,8 +19,9 @@ import { MesasTab } from '@/components/dashboard/reservas/mesas-tab';
 import { ConversacionesTab } from '@/components/dashboard/reservas/conversaciones-tab';
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
 import { PiezasTab } from '@/components/dashboard/reservas/piezas-tab';
+import { BotTab } from '@/components/dashboard/reservas/bot-tab';
 
-type Tab = 'reservas' | 'mesas' | 'experiencias' | 'consultas' | 'piezas';
+type Tab = 'reservas' | 'mesas' | 'experiencias' | 'consultas' | 'piezas' | 'bot';
 
 // Reservas = agenda (día/semana) + listado completo, en una sola pestaña.
 const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
@@ -27,7 +30,19 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
   { key: 'experiencias', label: 'Experiencias', icon: Palette },
   { key: 'consultas', label: 'Consultas', icon: MessageCircle },
   { key: 'piezas', label: 'Piezas', icon: Flame },
+  { key: 'bot', label: 'Bot', icon: Bot },
 ];
+
+// Pestaña desde la URL (?tab=bot), para poder linkearla desde el menú. Va en
+// un hijo con Suspense: es lo que pide Next para useSearchParams.
+function TabFromQuery({ onTab }: { onTab: (t: Tab) => void }) {
+  const params = useSearchParams();
+  const t = params.get('tab');
+  useEffect(() => {
+    if (t && TABS.some((x) => x.key === t)) onTab(t as Tab);
+  }, [t, onTab]);
+  return null;
+}
 
 export default function ReservasAdminPage() {
   const { user } = useAuth();
@@ -46,6 +61,9 @@ export default function ReservasAdminPage() {
 
   return (
     <div className='flex flex-col gap-4'>
+      <Suspense fallback={null}>
+        <TabFromQuery onTab={setTab} />
+      </Suspense>
       <div className='flex flex-col gap-1'>
         <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>Reservas</h1>
         <p className='text-sm text-[#455a54]/60 font-winter-solid mt-0.5'>
@@ -79,6 +97,7 @@ export default function ReservasAdminPage() {
       {active === 'reservas' && <ReservasTab />}
       {active === 'consultas' && <ConversacionesTab />}
       {active === 'piezas' && <PiezasTab />}
+      {active === 'bot' && <BotTab />}
     </div>
   );
 }

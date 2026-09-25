@@ -57,7 +57,7 @@ const navigationItems = [
   { title: 'Reservas',        url: '/dashboard/reservas',   view: 'reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
   { title: 'Alumnos y grupos',url: '/dashboard/alumnos',    view: 'alumnos',    icon: GraduationCap,enabled: true,  adminOnly: false },
   { title: 'Equipo',          url: '/dashboard/equipo',     view: 'equipo',     icon: ClipboardList,enabled: true,  adminOnly: false },
-  { title: 'Bot WhatsApp',    url: '/dashboard/bot',        view: 'bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
+  { title: 'Bot WhatsApp',    url: '/dashboard/reservas?tab=bot',        view: 'bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
   // se siguen creando desde la venta y viéndose en el detalle del cliente;
   // sólo se quita el acceso directo a /dashboard/prepaids (la ruta queda).

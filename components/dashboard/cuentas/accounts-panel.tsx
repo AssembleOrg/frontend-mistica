@@ -23,7 +23,7 @@ import {
 import { showToast } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
-import { ASSIGNABLE_VIEWS, RESERVAS_TABS, normalizeViewKey, normalizeViewKeys } from '@/lib/views';
+import { ASSIGNABLE_VIEWS, ASSIGNABLE_RESERVAS_TABS, RESERVAS_TABS, normalizeViewKey, normalizeViewKeys } from '@/lib/views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -491,7 +491,7 @@ function AccountEditor({
                 >
                   Reservas (todo)
                 </button>
-                {RESERVAS_TABS.map((t) => {
+                {ASSIGNABLE_RESERVAS_TABS.map((t) => {
                   const key = `reservas:${t.key}`;
                   const full = form.allowedViews.includes('reservas');
                   const on = full || form.allowedViews.includes(key);

@@ -42,12 +42,17 @@ export const ASSIGNABLE_VIEWS = PANEL_VIEWS.filter((v) => !v.adminOnly);
 export const RESERVAS_TABS = [
   // Reservas = agenda (día/semana) + lista completa. Antes eran dos pestañas
   // ('agenda' y 'reservas'); se fusionaron para no multiplicar vistas.
-  { key: 'reservas', label: 'Reservas' },
-  { key: 'mesas', label: 'Mesas' },
-  { key: 'experiencias', label: 'Experiencias' },
-  { key: 'consultas', label: 'Consultas' },
-  { key: 'piezas', label: 'Piezas' },
+  { key: 'reservas', label: 'Reservas', adminOnly: false },
+  { key: 'mesas', label: 'Mesas', adminOnly: false },
+  { key: 'experiencias', label: 'Experiencias', adminOnly: false },
+  { key: 'consultas', label: 'Consultas', adminOnly: false },
+  { key: 'piezas', label: 'Piezas', adminOnly: false },
+  // Configuración del bot de WhatsApp: sólo el dueño/admin.
+  { key: 'bot', label: 'Bot', adminOnly: true },
 ] as const;
+
+/** Pestañas que se le pueden habilitar a una cuenta común. */
+export const ASSIGNABLE_RESERVAS_TABS = RESERVAS_TABS.filter((t) => !t.adminOnly);
 
 export type ReservasTabKey = (typeof RESERVAS_TABS)[number]['key'];
 
@@ -100,10 +105,11 @@ export function allowedReservasTabs(
 ): ReservasTabKey[] {
   const all = RESERVAS_TABS.map((t) => t.key);
   if (role === 'admin') return all;
-  if (!allowedViews || allowedViews.length === 0) return all;
-  if (allowedViews.includes('reservas')) return all;
+  const common = ASSIGNABLE_RESERVAS_TABS.map((t) => t.key);
+  if (!allowedViews || allowedViews.length === 0) return common;
+  if (allowedViews.includes('reservas')) return common;
   const granted = normalizeViewKeys(allowedViews);
-  return all.filter((k) => granted.includes(`reservas:${k}`));
+  return common.filter((k) => granted.includes(`reservas:${k}`));
 }
 
 /**

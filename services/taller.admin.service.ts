@@ -216,6 +216,10 @@ export interface MonthlyPiece {
   extraCharge?: boolean;
   extraAmount?: number;
   paid?: boolean;
+  /** Cuándo se cobró y hasta cuándo se puede deshacer desde el panel (24 hs). */
+  paidAt?: string;
+  paymentId?: string;
+  undoUntil?: string;
 }
 
 export type MonthlyPieceInput = Partial<
@@ -223,7 +227,7 @@ export type MonthlyPieceInput = Partial<
     MonthlyPiece,
     'pieceName' | 'bisque' | 'delivered' | 'notes' | 'extraCharge' | 'extraAmount' | 'paid'
   >
->;
+> & { paymentMethod?: string };
 
 /** Fila de la planilla del mes. */
 export interface MonthlyPieceRow {

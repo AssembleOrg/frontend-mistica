@@ -70,7 +70,10 @@ export function MonthlyPieceSection({ studentId, isAdmin }: { studentId: string;
               </span>
               {isAdmin && h.extraCharge && (
                 <span className={cn('rounded-full px-2 py-0.5', h.paid ? 'bg-[#E7F0EC]' : 'bg-[#fbe4e4] text-[#a33]')}>
-                  adicional {h.extraAmount ? `$${h.extraAmount}` : ''} {h.paid ? 'cobrado' : 'sin cobrar'}
+                  adicional {h.extraAmount ? `$${h.extraAmount}` : ''}{' '}
+                  {h.paid
+                    ? `cobrado${h.paidAt ? ` el ${new Date(h.paidAt).toLocaleDateString('es-AR')}` : ''}`
+                    : 'sin cobrar'}
                 </span>
               )}
             </button>

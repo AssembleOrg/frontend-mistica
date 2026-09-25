@@ -4,10 +4,20 @@
 // la planilla (Piezas del mes) y la ficha del alumno.
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, Undo2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import {
   tallerAdmin,
@@ -70,10 +80,12 @@ export function MonthlyPieceFields({
   compact?: boolean;
   onSaved?: (p: MonthlyPiece) => void;
 }) {
+  const confirm = useConfirm();
   const [name, setName] = useState(value?.pieceName ?? '');
   const [amount, setAmount] = useState(value?.extraAmount != null ? String(value.extraAmount) : '');
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(0);
+  const [cobro, setCobro] = useState(false);
 
   useEffect(() => {
     setName(value?.pieceName ?? '');
@@ -97,6 +109,36 @@ export function MonthlyPieceFields({
   const delivered = value?.delivered ?? false;
   const extra = value?.extraCharge ?? false;
   const paid = value?.paid ?? false;
+  const undoUntil = value?.undoUntil ? new Date(value.undoUntil).getTime() : 0;
+  const canUndo = paid && undoUntil > Date.now();
+
+  // Cobrar = crear el pago del alumno: pide confirmación (y cómo se cobró).
+  function onPaidChange(v: boolean) {
+    if (v) {
+      const monto = amount === '' ? value?.extraAmount : Number(amount);
+      if (!extra || !monto) {
+        showToast.error('Para cobrar, marcá el adicional y cargá el monto.');
+        return;
+      }
+      setCobro(true);
+      return;
+    }
+    void undoPaid();
+  }
+
+  async function undoPaid() {
+    if (!canUndo) {
+      showToast.error('Pasaron más de 24 hs del cobro: anulalo desde los pagos del alumno.');
+      return;
+    }
+    const ok = await confirm({
+      title: 'Deshacer cobro',
+      description: `Se anula el pago "Adicional pieza ${monthLabel(month).toLowerCase()}" del alumno y el adicional vuelve a quedar sin cobrar.`,
+      confirmLabel: 'Deshacer cobro',
+    });
+    if (!ok) return;
+    await save({ paid: false });
+  }
 
   const toggle = (label: string, on: boolean, onChange: (v: boolean) => void, tone?: 'rojo') => (
     <label className={cn('flex items-center gap-2 text-[13px] text-[#455a54]', compact && 'justify-center')}>
@@ -144,8 +186,33 @@ export function MonthlyPieceFields({
               />
             )}
           </div>
-          {toggle('Cobrado', paid, (v) => void save({ paid: v }))}
+          <div className={cn('flex items-center gap-2', compact && 'justify-center')}>
+            {toggle('Cobrado', paid, onPaidChange)}
+            {canUndo && (
+              <button
+                type='button'
+                onClick={() => void undoPaid()}
+                title='Deshacer el cobro (anula el pago del alumno). Disponible 24 hs.'
+                className='inline-flex items-center gap-1 rounded-full border border-[#e6dbcd] bg-white px-2 py-0.5 text-[11px] text-[#9d684e] hover:bg-[#fbf5ef]'
+              >
+                <Undo2 className='h-3 w-3' />
+                {!compact && 'Deshacer'}
+              </button>
+            )}
+          </div>
         </>
+      )}
+      {cobro && (
+        <CobroDialog
+          amount={amount === '' ? (value?.extraAmount ?? 0) : Number(amount)}
+          month={month}
+          pieceName={name || value?.pieceName || ''}
+          onClose={() => setCobro(false)}
+          onConfirm={async (method) => {
+            setCobro(false);
+            await save({ paid: true, paymentMethod: method });
+          }}
+        />
       )}
       {!compact && (
         <span className='flex items-center gap-1.5 text-xs text-[#7a6e6f] sm:col-span-2'>
@@ -163,5 +230,66 @@ export function MonthlyPieceFields({
         </span>
       )}
     </div>
+  );
+}
+
+const METODOS = ['Efectivo', 'Transferencia', 'Tarjeta', 'Mercado Pago'];
+
+/** Confirmación del cobro del adicional: crea el pago del alumno. */
+function CobroDialog({
+  amount,
+  month,
+  pieceName,
+  onClose,
+  onConfirm,
+}: {
+  amount: number;
+  month: string;
+  pieceName: string;
+  onClose: () => void;
+  onConfirm: (method: string) => void | Promise<void>;
+}) {
+  const [method, setMethod] = useState(METODOS[0]);
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>Cobrar adicional</DialogTitle>
+          <DialogDescription>
+            Se registra un pago del alumno por <b>${amount.toLocaleString('es-AR')}</b> con el concepto
+            “Adicional pieza {monthLabel(month).toLowerCase()}”{pieceName ? ` (${pieceName})` : ''}. Queda en su
+            historial de pagos. Se puede deshacer durante 24 hs.
+          </DialogDescription>
+        </DialogHeader>
+        <div className='flex flex-col gap-1.5'>
+          <span className='text-[13px] font-medium text-[#455a54]'>Cómo se cobró</span>
+          <div className='grid grid-cols-2 gap-2'>
+            {METODOS.map((m) => (
+              <button
+                key={m}
+                type='button'
+                onClick={() => setMethod(m)}
+                className={cn(
+                  'rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  method === m
+                    ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                    : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
+                )}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type='button' variant='outline' onClick={onClose} className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54]'>
+            Cancelar
+          </Button>
+          <Button type='button' variant='verde' onClick={() => void onConfirm(method)}>
+            Registrar cobro
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

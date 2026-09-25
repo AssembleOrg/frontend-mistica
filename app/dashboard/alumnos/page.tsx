@@ -4,6 +4,15 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AlumnosPanel } from '@/components/dashboard/alumnos/alumnos-panel';
 import { GruposPanel } from '@/components/dashboard/alumnos/grupos-panel';
+import { PiezasMesPanel } from '@/components/dashboard/alumnos/piezas-mes-panel';
+
+type Tab = 'grupos' | 'alumnos' | 'piezas';
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'grupos', label: 'Grupos y clases' },
+  { key: 'alumnos', label: 'Alumnos' },
+  { key: 'piezas', label: 'Piezas del mes' },
+];
+const isTab = (t: string | null): t is Tab => TABS.some((x) => x.key === t);
 
 export default function AlumnosPage() {
   return (
@@ -15,14 +24,15 @@ export default function AlumnosPage() {
 
 function AlumnosPageInner() {
   const params = useSearchParams();
-  // Deep-link desde la Agenda: ?tab=grupos&group=<id> abre grupos y su grupo.
-  const initialTab = params.get('tab') === 'grupos' ? 'grupos' : 'alumnos';
+  // Grupos y clases es la vista del día a día: va por defecto. Deep-link desde
+  // la Agenda: ?tab=grupos&group=<id> abre grupos y su grupo.
+  const queryTab = params.get('tab');
   const focusGroup = params.get('group') || undefined;
-  const [tab, setTab] = useState<'alumnos' | 'grupos'>(initialTab);
+  const [tab, setTab] = useState<Tab>(isTab(queryTab) ? queryTab : 'grupos');
 
   useEffect(() => {
-    if (params.get('tab') === 'grupos') setTab('grupos');
-  }, [params]);
+    if (isTab(queryTab)) setTab(queryTab);
+  }, [queryTab]);
   const chip = (on: boolean) =>
     `rounded-lg border px-4 py-2 text-sm font-semibold transition ${
       on
@@ -41,15 +51,16 @@ function AlumnosPageInner() {
           y gestión de grupos, talleres y clases con su asistencia.
         </p>
       </div>
-      <div className='flex gap-2'>
-        <button type='button' className={chip(tab === 'alumnos')} onClick={() => setTab('alumnos')}>
-          Alumnos
-        </button>
-        <button type='button' className={chip(tab === 'grupos')} onClick={() => setTab('grupos')}>
-          Grupos y clases
-        </button>
+      <div className='flex flex-wrap gap-2'>
+        {TABS.map((t) => (
+          <button key={t.key} type='button' className={chip(tab === t.key)} onClick={() => setTab(t.key)}>
+            {t.label}
+          </button>
+        ))}
       </div>
-      {tab === 'alumnos' ? <AlumnosPanel /> : <GruposPanel focusGroupId={focusGroup} />}
+      {tab === 'grupos' && <GruposPanel focusGroupId={focusGroup} />}
+      {tab === 'alumnos' && <AlumnosPanel />}
+      {tab === 'piezas' && <PiezasMesPanel />}
     </div>
   );
 }

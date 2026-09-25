@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { DateInput } from '@/components/ui/date-input';
 import { ClientsService, type Client } from '@/services/clients.service';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
+import { MonthlyPieceSection } from './monthly-piece-section';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
@@ -907,6 +908,9 @@ function StudentDetailDialog({
                     ))}
                   </div>
                 )}
+
+                <span className='text-sm font-semibold text-[#455a54]'>Pieza del mes</span>
+                <MonthlyPieceSection studentId={student._id} isAdmin={isAdmin} />
 
                 <span className='text-sm font-semibold text-[#455a54]'>Piezas</span>
                 {practical.pieces.length === 0 ? (

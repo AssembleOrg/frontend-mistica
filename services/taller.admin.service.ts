@@ -205,6 +205,33 @@ export interface ShoppingItem {
   createdAt: string;
 }
 
+/** Pieza del mes de un alumno (una por mes). Adicional/cobro sólo llegan al admin. */
+export interface MonthlyPiece {
+  _id: string;
+  month: string; // 'YYYY-MM'
+  pieceName: string;
+  bisque: boolean; // true = bizcocho, false = fresca
+  delivered: boolean;
+  notes?: string;
+  extraCharge?: boolean;
+  extraAmount?: number;
+  paid?: boolean;
+}
+
+export type MonthlyPieceInput = Partial<
+  Pick<
+    MonthlyPiece,
+    'pieceName' | 'bisque' | 'delivered' | 'notes' | 'extraCharge' | 'extraAmount' | 'paid'
+  >
+>;
+
+/** Fila de la planilla del mes. */
+export interface MonthlyPieceRow {
+  student: { _id: string; name: string };
+  groups: Array<{ name: string; schedule: GroupSlot[] }>;
+  piece: MonthlyPiece | null;
+}
+
 type Json = Record<string, unknown>;
 
 // ── API ────────────────────────────────────────────────────────────────────
@@ -253,6 +280,37 @@ export const tallerAdmin = {
     (
       await apiService.get<StudentPracticalProfile>(
         `/students/${id}/practical`,
+      )
+    ).data,
+
+  // Pieza del mes
+  monthlyPieces: async (month: string) =>
+    (
+      await apiService.get<MonthlyPieceRow[]>(
+        `/students/monthly-pieces?month=${month}`,
+      )
+    ).data,
+  monthlyPiecesOf: async (studentId: string) =>
+    (
+      await apiService.get<MonthlyPiece[]>(
+        `/students/${studentId}/monthly-pieces`,
+      )
+    ).data,
+  saveMonthlyPiece: async (
+    studentId: string,
+    month: string,
+    input: MonthlyPieceInput,
+  ) =>
+    (
+      await apiService.put<MonthlyPiece>(
+        `/students/${studentId}/monthly-pieces/${month}`,
+        input as unknown as Json,
+      )
+    ).data,
+  removeMonthlyPiece: async (studentId: string, month: string) =>
+    (
+      await apiService.delete<{ success: boolean }>(
+        `/students/${studentId}/monthly-pieces/${month}`,
       )
     ).data,
 

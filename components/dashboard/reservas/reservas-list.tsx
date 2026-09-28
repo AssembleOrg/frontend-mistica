@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Ban, CalendarClock, CheckCircle2, Search, Wallet } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -30,15 +30,18 @@ import {
   type ReservationItem,
   type ReservationPaymentMethod,
 } from '@/services/reservations.admin.service';
-import {
-  reservationsPublic,
-  type AvailableShift,
-} from '@/services/reservations.public.service';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 import { DietaryTags } from './dietary-badge';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import type { Client } from '@/services/clients.service';
 import { ReservationDetailPanel } from './reservation-detail-panel';
+import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
+import {
+  SALON_CLOSE,
+  SALON_OPEN,
+  SlotPicker,
+  useSlotPicker,
+} from './slot-picker';
 
 const LIMIT = 20;
 
@@ -408,7 +411,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                   </span>
                   <div className='text-sm'>
                     <p className='font-medium text-[#3d3338]'>
-                      {fmtPrice(r.amount ?? 0)}
+                      {fmtPrice(r.totalAmount ?? r.amount ?? 0)}
                     </p>
                     {r.balanceDue != null && r.balanceDue > 0 && (
                       <p className='text-[11px] text-[#7a6e6f]'>
@@ -484,7 +487,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                   <span className='text-[#455a54]'>{r.quantity} pers.</span>
                   <span className='text-[#c3b7a4]'>·</span>
                   <span className='font-medium text-[#3d3338]'>
-                    {fmtPrice(r.amount ?? 0)}
+                    {fmtPrice(r.totalAmount ?? r.amount ?? 0)}
                   </span>
                   {r.balanceDue != null && r.balanceDue > 0 && (
                     <span className='text-[11px] text-[#9d684e]'>
@@ -576,28 +579,8 @@ export function NewReservationModal({
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
-  // Ventana del salón (espejo de BUSINESS_OPEN/CLOSE del backend, que valida).
-  const OPEN = '15:00';
-  const CLOSE = '20:00';
-  const toMin = (hhmm: string) => {
-    const [h, m] = hhmm.split(':').map(Number);
-    return h * 60 + m;
-  };
-  const fromMin = (min: number) =>
-    `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
-
-  const [expId, setExpId] = useState('');
-  const [slots, setSlots] = useState<AvailableShift[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
-  const [day, setDay] = useState('');
-  /** Hora elegida: una sugerida del día o la libre tipeada. */
-  const [time, setTime] = useState('');
-  const [freeTime, setFreeTime] = useState('');
-  const [check, setCheck] = useState<{
-    status: 'idle' | 'checking' | 'ok' | 'no';
-    maxPartySize?: number;
-    message?: string;
-  }>({ status: 'idle' });
+  const picker = useSlotPicker(experiences);
+  const { expId, day, time, maxParty, unit } = picker;
 
   const [qty, setQty] = useState('1');
   // Cliente existente (buscador) o, si no está, nombre + teléfono a mano.
@@ -606,124 +589,16 @@ export function NewReservationModal({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  // Cobrar todo o una parte (seña); el resto queda como saldo.
+  const [chargeMode, setChargeMode] = useState<ChargeMode>('total');
+  const [chargeAmount, setChargeAmount] = useState('');
   // Cumpleaños: el backend aplica los beneficios (regalos, lugares
   // bonificados) sobre el precio de la experiencia elegida.
   const [isBday, setIsBday] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const exp = experiences.find((e) => e._id === expId) ?? null;
-  const duration = exp?.durationMinutes ?? 120;
-  const latestStart = fromMin(toMin(CLOSE) - duration);
-
-  // Días y horarios sugeridos con lugar, agrupados por día.
-  useEffect(() => {
-    if (!expId) {
-      setSlots([]);
-      setDay('');
-      return;
-    }
-    let alive = true;
-    setSlotsLoading(true);
-    reservationsPublic
-      .availability(expId, 21)
-      .then((rows) => {
-        if (!alive) return;
-        setSlots(rows);
-        setDay((d) => d || rows[0]?.dateKey || '');
-      })
-      .catch(() => {
-        if (alive) setSlots([]);
-      })
-      .finally(() => {
-        if (alive) setSlotsLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [expId]);
-
-  useEffect(() => {
-    setTime('');
-    setFreeTime('');
-    setCheck({ status: 'idle' });
-  }, [expId, day]);
-
-  const days = useMemo(() => {
-    const seen = new Map<string, AvailableShift>();
-    for (const sl of slots) {
-      if (!seen.has(sl.dateKey)) seen.set(sl.dateKey, sl);
-    }
-    return [...seen.values()];
-  }, [slots]);
-  const daySlots = useMemo(
-    () => slots.filter((sl: AvailableShift) => sl.dateKey === day),
-    [slots, day],
-  );
-  const selectedSlot = daySlots.find((sl) => sl.startTime === time) ?? null;
-
-  // Hora libre: verificación EN VIVO contra las mesas (con limpieza y cierre).
-  useEffect(() => {
-    if (!expId || !day || !freeTime) {
-      if (!time) setCheck({ status: 'idle' });
-      return;
-    }
-    if (toMin(freeTime) < toMin(OPEN) || freeTime > latestStart) {
-      setCheck({
-        status: 'no',
-        message: `Podés empezar entre las ${OPEN} y las ${latestStart} (dura ${duration} min, cerramos ${CLOSE}).`,
-      });
-      return;
-    }
-    let alive = true;
-    setCheck({ status: 'checking' });
-    const t = setTimeout(() => {
-      reservationsPublic
-        .previewTables({
-          experienceId: expId,
-          date: day,
-          startTime: freeTime,
-          quantity: 1,
-        })
-        .then((res) => {
-          if (!alive) return;
-          if (res.fits) {
-            setCheck({ status: 'ok', maxPartySize: res.maxPartySize });
-            setTime(freeTime);
-          } else {
-            setCheck({
-              status: 'no',
-              message: 'A esa hora no quedan mesas. Probá otro horario.',
-            });
-          }
-        })
-        .catch(() => {
-          if (alive)
-            setCheck({
-              status: 'no',
-              message: 'No se pudo verificar ese horario.',
-            });
-        });
-    }, 350);
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [freeTime, expId, day, duration, latestStart]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const quantity = Math.max(1, Number(qty) || 1);
-  const maxParty = selectedSlot
-    ? selectedSlot.maxPartySize
-    : check.status === 'ok'
-      ? (check.maxPartySize ?? 12)
-      : null;
-  const unit = selectedSlot?.price ?? exp?.basePrice ?? 0;
   const total = unit * quantity;
-
-  const fmtDayChip = (dateKey: string) => {
-    const d = new Date(`${dateKey}T12:00:00Z`);
-    const wd = ['DOM', 'LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB'][d.getUTCDay()];
-    return `${wd} ${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
-  };
 
   async function submit() {
     if (!expId) return showToast.error('Elegí una experiencia');
@@ -732,6 +607,8 @@ export function NewReservationModal({
       return showToast.error('Elegí un cliente o ingresá el nombre');
     if (maxParty != null && quantity > maxParty)
       return showToast.error(`A esa hora entran hasta ${maxParty} personas`);
+    const charge = partialAmount(chargeMode, chargeAmount, total);
+    if (charge.error) return showToast.error(charge.error);
     setSaving(true);
     try {
       await reservationsAdmin.createReservation({
@@ -751,6 +628,7 @@ export function NewReservationModal({
               customerPhone: phone.trim() || undefined,
             }),
         paymentMethod: method,
+        amount: charge.amount,
         isBirthday: isBday || undefined,
       });
       showToast.success('Reserva creada');
@@ -766,143 +644,19 @@ export function NewReservationModal({
 
   const field =
     'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
-  const chip = (on: boolean) =>
-    cn(
-      'rounded-lg border px-3 py-2 text-[13px] font-semibold transition-colors',
-      on
-        ? 'border-[#455a54] bg-[#455a54] text-white'
-        : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-    );
-
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader>
           <DialogTitle>Nueva reserva</DialogTitle>
           <DialogDescription>
-            El horario es libre entre las {OPEN} y las {CLOSE}; los destacados
+            El horario es libre entre las {SALON_OPEN} y las {SALON_CLOSE}; los destacados
             son los turnos sugeridos.
           </DialogDescription>
         </DialogHeader>
 
         <div className='space-y-3'>
-          {/* 1 · Experiencia */}
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>
-              1 · Experiencia
-            </label>
-            <select
-              value={expId}
-              onChange={(e) => setExpId(e.target.value)}
-              className={cn(
-                'h-10 w-full rounded-md border px-3 text-sm sm:h-9',
-                field,
-              )}
-            >
-              <option value=''>Elegí una experiencia…</option>
-              {experiences
-                .filter((e) => e.bookableOnline !== false)
-                .map((e) => (
-                  <option key={e._id} value={e._id}>
-                    {e.name} · {e.durationMinutes} min
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {/* 2 · Día */}
-          {expId && (
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>
-                2 · Día
-              </label>
-              {slotsLoading ? (
-                <p className='text-sm text-[#7a6e6f]'>Buscando fechas…</p>
-              ) : days.length === 0 ? (
-                <p className='text-sm text-[#7a6e6f]'>
-                  Sin fechas con lugar en las próximas semanas.
-                </p>
-              ) : (
-                <div className='flex gap-1.5 overflow-x-auto pb-1'>
-                  {days.map((d) => (
-                    <button
-                      key={d.dateKey}
-                      type='button'
-                      onClick={() => setDay(d.dateKey)}
-                      className={cn(
-                        chip(d.dateKey === day),
-                        'shrink-0 font-mono text-[12px]',
-                      )}
-                    >
-                      {fmtDayChip(d.dateKey)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 3 · Horario: sugeridos + hora libre */}
-          {expId && day && (
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>
-                3 · Horario
-              </label>
-              <div className='flex flex-wrap items-center gap-1.5'>
-                {daySlots.map((sl) => (
-                  <button
-                    key={sl.startTime}
-                    type='button'
-                    onClick={() => {
-                      setTime(sl.startTime);
-                      setFreeTime('');
-                      setCheck({ status: 'idle' });
-                    }}
-                    className={chip(time === sl.startTime && !freeTime)}
-                    title={`${sl.shiftName ?? 'Horario sugerido'} · hasta ${sl.maxPartySize} personas`}
-                  >
-                    {sl.startTime}
-                    <span className='ml-1.5 text-xs font-normal opacity-70'>
-                      {sl.shiftName ?? 'sugerido'}
-                    </span>
-                  </button>
-                ))}
-                <span className='mx-1 text-[12px] text-[#a99f92]'>
-                  u otra hora:
-                </span>
-                <Input
-                  type='time'
-                  value={freeTime}
-                  min={OPEN}
-                  max={latestStart}
-                  step={300}
-                  onChange={(e) => setFreeTime(e.target.value)}
-                  className={cn('h-9 w-28', field)}
-                />
-              </div>
-              {selectedSlot && !freeTime && (
-                <p className='text-[12px] font-medium text-[#455a54]'>
-                  {selectedSlot.startTime}–
-                  {fromMin(toMin(selectedSlot.startTime) + duration)} · entran
-                  hasta {selectedSlot.maxPartySize} personas
-                </p>
-              )}
-              {check.status === 'checking' && (
-                <p className='text-[12px] text-[#7a6e6f]'>Verificando mesas…</p>
-              )}
-              {check.status === 'ok' && freeTime && (
-                <p className='text-[12px] font-medium text-[#455a54]'>
-                  ¡Hay lugar! {freeTime}–{fromMin(toMin(freeTime) + duration)} ·
-                  entran hasta {check.maxPartySize} personas
-                </p>
-              )}
-              {check.status === 'no' && (
-                <p className='text-[12px] font-medium text-[#a33]'>
-                  {check.message}
-                </p>
-              )}
-            </div>
-          )}
+          <SlotPicker picker={picker} experiences={experiences} />
 
           {/* 4 · Personas y datos */}
           <div className='grid grid-cols-2 gap-3'>
@@ -998,6 +752,14 @@ export function NewReservationModal({
               })}
             </div>
           </div>
+
+          <ChargeNow
+            total={total}
+            mode={chargeMode}
+            onModeChange={setChargeMode}
+            amount={chargeAmount}
+            onAmountChange={setChargeAmount}
+          />
 
           <button
             type='button'
@@ -1217,7 +979,7 @@ export function RescheduleModal({
   );
 }
 
-// ─────────────────────────── Cobrar saldo (sin cambios de lógica) ───────────────────────────
+// ─────────────────────────── Cobrar saldo (todo o una parte) ───────────────────────────
 
 export function CollectBalanceModal({
   reservation,
@@ -1232,11 +994,16 @@ export function CollectBalanceModal({
   const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
   const [amount, setAmount] = useState<string>(String(balance));
   const [saving, setSaving] = useState(false);
+  const value = Number(amount) || 0;
+  const remaining = Math.max(0, balance - value);
 
   async function submit() {
-    const value = Number(amount);
     if (!value || value <= 0) {
       showToast.error('Ingresá un monto válido');
+      return;
+    }
+    if (value > balance) {
+      showToast.error(`El saldo es ${fmtPrice(balance)}`);
       return;
     }
     setSaving(true);
@@ -1244,7 +1011,11 @@ export function CollectBalanceModal({
       await reservationsAdmin.collectBalance(reservation._id, [
         { method, amount: value },
       ]);
-      showToast.success('Saldo cobrado');
+      showToast.success(
+        remaining > 0
+          ? `Cobro registrado · queda ${fmtPrice(remaining)}`
+          : 'Saldo cobrado',
+      );
       await onDone();
     } catch (e) {
       showToast.error(
@@ -1298,10 +1069,16 @@ export function CollectBalanceModal({
             </label>
             <Input
               type='number'
+              inputMode='decimal'
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
             />
+            <p className='text-[12px] text-[#7a6e6f]'>
+              {remaining > 0 && value > 0
+                ? `Cobro parcial: queda ${fmtPrice(remaining)} de saldo para después.`
+                : 'Podés cobrar una parte; el resto queda como saldo.'}
+            </p>
           </div>
         </div>
 

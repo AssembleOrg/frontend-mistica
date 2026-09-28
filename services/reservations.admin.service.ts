@@ -241,6 +241,24 @@ export const reservationsAdmin = {
     ).data,
 
   // Reservas
+  /** Agenda una venta del local: reserva vinculada, sin cobrar de nuevo. */
+  scheduleSale: async (
+    saleId: string,
+    input: {
+      experienceId: string;
+      date: string;
+      startTime: string;
+      quantity: number;
+      isBirthday?: boolean;
+      notes?: string;
+    },
+  ) =>
+    (
+      await apiService.post<ReservationItem>(
+        `/admin/reservations/from-sale/${saleId}`,
+        input as unknown as Record<string, unknown>,
+      )
+    ).data,
   createReservation: async (input: AdminCreateReservationInput) =>
     (
       await apiService.post<ReservationItem>(
@@ -313,7 +331,8 @@ export const reservationsAdmin = {
     (
       await apiService.post<ReservationItem>(
         `/admin/reservations/${id}/collect-balance`,
-        { payments, markCompleted: true },
+        // El backend cierra la venta cuando el saldo llega a 0.
+        { payments },
       )
     ).data,
 };

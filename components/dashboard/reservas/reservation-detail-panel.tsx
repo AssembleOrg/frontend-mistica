@@ -105,10 +105,16 @@ export function ReservationDetailPanel({
 
   const [bg, fg] = RESERVATION_STATUS_COLOR[r.status] ?? ['#f1ede6', '#7a6e6f'];
   const total = r.totalAmount ?? r.amount ?? 0;
-  const deposit = r.depositAmount;
   const balance = r.balanceDue;
+  // Cobrado = total − saldo: suma la seña y los cobros de saldo posteriores.
+  const paid =
+    r.paymentMethod === 'COURTESY'
+      ? null
+      : balance != null
+        ? Math.max(0, total - balance)
+        : (r.depositAmount ?? null);
   const pct =
-    deposit != null && total > 0 ? Math.round((deposit / total) * 100) : null;
+    paid != null && total > 0 ? Math.round((paid / total) * 100) : null;
 
   const canConfirm = r.status === 'NEEDS_REVIEW';
   const canCollect = balance != null && balance > 0 && r.status === 'CONFIRMED';
@@ -210,10 +216,10 @@ export function ReservationDetailPanel({
           <Section title='PAGO'>
             <div className='flex flex-col gap-2.5 rounded-xl bg-[#fbf5ef] p-4'>
               <AmountRow k='Total experiencia' v={fmtPrice(total)} />
-              {deposit != null && (
+              {paid != null && (
                 <AmountRow
-                  k={`Seña pagada${pct != null ? ` (${pct}%)` : ''}`}
-                  v={fmtPrice(deposit)}
+                  k={`Cobrado${pct != null ? ` (${pct}%)` : ''}`}
+                  v={fmtPrice(paid)}
                   vColor='#455a54'
                 />
               )}
@@ -230,7 +236,7 @@ export function ReservationDetailPanel({
               )}
             </div>
             <div className='mt-2.5 flex items-center justify-between'>
-              <span className='text-[13px] text-[#7a6e6f]'>Método de seña</span>
+              <span className='text-[13px] text-[#7a6e6f]'>Medio de pago</span>
               <span className='inline-flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
                 <PaymentIcon method={r.paymentMethod} />
                 <span className='text-[13px] font-medium text-[#3d3338]'>

@@ -37,6 +37,7 @@ import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
 import { CashboxCta } from '@/components/dashboard/cashbox/cashbox-cta';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { InstallAppButton } from '@/components/pwa/install-app-button';
 
 const SIDEBAR_STYLE = {
   '--sidebar-background': '#efcbb9',
@@ -183,6 +184,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter>
         <SidebarMenu>
+          <InstallAppButton />
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleLogout}

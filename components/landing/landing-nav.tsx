@@ -60,8 +60,8 @@ export function LandingNav({ onReservar }: { onReservar: () => void }) {
           />
         </Link>
 
-        {/* Links desktop */}
-        <div className='hidden items-center gap-6 sm:flex sm:gap-9'>
+        {/* Links desktop (desde lg: en tablet vertical no entran y "Acceso" quedaba afuera) */}
+        <div className='hidden items-center gap-7 whitespace-nowrap lg:flex lg:gap-9'>
           {LINKS.map(([label, href]) => (
             <a
               key={label}
@@ -92,8 +92,8 @@ export function LandingNav({ onReservar }: { onReservar: () => void }) {
           </Link>
         </div>
 
-        {/* Acciones mobile: Reservar + burger */}
-        <div className='flex items-center gap-3 sm:hidden'>
+        {/* Acciones mobile y tablet: Reservar + burger */}
+        <div className='flex items-center gap-3 lg:hidden'>
           <button
             type='button'
             onClick={onReservar}
@@ -118,7 +118,7 @@ export function LandingNav({ onReservar }: { onReservar: () => void }) {
       {/* Overlay full-screen (mobile) — hermano del header, fuera de su
           stacking context, con fondo opaco y z encima del header. */}
       {menuOpen && (
-        <div className='menu-overlay fixed inset-0 z-[100] flex flex-col bg-arena sm:hidden'>
+        <div className='menu-overlay fixed inset-0 z-[100] flex flex-col bg-arena lg:hidden'>
           <div className='flex h-[68px] items-center justify-between px-6'>
             <Image
               src='/Logo-mistica.png'

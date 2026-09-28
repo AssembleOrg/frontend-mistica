@@ -18,6 +18,7 @@ import type { Client } from '@/services/clients.service';
 import { useAuth } from '@/hooks/useAuth';
 import { canSeeReservationDetails } from '@/lib/views';
 import { ReservationManager } from './reservation-manager';
+import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
 import {
   fmtDateTime,
   fmtPrice,
@@ -66,6 +67,9 @@ export function AnotadosModal({
   const [contact, setContact] = useState('');
   const [qty, setQty] = useState(1);
   const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  // Cobrar todo o una parte (seña); el resto queda como saldo.
+  const [chargeMode, setChargeMode] = useState<ChargeMode>('total');
+  const [chargeAmount, setChargeAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -95,6 +99,11 @@ export function AnotadosModal({
       showToast.error('Elegí un cliente o ingresá el nombre');
       return;
     }
+    const charge = isCourtesy ? {} : partialAmount(chargeMode, chargeAmount, total);
+    if (charge.error) {
+      showToast.error(charge.error);
+      return;
+    }
     const emailLike = contact.includes('@');
     setSaving(true);
     try {
@@ -114,8 +123,11 @@ export function AnotadosModal({
               customerPhone: emailLike ? undefined : contact.trim() || undefined,
             }),
         paymentMethod: method,
+        amount: charge.amount,
       });
       showToast.success('Reserva creada');
+      setChargeMode('total');
+      setChargeAmount('');
       setClient(null);
       setManual(false);
       setName('');
@@ -349,9 +361,18 @@ export function AnotadosModal({
                 );
               })}
             </div>
+            {!isCourtesy && (
+              <ChargeNow
+                total={total}
+                mode={chargeMode}
+                onModeChange={setChargeMode}
+                amount={chargeAmount}
+                onAmountChange={setChargeAmount}
+              />
+            )}
             <div className='flex items-center justify-between border-t border-[#e6dbcd] pt-3'>
               <span className='text-sm text-[#455a54]/60'>
-                {isCourtesy ? 'Sin cargo' : 'Total a cobrar'}
+                {isCourtesy ? 'Sin cargo' : 'Total'}
               </span>
               <span className='font-tan-nimbus text-xl font-semibold text-[#9d684e]'>
                 {fmtPrice(total)}

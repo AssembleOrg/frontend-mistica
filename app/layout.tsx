@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { PwaProvider } from '@/components/pwa/pwa-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
       { url: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     shortcut: '/web-app-manifest-192x192.png',
-    apple: '/web-app-manifest-192x192.png',
+    apple: [{ url: '/web-app-manifest-192x192.png', sizes: '192x192' }],
   },
 };
 
@@ -65,6 +66,7 @@ export default function RootLayout({
       >
         <ErrorBoundary>{children}</ErrorBoundary>
         <Toaster />
+        <PwaProvider />
       </body>
     </html>
   );

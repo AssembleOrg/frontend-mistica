@@ -17,6 +17,19 @@ const nextConfig: NextConfig = {
   //   - Funciona con private domain Railway server-side.
   //
   // URL del backend se lee de `process.env.BACKEND_URL` (server-only).
+
+  // El service worker de la PWA no se cachea: así un cambio llega al toque.
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

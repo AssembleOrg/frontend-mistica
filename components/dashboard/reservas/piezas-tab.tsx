@@ -42,9 +42,15 @@ import {
 import {
   tallerAdmin,
   type Group,
+  type MonthlyPiece,
   type Student,
 } from '@/services/taller.admin.service';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { Switch } from '@/components/ui/switch';
+import {
+  currentMonth,
+  monthLabel,
+} from '@/components/dashboard/alumnos/monthly-piece';
 import { useAuth } from '@/hooks/useAuth';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 
@@ -386,11 +392,11 @@ export function PiezasTab() {
               type='button'
               variant='outline'
               onClick={() => setCreatingGroup(true)}
-              title='Piezas de grupo'
+              title='Piezas de alumnos'
               className='shrink-0 gap-2 border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
             >
               <Users className='h-4 w-4' />
-              <span className='hidden sm:inline'>Piezas de grupo</span>
+              <span className='hidden sm:inline'>Piezas de alumnos</span>
             </Button>
           </div>
         </div>
@@ -986,6 +992,26 @@ export function NewPieceModal({
 }
 
 // Cargar piezas para los alumnos de un grupo de taller: una ficha por alumno.
+const METODOS_COBRO = ['Efectivo', 'Transferencia', 'Tarjeta', 'Mercado Pago'];
+
+type GroupEntry = {
+  studentId: string;
+  personName: string;
+  signature: string;
+  pieceType: string;
+  colorsUsed: string;
+  // Pieza del mes del alumno (la misma que se ve en Alumnos).
+  bisque: boolean;
+  extraCharge: boolean;
+  extraAmount: string;
+  /** Cobrar el adicional ahora (sólo admin): crea el pago del alumno. */
+  charge: boolean;
+  paymentMethod: string;
+};
+
+// Piezas de alumnos: se elige un grupo (o se busca un alumno) y se carga la
+// ficha de cada pieza. Además deja registrada la pieza del mes de cada alumno
+// (fresca/bizcocho, adicional y, para el admin, el cobro del adicional).
 function GroupPieceModal({
   onClose,
   onDone,
@@ -993,33 +1019,48 @@ function GroupPieceModal({
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const confirm = useConfirm();
+  const month = currentMonth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [studentsById, setStudentsById] = useState<Map<string, Student>>(
     new Map(),
   );
+  const [monthly, setMonthly] = useState<Map<string, MonthlyPiece>>(new Map());
   const [group, setGroup] = useState<Group | null>(null);
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [entries, setEntries] = useState<
-    Array<{
-      studentId: string;
-      personName: string;
-      signature: string;
-      pieceType: string;
-      colorsUsed: string;
-    }>
-  >([]);
+  const [entries, setEntries] = useState<GroupEntry[]>([]);
 
   useEffect(() => {
     let alive = true;
-    Promise.all([tallerAdmin.listGroups(), tallerAdmin.listStudents()])
-      .then(([gs, ss]) => {
+    Promise.all([
+      tallerAdmin.listGroups(),
+      tallerAdmin.listStudents(),
+      // La pieza del mes es un extra: si no carga, se registra igual.
+      tallerAdmin.monthlyPieces(month).catch(() => []),
+    ])
+      .then(([gs, ss, rows]) => {
         if (!alive) return;
         setGroups(gs.filter((g) => g.isActive));
         setStudentsById(new Map(ss.map((s) => [s._id, s])));
+        setMonthly(
+          new Map(
+            rows
+              .filter((r) => r.piece)
+              .map((r) => [r.student._id, r.piece as MonthlyPiece]),
+          ),
+        );
       })
-      .catch(() => {
-        if (alive) showToast.error('No se pudieron cargar los grupos');
+      .catch((e) => {
+        if (alive)
+          showToast.error(
+            e instanceof Error
+              ? `No se pudieron cargar los grupos: ${e.message}`
+              : 'No se pudieron cargar los grupos',
+          );
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -1027,25 +1068,49 @@ function GroupPieceModal({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [month]);
 
-  function selectGroup(g: Group) {
+  const q = query.trim().toLowerCase();
+  const visibleGroups = q
+    ? groups.filter((g) => g.name.toLowerCase().includes(q))
+    : groups;
+  // Búsqueda por alumno: una fila por (alumno, grupo) donde cursa.
+  const studentHits = q
+    ? groups.flatMap((g) =>
+        g.studentIds
+          .map((id) => studentsById.get(id))
+          .filter((s): s is Student => !!s && s.name.toLowerCase().includes(q))
+          .map((s) => ({ student: s, group: g })),
+      )
+    : [];
+
+  function entryFor(id: string): GroupEntry {
+    const mp = monthly.get(id);
+    return {
+      studentId: id,
+      personName: studentsById.get(id)?.name ?? '',
+      signature: '',
+      pieceType: '',
+      colorsUsed: '',
+      bisque: mp?.bisque ?? false,
+      extraCharge: mp?.extraCharge ?? false,
+      extraAmount: mp?.extraAmount != null ? String(mp.extraAmount) : '',
+      charge: false,
+      paymentMethod: METODOS_COBRO[0],
+    };
+  }
+
+  function selectGroup(g: Group, onlyStudentId?: string) {
     setGroup(g);
     setEntries(
-      g.studentIds.map((id) => ({
-        studentId: id,
-        personName: studentsById.get(id)?.name ?? '',
-        signature: '',
-        pieceType: '',
-        colorsUsed: '',
-      })),
+      (onlyStudentId ? [onlyStudentId] : g.studentIds).map((id) => entryFor(id)),
     );
   }
 
-  function updateEntry(
+  function updateEntry<K extends keyof GroupEntry>(
     index: number,
-    key: 'personName' | 'signature' | 'pieceType' | 'colorsUsed',
-    value: string,
+    key: K,
+    value: GroupEntry[K],
   ) {
     setEntries((cur) =>
       cur.map((e, i) => (i === index ? { ...e, [key]: value } : e)),
@@ -1067,6 +1132,20 @@ function GroupPieceModal({
         'Completá nombre, firma, pieza y colores de cada ficha (o quitá los alumnos que no hicieron pieza)',
       );
     }
+    const toCharge = entries.filter((e) => isAdmin && e.extraCharge && e.charge);
+    if (toCharge.some((e) => !(Number(e.extraAmount) > 0))) {
+      return showToast.error('Para cobrar el adicional cargá el monto.');
+    }
+    if (toCharge.length > 0) {
+      const sum = toCharge.reduce((n, e) => n + Number(e.extraAmount), 0);
+      const ok = await confirm({
+        title: 'Cobrar adicionales',
+        description: `Se registra${toCharge.length > 1 ? 'n' : ''} ${toCharge.length} cobro(s) de adicional por $${sum.toLocaleString('es-AR')} en total, con el concepto "Adicional pieza ${monthLabel(month).toLowerCase()}". Quedan en los pagos de cada alumno y se pueden deshacer durante 24 hs desde Alumnos.`,
+        confirmLabel: 'Registrar',
+      });
+      if (!ok) return;
+    }
+
     setSaving(true);
     try {
       await piecesAdmin.createGroupBatch(
@@ -1079,56 +1158,124 @@ function GroupPieceModal({
           colorsUsed: e.colorsUsed.trim(),
         })),
       );
-      showToast.success(`${entries.length} ficha(s) cargadas al grupo`);
-      await onDone();
     } catch (e) {
       showToast.error(
         e instanceof Error ? e.message : 'No se pudieron registrar las piezas',
       );
-    } finally {
       setSaving(false);
+      return;
     }
+
+    // Pieza del mes de cada alumno. Si ya tenía una cargada este mes, no se
+    // le pisa el nombre; un adicional ya cobrado no se vuelve a cobrar.
+    const results = await Promise.allSettled(
+      entries.map((e) => {
+        const mp = monthly.get(e.studentId);
+        const amount = Number(e.extraAmount);
+        return tallerAdmin.saveMonthlyPiece(e.studentId, month, {
+          ...(!mp?.pieceName && { pieceName: e.pieceType.trim() }),
+          bisque: e.bisque,
+          ...(isAdmin &&
+            !mp?.paid && {
+              extraCharge: e.extraCharge,
+              ...(e.extraCharge && amount > 0 && { extraAmount: amount }),
+              ...(e.extraCharge &&
+                e.charge && { paid: true, paymentMethod: e.paymentMethod }),
+            }),
+        });
+      }),
+    );
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed > 0) {
+      showToast.error(
+        `Las fichas se cargaron, pero ${failed} pieza(s) del mes no se pudieron guardar. Revisalas en Alumnos → Piezas del mes.`,
+      );
+    } else {
+      showToast.success(
+        `${entries.length} ficha(s) cargadas${toCharge.length ? ` · ${toCharge.length} adicional(es) cobrado(s)` : ''}`,
+      );
+    }
+    setSaving(false);
+    await onDone();
   }
+
+  const listRow =
+    'flex w-full items-center justify-between gap-3 border-b border-[#e6dbcd] px-4 py-3 text-left last:border-0 hover:bg-[#fbf5ef]';
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className='sm:max-w-3xl'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
-            Registrar piezas de un grupo
+            Registrar piezas de alumnos
           </DialogTitle>
         </DialogHeader>
 
         <div className='flex flex-col gap-4'>
           {!group ? (
-            <div className='max-h-72 overflow-y-auto rounded-xl border border-[#e6dbcd]'>
-              {loading ? (
-                <p className='p-4 text-sm text-[#7a6e6f]'>Cargando grupos…</p>
-              ) : groups.length === 0 ? (
-                <p className='p-4 text-sm text-[#7a6e6f]'>
-                  No hay grupos activos.
-                </p>
-              ) : (
-                groups.map((g) => (
-                  <button
-                    key={g._id}
-                    type='button'
-                    onClick={() => selectGroup(g)}
-                    className='flex w-full items-center justify-between gap-3 border-b border-[#e6dbcd] px-4 py-3 text-left last:border-0 hover:bg-[#fbf5ef]'
-                  >
-                    <span>
-                      <span className='block text-sm font-semibold text-[#3d3338]'>
-                        {g.name}
-                      </span>
-                      <span className='block text-xs text-[#7a6e6f]'>
-                        {g.professorName ? `${g.professorName} · ` : ''}
-                        {g.studentIds.length} alumno(s)
-                      </span>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
+            <>
+              <div className='relative'>
+                <Search className='pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7a6e6f]' />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder='Buscar grupo o alumno…'
+                  className={cn('pl-9', fieldCls)}
+                  autoFocus
+                />
+              </div>
+              <div className='max-h-72 overflow-y-auto rounded-xl border border-[#e6dbcd]'>
+                {loading ? (
+                  <p className='p-4 text-sm text-[#7a6e6f]'>Cargando grupos…</p>
+                ) : groups.length === 0 ? (
+                  <p className='p-4 text-sm text-[#7a6e6f]'>
+                    No hay grupos activos.
+                  </p>
+                ) : visibleGroups.length === 0 && studentHits.length === 0 ? (
+                  <p className='p-4 text-sm text-[#7a6e6f]'>
+                    Sin resultados para “{query}”.
+                  </p>
+                ) : (
+                  <>
+                    {studentHits.map(({ student, group: g }) => (
+                      <button
+                        key={`${student._id}-${g._id}`}
+                        type='button'
+                        onClick={() => selectGroup(g, student._id)}
+                        className={listRow}
+                      >
+                        <span>
+                          <span className='block text-sm font-semibold text-[#3d3338]'>
+                            {student.name}
+                          </span>
+                          <span className='block text-xs text-[#7a6e6f]'>
+                            Alumno · {g.name}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                    {visibleGroups.map((g) => (
+                      <button
+                        key={g._id}
+                        type='button'
+                        onClick={() => selectGroup(g)}
+                        className={listRow}
+                      >
+                        <span>
+                          <span className='block text-sm font-semibold text-[#3d3338]'>
+                            {g.name}
+                          </span>
+                          <span className='block text-xs text-[#7a6e6f]'>
+                            {g.professorName ? `${g.professorName} · ` : ''}
+                            {g.studentIds.length} alumno(s)
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </>
           ) : (
             <>
               <div className='flex items-center justify-between rounded-xl border border-[#455a54]/30 bg-[#E7F0EC] px-4 py-3'>
@@ -1138,7 +1285,8 @@ function GroupPieceModal({
                   </p>
                   <p className='text-xs text-[#7a6e6f]'>
                     {group.professorName ?? 'Sin profesor'} ·{' '}
-                    {entries.length} ficha(s)
+                    {entries.length} ficha(s) · pieza de{' '}
+                    {monthLabel(month).toLowerCase()}
                   </p>
                 </div>
                 <button
@@ -1146,7 +1294,7 @@ function GroupPieceModal({
                   onClick={() => setGroup(null)}
                   className='text-xs font-semibold text-[#9d684e] hover:underline'
                 >
-                  Cambiar grupo
+                  Cambiar
                 </button>
               </div>
 
@@ -1157,71 +1305,176 @@ function GroupPieceModal({
                 </p>
               ) : (
                 <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>
-                  {entries.map((entry, index) => (
-                    <div
-                      key={entry.studentId}
-                      className='rounded-xl border border-[#e6dbcd] bg-white p-3'
-                    >
-                      <div className='mb-2 flex items-center justify-between'>
-                        <span className='text-sm font-semibold text-[#455a54]'>
-                          {studentsById.get(entry.studentId)?.name ??
-                            `Ficha ${index + 1}`}
-                        </span>
-                        <button
-                          type='button'
-                          onClick={() =>
-                            setEntries((cur) =>
-                              cur.filter((_, i) => i !== index),
-                            )
-                          }
-                          className='text-xs text-[#a33] hover:underline'
-                        >
-                          No hizo pieza
-                        </button>
+                  {entries.map((entry, index) => {
+                    const mp = monthly.get(entry.studentId);
+                    return (
+                      <div
+                        key={entry.studentId}
+                        className='rounded-xl border border-[#e6dbcd] bg-white p-3'
+                      >
+                        <div className='mb-2 flex items-center justify-between'>
+                          <span className='text-sm font-semibold text-[#455a54]'>
+                            {studentsById.get(entry.studentId)?.name ??
+                              `Ficha ${index + 1}`}
+                          </span>
+                          <button
+                            type='button'
+                            onClick={() =>
+                              setEntries((cur) =>
+                                cur.filter((_, i) => i !== index),
+                              )
+                            }
+                            className='text-xs text-[#a33] hover:underline'
+                          >
+                            No hizo pieza
+                          </button>
+                        </div>
+                        <div className='grid gap-2 sm:grid-cols-2'>
+                          <Field label='Nombre y apellido'>
+                            <Input
+                              value={entry.personName}
+                              onChange={(e) =>
+                                updateEntry(index, 'personName', e.target.value)
+                              }
+                              className={fieldCls}
+                            />
+                          </Field>
+                          <Field label='Firma colocada en la pieza'>
+                            <Input
+                              value={entry.signature}
+                              onChange={(e) =>
+                                updateEntry(index, 'signature', e.target.value)
+                              }
+                              placeholder='Ej. CH, estrella, iniciales…'
+                              className={fieldCls}
+                            />
+                          </Field>
+                          <Field label='Pieza elegida'>
+                            <Input
+                              value={entry.pieceType}
+                              onChange={(e) =>
+                                updateEntry(index, 'pieceType', e.target.value)
+                              }
+                              placeholder='Ej. taza, bowl, plato…'
+                              className={fieldCls}
+                            />
+                          </Field>
+                          <Field label='Colores utilizados'>
+                            <Input
+                              value={entry.colorsUsed}
+                              onChange={(e) =>
+                                updateEntry(index, 'colorsUsed', e.target.value)
+                              }
+                              placeholder='Ej. azul, blanco y rosa'
+                              className={fieldCls}
+                            />
+                          </Field>
+                        </div>
+
+                        {/* Pieza del mes: lo mismo que en Alumnos → Piezas del mes. */}
+                        <div className='mt-3 flex flex-col gap-2.5 rounded-lg bg-[#fbf5ef] p-2.5'>
+                          <div className='flex flex-wrap items-center gap-2'>
+                            <span className='text-xs font-medium text-[#7a6e6f]'>
+                              Pieza del mes
+                            </span>
+                            {(
+                              [
+                                [false, 'Fresca'],
+                                [true, 'Bizcocho'],
+                              ] as const
+                            ).map(([val, label]) => (
+                              <button
+                                key={label}
+                                type='button'
+                                onClick={() => updateEntry(index, 'bisque', val)}
+                                className={cn(
+                                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                                  entry.bisque === val
+                                    ? 'border-[#455a54] bg-[#455a54] text-white'
+                                    : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f3e9df]',
+                                )}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {isAdmin &&
+                            (mp?.paid ? (
+                              <p className='text-xs font-medium text-[#2f4a40]'>
+                                Adicional ya cobrado este mes
+                                {mp.extraAmount
+                                  ? ` ($${mp.extraAmount.toLocaleString('es-AR')})`
+                                  : ''}
+                                .
+                              </p>
+                            ) : (
+                              <>
+                                <div className='flex flex-wrap items-center gap-3'>
+                                  <label className='flex items-center gap-2 text-[13px] text-[#455a54]'>
+                                    <Switch
+                                      checked={entry.extraCharge}
+                                      onCheckedChange={(v) => {
+                                        updateEntry(index, 'extraCharge', v);
+                                        if (!v) updateEntry(index, 'charge', false);
+                                      }}
+                                      aria-label='Adicional'
+                                    />
+                                    Adicional
+                                  </label>
+                                  {entry.extraCharge && (
+                                    <Input
+                                      type='number'
+                                      inputMode='decimal'
+                                      min={0}
+                                      value={entry.extraAmount}
+                                      onChange={(e) =>
+                                        updateEntry(index, 'extraAmount', e.target.value)
+                                      }
+                                      placeholder='Monto'
+                                      className={cn('h-8 w-28', fieldCls)}
+                                    />
+                                  )}
+                                  {entry.extraCharge && (
+                                    <label className='flex items-center gap-2 text-[13px] text-[#455a54]'>
+                                      <Switch
+                                        checked={entry.charge}
+                                        onCheckedChange={(v) =>
+                                          updateEntry(index, 'charge', v)
+                                        }
+                                        aria-label='Cobrar ahora'
+                                      />
+                                      Cobrar ahora
+                                    </label>
+                                  )}
+                                </div>
+                                {entry.extraCharge && entry.charge && (
+                                  <div className='flex flex-wrap gap-1.5'>
+                                    {METODOS_COBRO.map((m) => (
+                                      <button
+                                        key={m}
+                                        type='button'
+                                        onClick={() =>
+                                          updateEntry(index, 'paymentMethod', m)
+                                        }
+                                        className={cn(
+                                          'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
+                                          entry.paymentMethod === m
+                                            ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                                            : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f3e9df]',
+                                        )}
+                                      >
+                                        {m}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
+                            ))}
+                        </div>
                       </div>
-                      <div className='grid gap-2 sm:grid-cols-2'>
-                        <Field label='Nombre y apellido'>
-                          <Input
-                            value={entry.personName}
-                            onChange={(e) =>
-                              updateEntry(index, 'personName', e.target.value)
-                            }
-                            className={fieldCls}
-                          />
-                        </Field>
-                        <Field label='Firma colocada en la pieza'>
-                          <Input
-                            value={entry.signature}
-                            onChange={(e) =>
-                              updateEntry(index, 'signature', e.target.value)
-                            }
-                            placeholder='Ej. CH, estrella, iniciales…'
-                            className={fieldCls}
-                          />
-                        </Field>
-                        <Field label='Pieza elegida'>
-                          <Input
-                            value={entry.pieceType}
-                            onChange={(e) =>
-                              updateEntry(index, 'pieceType', e.target.value)
-                            }
-                            placeholder='Ej. taza, bowl, plato…'
-                            className={fieldCls}
-                          />
-                        </Field>
-                        <Field label='Colores utilizados'>
-                          <Input
-                            value={entry.colorsUsed}
-                            onChange={(e) =>
-                              updateEntry(index, 'colorsUsed', e.target.value)
-                            }
-                            placeholder='Ej. azul, blanco y rosa'
-                            className={fieldCls}
-                          />
-                        </Field>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -1244,7 +1497,7 @@ function GroupPieceModal({
               onClick={() => void submit()}
               disabled={saving || entries.length === 0}
             >
-              {saving ? 'Guardando…' : 'Cargar piezas del grupo'}
+              {saving ? 'Guardando…' : 'Cargar piezas'}
             </Button>
           )}
         </DialogFooter>

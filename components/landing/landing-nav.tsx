@@ -92,8 +92,17 @@ export function LandingNav({ onReservar }: { onReservar: () => void }) {
           </Link>
         </div>
 
-        {/* Acciones mobile y tablet: Reservar + burger */}
+        {/* Acciones mobile y tablet: Acceso + Reservar + burger. "Acceso"
+            siempre a la vista (el equipo entra al panel desde acá). */}
         <div className='flex items-center gap-3 lg:hidden'>
+          <Link
+            href='/login'
+            className={`whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.12em] transition-colors ${
+              solid ? 'text-ciruela-oscuro/70 hover:text-ciruela-oscuro' : 'text-arena/80 hover:text-white'
+            }`}
+          >
+            Acceso
+          </Link>
           <button
             type='button'
             onClick={onReservar}

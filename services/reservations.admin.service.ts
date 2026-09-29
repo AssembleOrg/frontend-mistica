@@ -51,6 +51,8 @@ export interface ReservationItem {
   shiftKey?: string;
   tableCodes?: string[];
   sharedTable?: boolean;
+  /** Adicionales sumados después (p. ej. de piezas); ya están en el total. */
+  extras?: { label: string; amount: number }[];
   notes?: string;
   createdAt: string;
 }

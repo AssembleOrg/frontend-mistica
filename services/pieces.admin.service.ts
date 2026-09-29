@@ -51,6 +51,9 @@ export interface PieceItem {
   signature?: string;
   pieceType?: string;
   colorsUsed?: string;
+  /** Adicional elegido al registrar la ficha (copia del catálogo). */
+  extraName?: string;
+  extraAmount?: number;
   /** Reserva a la que está asignada la pieza (camino normal). */
   reservationId?: string;
   reservationCode?: string;
@@ -102,6 +105,21 @@ export interface ReservationPieceEntryInput {
   signature: string;
   pieceType: string;
   colorsUsed: string;
+  /** Adicional del catálogo: su monto se suma al saldo de la reserva. */
+  extraId?: string;
+}
+
+/** Adicional de pieza (Incluida, Estándar, Premium…) con su monto. */
+export interface PieceExtraItem {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+/** Ítem del catálogo de piezas (taza, bowl, plato…). */
+export interface PieceTypeItem {
+  id: string;
+  name: string;
 }
 
 /** Una ficha por alumno del grupo. */
@@ -191,6 +209,24 @@ export const piecesAdmin = {
     ).data,
   remove: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/${id}`)).data,
+  /** Catálogo de piezas para "Pieza elegida". */
+  listTypes: async () =>
+    (await apiService.get<PieceTypeItem[]>('/pieces/types')).data,
+  createType: async (name: string) =>
+    (await apiService.post<PieceTypeItem>('/pieces/types', { name })).data,
+  updateType: async (id: string, name: string) =>
+    (await apiService.patch<PieceTypeItem>(`/pieces/types/${id}`, { name })).data,
+  removeType: async (id: string) =>
+    (await apiService.delete<{ success: boolean }>(`/pieces/types/${id}`)).data,
+  /** Adicionales de pieza (su monto se suma a la reserva). */
+  listExtras: async () =>
+    (await apiService.get<PieceExtraItem[]>('/pieces/extras')).data,
+  createExtra: async (input: { name: string; amount: number }) =>
+    (await apiService.post<PieceExtraItem>('/pieces/extras', input)).data,
+  updateExtra: async (id: string, input: { name: string; amount: number }) =>
+    (await apiService.patch<PieceExtraItem>(`/pieces/extras/${id}`, input)).data,
+  removeExtra: async (id: string) =>
+    (await apiService.delete<{ success: boolean }>(`/pieces/extras/${id}`)).data,
   notifyReady: async (id: string) =>
     (await apiService.post<PieceItem>(`/pieces/${id}/notify-ready`, {})).data,
   /** Estados vigentes del proceso (configurables por el taller). */

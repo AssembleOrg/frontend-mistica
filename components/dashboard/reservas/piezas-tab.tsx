@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { cn } from '@/lib/utils';
-import { fmtDate } from '@/lib/reservas-format';
+import { fmtDate, fmtPrice } from '@/lib/reservas-format';
 import {
   piecesAdmin,
   PIECE_STATUS_LABEL,
@@ -47,6 +47,9 @@ import {
 } from '@/services/taller.admin.service';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
+import { PieceTypeSelect } from './piece-type-select';
+import { PieceExtraSelect } from './piece-extra-select';
+import { usePieceExtrasStore } from '@/stores/piece-extras.store';
 import {
   currentMonth,
   monthLabel,
@@ -445,7 +448,12 @@ export function PiezasTab() {
                     {p.reservationCode || '—'}
                   </span>
                   <div className='min-w-0 text-sm text-[#3d3338]'>
-                    <p className='truncate font-medium'>{p.pieceType || 'Pieza sin detalle'}</p>
+                    <p className='truncate font-medium'>
+                      {p.pieceType || 'Pieza sin detalle'}
+                      {p.extraName && (
+                        <span className='ml-1.5 text-xs font-normal text-[#9d684e]'>+ {p.extraName}</span>
+                      )}
+                    </p>
                     <p className='truncate text-xs text-[#7a6e6f]'>Colores: {p.colorsUsed || '—'}</p>
                   </div>
                   <span className='truncate text-sm text-[#7a6e6f]'>
@@ -554,6 +562,9 @@ export function PiezasTab() {
                 </div>
                 <p className='mt-2 text-sm text-[#3d3338]'>
                   {p.pieceType || 'Pieza sin detalle'}
+                  {p.extraName && (
+                    <span className='ml-1.5 text-xs text-[#9d684e]'>+ {p.extraName}</span>
+                  )}
                 </p>
                 <p className='text-xs text-[#7a6e6f]'>
                   {[
@@ -723,7 +734,7 @@ function EditPieceModal({
           </label>
           <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
             Tipo de pieza
-            <Input value={pieceType} onChange={(e) => setPieceType(e.target.value)} className={field} />
+            <PieceTypeSelect value={pieceType} onChange={setPieceType} />
           </label>
           <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
             Colores
@@ -768,6 +779,25 @@ function EditPieceModal({
   );
 }
 
+type ReservationEntry = {
+  personName: string;
+  signature: string;
+  pieceType: string;
+  colorsUsed: string;
+  /** ¿Tiene adicional? (default no). Si sí, cuál del catálogo. */
+  hasExtra: boolean;
+  extraId: string;
+};
+
+const emptyReservationEntry = (personName = ''): ReservationEntry => ({
+  personName,
+  signature: '',
+  pieceType: '',
+  colorsUsed: '',
+  hasExtra: false,
+  extraId: '',
+});
+
 export function NewPieceModal({
   reservation: fixedReservation,
   onClose,
@@ -791,23 +821,25 @@ export function NewPieceModal({
   const locked = !!fixedReservation;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [entries, setEntries] = useState<Array<{
-    personName: string;
-    signature: string;
-    pieceType: string;
-    colorsUsed: string;
-  }>>(
+  const [entries, setEntries] = useState<ReservationEntry[]>(
     fixedReservation
-      ? Array.from({ length: Math.max(1, fixedReservation.quantity) }, (_, index) => ({
-          personName:
+      ? Array.from({ length: Math.max(1, fixedReservation.quantity) }, (_, index) =>
+          emptyReservationEntry(
             (fixedReservation.quantity === 1 || index === 0
               ? fixedReservation.customerName
               : '') ?? '',
-          signature: '',
-          pieceType: '',
-          colorsUsed: '',
-        }))
+          ),
+        )
       : [],
+  );
+  // Adicionales elegidos: su suma va al total y al saldo de la reserva.
+  const extrasCatalog = usePieceExtrasStore((st) => st.items);
+  const extrasTotal = entries.reduce(
+    (sum, e) =>
+      e.hasExtra && e.extraId
+        ? sum + (extrasCatalog.find((x) => x.id === e.extraId)?.amount ?? 0)
+        : sum,
+    0,
   );
 
   useEffect(() => {
@@ -837,23 +869,35 @@ export function NewPieceModal({
   function selectReservation(item: ReservationItem) {
     setReservation(item);
     setEntries(
-      Array.from({ length: Math.max(1, item.quantity) }, (_, index) => ({
-        personName: (item.quantity === 1 || index === 0 ? item.customerName : '') ?? '',
-        signature: '',
-        pieceType: '',
-        colorsUsed: '',
-      })),
+      Array.from({ length: Math.max(1, item.quantity) }, (_, index) =>
+        emptyReservationEntry(
+          (item.quantity === 1 || index === 0 ? item.customerName : '') ?? '',
+        ),
+      ),
     );
   }
 
-  function updateEntry(index: number, key: keyof (typeof entries)[number], value: string) {
+  function updateEntry<K extends keyof ReservationEntry>(
+    index: number,
+    key: K,
+    value: ReservationEntry[K],
+  ) {
     setEntries((current) => current.map((entry, i) => i === index ? { ...entry, [key]: value } : entry));
   }
 
   async function submit() {
     if (!reservation) return showToast.error('Seleccioná una reserva del día');
-    if (entries.some((entry) => Object.values(entry).some((value) => !value.trim()))) {
+    if (
+      entries.some((entry) =>
+        [entry.personName, entry.signature, entry.pieceType, entry.colorsUsed].some(
+          (value) => !value.trim(),
+        ),
+      )
+    ) {
       return showToast.error('Completá nombre, firma, pieza y colores de cada ficha');
+    }
+    if (entries.some((entry) => entry.hasExtra && !entry.extraId)) {
+      return showToast.error('Elegí el adicional de cada pieza que lo tiene');
     }
     setSaving(true);
     try {
@@ -864,9 +908,14 @@ export function NewPieceModal({
           signature: entry.signature.trim(),
           pieceType: entry.pieceType.trim(),
           colorsUsed: entry.colorsUsed.trim(),
+          extraId: entry.hasExtra ? entry.extraId : undefined,
         })),
       );
-      showToast.success(`${entries.length} ficha(s) anexadas a la reserva`);
+      showToast.success(
+        extrasTotal > 0
+          ? `${entries.length} ficha(s) anexadas · ${fmtPrice(extrasTotal)} de adicionales sumados al saldo`
+          : `${entries.length} ficha(s) anexadas a la reserva`,
+      );
       await onDone();
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'No se pudieron registrar las piezas');
@@ -955,9 +1004,22 @@ export function NewPieceModal({
                       <Field label='Firma colocada en la pieza'>
                         <Input value={entry.signature} onChange={(event) => updateEntry(index, 'signature', event.target.value)} placeholder='Ej. CH, estrella, iniciales…' className={fieldCls} />
                       </Field>
-                      <Field label='Pieza elegida'>
-                        <Input value={entry.pieceType} onChange={(event) => updateEntry(index, 'pieceType', event.target.value)} placeholder='Ej. taza, bowl, plato…' className={fieldCls} />
-                      </Field>
+                      <div className='flex flex-col gap-2'>
+                        <Field label='Pieza elegida'>
+                          <PieceTypeSelect value={entry.pieceType} onChange={(name) => updateEntry(index, 'pieceType', name)} />
+                        </Field>
+                        <label className='flex w-fit cursor-pointer items-center gap-2 text-[13px] text-[#455a54]'>
+                          <Switch
+                            checked={entry.hasExtra}
+                            onCheckedChange={(on) => updateEntry(index, 'hasExtra', on)}
+                            aria-label='¿Tiene adicional?'
+                          />
+                          ¿Tiene adicional?
+                        </label>
+                        {entry.hasExtra && (
+                          <PieceExtraSelect value={entry.extraId} onChange={(id) => updateEntry(index, 'extraId', id)} />
+                        )}
+                      </div>
                       <Field label='Colores utilizados'>
                         <Input value={entry.colorsUsed} onChange={(event) => updateEntry(index, 'colorsUsed', event.target.value)} placeholder='Ej. azul, blanco y rosa' className={fieldCls} />
                       </Field>
@@ -969,11 +1031,19 @@ export function NewPieceModal({
                 type='button'
                 variant='outline'
                 size='sm'
-                onClick={() => setEntries((current) => [...current, { personName: '', signature: '', pieceType: '', colorsUsed: '' }])}
+                onClick={() => setEntries((current) => [...current, emptyReservationEntry()])}
                 className='w-fit gap-1 border-[#e6dbcd] text-[#455a54]'
               >
                 <Plus className='h-3.5 w-3.5' /> Agregar otra ficha
               </Button>
+              {extrasTotal > 0 && (
+                <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>
+                  Adicionales: <strong>{fmtPrice(extrasTotal)}</strong>
+                  <span className='text-[#7a6e6f]'>
+                    {' '}· se suman al total de la reserva y quedan como saldo a cobrar.
+                  </span>
+                </p>
+              )}
             </>
           )}
         </div>
@@ -1350,13 +1420,11 @@ function GroupPieceModal({
                             />
                           </Field>
                           <Field label='Pieza elegida'>
-                            <Input
+                            <PieceTypeSelect
                               value={entry.pieceType}
-                              onChange={(e) =>
-                                updateEntry(index, 'pieceType', e.target.value)
+                              onChange={(name) =>
+                                updateEntry(index, 'pieceType', name)
                               }
-                              placeholder='Ej. taza, bowl, plato…'
-                              className={fieldCls}
                             />
                           </Field>
                           <Field label='Colores utilizados'>

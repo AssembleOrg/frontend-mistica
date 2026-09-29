@@ -215,7 +215,13 @@ export function ReservationDetailPanel({
 
           <Section title='PAGO'>
             <div className='flex flex-col gap-2.5 rounded-xl bg-[#fbf5ef] p-4'>
-              <AmountRow k='Total experiencia' v={fmtPrice(total)} />
+              {(r.extras ?? []).map((x, i) => (
+                <AmountRow key={i} k={x.label} v={`+ ${fmtPrice(x.amount)}`} />
+              ))}
+              <AmountRow
+                k={(r.extras ?? []).length > 0 ? 'Total (con adicionales)' : 'Total experiencia'}
+                v={fmtPrice(total)}
+              />
               {paid != null && (
                 <AmountRow
                   k={`Cobrado${pct != null ? ` (${pct}%)` : ''}`}

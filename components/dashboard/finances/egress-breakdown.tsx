@@ -5,17 +5,19 @@ import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ManageEgressCategoriesDialog } from './manage-egress-categories-dialog';
 import { formatCurrency } from '@/lib/sales-calculations';
-import { egressTypeLabel } from '@/lib/egress-type-labels';
 import { C, SectionTitle, cellBase, thBase, totalCell } from './print-shell';
-import type { EgressBreakdown } from '@/hooks/useEgressBreakdown';
+import {
+  egressCategoryLabel,
+  type EgressBreakdown,
+} from '@/hooks/useEgressBreakdown';
 
 /**
- * El backend clasifica como "Gasto operativo" todo egreso creado desde la caja
- * (ignora el tipo enviado). Sin esta aclaración el desglose parecería decir que
- * el 100% del gasto es operativo, cuando en realidad el dato no se capturó.
+ * El desglose va por la categoría elegida al cargar el egreso (Sueldos, Gastos
+ * de cocina, Taller…). Los que no tienen categoría caen en su tipo (desde la
+ * caja, "Gasto operativo"): la aclaración explica por qué aparecen así.
  */
 const CLASSIFICATION_NOTE =
-  'Los egresos registrados desde la caja se clasifican como Gasto operativo. Para reclasificar uno, editalo desde el detalle de la sesión.';
+  'Los egresos sin categoría se agrupan por su tipo (los de la caja, como Gasto operativo). Para asignarles una categoría, editalos desde el detalle de la sesión.';
 
 const METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -66,7 +68,7 @@ export function EgressBreakdownCard({
       <CardContent className="p-5">
         <div className="flex items-baseline justify-between mb-4">
           <p className="text-base font-tan-nimbus" style={{ color: 'var(--color-verde-profundo)' }}>
-            Egresos por tipo
+            Egresos por categoría
           </p>
           <span className="flex items-center gap-2">
             <button
@@ -132,7 +134,7 @@ export function EgressBreakdownCard({
 
             <div className="space-y-4">
               {rows.map((r) => (
-                <div key={r.type}>
+                <div key={r.key}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span
                       className="text-sm font-medium font-winter-solid"
@@ -168,12 +170,14 @@ export function EgressBreakdownCard({
               ))}
             </div>
 
-            <p
-              className="mt-4 text-xs font-winter-solid leading-relaxed"
-              style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.55 }}
-            >
-              {CLASSIFICATION_NOTE}
-            </p>
+            {items.some((e) => !e.categoryName) && (
+              <p
+                className="mt-4 text-xs font-winter-solid leading-relaxed"
+                style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.55 }}
+              >
+                {CLASSIFICATION_NOTE}
+              </p>
+            )}
 
             <button
               type="button"
@@ -194,7 +198,7 @@ export function EgressBreakdownCard({
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr style={{ color: 'var(--color-verde-profundo)' }}>
-                      {['Fecha', 'Concepto', 'Tipo', 'Método', 'Monto'].map((h) => (
+                      {['Fecha', 'Concepto', 'Categoría', 'Método', 'Monto'].map((h) => (
                         <th
                           key={h}
                           className="text-xs font-winter-solid font-semibold py-2 px-2 whitespace-nowrap"
@@ -227,7 +231,7 @@ export function EgressBreakdownCard({
                           className="py-2 px-2 whitespace-nowrap font-winter-solid"
                           style={{ borderBottom: '1px solid var(--color-gris-claro)', opacity: 0.7 }}
                         >
-                          {egressTypeLabel(e.type)}
+                          {egressCategoryLabel(e)}
                         </td>
                         <td
                           className="py-2 px-2 whitespace-nowrap font-winter-solid"
@@ -294,13 +298,13 @@ export function EgressBreakdownPrint({
 
   return (
     <>
-      {/* Desglose por tipo */}
+      {/* Desglose por categoría */}
       <div style={{ marginBottom: 20 }}>
-        <SectionTitle>Egresos por tipo</SectionTitle>
+        <SectionTitle>Egresos por categoría</SectionTitle>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{ ...thBase, textAlign: 'left' }}>Tipo</th>
+              <th style={{ ...thBase, textAlign: 'left' }}>Categoría</th>
               <th style={{ ...thBase, textAlign: 'right', width: 70 }}>Egresos</th>
               <th style={{ ...thBase, textAlign: 'right', width: 110 }}>Monto</th>
               <th style={{ ...thBase, textAlign: 'right', width: 42 }}>%</th>
@@ -308,7 +312,7 @@ export function EgressBreakdownPrint({
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.type} style={{ breakInside: 'avoid' }}>
+              <tr key={r.key} style={{ breakInside: 'avoid' }}>
                 <td style={{ ...cellBase, color: C.tinta }}>{r.label}</td>
                 <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.gris }}>
                   {r.count}
@@ -331,9 +335,11 @@ export function EgressBreakdownPrint({
             </tr>
           </tbody>
         </table>
-        <p style={{ fontSize: 8, color: C.gris, marginTop: 8, lineHeight: 1.5 }}>
-          {CLASSIFICATION_NOTE}
-        </p>
+        {items.some((e) => !e.categoryName) && (
+          <p style={{ fontSize: 8, color: C.gris, marginTop: 8, lineHeight: 1.5 }}>
+            {CLASSIFICATION_NOTE}
+          </p>
+        )}
       </div>
 
       {/* Detalle */}
@@ -349,7 +355,7 @@ export function EgressBreakdownPrint({
             <tr>
               <th style={{ ...thBase, textAlign: 'left', width: 60 }}>Fecha</th>
               <th style={{ ...thBase, textAlign: 'left' }}>Concepto</th>
-              <th style={{ ...thBase, textAlign: 'left', width: 95 }}>Tipo</th>
+              <th style={{ ...thBase, textAlign: 'left', width: 95 }}>Categoría</th>
               <th style={{ ...thBase, textAlign: 'left', width: 80 }}>Método</th>
               <th style={{ ...thBase, textAlign: 'right', width: 90 }}>Monto</th>
             </tr>
@@ -359,7 +365,7 @@ export function EgressBreakdownPrint({
               <tr key={e._id} style={{ breakInside: 'avoid' }}>
                 <td className="tabular-nums" style={{ ...cellBase, color: C.gris }}>{formatDate(e.createdAt)}</td>
                 <td style={{ ...cellBase, color: C.tinta }}>{e.concept}</td>
-                <td style={{ ...cellBase, color: C.gris }}>{egressTypeLabel(e.type)}</td>
+                <td style={{ ...cellBase, color: C.gris }}>{egressCategoryLabel(e)}</td>
                 <td style={{ ...cellBase, color: C.gris }}>{methodLabel(e.paymentMethod)}</td>
                 <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.terracota }}>
                   {formatCurrency(e.amount)}

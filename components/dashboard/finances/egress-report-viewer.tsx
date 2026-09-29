@@ -12,7 +12,7 @@ interface Props {
 
 /**
  * Reporte imprimible dedicado exclusivamente a los egresos de un período,
- * discriminados por tipo y con el detalle completo. El cierre de mes muestra el
+ * discriminados por categoría y con el detalle completo. El cierre de mes muestra el
  * total agregado, este reporte muestra en qué se gastó.
  */
 export function EgressReportViewer({ egresses, periodLabel }: Props) {
@@ -45,7 +45,7 @@ export function EgressReportViewer({ egresses, periodLabel }: Props) {
             color: C.terracota,
           },
           {
-            label: 'Tipos',
+            label: 'Categorías',
             value: String(rows.length),
             sub: rows.length === 1 ? 'categoría usada' : 'categorías usadas',
           },

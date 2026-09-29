@@ -10,7 +10,8 @@ import { egressTypeLabel, type EgressType } from '@/lib/egress-type-labels';
 const PAGE_LIMIT = 500;
 
 export interface EgressBreakdownRow {
-  type: EgressType;
+  /** Clave de agrupación: la categoría del egreso (o su tipo si no tiene). */
+  key: string;
   label: string;
   count: number;
   amount: number;
@@ -18,8 +19,17 @@ export interface EgressBreakdownRow {
   pct: number;
 }
 
+/**
+ * Cómo se clasifica un egreso en el desglose: por su categoría (Sueldos,
+ * Gastos de cocina, Taller…). Los que no tienen categoría (anteriores a las
+ * categorías, o cargados sin elegirla) caen en su tipo, como antes.
+ */
+export function egressCategoryLabel(e: Pick<Egress, 'categoryName' | 'type'>): string {
+  return e.categoryName?.trim() || egressTypeLabel(e.type as EgressType);
+}
+
 export interface EgressBreakdown {
-  /** Tipos con al menos un egreso, de mayor a menor monto. */
+  /** Categorías con al menos un egreso, de mayor a menor monto. */
   rows: EgressBreakdownRow[];
   /** Egresos del período, más recientes primero. */
   items: Egress[];
@@ -43,7 +53,7 @@ interface Params {
 }
 
 /**
- * Desglose de los egresos de un período, agrupado por tipo, más la lista
+ * Desglose de los egresos de un período, agrupado por categoría, más la lista
  * detallada.
  *
  * Agrupamos en el cliente sobre `GET /egresses` en vez de usar
@@ -96,20 +106,20 @@ export function useEgressBreakdown({ from, to, enabled = true }: Params): Egress
   }, [load]);
 
   const { rows, total, count } = useMemo(() => {
-    const acc = new Map<EgressType, { count: number; amount: number }>();
+    const acc = new Map<string, { count: number; amount: number }>();
     let sum = 0;
 
     for (const e of items) {
-      const key = e.type as EgressType;
+      const key = egressCategoryLabel(e);
       const prev = acc.get(key) ?? { count: 0, amount: 0 };
       acc.set(key, { count: prev.count + 1, amount: prev.amount + e.amount });
       sum += e.amount;
     }
 
     const built: EgressBreakdownRow[] = Array.from(acc.entries())
-      .map(([type, data]) => ({
-        type,
-        label: egressTypeLabel(type),
+      .map(([key, data]) => ({
+        key,
+        label: key,
         count: data.count,
         amount: data.amount,
         pct: sum > 0 ? (data.amount / sum) * 100 : 0,

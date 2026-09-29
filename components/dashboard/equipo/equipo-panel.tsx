@@ -141,48 +141,56 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
 
   return (
     <div className='flex flex-col gap-4'>
-      {/* Alta rápida */}
-      <div className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
-        {/* Mobile: campos apilados; desktop: una fila que envuelve. */}
-        <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center'>
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && create()}
-            placeholder='Nueva tarea (ej. "Hornear tanda de tazas")'
-            className={`${fieldCls} h-9 min-w-56 sm:flex-1`}
+      {/* Alta rápida: las tareas las crea el admin. El resto ve las suyas. */}
+      {!isAdmin && (
+        <p className='text-sm text-[#7a6e6f]'>
+          Tus tareas asignadas. Sumá tu progreso en cada una y marcala hecha
+          cuando la termines.
+        </p>
+      )}
+      {isAdmin && (
+        <div className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
+          {/* Mobile: campos apilados; desktop: una fila que envuelve. */}
+          <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center'>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && create()}
+              placeholder='Nueva tarea (ej. "Hornear tanda de tazas")'
+              className={`${fieldCls} h-9 min-w-56 sm:flex-1`}
+            />
+            <div className='flex max-h-24 min-h-9 flex-wrap items-center gap-1 overflow-y-auto rounded-md border border-[#e6dbcd] bg-[#fbf5ef] px-2 py-1'>
+              {accounts.length === 0 ? <span className='text-xs text-[#7a6e6f]'>Sin responsables</span> : accounts.map((a) => {
+                const selected = assigneeIds.includes(a.id);
+                return <button key={a.id} type='button' onClick={() => setAssigneeIds((ids) => selected ? ids.filter((id) => id !== a.id) : [...ids, a.id])}
+                  className={`rounded px-2 py-1 text-xs transition ${selected ? 'bg-[#455a54] text-white' : 'bg-white text-[#455a54] hover:bg-[#f3e9df]'}`}>
+                  {a.name || a.email}
+                </button>;
+              })}
+            </div>
+            <div className='flex items-center gap-2'>
+              <DatePicker value={dueDate} onChange={setDueDate} placeholder='Límite' clearable className='w-36' />
+              <Button
+                type='button'
+                variant='verde'
+                onClick={create}
+                disabled={creating}
+                className='gap-1.5'
+              >
+                <Plus className='h-4 w-4' />
+                Crear
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={1}
+            placeholder='Detalle (opcional)'
+            className={fieldCls}
           />
-          <div className='flex max-h-24 min-h-9 flex-wrap items-center gap-1 overflow-y-auto rounded-md border border-[#e6dbcd] bg-[#fbf5ef] px-2 py-1'>
-            {accounts.length === 0 ? <span className='text-xs text-[#7a6e6f]'>Sin responsables</span> : accounts.map((a) => {
-              const selected = assigneeIds.includes(a.id);
-              return <button key={a.id} type='button' onClick={() => setAssigneeIds((ids) => selected ? ids.filter((id) => id !== a.id) : [...ids, a.id])}
-                className={`rounded px-2 py-1 text-xs transition ${selected ? 'bg-[#455a54] text-white' : 'bg-white text-[#455a54] hover:bg-[#f3e9df]'}`}>
-                {a.name || a.email}
-              </button>;
-            })}
-          </div>
-          <div className='flex items-center gap-2'>
-            <DatePicker value={dueDate} onChange={setDueDate} placeholder='Límite' clearable className='w-36' />
-            <Button
-              type='button'
-              variant='verde'
-              onClick={create}
-              disabled={creating}
-              className='gap-1.5'
-            >
-              <Plus className='h-4 w-4' />
-              Crear
-            </Button>
-          </div>
         </div>
-        <Textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={1}
-          placeholder='Detalle (opcional)'
-          className={fieldCls}
-        />
-      </div>
+      )}
 
       {loading ? (
         <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
@@ -190,12 +198,12 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         <>
           {pending.length === 0 && (
             <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
-              Sin tareas pendientes 🎉
+              {isAdmin ? 'Sin tareas pendientes 🎉' : 'No tenés tareas pendientes 🎉'}
             </p>
           )}
           <div className='flex flex-col gap-2'>
             {pending.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={remove} onComment={addComment} />
+              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
             ))}
           </div>
           {done.length > 0 && (
@@ -209,7 +217,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
           )}
           {showDone &&
             done.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={remove} onComment={addComment} />
+              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
             ))}
         </>
       )}
@@ -225,7 +233,8 @@ function TaskRow({
 }: Readonly<{
   task: StaffTask;
   onToggle: (t: StaffTask) => void;
-  onRemove: (t: StaffTask) => void;
+  /** Sólo el admin borra tareas. */
+  onRemove?: (t: StaffTask) => void;
   onComment: (t: StaffTask, body: string) => Promise<void>;
 }>) {
   const [comment, setComment] = useState('');
@@ -321,14 +330,16 @@ function TaskRow({
           </Button>
         </div>
       </div>
-      <button
-        type='button'
-        onClick={() => onRemove(t)}
-        className='text-[#a33] hover:opacity-70'
-        aria-label='Eliminar'
-      >
-        <Trash2 className='h-4 w-4' />
-      </button>
+      {onRemove && (
+        <button
+          type='button'
+          onClick={() => onRemove(t)}
+          className='text-[#a33] hover:opacity-70'
+          aria-label='Eliminar'
+        >
+          <Trash2 className='h-4 w-4' />
+        </button>
+      )}
     </div>
   );
 }

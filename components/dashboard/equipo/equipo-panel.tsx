@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Plus, Send, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -60,6 +60,8 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDone, setShowDone] = useState(false);
+  // Filtro del admin por responsable: '' = todas, NONE = sin asignar.
+  const [person, setPerson] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const confirm = useConfirm();
@@ -136,8 +138,36 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     await load();
   }
 
-  const pending = tasks.filter((t) => t.status === 'PENDING');
-  const done = tasks.filter((t) => t.status === 'DONE');
+  // Chips de responsables (admin): cada persona con tareas, con sus pendientes.
+  const people = useMemo(() => {
+    const counts = new Map<string, { id: string; name: string; pending: number; done: number }>();
+    let unassigned = 0;
+    for (const t of tasks) {
+      const list = assigneesOf(t);
+      if (list.length === 0) unassigned += 1;
+      for (const { userId, name } of list) {
+        const c = counts.get(userId) ?? { id: userId, name, pending: 0, done: 0 };
+        if (t.status === 'DONE') c.done += 1;
+        else c.pending += 1;
+        counts.set(userId, c);
+      }
+    }
+    const rows = [...counts.values()].sort((x, y) =>
+      x.name.localeCompare(y.name, 'es', { sensitivity: 'base' }),
+    );
+    return { rows, unassigned };
+  }, [tasks]);
+
+  const visible = !isAdmin || !person
+    ? tasks
+    : tasks.filter((t) => {
+        const ids = assigneesOf(t).map((a) => a.userId);
+        return person === NONE ? ids.length === 0 : ids.includes(person);
+      });
+  const pending = visible.filter((t) => t.status === 'PENDING');
+  const done = visible.filter((t) => t.status === 'DONE');
+  const personName =
+    person === NONE ? 'Sin asignar' : people.rows.find((r) => r.id === person)?.name;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -192,13 +222,51 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         </div>
       )}
 
+      {/* Filtro por responsable: tocar un nombre muestra sus tareas,
+          pendientes y finalizadas, con sus observaciones. */}
+      {isAdmin && !loading && (people.rows.length > 0 || people.unassigned > 0) && (
+        <div className='flex flex-wrap items-center gap-1.5'>
+          <span className='mr-1 text-xs font-medium text-[#7a6e6f]'>Ver tareas de</span>
+          <PersonChip label='Todas' on={!person} onClick={() => setPerson('')} />
+          {people.rows.map((r) => (
+            <PersonChip
+              key={r.id}
+              label={r.name}
+              count={r.pending}
+              on={person === r.id}
+              onClick={() => {
+                setPerson(person === r.id ? '' : r.id);
+                setShowDone(true);
+              }}
+            />
+          ))}
+          {people.unassigned > 0 && (
+            <PersonChip
+              label='Sin asignar'
+              count={people.unassigned}
+              on={person === NONE}
+              onClick={() => setPerson(person === NONE ? '' : NONE)}
+            />
+          )}
+        </div>
+      )}
+
       {loading ? (
         <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
       ) : (
         <>
+          {isAdmin && personName && (
+            <p className='text-sm text-[#455a54]'>
+              <strong>{personName}</strong>: {pending.length} pendiente(s) · {done.length} finalizada(s)
+            </p>
+          )}
           {pending.length === 0 && (
             <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
-              {isAdmin ? 'Sin tareas pendientes 🎉' : 'No tenés tareas pendientes 🎉'}
+              {!isAdmin
+                ? 'No tenés tareas pendientes 🎉'
+                : personName
+                  ? `${personName} no tiene tareas pendientes 🎉`
+                  : 'Sin tareas pendientes 🎉'}
             </p>
           )}
           <div className='flex flex-col gap-2'>
@@ -222,6 +290,36 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         </>
       )}
     </div>
+  );
+}
+
+const NONE = '__none__';
+
+/** Responsables de una tarea (incluye el campo legacy de un solo responsable). */
+function assigneesOf(t: StaffTask): { userId: string; name: string }[] {
+  if (t.assignees?.length) return t.assignees;
+  return t.assigneeName ? [{ userId: t.assigneeUserId ?? '', name: t.assigneeName }] : [];
+}
+
+function PersonChip({
+  label,
+  count,
+  on,
+  onClick,
+}: Readonly<{ label: string; count?: number; on: boolean; onClick: () => void }>) {
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+        on
+          ? 'border-[#455a54] bg-[#455a54] text-white'
+          : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+      }`}
+    >
+      {label}
+      {count ? <span className={on ? 'ml-1 opacity-80' : 'ml-1 text-[#9d684e]'}>{count}</span> : null}
+    </button>
   );
 }
 
@@ -289,7 +387,7 @@ function TaskRow({
           <p className='text-sm text-[#7a6e6f]'>{t.description}</p>
         )}
         <div className='mt-1 flex flex-wrap items-center gap-1.5'>
-          {(t.assignees?.length ? t.assignees : (t.assigneeName ? [{ userId: t.assigneeUserId ?? '', name: t.assigneeName }] : [])).map((assignee) => (
+          {assigneesOf(t).map((assignee) => (
             <StatusBadge key={assignee.userId} label={assignee.name} bg='#E7F0EC' fg='#455a54' />
           ))}
           {t.dueDate && (

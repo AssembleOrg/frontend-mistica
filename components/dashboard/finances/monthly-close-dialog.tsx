@@ -67,11 +67,12 @@ export function MonthlyCloseDialog({
   let label = '';
 
   if (tipo === 'mes') {
-    // Mes contable del negocio: del 10 del mes anterior al 10 del mes elegido.
-    const prevMonth = selectedMonth === 1 ? 12 : selectedMonth - 1;
-    const prevYear = selectedMonth === 1 ? selectedYear - 1 : selectedYear;
-    from = `${prevYear}-${pad(prevMonth)}-10`;
-    to = `${selectedYear}-${monthStr}-10`;
+    // Mes contable del negocio: del 10 del mes elegido al 10 del siguiente
+    // (septiembre = 10/09 → 10/10).
+    const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
+    const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
+    from = `${selectedYear}-${monthStr}-10`;
+    to = `${nextYear}-${pad(nextMonth)}-10`;
     label = `${MONTHS[selectedMonth - 1]} ${selectedYear} (10 al 10)`;
   } else if (tipo === 'quincena') {
     from = quincena === 1

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -31,6 +32,7 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
     email: employee?.email || '',
     role: employee?.role || 'cajero',
     phone: employee?.phone || '',
+    emergencyPhone: employee?.emergencyPhone || '',
     address: employee?.address || '',
     startDate: employee?.startDate ? new Date(employee.startDate) : new Date(),
   });
@@ -155,16 +157,27 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
             </div>
 
             <div className='space-y-2'>
+              <Label htmlFor='emergencyPhone' className='text-sm font-medium text-[#455a54]'>
+                Teléfono de emergencia
+              </Label>
+              <Input
+                id='emergencyPhone'
+                type='tel'
+                value={formData.emergencyPhone}
+                onChange={(e) => handleInputChange('emergencyPhone', e.target.value)}
+                placeholder='+54 11 1234-5678'
+                className='border-[#9d684e]/20 focus:border-[#9d684e]'
+              />
+            </div>
+
+            <div className='space-y-2'>
               <Label htmlFor='startDate' className='text-sm font-medium text-[#455a54]'>
                 Fecha de ingreso *
               </Label>
-              <Input
-                id='startDate'
-                type='date'
-                value={formData.startDate instanceof Date ? formData.startDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]}
-                onChange={(e) => handleInputChange('startDate', new Date(e.target.value))}
-                className='border-[#9d684e]/20 focus:border-[#9d684e]'
-                required
+              <DatePicker
+                value={formData.startDate instanceof Date ? `${formData.startDate.getFullYear()}-${String(formData.startDate.getMonth() + 1).padStart(2, '0')}-${String(formData.startDate.getDate()).padStart(2, '0')}` : ''}
+                onChange={(value) => handleInputChange('startDate', new Date(`${value}T00:00:00`))}
+                className='w-full'
               />
             </div>
 

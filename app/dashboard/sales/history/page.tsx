@@ -38,6 +38,7 @@ import { useAppStore } from '@/stores/app.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import {
   DropdownMenu,
@@ -56,6 +57,7 @@ interface SalesFilters {
 }
 
 export default function SalesHistoryPage() {
+  const confirm = useConfirm();
   const router = useRouter();
   
   // Use new app store
@@ -216,7 +218,7 @@ export default function SalesHistoryPage() {
   };
 
   const handleDeleteSale = async (saleId: string) => {
-    if (confirm('¿Estás seguro de que deseas eliminar esta venta? Esta acción no se puede deshacer.')) {
+    if (await confirm({ title: '¿Eliminar esta venta?', description: 'Esta acción no se puede deshacer.' })) {
       try {
         // TODO: Implement delete sale functionality in app store
         showToast.success(`Venta ${saleId.slice(-6)} eliminada correctamente`);

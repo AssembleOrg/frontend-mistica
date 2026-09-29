@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { Sale, SaleItem, Product } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import { useProducts } from '@/hooks/useProducts';
@@ -47,6 +48,7 @@ import { useSales } from '@/hooks/useSales';
 
 export default function EditSalePage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const params = useParams();
   const saleId = params.id as string;
   
@@ -251,11 +253,9 @@ export default function EditSalePage() {
     }
   }, [sale, canEditSale, editSale, saleId, paymentMethod, notes, preservedSeller, customerName, customerEmail, customerPhone, router]);
 
-  const handleCancel = useCallback(() => {
-    if (confirm('¿Estás seguro de que deseas cancelar? Se perderán todos los cambios.')) {
-      router.push(`/dashboard/sales/${saleId}`);
-    }
-  }, [router, saleId]);
+  const handleCancel = useCallback(async () => {
+    if (await confirm({ title: '¿Cancelar edición?', description: 'Se perderán todos los cambios.' })) router.push(`/dashboard/sales/${saleId}`);
+  }, [router, saleId, confirm]);
 
   if (isLoading) {
     return (

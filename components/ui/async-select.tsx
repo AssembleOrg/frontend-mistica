@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PopoverPortal } from '@/components/ui/popover-portal';
 
 export interface AsyncSelectFetchResult<T> {
   items: T[];
@@ -109,18 +110,6 @@ export function AsyncSelect<T>({
     void loadPage(1, debouncedSearch);
   }, [debouncedSearch, open, loadPage]);
 
-  // Cerrar al hacer click afuera
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [open]);
-
   // Auto-foco del input al abrir
   useEffect(() => {
     if (open) {
@@ -207,7 +196,8 @@ export function AsyncSelect<T>({
               }
               if (!open) setOpen(true);
             }}
-            onFocus={() => !disabled && setOpen(true)}
+            // No cargamos ni desplegamos opciones sólo por abrir el modal o enfocar.
+            // La búsqueda empieza al escribir, evitando listas enormes inesperadas.
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={disabled}
@@ -238,19 +228,20 @@ export function AsyncSelect<T>({
         </div>
       )}
 
-      {open && (
+      <PopoverPortal
+        open={open}
+        onClose={() => setOpen(false)}
+        anchorRef={containerRef}
+        className={cn(
+          'rounded-md border border-[#9d684e]/20 bg-background shadow-lg overflow-hidden',
+        )}
+      >
         <div
-          className={cn(
-            'absolute z-50 mt-1 w-full rounded-md border border-[#9d684e]/20 bg-background shadow-lg',
-            'overflow-hidden',
-          )}
+          ref={listRef}
+          onScroll={handleScroll}
+          style={{ maxHeight: maxListHeight }}
+          className="overflow-y-auto"
         >
-          <div
-            ref={listRef}
-            onScroll={handleScroll}
-            style={{ maxHeight: maxListHeight }}
-            className="overflow-y-auto"
-          >
             {items.length === 0 && !loading ? (
               <div className="py-6 text-center text-sm text-[#455a54]/60">{noResultsLabel}</div>
             ) : (
@@ -262,8 +253,13 @@ export function AsyncSelect<T>({
                     <div
                       key={getKey(item)}
                       onMouseEnter={() => setHighlightedIndex(idx)}
-                      onMouseDown={(e) => {
-                        e.preventDefault(); // evita perder foco antes del click
+                      role='option'
+                      aria-selected={value ? getKey(value) === getKey(item) : false}
+                      onPointerDown={(e) => {
+                        // PointerDown funciona igual con mouse, touch y lápiz.
+                        // Seleccionamos antes de que Dialog/portal procese el cambio de foco.
+                        e.preventDefault();
+                        e.stopPropagation();
                         selectItem(item);
                       }}
                       style={{
@@ -290,9 +286,8 @@ export function AsyncSelect<T>({
                 Cargando...
               </div>
             )}
-          </div>
         </div>
-      )}
+      </PopoverPortal>
     </div>
   );
 }

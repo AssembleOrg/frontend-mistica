@@ -96,6 +96,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
       case 'CASH': return 'Efectivo';
       case 'CARD': return 'Tarjeta';
       case 'TRANSFER': return 'Transferencia';
+      case 'MERCADOPAGO': return 'MercadoPago';
       default: return method;
     }
   };

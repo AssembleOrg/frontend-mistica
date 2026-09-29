@@ -21,7 +21,7 @@ interface Props {
 }
 
 export function MonthlyReportViewer({ summary, monthLabel }: Props) {
-  const paymentTotal = summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER;
+  const paymentTotal = summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER + (summary.byPaymentMethod.MERCADOPAGO ?? 0);
   const pct = (n: number) => paymentTotal > 0 ? Math.round((n / paymentTotal) * 100) : 0;
 
   const salesTotal = summary.byStatus.COMPLETED + summary.byStatus.PENDING + summary.byStatus.CANCELLED;
@@ -146,6 +146,7 @@ export function MonthlyReportViewer({ summary, monthLabel }: Props) {
                 { label: 'Efectivo', amount: summary.byPaymentMethod.CASH },
                 { label: 'Tarjeta', amount: summary.byPaymentMethod.CARD },
                 { label: 'Transferencia', amount: summary.byPaymentMethod.TRANSFER },
+                { label: 'MercadoPago', amount: summary.byPaymentMethod.MERCADOPAGO ?? 0 },
               ].map(m => (
                 <tr key={m.label}>
                   <td style={{ ...cellBase, color: C.gris }}>{m.label}</td>

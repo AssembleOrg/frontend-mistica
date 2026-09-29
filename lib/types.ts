@@ -276,6 +276,7 @@ export interface Employee {
   email: string;
   role: 'cajero' | 'gerente' | 'mozo';
   phone?: string;
+  emergencyPhone?: string;
   address?: string;
   startDate: Date;
   createdAt: Date;
@@ -287,6 +288,7 @@ export interface EmployeeCreationData {
   email: string;
   role: Employee['role'];
   phone?: string;
+  emergencyPhone?: string;
   address?: string;
   startDate: Date;
 }

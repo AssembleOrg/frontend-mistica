@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, ShoppingCart, Percent, Save, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 export function GeneralSettings() {
+  const confirm = useConfirm();
   const { settings, actions } = useSettingsStore();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,8 +29,8 @@ export function GeneralSettings() {
     }
   };
 
-  const handleReset = () => {
-    if (confirm('¿Estás seguro de que quieres restaurar toda la configuración a los valores por defecto?')) {
+  const handleReset = async () => {
+    if (await confirm({ title: '¿Restaurar configuración?', description: 'Se restablecerán los valores por defecto.' })) {
       actions.resetToDefaults();
       showToast.success('Configuración restaurada a valores por defecto');
     }

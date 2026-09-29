@@ -7,6 +7,8 @@ import type { Prepaid } from './prepaids.service';
 // Client interfaces
 export interface Client {
   id: string;
+  /** Mongo legacy payloads may still expose _id; consumers normalize it to id. */
+  _id?: string;
   fullName: string;
   phone?: string;
   email?: string;

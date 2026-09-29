@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, CheckCircle, X } from 'lucide-react';
+import { showToast } from '@/lib/toast';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -29,12 +30,12 @@ export function InvoiceModal({ isOpen, onClose, onConfirm, saleTotal }: InvoiceM
   const handleConfirm = () => {
     // Validaciones
     if (saleTotal > 200000 && !customerCuit) {
-      alert('Para ventas superiores a $200,000 se requiere CUIT del cliente');
+      showToast.error('Para ventas superiores a $200,000 se requiere CUIT del cliente');
       return;
     }
     
     if (invoiceType === 'A' && (!customerCuit || !customerIva)) {
-      alert('Para factura tipo A se requiere CUIT e IVA del cliente');
+      showToast.error('Para factura tipo A se requiere CUIT e IVA del cliente');
       return;
     }
     

@@ -10,7 +10,7 @@ export interface SessionKpis {
   /** Neto de EFECTIVO (CASH) de la sesión: entradas − salidas. */
   netBalance: number;
   /** Cobrado por método a partir de los ingresos de la sesión. */
-  byMethod: { CASH: number; CARD: number; TRANSFER: number };
+  byMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
 }
 
 /**
@@ -30,7 +30,7 @@ export function computeSessionKpis(transactions: SessionTransaction[]): SessionK
   let egressCount = 0, egressTotal = 0;
   let incomeCount = 0, incomeTotal = 0;
   let cashInflow = 0, cashOutflow = 0;
-  const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0 };
+  const byMethod = { CASH: 0, CARD: 0, TRANSFER: 0, MERCADOPAGO: 0 };
 
   for (const t of transactions) {
     // Gasto externo (affectsCashbox=false): se paga con plata que no estaba en el
@@ -47,6 +47,9 @@ export function computeSessionKpis(transactions: SessionTransaction[]): SessionK
       byMethod.CASH += m.CASH;
       byMethod.CARD += m.CARD;
       byMethod.TRANSFER += m.TRANSFER;
+      // MERCADOPAGO viene de `development`: el helper nació en `main`, donde ese
+      // método no existía todavía. Sin esto el desglose de la sesión lo omite.
+      byMethod.MERCADOPAGO += m.MERCADOPAGO ?? 0;
       cashInflow += m.CASH;
     } else {
       cashOutflow += m.CASH;

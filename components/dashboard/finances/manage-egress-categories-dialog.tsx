@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   egressesService,
   type EgressCategory,
@@ -36,6 +37,7 @@ export function ManageEgressCategoriesDialog({
   onOpenChange: (open: boolean) => void;
   onChanged?: () => void;
 }>) {
+  const confirm = useConfirm();
   const [categories, setCategories] = useState<EgressCategory[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -104,7 +106,7 @@ export function ManageEgressCategoriesDialog({
   }
 
   async function remove(cat: EgressCategory) {
-    if (!confirm(`¿Eliminar la categoría "${cat.name}"? Los egresos ya cargados la conservan.`)) return;
+    if (!(await confirm({ title: `¿Eliminar la categoría ${cat.name}?`, description: 'Los egresos ya cargados la conservan.' }))) return;
     setBusy(true);
     try {
       await egressesService.removeCategory(cat._id);

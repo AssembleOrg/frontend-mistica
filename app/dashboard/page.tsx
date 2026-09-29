@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
-import { usePermissions } from '@/hooks/usePermissions';
+import { canAccessView } from '@/lib/views';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity } from 'lucide-react';
+import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -12,21 +12,24 @@ import { Footer } from '@/components/ui/footer';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
-  const { canEdit: isAdmin } = usePermissions();
+  const canView = (view: string) => canAccessView(view, user?.role, user?.allowedViews);
 
   const primaryModules = [
-    { name: 'Ventas',          description: 'Punto de venta',           href: '/dashboard/sales',    icon: ShoppingCart, iconBg: 'bg-[#9d684e]',    adminOnly: false },
-    { name: 'Caja y Finanzas', description: 'Apertura, cierre y reportes', href: '/dashboard/finances', icon: Landmark,     iconBg: 'bg-[#455a54]',    adminOnly: true  },
-  ].filter(m => !m.adminOnly || isAdmin);
+    { name: 'Ventas',          description: 'Punto de venta',           href: '/dashboard/sales',    icon: ShoppingCart, iconBg: 'bg-[#9d684e]',    view: 'sales'    },
+    { name: 'Caja y Finanzas', description: 'Apertura, cierre y reportes', href: '/dashboard/finances', icon: Landmark,     iconBg: 'bg-[#455a54]',    view: 'finances' },
+  ].filter(m => canView(m.view));
 
   const secondaryModules = [
-    { name: 'Productos',  description: 'Catálogo',        href: '/dashboard/products',  icon: Package,     iconBg: 'bg-[#cc844a]',    adminOnly: false },
-    { name: 'Stock',      description: 'Inventario',       href: '/dashboard/stock',     icon: Boxes,       iconBg: 'bg-[#cc844a]/80', adminOnly: true  },
-    { name: 'Clientes',   description: 'Base de clientes', href: '/dashboard/clients',   icon: UserCircle2, iconBg: 'bg-[#9d684e]/70', adminOnly: false },
+    { name: 'Productos',  description: 'Catálogo',        href: '/dashboard/products',  icon: Package,     iconBg: 'bg-[#cc844a]',    view: 'products' },
+    { name: 'Stock',      description: 'Inventario',       href: '/dashboard/stock',     icon: Boxes,       iconBg: 'bg-[#cc844a]/80', view: 'stock'    },
+    { name: 'Clientes',   description: 'Base de clientes', href: '/dashboard/clients',   icon: UserCircle2, iconBg: 'bg-[#9d684e]/70', view: 'clients'  },
+    { name: 'Reservas',   description: 'Agenda y turnos',  href: '/dashboard/reservas',  icon: Ticket,      iconBg: 'bg-[#9d684e]/60', view: 'reservas' },
+    { name: 'Alumnos y grupos', description: 'Taller',     href: '/dashboard/alumnos',   icon: GraduationCap, iconBg: 'bg-[#455a54]/60', view: 'alumnos' },
+    { name: 'Equipo',     description: 'Tareas y compras', href: '/dashboard/equipo',    icon: ClipboardList, iconBg: 'bg-[#455a54]/40', view: 'equipo'  },
     // Card de Señas ocultada a pedido del cliente (la ruta /dashboard/prepaids queda).
-    // { name: 'Señas',   description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70', adminOnly: false },
-    { name: 'Actividad',  description: 'Historial',        href: '/dashboard/activity',  icon: Activity,    iconBg: 'bg-[#455a54]/50', adminOnly: true  },
-  ].filter(m => !m.adminOnly || isAdmin);
+    // { name: 'Señas',   description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70', view: 'prepaids' },
+    { name: 'Actividad',  description: 'Historial',        href: '/dashboard/activity',  icon: Activity,    iconBg: 'bg-[#455a54]/50', view: 'activity' },
+  ].filter(m => canView(m.view));
 
   if (!isAuthenticated) {
     return (

@@ -38,7 +38,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-40 bg-black/50",
         className
       )}
       {...props}
@@ -59,12 +59,35 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        // Los pickers (DatePicker, AsyncSelect…) portalean su panel al <body>
+        // vía PopoverPortal, fuera del árbol del Dialog. Sin esto, Radix trata
+        // el click/foco en ese panel como "afuera" y cierra el modal. Ignoramos
+        // los eventos externos cuyo target esté dentro de un panel portaleado.
+        onPointerDownOutside={(e) => {
+          if ((e.target as Element)?.closest?.("[data-popover-portal]")) {
+            e.preventDefault()
+          }
+        }}
+        onInteractOutside={(e) => {
+          if ((e.target as Element)?.closest?.("[data-popover-portal]")) {
+            e.preventDefault()
+          }
+        }}
         className={cn(
           // `max-h` + `overflow-y-auto`: si el contenido es más alto que la
           // ventana, scrollea dentro del modal. Sin esto se desborda fuera de
           // pantalla y, como Radix bloquea el scroll del body, el gesto cae en
           // el overlay y cierra el diálogo.
-          "bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-1rem)] max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto overscroll-contain rounded-lg border border-[#9d684e]/20 p-6 shadow-xl duration-200 sm:max-w-[calc(100%-2rem)] md:max-w-2xl lg:max-w-4xl xl:max-w-6xl",
+          // flex-col SIN padding ni scroll propios: el scroll y el padding viven
+          // en el pseudo-body (el div hijo entre header y footer, marcado con la
+          // clase group). Header/footer son shrink-0 y tocan los bordes reales del
+          // modal (arriba/abajo de todo) — sin hueco de padding donde se filtre
+          // contenido por detrás. El body scrollea entre ellos.
+          // Mobile: la clase `dialog-sheet` + el CSS global lo anclan abajo como
+          // bottom-sheet con slide-up. El centrado (top/left/translate) y el
+          // zoom/fade de Radix se limitan a sm+ (desktop): en mobile pelearían
+          // con el anclado del sheet y lo dejaban corrido 50% (desfasado).
+          "dialog-shell dialog-sheet bg-white sm:data-[state=open]:animate-in sm:data-[state=closed]:animate-out sm:data-[state=closed]:fade-out-0 sm:data-[state=open]:fade-in-0 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95 fixed z-50 flex flex-col w-full max-h-[calc(100dvh-2rem)] overflow-hidden border border-[#9d684e]/20 shadow-xl duration-200 sm:top-[50%] sm:left-[50%] sm:max-w-[calc(100%-2rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg md:max-w-2xl lg:max-w-4xl xl:max-w-6xl",
           className
         )}
         {...props}
@@ -84,22 +107,29 @@ function DialogContent({
   )
 }
 
+// Header fijo arriba: shrink-0, toca el borde superior real del modal (padding
+// propio, no del content). No scrollea. El borde inferior lo separa del body.
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      className={cn(
+        "shrink-0 bg-white flex flex-col gap-1 border-b border-[#e6dbcd] px-4 py-3.5 text-center sm:px-5 sm:text-left",
+        className
+      )}
       {...props}
     />
   )
 }
 
+// Footer fijo al fondo: shrink-0, toca el borde inferior real del modal. No
+// scrollea. El borde superior lo separa del body scrolleable.
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "shrink-0 bg-white flex flex-col-reverse gap-2 border-t border-[#e6dbcd] px-4 py-3.5 sm:flex-row sm:justify-end sm:px-5",
         className
       )}
       {...props}

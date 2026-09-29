@@ -26,6 +26,7 @@ import { useSettingsStore } from '@/stores/settings.store';
 import { Sale } from '@/lib/types';
 import { Sale as ServiceSale } from '@/services/sales.service';
 import { showToast } from '@/lib/toast';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { formatCurrency, getPrimaryPaymentMethod } from '@/lib/sales-calculations';
 import { parseNotesAndSeller } from '@/lib/sales-seller';
 import { AddSalePaymentDialog } from '@/components/dashboard/sales/add-payment-dialog';
@@ -41,6 +42,7 @@ import {
 
 export default function SaleDetailPage() {
   const router = useRouter();
+  const confirm = useConfirm();
   const params = useParams();
   const saleId = params.id as string;
 
@@ -123,11 +125,7 @@ export default function SaleDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (
-      confirm(
-        '¿Estás seguro de que deseas eliminar esta venta? Esta acción no se puede deshacer.'
-      )
-    ) {
+    if (await confirm({ title: '¿Eliminar esta venta?', description: 'Esta acción no se puede deshacer.' })) {
       try {
         await deleteSale(saleId);
         showToast.success('Venta eliminada correctamente');

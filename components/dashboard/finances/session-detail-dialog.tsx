@@ -225,7 +225,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
     ? new Date(session.closedAt).toLocaleString('es-AR')
     : 'Abierta';
 
-  const payTotal = kpis.byMethod.CASH + kpis.byMethod.CARD + kpis.byMethod.TRANSFER;
+  const payTotal = kpis.byMethod.CASH + kpis.byMethod.CARD + kpis.byMethod.TRANSFER + kpis.byMethod.MERCADOPAGO;
   const pct = (n: number) => (payTotal > 0 ? Math.round((n / payTotal) * 100) : 0);
 
   return (
@@ -355,6 +355,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                   { icon: <Banknote className="h-3.5 w-3.5" />, label: 'Efectivo',      amount: kpis.byMethod.CASH },
                   { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'Tarjeta',     amount: kpis.byMethod.CARD },
                   { icon: <Send className="h-3.5 w-3.5" />,        label: 'Transferencia', amount: kpis.byMethod.TRANSFER },
+                  { icon: <CreditCard className="h-3.5 w-3.5" />, label: 'MercadoPago',  amount: kpis.byMethod.MERCADOPAGO },
                 ] as const).map(({ icon, label, amount }) => (
                   <div key={label} className="flex items-center justify-between text-xs font-sans">
                     <div className="flex items-center gap-2" style={{ color: 'var(--color-ciruela-oscuro)' }}>

@@ -52,19 +52,39 @@ export function formatPhoneAR(raw: string): string {
 }
 
 /**
+ * Extracts the local subscriber core of an Argentine phone number:
+ * only digits, stripping country code (54), mobile prefix (9),
+ * long-distance 0 and mobile 15. Mirrors the backend `phoneCore`
+ * matching (área + abonado, e.g. "1136585581").
+ *
+ * Returns '' if there are no digits.
+ */
+export function phoneCoreAR(raw: string): string {
+  let digits = raw.replace(/\D/g, '');
+
+  if (digits.startsWith('54')) digits = digits.slice(2);
+  if (digits.length > 10 && digits.startsWith('9')) digits = digits.slice(1);
+  if (digits.startsWith('0')) digits = digits.slice(1);
+  if (digits.startsWith('15')) digits = digits.slice(2);
+
+  return digits;
+}
+
+/**
+ * Canonical storage format for an Argentine phone: "549" + área + abonado,
+ * digits only (e.g. "5491136585581"). Built on {@link phoneCoreAR} so it
+ * matches what the WhatsApp bot looks up. Returns '' if there is no core.
+ */
+export function normalizePhoneAR(raw: string): string {
+  const core = phoneCoreAR(raw);
+  return core ? `549${core}` : '';
+}
+
+/**
  * Builds a wa.me link from an Argentine phone number.
  * Normalizes to international format: 54 9 + area + number,
  * stripping leading 0 (long distance) and 15 (mobile prefix).
  */
 export function getWhatsAppLink(phone: string): string {
-  let digits = phone.replace(/\D/g, '');
-
-  if (digits.startsWith('54')) {
-    digits = digits.slice(2);
-    if (digits.startsWith('9')) digits = digits.slice(1);
-  }
-  if (digits.startsWith('0')) digits = digits.slice(1);
-  if (digits.startsWith('15')) digits = digits.slice(2);
-
-  return `https://wa.me/549${digits}`;
+  return `https://wa.me/${normalizePhoneAR(phone)}`;
 }

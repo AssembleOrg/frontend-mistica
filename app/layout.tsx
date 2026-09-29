@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist, Geist_Mono, Playfair_Display, Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { PwaProvider } from '@/components/pwa/pwa-provider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -11,6 +12,19 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
+
+// Display serif de la landing pública (coincide con el diseño en Pencil).
+const playfair = Playfair_Display({
+  variable: '--font-playfair',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
+
+// Sans de cuerpo/UI de la landing boutique (reemplaza Geist en lo público).
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
 });
 
@@ -29,7 +43,7 @@ export const metadata: Metadata = {
       { url: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png' },
     ],
     shortcut: '/web-app-manifest-192x192.png',
-    apple: '/web-app-manifest-192x192.png',
+    apple: [{ url: '/web-app-manifest-192x192.png', sizes: '192x192' }],
   },
 };
 
@@ -46,12 +60,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang='en'>
+    <html lang='es-AR'>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${inter.variable} antialiased`}
       >
         <ErrorBoundary>{children}</ErrorBoundary>
         <Toaster />
+        <PwaProvider />
       </body>
     </html>
   );

@@ -57,6 +57,8 @@ const paymentLabel = (m: string) => {
       return { label: 'Tarjeta', color: 'text-[#9d684e]' };
     case 'TRANSFER':
       return { label: 'Transferencia', color: 'text-[#e0a38d]' };
+    case 'MERCADOPAGO':
+      return { label: 'MercadoPago', color: 'text-[#2d9cdb]' };
     case 'MIXTO':
       return { label: 'Mixto', color: 'text-purple-600' };
     default:

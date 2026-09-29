@@ -44,6 +44,7 @@ import { encodeNotesWithSeller, parseNotesAndSeller } from '@/lib/sales-seller';
 import { salesService } from '@/services/sales.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { Product } from '@/lib/types';
+import { SaleScheduleSection, useSaleSchedule } from './sale-schedule';
 
 type AdjustmentType = 'discount' | 'surcharge';
 
@@ -130,7 +131,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   const { createSale, updateSale } = useSalesAPI();
   const { getPrepaidsByClient, getPrepaidById } = usePrepaidsAPI();
-  const { canManageProducts } = usePermissions();
+  const { canManageProducts, canEdit: isAdmin } = usePermissions();
+  // Agendar la venta (experiencia/servicio con día y hora) en Reservas.
+  const schedule = useSaleSchedule();
 
   const clientId = selectedClient?.id ?? '';
 
@@ -310,6 +313,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       }
     });
 
+    schedule.suggestFrom(product);
     showToast.success(`${product.name} agregado al carrito`);
   };
 
@@ -619,6 +623,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   }, [total, isPartial, editingSale]);
 
   const resetForm = () => {
+    schedule.reset();
     setSelectedClient(null);
     setSaleName('');
     setCustomerName('');
@@ -685,6 +690,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     // monto que necesite (la diferencia ≤ total sigue siendo descuento auto).
     if (!(paymentsSum > 0)) {
       showToast.error('Ingresá al menos un pago');
+      return;
+    }
+
+    const scheduleError = editingSale ? null : schedule.validate();
+    if (scheduleError) {
+      showToast.error(scheduleError);
       return;
     }
 
@@ -786,6 +797,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             showToast.error('La venta se creó, pero no se pudo guardar el vínculo');
           }
         }
+        if (createdSale?.id) await schedule.schedule(createdSale.id);
         onSaleCreated?.(createdSale);
       }
 
@@ -1406,6 +1418,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   )}
                 </div>
               </div>
+
+              {!editingSale && isAdmin && (
+                <SaleScheduleSection state={schedule} />
+              )}
 
               {/* Totals */}
               {cartItems.length > 0 && (

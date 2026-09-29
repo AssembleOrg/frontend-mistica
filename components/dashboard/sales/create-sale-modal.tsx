@@ -693,7 +693,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       return;
     }
 
-    const scheduleError = editingSale ? null : schedule.validate();
+    const scheduleError = schedule.validate();
     if (scheduleError) {
       showToast.error(scheduleError);
       return;
@@ -764,6 +764,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       if (editingSale) {
         const updateData: UpdateSaleRequest = { ...basePayload };
         await updateSale(editingSale.id, updateData);
+        // Agendar lo que no se agendó al crearla. El backend rechaza si ya tiene reserva.
+        await schedule.schedule(editingSale.id);
         // Sincronizar ventas relacionadas (vínculo mutuo). Sólo si cambió el set
         // respecto del que traía la venta — evita un PATCH extra innecesario.
         const prev = editingSale.relatedSaleIds || [];
@@ -1419,7 +1421,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 </div>
               </div>
 
-              {!editingSale && isAdmin && (
+              {isAdmin && (
                 <SaleScheduleSection state={schedule} />
               )}
 

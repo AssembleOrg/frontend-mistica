@@ -7,9 +7,12 @@ import type { User } from '@/services/auth.service';
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  /** No se pudo validar la sesión (sin red / backend caído). No se persiste. */
+  sessionCheckFailed: boolean;
 
   setUser: (user: User | null) => void;
   setAuthenticated: (isAuthenticated: boolean) => void;
+  setSessionCheckFailed: (failed: boolean) => void;
   logout: () => void;
 }
 
@@ -21,9 +24,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       isAuthenticated: false,
+      sessionCheckFailed: false,
 
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
+      setUser: (user) =>
+        set({ user, isAuthenticated: !!user, sessionCheckFailed: false }),
       setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
+      setSessionCheckFailed: (sessionCheckFailed) => set({ sessionCheckFailed }),
       logout: () => set({ user: null, isAuthenticated: false }),
     }),
     {

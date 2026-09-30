@@ -119,22 +119,34 @@ export function useAuth() {
 }
 
 /**
- * Llama una sola vez a `/auth/me` al montar la app para validar la sesión
- * persistida (el `user` en localStorage es sólo un hint; la verdad la tiene
- * la cookie del backend).
+ * Llama una sola vez a `/auth/me` al montar el panel para validar la sesión
+ * (el `user` en localStorage es sólo un hint; la verdad la tiene la cookie).
+ *
+ * Se consulta SIEMPRE, haya o no user guardado: la app instalada en iPhone
+ * arranca con la cookie copiada de Safari pero con el localStorage vacío, y
+ * sin esta consulta el panel quedaba en "Cargando..." para siempre.
  */
 export function useHydrateAuth() {
   const { refreshUser } = useAuth();
-  const persistedUser = useAuthStore((s) => s.user);
+  const setSessionCheckFailed = useAuthStore((s) => s.setSessionCheckFailed);
   const ranRef = useRef(false);
 
   useEffect(() => {
     if (ranRef.current) return;
     ranRef.current = true;
-    if (persistedUser) {
-      void refreshUser().catch(() => {
-        // refreshUser ya se encarga de limpiar el estado en caso de 401.
-      });
-    }
-  }, [persistedUser, refreshUser]);
+    setSessionCheckFailed(false);
+    refreshUser().catch((error: unknown) => {
+      const status = (error as ApiError)?.status;
+      if (status === 401 || status === 403) {
+        // Sin sesión válida: al login, volviendo después a donde estaba.
+        const next = encodeURIComponent(
+          window.location.pathname + window.location.search,
+        );
+        window.location.replace(`/login?next=${next}`);
+        return;
+      }
+      // Sin red o backend caído: el panel ofrece reintentar.
+      setSessionCheckFailed(true);
+    });
+  }, [refreshUser, setSessionCheckFailed]);
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthStore } from '@/stores/auth.store';
 import { canAccessView } from '@/lib/views';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList } from 'lucide-react';
@@ -12,6 +13,7 @@ import { Footer } from '@/components/ui/footer';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
+  const sessionCheckFailed = useAuthStore((s) => s.sessionCheckFailed);
   const canView = (view: string) => canAccessView(view, user?.role, user?.allowedViews);
 
   const primaryModules = [
@@ -33,8 +35,29 @@ export default function Dashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div className='flex items-center justify-center min-h-screen'>
-        <p>Cargando...</p>
+      <div className='flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center'>
+        {sessionCheckFailed ? (
+          <>
+            <p className='text-[#455a54]'>No pudimos conectar con el servidor.</p>
+            <div className='flex gap-2'>
+              <button
+                type='button'
+                onClick={() => window.location.reload()}
+                className='rounded-lg bg-[#455a54] px-4 py-2 text-sm font-medium text-white'
+              >
+                Reintentar
+              </button>
+              <Link
+                href='/login?next=%2Fdashboard'
+                className='rounded-lg border border-[#455a54]/30 px-4 py-2 text-sm font-medium text-[#455a54]'
+              >
+                Ir al login
+              </Link>
+            </div>
+          </>
+        ) : (
+          <p>Cargando...</p>
+        )}
       </div>
     );
   }

@@ -34,16 +34,17 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'Mistica',
+    title: 'Mística',
     statusBarStyle: 'default',
   },
   icons: {
     icon: [
-      { url: '/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    shortcut: '/web-app-manifest-192x192.png',
-    apple: [{ url: '/web-app-manifest-192x192.png', sizes: '192x192' }],
+    shortcut: '/icon-192.png',
+    // iOS pinta de negro lo transparente: ícono con fondo sólido.
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
   },
 };
 

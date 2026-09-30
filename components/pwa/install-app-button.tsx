@@ -30,7 +30,10 @@ export function InstallAppButton() {
       return;
     }
     const outcome = await promptInstall();
-    if (outcome === 'accepted') showToast.success('¡App instalada!');
+    if (outcome === 'accepted')
+      showToast.success(
+        '¡Listo! Buscala en tus apps como "Mística" (el ícono de la libélula).',
+      );
   }
 
   return (

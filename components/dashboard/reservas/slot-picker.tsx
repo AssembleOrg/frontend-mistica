@@ -26,6 +26,14 @@ const fmtDayChip = (dateKey: string) => {
   return `${wd} ${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`;
 };
 
+/** Días desde hoy hasta el último del mes siguiente (así entra el mes entero). */
+const daysUntilEndOfNextMonth = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+  return Math.round((end.getTime() - today.getTime()) / 86_400_000);
+};
+
 type Check = {
   status: 'idle' | 'checking' | 'ok' | 'no';
   maxPartySize?: number;
@@ -64,7 +72,7 @@ export function useSlotPicker(
     let alive = true;
     setSlotsLoading(true);
     reservationsPublic
-      .availability(expId, 21)
+      .availability(expId, daysUntilEndOfNextMonth())
       .then((rows) => {
         if (!alive) return;
         setSlots(rows);

@@ -24,6 +24,10 @@ export interface Group {
   studentIds: string[];
   notes?: string;
   isActive: boolean;
+  /** Posición en el listado (la acomoda el admin arrastrando). */
+  sortOrder?: number;
+  /** ¿Sus alumnos llevan pieza del mes? (la Escuelita no). */
+  hasMonthlyPiece?: boolean;
   createdAt: string;
 }
 
@@ -37,6 +41,7 @@ export interface CreateGroupInput {
   clientIds?: string[];
   notes?: string;
   isActive?: boolean;
+  hasMonthlyPiece?: boolean;
 }
 
 export interface Student {
@@ -251,6 +256,9 @@ export const tallerAdmin = {
         `/groups${includeInactive ? '?includeInactive=true' : ''}`,
       )
     ).data,
+  /** Guarda el orden del listado (ids en el orden en que se ven). Admin. */
+  reorderGroups: async (ids: string[]) =>
+    (await apiService.patch<{ success: boolean }>('/groups/order', { ids })).data,
   createGroup: async (input: CreateGroupInput) =>
     (await apiService.post<Group>('/groups', input as unknown as Json)).data,
   updateGroup: async (id: string, input: Partial<CreateGroupInput>) =>

@@ -1202,7 +1202,11 @@ function GroupPieceModal({
         'Completá nombre, firma, pieza y colores de cada ficha (o quitá los alumnos que no hicieron pieza)',
       );
     }
-    const toCharge = entries.filter((e) => isAdmin && e.extraCharge && e.charge);
+    // La Escuelita (y todo grupo sin pieza del mes) sólo carga las fichas.
+    const withMonthly = group.hasMonthlyPiece !== false;
+    const toCharge = withMonthly
+      ? entries.filter((e) => isAdmin && e.extraCharge && e.charge)
+      : [];
     if (toCharge.some((e) => !(Number(e.extraAmount) > 0))) {
       return showToast.error('Para cobrar el adicional cargá el monto.');
     }
@@ -1239,7 +1243,7 @@ function GroupPieceModal({
     // Pieza del mes de cada alumno. Si ya tenía una cargada este mes, no se
     // le pisa el nombre; un adicional ya cobrado no se vuelve a cobrar.
     const results = await Promise.allSettled(
-      entries.map((e) => {
+      (withMonthly ? entries : []).map((e) => {
         const mp = monthly.get(e.studentId);
         const amount = Number(e.extraAmount);
         return tallerAdmin.saveMonthlyPiece(e.studentId, month, {
@@ -1355,8 +1359,9 @@ function GroupPieceModal({
                   </p>
                   <p className='text-xs text-[#7a6e6f]'>
                     {group.professorName ?? 'Sin profesor'} ·{' '}
-                    {entries.length} ficha(s) · pieza de{' '}
-                    {monthLabel(month).toLowerCase()}
+                    {entries.length} ficha(s)
+                    {group.hasMonthlyPiece !== false &&
+                      ` · pieza de ${monthLabel(month).toLowerCase()}`}
                   </p>
                 </div>
                 <button
@@ -1440,6 +1445,7 @@ function GroupPieceModal({
                         </div>
 
                         {/* Pieza del mes: lo mismo que en Alumnos → Piezas del mes. */}
+                        {group.hasMonthlyPiece !== false && (
                         <div className='mt-3 flex flex-col gap-2.5 rounded-lg bg-[#fbf5ef] p-2.5'>
                           <div className='flex flex-wrap items-center gap-2'>
                             <span className='text-xs font-medium text-[#7a6e6f]'>
@@ -1540,6 +1546,7 @@ function GroupPieceModal({
                               </>
                             ))}
                         </div>
+                        )}
                       </div>
                     );
                   })}

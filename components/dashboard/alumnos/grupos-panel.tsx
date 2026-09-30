@@ -1,7 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarCheck, ChevronLeft, ChevronRight, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { Switch } from '@/components/ui/switch';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,8 +230,9 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
             schedule: [{ ...(group.schedule[0] ?? DEFAULT_SLOT) }],
             studentIds: [...group.studentIds],
             isActive: group.isActive,
+            hasMonthlyPiece: group.hasMonthlyPiece ?? true,
           }
-        : { ...EMPTY, schedule: [{ ...DEFAULT_SLOT }], studentIds: [] },
+        : { ...EMPTY, schedule: [{ ...DEFAULT_SLOT }], studentIds: [], hasMonthlyPiece: true },
     );
   }
 
@@ -259,6 +279,30 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
     }
   }
 
+  // Orden del listado: el admin arrastra las tarjetas y se guarda al soltar.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // En la tablet: mantener apretada la manija un instante para arrastrar,
+    // así deslizar sigue scrolleando la página.
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  async function onDragEnd({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    const from = groups.findIndex((g) => g._id === active.id);
+    const to = groups.findIndex((g) => g._id === over.id);
+    if (from < 0 || to < 0) return;
+    const next = arrayMove(groups, from, to);
+    setGroups(next);
+    try {
+      await tallerAdmin.reorderGroups(next.map((g) => g._id));
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar el orden');
+      await load();
+    }
+  }
+
   async function remove(g: Group) {
     if (!(await confirm({ title: `¿Eliminar el grupo ${g.name}?`, description: 'Esta acción no se puede deshacer.' }))) return;
     try {
@@ -298,16 +342,20 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
           Sin grupos todavía. Creá el primero.
         </div>
       ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={groups.map((g) => g._id)} strategy={rectSortingStrategy}>
         <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>
           {groups.map((g) => (
-            <div
-              key={g._id}
-              className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'
-            >
+            <SortableCard key={g._id} id={g._id} draggable={isAdmin}>
+              {(handle) => (
+              <>
               <div className='flex items-start justify-between gap-2'>
-                <h3 className='font-tan-nimbus text-[16px] font-semibold text-[#3d3338]'>
-                  {g.name}
-                </h3>
+                <div className='flex min-w-0 items-start gap-1.5'>
+                  {handle}
+                  <h3 className='font-tan-nimbus text-[16px] font-semibold text-[#3d3338]'>
+                    {g.name}
+                  </h3>
+                </div>
                 {!g.isActive && (
                   <StatusBadge label='Inactivo' bg='#f1efe9' fg='#7a6e6f' />
                 )}
@@ -360,9 +408,13 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
                   onClick={() => remove(g)}
                 />
               </div>
-            </div>
+              </>
+              )}
+            </SortableCard>
           ))}
         </div>
+        </SortableContext>
+        </DndContext>
       )}
 
       {/* Alta / edición */}
@@ -459,6 +511,21 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
                   </p>
                 </div>
               </Field>
+
+              <label className='flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3 py-2.5'>
+                <Switch
+                  checked={form.hasMonthlyPiece ?? true}
+                  onCheckedChange={(on) => setForm({ ...form, hasMonthlyPiece: on })}
+                  aria-label='Lleva pieza del mes'
+                  className='mt-0.5'
+                />
+                <span className='text-sm text-[#455a54]'>
+                  Lleva pieza del mes
+                  <span className='block text-[11px] text-[#7a6e6f]'>
+                    Apagado (como la Escuelita), sus alumnos no aparecen en Piezas del mes.
+                  </span>
+                </span>
+              </label>
 
               <Field label={`Alumnos (${(form.studentIds?.length ?? 0) + pendingClients.length})`}>
                 {(form.studentIds?.length ?? 0) + pendingClients.length === 0 ? (
@@ -565,6 +632,44 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
           onClose={() => setAttendanceOf(null)}
         />
       )}
+    </div>
+  );
+}
+
+/** Tarjeta de grupo que el admin puede arrastrar desde la manija. */
+function SortableCard({
+  id,
+  draggable,
+  children,
+}: Readonly<{
+  id: string;
+  draggable: boolean;
+  children: (handle: React.ReactNode) => React.ReactNode;
+}>) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id, disabled: !draggable });
+  const handle = draggable ? (
+    <button
+      type='button'
+      ref={setActivatorNodeRef}
+      {...attributes}
+      {...listeners}
+      title='Arrastrá para reordenar'
+      aria-label='Arrastrá para reordenar'
+      className='-ml-1 mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-[#a99f92] hover:bg-[#fbf5ef] hover:text-[#455a54] active:cursor-grabbing'
+    >
+      <GripVertical className='h-4 w-4' />
+    </button>
+  ) : null;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4 ${
+        isDragging ? 'relative z-10 shadow-lg ring-2 ring-[#455a54]/30' : ''
+      }`}
+    >
+      {children(handle)}
     </div>
   );
 }

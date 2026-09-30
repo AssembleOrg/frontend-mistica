@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, CalendarClock, CheckCircle2, Search, Wallet } from 'lucide-react';
+import { Ban, CalendarClock, CheckCircle2, Flame, Search, Wallet } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,9 @@ import { DietaryTags } from './dietary-badge';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import type { Client } from '@/services/clients.service';
 import { ReservationDetailPanel } from './reservation-detail-panel';
+import { NewPieceModal } from './piezas-tab';
+import { useAuth } from '@/hooks/useAuth';
+import { allowedReservasTabs } from '@/lib/views';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
 import {
   SALON_CLOSE,
@@ -89,6 +92,10 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [collect, setCollect] = useState<ReservationItem | null>(null);
+  // Cargar piezas directo desde la reserva (sin pasar por la pestaña Piezas).
+  const [piecesFor, setPiecesFor] = useState<ReservationItem | null>(null);
+  const { user } = useAuth();
+  const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
   const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
   const [detail, setDetail] = useState<ReservationItem | null>(null);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
@@ -215,10 +222,19 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
     const canCancel = ['PENDING', 'CONFIRMED', 'NEEDS_REVIEW'].includes(
       r.status,
     );
-    if (!canConfirm && !canCollect && !canReschedule && !canCancel)
+    const canLoadPieces = canPieces && r.status === 'CONFIRMED';
+    if (!canConfirm && !canCollect && !canReschedule && !canCancel && !canLoadPieces)
       return <span className='text-sm text-[#7a6e6f]'>—</span>;
     return (
       <div className='flex items-center justify-end gap-1.5'>
+        {canLoadPieces && (
+          <IconBtn
+            icon={Flame}
+            title='Cargar piezas de esta reserva'
+            tone='terracota'
+            onClick={() => setPiecesFor(r)}
+          />
+        )}
         {canReschedule && (
           <IconBtn
             icon={CalendarClock}
@@ -343,7 +359,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
       {/* Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
         <div className='min-w-[68rem]'>
-          <div className='grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_8.5rem] items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
+          <div className='grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_12rem] items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]'>
             <span>CÓDIGO</span>
             <span>CLIENTE</span>
             <span>EXPERIENCIA · TURNO</span>
@@ -369,7 +385,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                 <div
                   key={r._id}
                   className={cn(
-                    'grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_8.5rem] items-center gap-3 border-b border-[#e6dbcd] px-5 py-3.5 last:border-0 transition-colors hover:bg-[#fbf5ef]/50',
+                    'grid grid-cols-[6rem_11rem_1fr_3.5rem_8rem_6rem_8rem_12rem] items-center gap-3 border-b border-[#e6dbcd] px-5 py-3.5 last:border-0 transition-colors hover:bg-[#fbf5ef]/50',
                     r.status === 'CANCELLED' && 'opacity-55',
                   )}
                 >
@@ -542,6 +558,17 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
         }}
         busy={busy != null}
       />
+
+      {piecesFor && (
+        <NewPieceModal
+          reservation={piecesFor}
+          onClose={() => setPiecesFor(null)}
+          onDone={() => {
+            setPiecesFor(null);
+            refresh();
+          }}
+        />
+      )}
 
       {collect && (
         <CollectBalanceModal

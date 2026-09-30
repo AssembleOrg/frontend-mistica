@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Minus, Plus, UserPlus } from 'lucide-react';
+import { Flame, Minus, Plus, UserPlus } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,8 @@ import { DietaryTags } from './dietary-badge';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import type { Client } from '@/services/clients.service';
 import { useAuth } from '@/hooks/useAuth';
-import { canSeeReservationDetails } from '@/lib/views';
+import { allowedReservasTabs, canSeeReservationDetails } from '@/lib/views';
+import { NewPieceModal } from './piezas-tab';
 import { ReservationManager } from './reservation-manager';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
 import {
@@ -58,6 +59,9 @@ export function AnotadosModal({
   const [loading, setLoading] = useState(true);
   // Gestión de una reserva del turno (panel + acciones), sin salir de la Agenda.
   const [detail, setDetail] = useState<ReservationItem | null>(null);
+  // Cargar las piezas de una reserva del turno, directo desde la Agenda.
+  const [piecesFor, setPiecesFor] = useState<ReservationItem | null>(null);
+  const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
 
   // Cliente: se busca entre los existentes; "nuevo" (nombre + contacto a
   // mano) sólo si no está en el sistema.
@@ -184,14 +188,15 @@ export function AnotadosModal({
               className={cn(
                 'grid gap-3 bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#455a54]/60',
                 verDetalle
-                  ? 'grid-cols-[84px_1fr_48px_96px]'
-                  : 'grid-cols-[1fr_48px_96px]',
+                  ? 'grid-cols-[84px_1fr_48px_96px_36px]'
+                  : 'grid-cols-[1fr_48px_96px_36px]',
               )}
             >
               {verDetalle && <span>CÓDIGO</span>}
               <span>CLIENTE</span>
               <span className='text-right'>PERS.</span>
               <span>ESTADO</span>
+              <span className='sr-only'>Piezas</span>
             </div>
             {loading ? (
               <div className='p-4 text-sm text-[#455a54]/60'>Cargando…</div>
@@ -217,8 +222,8 @@ export function AnotadosModal({
                   className={cn(
                     'grid items-center gap-3 border-t border-[#e6dbcd] px-4 py-3',
                     verDetalle
-                      ? 'grid-cols-[84px_1fr_48px_96px]'
-                      : 'grid-cols-[1fr_48px_96px]',
+                      ? 'grid-cols-[84px_1fr_48px_96px_36px]'
+                      : 'grid-cols-[1fr_48px_96px_36px]',
                     verDetalle && 'cursor-pointer hover:bg-[#fbf5ef]',
                   )}
                 >
@@ -257,6 +262,23 @@ export function AnotadosModal({
                   <span className='truncate text-xs text-[#455a54]/60'>
                     {RESERVATION_STATUS_LABEL[r.status] ?? r.status}
                   </span>
+                  {canPieces && r.status === 'CONFIRMED' ? (
+                    <button
+                      type='button'
+                      title='Cargar piezas de esta reserva'
+                      aria-label='Cargar piezas de esta reserva'
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPiecesFor(r);
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      className='inline-flex size-9 items-center justify-center rounded-[9px] border border-[#e6dbcd] bg-white text-[#9d684e] transition-colors hover:bg-[#fbf5ef]'
+                    >
+                      <Flame className='h-4 w-4' />
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                 </div>
               ))
             )}
@@ -396,6 +418,17 @@ export function AnotadosModal({
         </div>
       </DialogContent>
     </Dialog>
+
+      {piecesFor && (
+        <NewPieceModal
+          reservation={piecesFor}
+          onClose={() => setPiecesFor(null)}
+          onDone={async () => {
+            setPiecesFor(null);
+            await afterChange();
+          }}
+        />
+      )}
 
       {/* Gestión de una reserva del turno, sin salir de la Agenda. */}
       <ReservationManager

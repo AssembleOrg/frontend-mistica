@@ -13,6 +13,7 @@ import {
   Ticket,
   Users,
   Wallet,
+  Flame,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,8 @@ import { ReservasCalendar } from './reservas-calendar';
 import { ReservationManager } from './reservation-manager';
 import { DietaryTags } from './dietary-badge';
 import { useAuth } from '@/hooks/useAuth';
-import { canSeeReservationDetails } from '@/lib/views';
+import { allowedReservasTabs, canSeeReservationDetails } from '@/lib/views';
+import { NewPieceModal } from './piezas-tab';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
@@ -127,6 +129,10 @@ export function ReservasTab() {
   const [attendees, setAttendees] = useState<Record<string, ReservationItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [anotados, setAnotados] = useState<string | null>(null);
+  // Cargar piezas desde la tarjeta del turno: una reserva va directo; con
+  // varias, se elige entre las del turno.
+  const [piecesOf, setPiecesOf] = useState<ReservationItem[] | null>(null);
+  const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
   const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -369,6 +375,14 @@ export function ReservasTab() {
                   reservations={attendees[s.id] ?? []}
                   verDetalle={verDetalle}
                   onVer={() => setAnotados(s.id)}
+                  onPieces={
+                    canPieces
+                      ? () =>
+                          setPiecesOf(
+                            (attendees[s.id] ?? []).filter((r) => r.status === 'CONFIRMED'),
+                          )
+                      : undefined
+                  }
                 />
               ))}
             </div>
@@ -426,6 +440,18 @@ export function ReservasTab() {
         </>
       ) : (
         <WeekAgenda gridDays={gridDays} byDay={byDay} hoy={hoy} onVer={setAnotados} />
+      )}
+
+      {piecesOf && (
+        <NewPieceModal
+          reservation={piecesOf.length === 1 ? piecesOf[0] : undefined}
+          choices={piecesOf.length === 1 ? undefined : piecesOf}
+          onClose={() => setPiecesOf(null)}
+          onDone={() => {
+            setPiecesOf(null);
+            setTick((t) => t + 1);
+          }}
+        />
       )}
 
       {anotados && (
@@ -488,11 +514,14 @@ function TurnoCard({
   reservations,
   verDetalle,
   onVer,
+  onPieces,
 }: {
   session: AdminSession;
   reservations: ReservationItem[];
   verDetalle: boolean;
   onVer: () => void;
+  /** Cargar piezas de las reservas del turno (si la cuenta tiene Piezas). */
+  onPieces?: () => void;
 }) {
   // La Agenda es la fuente de verdad del negocio: el conteo y el cupo cuentan
   // sólo lo confirmado. Las pendientes (holds del bot/landing) se muestran
@@ -519,10 +548,18 @@ function TurnoCard({
   const full = seats >= s.capacity;
 
   return (
-    <button
-      type='button'
+    // div (no <button>): adentro va el botón de piezas y no se anidan botones.
+    <div
+      role='button'
+      tabIndex={0}
       onClick={onVer}
-      className='group flex flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onVer();
+        }
+      }}
+      className='group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
     >
       {/* Cabecera: hora + ocupación. Acento de color de la experiencia como
           punto sutil, no como barra lateral. */}
@@ -612,13 +649,31 @@ function TurnoCard({
               Todo cobrado
             </span>
           )}
-          <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
-            Ver turno
-            <ArrowRight className='h-3.5 w-3.5' />
+          <span className='inline-flex items-center gap-2'>
+            {onPieces && confirmadas.length > 0 && (
+              <button
+                type='button'
+                title='Cargar piezas de este turno'
+                aria-label='Cargar piezas de este turno'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPieces();
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                className='inline-flex h-8 items-center gap-1 rounded-lg border border-[#e6dbcd] bg-white px-2 text-xs font-medium text-[#9d684e] transition-colors hover:bg-[#fbf5ef]'
+              >
+                <Flame className='h-3.5 w-3.5' />
+                Piezas
+              </button>
+            )}
+            <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
+              Ver turno
+              <ArrowRight className='h-3.5 w-3.5' />
+            </span>
           </span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

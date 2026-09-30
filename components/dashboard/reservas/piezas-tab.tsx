@@ -800,12 +800,16 @@ const emptyReservationEntry = (personName = ''): ReservationEntry => ({
 
 export function NewPieceModal({
   reservation: fixedReservation,
+  choices,
   onClose,
   onDone,
 }: Readonly<{
   /** Si viene, se saltea el buscador y se cargan las fichas de esa reserva
    *  directamente (acceso desde la ficha de reserva). */
   reservation?: ReservationItem;
+  /** Reservas entre las que elegir (p. ej. las de un turno de la Agenda), en
+   *  lugar del buscador por día. */
+  choices?: ReservationItem[];
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }>) {
@@ -813,7 +817,7 @@ export function NewPieceModal({
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [classDate, setClassDate] = useState(todayKey);
   const [search, setSearch] = useState('');
-  const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [reservations, setReservations] = useState<ReservationItem[]>(choices ?? []);
   const [reservation, setReservation] = useState<ReservationItem | null>(
     fixedReservation ?? null,
   );
@@ -843,8 +847,8 @@ export function NewPieceModal({
   );
 
   useEffect(() => {
-    // Con reserva fija no hace falta buscar.
-    if (locked) return;
+    // Con reserva fija o con las del turno no hace falta buscar.
+    if (locked || choices) return;
     let alive = true;
     setLoading(true);
     const timer = window.setTimeout(() => {
@@ -864,7 +868,7 @@ export function NewPieceModal({
       alive = false;
       window.clearTimeout(timer);
     };
-  }, [classDate, search, locked]);
+  }, [classDate, search, locked, choices]);
 
   function selectReservation(item: ReservationItem) {
     setReservation(item);
@@ -936,6 +940,9 @@ export function NewPieceModal({
         <div className='flex flex-col gap-4'>
           {!reservation ? (
             <>
+              {choices ? (
+                <p className='text-sm text-[#7a6e6f]'>Elegí la reserva del turno:</p>
+              ) : (
               <div className='grid gap-2 sm:grid-cols-[12rem_1fr]'>
                 <DatePicker
                   value={classDate}
@@ -955,6 +962,7 @@ export function NewPieceModal({
                   />
                 </div>
               </div>
+              )}
               <div className='max-h-72 overflow-y-auto rounded-xl border border-[#e6dbcd]'>
                 {loading ? (
                   <p className='p-4 text-sm text-[#7a6e6f]'>Buscando reservas del día…</p>

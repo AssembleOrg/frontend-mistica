@@ -30,6 +30,8 @@ export interface Product {
   updatedAt: Date;
   profitMargin?: number;
   kind?: ProductKind;
+  /** Cuota mensual de alumno: venderla a un alumno marca paga su cuota. */
+  studentFee?: boolean;
 }
 
 // Stock Management Types

@@ -30,6 +30,7 @@ import {
   type PaymentAlert,
   type Student,
   type StudentAdminProfile,
+  type StudentPayment,
   type StudentPracticalProfile,
 } from '@/services/taller.admin.service';
 import { PIECE_STATUS_LABEL, type PieceStatus } from '@/services/pieces.admin.service';
@@ -38,7 +39,7 @@ import { IconBtn, StatusBadge } from '../reservas/_shared';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
-const EMPTY: CreateStudentInput = { name: '', isActive: true };
+const EMPTY: CreateStudentInput = { name: '', isActive: true, paymentDay: 10 };
 const clientsService = new ClientsService();
 
 
@@ -175,7 +176,7 @@ export function AlumnosPanel() {
               >
                 <span className='font-medium'>{a.studentName}</span>
                 <span>· {a.concept}</span>
-                <span>· {fmtPrice(a.amount)}</span>
+                {a.amount > 0 && <span>· {fmtPrice(a.amount)}</span>}
                 <span>· vence {fmtDate(a.dueDate)}</span>
               </div>
             ))}
@@ -293,6 +294,8 @@ export function AlumnosPanel() {
                           guardianName: s.guardianName,
                           birthDate: s.birthDate?.slice(0, 10),
                           joinedAt: s.joinedAt?.slice(0, 10),
+                          paymentDay: s.paymentDay ?? 10,
+                          monthlyFee: s.monthlyFee,
                           adminNotes: s.adminNotes,
                           practicalNotes: s.practicalNotes,
                           isActive: s.isActive,
@@ -404,6 +407,49 @@ export function AlumnosPanel() {
                   />
                 </Field>
               </div>
+              {isAdmin && (
+                <div className='grid grid-cols-2 gap-3'>
+                  <Field label='Día límite de pago'>
+                    <Input
+                      type='number'
+                      inputMode='numeric'
+                      min={1}
+                      max={31}
+                      value={form.paymentDay ?? ''}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          paymentDay: e.target.value
+                            ? Math.min(31, Math.max(1, Number(e.target.value)))
+                            : undefined,
+                        })
+                      }
+                      placeholder='10'
+                      className={fieldCls}
+                    />
+                  </Field>
+                  <Field label='Cuota mensual ($, opcional)'>
+                    <Input
+                      type='number'
+                      inputMode='decimal'
+                      min={0}
+                      value={form.monthlyFee ?? ''}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          monthlyFee: e.target.value ? Number(e.target.value) : undefined,
+                        })
+                      }
+                      className={fieldCls}
+                    />
+                  </Field>
+                  <p className='col-span-2 -mt-1 text-[11px] text-[#7a6e6f]'>
+                    Cada mes se crea su cuota a cobrar con vencimiento ese día.
+                    Si pasa y no está paga, salta la alerta. Cobrarle en caja un
+                    producto de cuota (ej. &quot;mes cerámica&quot;) la marca paga.
+                  </p>
+                </div>
+              )}
               <Field label='Notas administrativas'>
                 <Textarea
                   value={form.adminNotes ?? ''}
@@ -496,6 +542,83 @@ const ATT_LABEL: Record<string, string> = {
  * Ficha del alumno. Admin: pestañas Administrativa (pagos, regularidad) y
  * Práctica. Cuentas no-admin (profesores): sólo la práctica.
  */
+const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta', 'Mercado Pago'];
+
+/** Marcar una cuota como pagada: monto y medio de pago. */
+function MarkPaidDialog({
+  payment,
+  defaultAmount,
+  onClose,
+  onConfirm,
+}: Readonly<{
+  payment: StudentPayment;
+  defaultAmount: number;
+  onClose: () => void;
+  onConfirm: (amount: number, method: string) => Promise<void>;
+}>) {
+  const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : '');
+  const [method, setMethod] = useState(METODOS_PAGO[0]);
+  const [saving, setSaving] = useState(false);
+  async function confirm() {
+    const value = Number(amount);
+    if (!(value > 0)) return showToast.error('Ingresá el monto cobrado');
+    setSaving(true);
+    try {
+      await onConfirm(value, method);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className='sm:max-w-sm'>
+        <DialogHeader className='text-left'>
+          <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
+            {payment.concept}
+          </DialogTitle>
+        </DialogHeader>
+        <div className='flex flex-col gap-3'>
+          <Field label='Monto cobrado'>
+            <Input
+              type='number'
+              inputMode='decimal'
+              min={0}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              autoFocus
+              className={fieldCls}
+            />
+          </Field>
+          <div className='grid grid-cols-2 gap-2'>
+            {METODOS_PAGO.map((m) => (
+              <button
+                key={m}
+                type='button'
+                onClick={() => setMethod(m)}
+                className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                  method === m
+                    ? 'border-[#455a54] bg-[#455a54] text-white'
+                    : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type='button' variant='outline' onClick={onClose} className='border-[#e6dbcd] text-[#455a54]'>
+            Cancelar
+          </Button>
+          <Button type='button' variant='verde' onClick={() => void confirm()} disabled={saving}>
+            {saving ? 'Guardando…' : 'Marcar pagada'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function StudentDetailDialog({
   student,
   isAdmin,
@@ -559,9 +682,14 @@ function StudentDetailDialog({
     }
   }
 
-  async function markPaid(paymentId: string) {
+  // Cuota a marcar pagada: pide monto (las generadas pueden venir en $0) y
+  // cómo se cobró.
+  const [paying, setPaying] = useState<StudentPayment | null>(null);
+
+  async function markPaid(paymentId: string, amount: number, method: string) {
     try {
-      await tallerAdmin.updatePayment(paymentId, { status: 'PAID' });
+      await tallerAdmin.updatePayment(paymentId, { status: 'PAID', amount, method });
+      setPaying(null);
       await loadAdmin();
       showToast.success('Marcada como pagada');
     } catch (e) {
@@ -710,7 +838,7 @@ function StudentDetailDialog({
                           className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] px-3 py-2 text-[13px] text-[#3d3338]'
                         >
                           <span className='font-medium'>{p.concept}</span>
-                          <span>{fmtPrice(p.amount)}</span>
+                          {p.amount > 0 && <span>{fmtPrice(p.amount)}</span>}
                           {p.status === 'PAID' ? (
                             <StatusBadge
                               label={`Pagada ${fmtDate(p.paidAt)}`}
@@ -734,7 +862,7 @@ function StudentDetailDialog({
                           {p.status === 'PENDING' && (
                             <button
                               type='button'
-                              onClick={() => markPaid(p._id)}
+                              onClick={() => setPaying(p)}
                               className='ml-auto text-[12px] font-medium text-[#455a54] underline hover:opacity-70'
                             >
                               Marcar pagada
@@ -744,6 +872,15 @@ function StudentDetailDialog({
                       );
                     })}
                   </div>
+                )}
+
+                {paying && (
+                  <MarkPaidDialog
+                    payment={paying}
+                    defaultAmount={paying.amount || adminData?.student.monthlyFee || 0}
+                    onClose={() => setPaying(null)}
+                    onConfirm={(amount, method) => markPaid(paying._id, amount, method)}
+                  />
                 )}
 
                 {payForm && (

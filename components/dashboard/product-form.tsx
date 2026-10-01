@@ -52,6 +52,8 @@ interface FormData {
   description: string;
   kind: ProductKind;
   profitMargin?: number;
+  /** Cuota mensual de alumno (sólo servicios). */
+  studentFee: boolean;
 }
 
 const unitsOfMeasure = [
@@ -81,6 +83,7 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
     description: product?.description || '',
     kind: product?.kind || 'STANDARD',
     profitMargin: product?.profitMargin,
+    studentFee: product?.studentFee ?? false,
   });
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -142,6 +145,8 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
     setFormData((prev) => ({
       ...prev,
       kind: checked ? 'SERVICE' : 'STANDARD',
+      // Una cuota de alumno es siempre un servicio.
+      studentFee: checked ? prev.studentFee : false,
       // Al marcar servicio, limpiamos campos que dejan de aplicar.
       costPrice: checked ? 0 : prev.costPrice,
       stock: checked ? 0 : prev.stock,
@@ -187,6 +192,7 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
         barcode: formData.barcode.trim(),
         price: formData.price,
         kind: formData.kind,
+        studentFee: formData.studentFee,
       };
       payload.category = formData.category.trim();
       if (!isService && formData.costPrice > 0) payload.costPrice = formData.costPrice;
@@ -286,6 +292,22 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
               Es un servicio (sin stock ni precio de costo)
             </Label>
           </CardContent>
+          {isService && (
+            <CardContent className='flex items-start gap-3 border-t border-[#9d684e]/10 py-3'>
+              <Checkbox
+                id='studentFee'
+                checked={formData.studentFee}
+                onCheckedChange={(v) => setFormData((f) => ({ ...f, studentFee: v === true }))}
+                className='mt-0.5 data-[state=checked]:bg-[#455a54] data-[state=checked]:border-[#455a54]'
+              />
+              <Label htmlFor='studentFee' className='cursor-pointer flex-col items-start gap-0.5 text-[#455a54] font-winter-solid'>
+                Es la cuota mensual de un alumno
+                <span className='block text-xs font-normal text-[#455a54]/70'>
+                  Ej. &quot;mes cerámica&quot; o &quot;escuelita&quot;: vendida a un cliente que es alumno, marca paga su cuota del mes.
+                </span>
+              </Label>
+            </CardContent>
+          )}
         </Card>
 
         <div className='grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6'>

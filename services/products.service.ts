@@ -20,6 +20,7 @@ export interface CreateProductRequest {
   profitMargin?: number;
   specialProduct?: boolean;
   kind?: ProductKind;
+  studentFee?: boolean;
 }
 
 export type UpdateProductRequest = Partial<CreateProductRequest>;

@@ -54,6 +54,10 @@ export interface Student {
   guardianName?: string;
   birthDate?: string;
   joinedAt: string;
+  /** Día del mes límite para pagar la cuota (sin valor: el 10). */
+  paymentDay?: number;
+  /** Importe de la cuota mensual. */
+  monthlyFee?: number;
   adminNotes?: string;
   practicalNotes?: string;
   isActive: boolean;
@@ -68,6 +72,8 @@ export interface CreateStudentInput {
   guardianName?: string;
   birthDate?: string;
   joinedAt?: string;
+  paymentDay?: number;
+  monthlyFee?: number;
   adminNotes?: string;
   practicalNotes?: string;
   isActive?: boolean;
@@ -83,6 +89,8 @@ export interface StudentPayment {
   dueDate?: string;
   method?: string;
   notes?: string;
+  /** Cuota mensual: mes 'YYYY-MM' (la genera el sistema). */
+  period?: string;
   createdAt: string;
 }
 

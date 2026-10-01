@@ -45,6 +45,7 @@ import { salesService } from '@/services/sales.service';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { Product } from '@/lib/types';
 import { SaleScheduleSection, useSaleSchedule } from './sale-schedule';
+import { StudentFeeSection, useStudentFee } from './student-fee';
 
 type AdjustmentType = 'discount' | 'surcharge';
 
@@ -136,6 +137,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const schedule = useSaleSchedule();
   // Productos de cuota de alumno ("mes cerámica") que pasaron por el carrito.
   const [feeProductIds, setFeeProductIds] = useState<Set<string>>(new Set());
+  // Cuota de alumno: si el cliente es alumno, qué línea paga su cuota.
+  const studentFee = useStudentFee(
+    editingSale ? undefined : selectedClient?.id,
+    cartItems,
+    feeProductIds,
+  );
 
   const clientId = selectedClient?.id ?? '';
 
@@ -628,6 +635,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const resetForm = () => {
     schedule.reset();
     setFeeProductIds(new Set());
+    studentFee.reset();
     setSelectedClient(null);
     setSaleName('');
     setCustomerName('');
@@ -756,6 +764,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // venta de precio libre (el total es lo cobrado, no se descuenta nada).
         prepaidId: !isPartial && usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: !isPartial && usePrepaid,
+        studentFeeProductIds: studentFee.selectedIds.length
+          ? studentFee.selectedIds
+          : undefined,
         isPartial: isPartial || undefined,
         // Abono a cuenta de la venta anterior seleccionada (sólo venta no
         // parcial, monto > 0). Va como array de 1 elemento.
@@ -1425,18 +1436,16 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 </div>
               </div>
 
-              {!editingSale && cartItems.some((i) => !!i.productId && feeProductIds.has(i.productId)) && (
-                <p
-                  className={`rounded-lg border px-3 py-2 text-xs ${
-                    selectedClient
-                      ? 'border-[#455a54]/30 bg-[#E7F0EC] text-[#455a54]'
-                      : 'border-[#cc844a]/40 bg-[#F6E9DC] text-[#8a5638]'
-                  }`}
-                >
-                  {selectedClient
-                    ? `Cuota de alumno: si ${selectedClient.fullName} es alumno/a, queda paga su cuota del mes.`
-                    : 'Cuota de alumno: elegí el cliente (el alumno) para que se le marque paga la cuota del mes.'}
-                </p>
+              {!editingSale && (
+                <StudentFeeSection
+                  state={studentFee}
+                  hasClient={!!selectedClient}
+                  cartHasLikelyFee={cartItems.some(
+                    (i) =>
+                      (!!i.productId && feeProductIds.has(i.productId)) ||
+                      /\b(mes|cuota|escuelita|mensual)\b/i.test(i.productName),
+                  )}
+                />
               )}
 
               {isAdmin && (

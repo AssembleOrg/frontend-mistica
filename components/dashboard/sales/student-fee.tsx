@@ -1,0 +1,134 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { GraduationCap } from 'lucide-react';
+import { salesService, type StudentFeeInfo } from '@/services/sales.service';
+/** Línea del carrito (productId ausente en ítems libres). */
+type SaleItem = { productId?: string; productName: string };
+
+/** Líneas que por nombre parecen la cuota ("mes cerámica", "escuelita"…). */
+const LOOKS_LIKE_FEE = /\b(mes|cuota|escuelita|mensual)\b/i;
+
+const fmtDay = (iso?: string) =>
+  iso
+    ? new Date(iso).toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        timeZone: 'America/Argentina/Buenos_Aires',
+      })
+    : '';
+
+/**
+ * Cuota de alumno en la venta: si el cliente es alumno, se marca qué línea del
+ * carrito es su cuota y al guardar la venta queda paga su cuota del mes.
+ * Las marcadas como cuota en el catálogo o que por nombre lo parecen vienen
+ * tildadas.
+ */
+export function useStudentFee(
+  clientId: string | undefined,
+  items: SaleItem[],
+  flaggedIds: Set<string>,
+) {
+  const [info, setInfo] = useState<StudentFeeInfo | null>(null);
+  // Elección manual por producto; sin elección, se usa la sugerencia.
+  const [choice, setChoice] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setInfo(null);
+    if (!clientId) return;
+    let alive = true;
+    salesService
+      .studentFeeOfClient(clientId)
+      .then((r) => alive && setInfo(r))
+      .catch(() => alive && setInfo(null));
+    return () => {
+      alive = false;
+    };
+  }, [clientId]);
+
+  const lines = items.filter(
+    (i): i is SaleItem & { productId: string } =>
+      !!i.productId && !i.productId.startsWith('free-'),
+  );
+  type Line = (typeof lines)[number];
+  const suggested = (i: Line) =>
+    flaggedIds.has(i.productId) || LOOKS_LIKE_FEE.test(i.productName);
+  const isOn = (i: Line) => choice[i.productId] ?? suggested(i);
+  const selectedIds = info ? lines.filter(isOn).map((i) => i.productId) : [];
+
+  return {
+    info,
+    lines,
+    selectedIds,
+    isOn,
+    toggle: (i: Line) => setChoice((c) => ({ ...c, [i.productId]: !isOn(i) })),
+    reset: () => setChoice({}),
+  };
+}
+
+export type StudentFeeState = ReturnType<typeof useStudentFee>;
+
+export function StudentFeeSection({
+  state,
+  hasClient,
+  cartHasLikelyFee,
+}: {
+  state: StudentFeeState;
+  hasClient: boolean;
+  cartHasLikelyFee: boolean;
+}) {
+  const { info, lines, isOn, toggle, selectedIds } = state;
+
+  if (!info) {
+    // Sin cliente elegido y con algo que parece cuota: recordarlo.
+    if (!hasClient && cartHasLikelyFee) {
+      return (
+        <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
+          ¿Es la cuota de un alumno? Elegí el cliente (el alumno) y se le marca
+          paga la cuota del mes.
+        </p>
+      );
+    }
+    return null;
+  }
+  if (lines.length === 0) return null;
+
+  const next = info.pending[0];
+  return (
+    <div className='flex flex-col gap-2 rounded-lg border border-[#455a54]/30 bg-[#E7F0EC] p-3 text-[#455a54]'>
+      <p className='flex items-center gap-2 text-sm font-medium'>
+        <GraduationCap className='h-4 w-4' />
+        {info.name} es alumno/a · ¿qué es su cuota?
+      </p>
+      <div className='flex flex-wrap gap-1.5'>
+        {lines.map((i) => {
+          const on = isOn(i);
+          return (
+            <button
+              key={i.productId}
+              type='button'
+              onClick={() => toggle(i)}
+              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+                on
+                  ? 'border-[#455a54] bg-[#455a54] text-white'
+                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+              }`}
+            >
+              {on ? '✓ ' : ''}
+              {i.productName}
+            </button>
+          );
+        })}
+      </div>
+      <p className='text-xs'>
+        {selectedIds.length === 0
+          ? 'Ninguna línea marcada: la venta no toca sus cuotas.'
+          : next
+            ? `Se marca paga: ${next.concept}${next.dueDate ? ` (vence ${fmtDay(next.dueDate)})` : ''}${
+                info.pending.length > 1 ? ` · debe ${info.pending.length} cuotas` : ''
+              }.`
+            : 'No debe cuotas: se registra como adelanto del mes siguiente.'}
+      </p>
+    </div>
+  );
+}

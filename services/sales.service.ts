@@ -40,6 +40,8 @@ export interface CreateSaleRequest {
   notes?: string;
   prepaidId?: string;
   consumedPrepaid?: boolean;
+  /** Productos del carrito que son la cuota del alumno (el cliente). */
+  studentFeeProductIds?: string[];
   discount?: number;
   seller: string;
   /** Marca la venta como PARTIAL (seña/pago parcial). Σ payments puede ser
@@ -201,6 +203,14 @@ interface DailySalesData {
   };
 }
 
+export interface StudentFeeInfo {
+  studentId: string;
+  name: string;
+  paymentDay: number;
+  monthlyFee?: number;
+  pending: { concept: string; period: string; dueDate?: string; amount: number }[];
+}
+
 export class SalesService {
   // Get all sales with pagination
   async getSales(page: number = 1, limit: number = 10, filters?: {
@@ -321,6 +331,12 @@ export class SalesService {
    */
   async setSaleLinks(id: string, relatedSaleIds: string[]): Promise<ApiResponse<Sale>> {
     return apiService.patch<Sale>(`/sales/${id}/links`, { relatedSaleIds });
+  }
+
+  /** Si el cliente es alumno: su nombre y las cuotas pendientes (null si no). */
+  async studentFeeOfClient(clientId: string): Promise<StudentFeeInfo | null> {
+    const res = await apiService.get<StudentFeeInfo | null>(`/sales/student-fee/${clientId}`);
+    return res.data ?? null;
   }
 
   // Update existing sale

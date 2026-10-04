@@ -752,11 +752,22 @@ const GUEST_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
   { key: 'ABSENT', label: 'Ausente' },
 ];
 
+// Clase de prueba gratuita: vino o no vino (no recupera nada).
+const TRIAL_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
+  { key: 'PRESENT', label: 'Presente' },
+  { key: 'ABSENT', label: 'Ausente' },
+];
+
+// Las asistencias se llevan desde octubre 2026: antes no hay clases que recuperar.
+const RECOVERY_FROM = '2026-10-01';
+
 /**
  * Asistencia de una clase: se elige el día, cada alumno del grupo arranca
  * PRESENTE y se marca ausente/recuperando con un toque. También se puede
- * sumar un alumno de OTRO grupo que vino a recuperar.
+ * sumar un alumno de OTRO grupo que vino a recuperar, o a alguien que viene a
+ * su clase de prueba gratuita (una sola por alumno).
  */
+
 function AttendanceDialog({
   group,
   allGroups,
@@ -788,8 +799,17 @@ function AttendanceDialog({
       recoveredInGroupId?: string;
       recoveredInDate?: string;
       recoveredAt?: string;
+      trial?: boolean;
     }>
   >(group.studentIds.map((id) => ({ studentId: id, status: null })));
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
+  // Clase de prueba: alumno existente o uno nuevo (sólo admin puede crearlo).
+  const [trialStudent, setTrialStudent] = useState('');
+  const [trialName, setTrialName] = useState('');
+  const [trialPhone, setTrialPhone] = useState('');
+  const [addingTrial, setAddingTrial] = useState(false);
+  const [newNames, setNewNames] = useState<Map<string, string>>(new Map());
+  const nameOf = (id: string) => studentName.get(id) ?? newNames.get(id);
   const [extra, setExtra] = useState('');
   const [extraSourceGroup, setExtraSourceGroup] = useState('');
   const [extraSourceDate, setExtraSourceDate] = useState('');
@@ -819,6 +839,7 @@ function AttendanceDialog({
               recoveredInGroupId: r.recoveredInGroupId,
               recoveredInDate: r.recoveredInDate,
               recoveredAt: r.recoveredAt,
+              trial: r.trial,
             } : { studentId, status: null };
           }));
         } else {
@@ -854,6 +875,7 @@ function AttendanceDialog({
             status,
             makeupForGroupId: keepRef ? r.makeupForGroupId : undefined,
             makeupForDate: keepRef ? r.makeupForDate : undefined,
+            trial: r.trial || undefined,
           };
         }),
       });
@@ -874,6 +896,42 @@ function AttendanceDialog({
   const outsiders = allStudents.filter(
     (s) => !records.some((r) => r.studentId === s._id),
   );
+  // ¿Ya usó la prueba en otra clase? (en ésta misma se puede seguir editando)
+  const trialUsedElsewhere = (s: Student) =>
+    !!s.trialDate && !(s.trialGroupId === group._id && s.trialDate === date);
+  // La prueba es para quien todavía no se anotó en ningún grupo.
+  const isEnrolled = (s: Student) => allGroups.some((g) => g.studentIds.includes(s._id));
+  const trialBlockedReason = (s: Student) =>
+    isEnrolled(s)
+      ? ' · ya está inscripto'
+      : trialUsedElsewhere(s)
+        ? ' · ya usó su clase de prueba'
+        : '';
+
+  async function addTrial() {
+    let studentId = trialStudent;
+    if (studentId === 'new') {
+      if (!trialName.trim()) return showToast.error('Escribí el nombre de quien viene a probar');
+      setAddingTrial(true);
+      try {
+        const created = await tallerAdmin.createStudent({
+          name: trialName.trim(),
+          phone: trialPhone.trim() || undefined,
+        });
+        studentId = created._id;
+        setNewNames((m) => new Map(m).set(created._id, created.name));
+      } catch (e) {
+        showToast.error(e instanceof Error ? e.message : 'No se pudo crear el alumno');
+        return;
+      } finally {
+        setAddingTrial(false);
+      }
+    }
+    setRecords([...records, { studentId, status: null, trial: true }]);
+    setTrialStudent('');
+    setTrialName('');
+    setTrialPhone('');
+  }
   const classDates = datesForMonth(group.schedule[0], month);
 
   function changeMonth(offset: number) {
@@ -901,6 +959,7 @@ function AttendanceDialog({
       ));
     }
     return options
+      .filter((candidate) => candidate >= RECOVERY_FROM)
       .filter((candidate) => !(sourceGroupId === group._id && candidate === date))
       .sort((a, b) => a.localeCompare(b));
   }
@@ -964,7 +1023,12 @@ function AttendanceDialog({
               >
                 <div className='flex flex-wrap items-center justify-between gap-2'>
                   <span className='text-[13px] font-medium text-[#3d3338]'>
-                    {studentName.get(r.studentId) ?? '(alumno)'}
+                    {nameOf(r.studentId) ?? '(alumno)'}
+                    {r.trial && (
+                      <span className='ml-1.5 rounded-full bg-[#E7F0EC] px-2 py-0.5 text-[11px] font-medium text-[#455a54]'>
+                        Clase de prueba · gratis
+                      </span>
+                    )}
                     {r.recoveredInDate && (
                       <span className='ml-1.5 text-[11px] font-normal text-[#6d5a78]'>
                         · recuperada el {displayClassDate(r.recoveredInDate)}
@@ -972,7 +1036,7 @@ function AttendanceDialog({
                     )}
                   </span>
                   <div className='flex gap-1'>
-                  {(isRecoveringGuest(r) ? GUEST_OPTIONS : ATT_OPTIONS).map((o) => (
+                  {(r.trial ? TRIAL_OPTIONS : isRecoveringGuest(r) ? GUEST_OPTIONS : ATT_OPTIONS).map((o) => (
                     <button
                       key={o.key}
                       type='button'
@@ -998,7 +1062,7 @@ function AttendanceDialog({
                       {o.label}
                     </button>
                   ))}
-                  {isRecoveringGuest(r) && (
+                  {(isRecoveringGuest(r) || r.trial) && (
                     <button
                       type='button'
                       aria-label='Quitar de esta asistencia'
@@ -1010,6 +1074,13 @@ function AttendanceDialog({
                   )}
                   </div>
                 </div>
+                {r.trial && (
+                  <p className='text-[11px] text-[#455a54]'>
+                    {r.status === 'ABSENT'
+                      ? 'No vino: conserva su clase de prueba para otro día.'
+                      : 'No se cobra. Al guardarla presente, ya no puede tener otra clase gratis.'}
+                  </p>
+                )}
                 {isRecoveringGuest(r) && (
                   <p className='text-[11px] text-[#6d5a78]'>
                     Recupera {allGroups.find((candidate) => candidate._id === r.makeupForGroupId)?.name ?? 'otra clase'} del {displayClassDate(r.makeupForDate!)}
@@ -1051,6 +1122,50 @@ function AttendanceDialog({
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Clase de prueba gratuita (una sola por alumno) */}
+          <div className='flex flex-col gap-2 rounded-xl border border-[#455a54]/25 bg-[#E7F0EC]/40 p-2.5'>
+            <select
+              value={trialStudent}
+              onChange={(e) => setTrialStudent(e.target.value)}
+              className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
+            >
+              <option value=''>Sumar clase de prueba (gratis)…</option>
+              {isAdmin && <option value='new'>+ Alumno nuevo</option>}
+              {outsiders.map((s) => (
+                <option key={s._id} value={s._id} disabled={!!trialBlockedReason(s)}>
+                  {s.name}
+                  {trialBlockedReason(s)}
+                </option>
+              ))}
+            </select>
+            {trialStudent === 'new' && (
+              <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+                <Input
+                  value={trialName}
+                  onChange={(e) => setTrialName(e.target.value)}
+                  placeholder='Nombre y apellido'
+                  className={`${fieldCls} h-9 text-sm`}
+                />
+                <Input
+                  value={trialPhone}
+                  onChange={(e) => setTrialPhone(e.target.value)}
+                  placeholder='Teléfono (opcional)'
+                  className={`${fieldCls} h-9 text-sm`}
+                />
+              </div>
+            )}
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={!trialStudent || addingTrial}
+              onClick={() => void addTrial()}
+              className='border-[#e6dbcd] text-[#455a54]'
+            >
+              {addingTrial ? 'Creando alumno…' : 'Sumar a esta clase como prueba'}
+            </Button>
           </div>
 
           {/* Recuperando de otro grupo */}

@@ -9,6 +9,7 @@ import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,30 @@ export function slotLabel(slots: GroupSlot[]): string {
     .join(' · ');
 }
 
+const DIAS_CORTOS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+/** Próximas fechas ('YYYY-MM-DD') en que cursa, según los horarios de sus grupos. */
+export function nextClassDates(slots: GroupSlot[], count = 6): string[] {
+  const days = new Set(slots.map((s) => s.weekday));
+  if (!days.size) return [];
+  const today = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+  const d = new Date(`${today}T12:00:00Z`);
+  const out: string[] = [];
+  for (let i = 0; i < 90 && out.length < count; i++) {
+    if (days.has(d.getUTCDay() || 7)) out.push(d.toISOString().slice(0, 10));
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
+/** "Jue 9/10". */
+export function dueLabel(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  return `${DIAS_CORTOS[d.getUTCDay() || 7]} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
+}
+
 export const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
@@ -70,6 +95,7 @@ export function MonthlyPieceFields({
   month,
   value,
   isAdmin,
+  slots = [],
   compact = false,
   onSaved,
 }: {
@@ -77,6 +103,8 @@ export function MonthlyPieceFields({
   month: string;
   value: MonthlyPiece | null;
   isAdmin: boolean;
+  /** Horarios en que cursa: de ahí salen las fechas de "Para". */
+  slots?: GroupSlot[];
   compact?: boolean;
   onSaved?: (p: MonthlyPiece) => void;
 }) {
@@ -106,7 +134,12 @@ export function MonthlyPieceFields({
   }
 
   const bisque = value?.bisque ?? false;
+  const fresh = value?.fresh ?? false;
+  const dueDate = value?.dueDate ?? '';
+  const dueOptions = nextClassDates(slots);
+  if (dueDate && !dueOptions.includes(dueDate)) dueOptions.unshift(dueDate);
   const delivered = value?.delivered ?? false;
+  const ready = value?.ready ?? false;
   const extra = value?.extraCharge ?? false;
   const paid = value?.paid ?? false;
   const undoUntil = value?.undoUntil ? new Date(value.undoUntil).getTime() : 0;
@@ -140,11 +173,21 @@ export function MonthlyPieceFields({
     await save({ paid: false });
   }
 
-  const toggle = (label: string, on: boolean, onChange: (v: boolean) => void, tone?: 'rojo') => (
-    <label className={cn('flex items-center gap-2 text-[13px] text-[#455a54]', compact && 'justify-center')}>
+  const toggle = (
+    label: string,
+    on: boolean,
+    onChange: (v: boolean) => void,
+    tone?: 'rojo',
+    disabled = false,
+  ) => (
+    <label
+      className={cn('flex items-center gap-2 text-[13px] text-[#455a54]', compact && 'justify-center', disabled && 'opacity-40')}
+      title={disabled ? 'Apagá la otra opción para elegir esta' : undefined}
+    >
       <Switch
         checked={on}
         onCheckedChange={onChange}
+        disabled={disabled}
         aria-label={label}
         className={cn(tone === 'rojo' && on && 'data-[state=checked]:bg-[#b23b2e]')}
       />
@@ -166,7 +209,31 @@ export function MonthlyPieceFields({
           className={cn(fieldCls, 'h-9 text-sm')}
         />
       </div>
-      {toggle(bisque ? 'En bizcocho' : 'Fresca', bisque, (v) => void save({ bisque: v }))}
+      {slots.length > 0 ? (
+        <select
+          value={dueDate}
+          onChange={(e) => void save({ dueDate: e.target.value })}
+          aria-label='Para cuándo la quiere'
+          className={cn(fieldCls, 'h-9 rounded-md border px-2 text-sm')}
+        >
+          <option value=''>{compact ? 'Sin fecha' : 'Para cuándo: sin fecha'}</option>
+          {dueOptions.map((d) => (
+            <option key={d} value={d}>
+              {compact ? dueLabel(d) : `Para el ${dueLabel(d)}`}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <DatePicker
+          value={dueDate}
+          onChange={(v) => void save({ dueDate: v })}
+          placeholder='Para cuándo'
+        />
+      )}
+      {/* Fresca y bizcocho se excluyen: con una prendida, la otra se bloquea. */}
+      {toggle('Fresca', fresh, (v) => void save({ fresh: v }), undefined, bisque)}
+      {toggle('Bizcocho', bisque, (v) => void save({ bisque: v }), undefined, fresh)}
+      {toggle('Lista (Producción la terminó)', ready, (v) => void save({ ready: v }))}
       {toggle('Entregada', delivered, (v) => void save({ delivered: v }))}
       {isAdmin && (
         <>

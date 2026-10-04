@@ -49,6 +49,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
 import { PieceTypeSelect } from './piece-type-select';
 import { PieceExtraSelect } from './piece-extra-select';
+import { ColorsSelect } from './colors-select';
 import { usePieceExtrasStore } from '@/stores/piece-extras.store';
 import {
   currentMonth,
@@ -738,7 +739,7 @@ function EditPieceModal({
           </label>
           <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
             Colores
-            <Input value={colorsUsed} onChange={(e) => setColorsUsed(e.target.value)} className={field} />
+            <ColorsSelect value={colorsUsed} onChange={setColorsUsed} />
           </label>
           <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
             Cantidad
@@ -1029,7 +1030,7 @@ export function NewPieceModal({
                         )}
                       </div>
                       <Field label='Colores utilizados'>
-                        <Input value={entry.colorsUsed} onChange={(event) => updateEntry(index, 'colorsUsed', event.target.value)} placeholder='Ej. azul, blanco y rosa' className={fieldCls} />
+                        <ColorsSelect value={entry.colorsUsed} onChange={(v) => updateEntry(index, 'colorsUsed', v)} />
                       </Field>
                     </div>
                   </div>
@@ -1080,6 +1081,7 @@ type GroupEntry = {
   colorsUsed: string;
   // Pieza del mes del alumno (la misma que se ve en Alumnos).
   bisque: boolean;
+  fresh: boolean;
   extraCharge: boolean;
   extraAmount: string;
   /** Cobrar el adicional ahora (sólo admin): crea el pago del alumno. */
@@ -1171,6 +1173,7 @@ function GroupPieceModal({
       pieceType: '',
       colorsUsed: '',
       bisque: mp?.bisque ?? false,
+      fresh: mp?.fresh ?? false,
       extraCharge: mp?.extraCharge ?? false,
       extraAmount: mp?.extraAmount != null ? String(mp.extraAmount) : '',
       charge: false,
@@ -1257,6 +1260,7 @@ function GroupPieceModal({
         return tallerAdmin.saveMonthlyPiece(e.studentId, month, {
           ...(!mp?.pieceName && { pieceName: e.pieceType.trim() }),
           bisque: e.bisque,
+          fresh: e.fresh,
           ...(isAdmin &&
             !mp?.paid && {
               extraCharge: e.extraCharge,
@@ -1441,13 +1445,9 @@ function GroupPieceModal({
                             />
                           </Field>
                           <Field label='Colores utilizados'>
-                            <Input
+                            <ColorsSelect
                               value={entry.colorsUsed}
-                              onChange={(e) =>
-                                updateEntry(index, 'colorsUsed', e.target.value)
-                              }
-                              placeholder='Ej. azul, blanco y rosa'
-                              className={fieldCls}
+                              onChange={(v) => updateEntry(index, 'colorsUsed', v)}
                             />
                           </Field>
                         </div>
@@ -1459,19 +1459,21 @@ function GroupPieceModal({
                             <span className='text-xs font-medium text-[#7a6e6f]'>
                               Pieza del mes
                             </span>
+                            {/* Fresca y bizcocho se excluyen: con una prendida, la otra se bloquea. */}
                             {(
                               [
-                                [false, 'Fresca'],
-                                [true, 'Bizcocho'],
+                                ['fresh', 'bisque', 'Fresca'],
+                                ['bisque', 'fresh', 'Bizcocho'],
                               ] as const
-                            ).map(([val, label]) => (
+                            ).map(([key, other, label]) => (
                               <button
-                                key={label}
+                                key={key}
                                 type='button'
-                                onClick={() => updateEntry(index, 'bisque', val)}
+                                disabled={entry[other]}
+                                onClick={() => updateEntry(index, key, !entry[key])}
                                 className={cn(
-                                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                                  entry.bisque === val
+                                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                                  entry[key]
                                     ? 'border-[#455a54] bg-[#455a54] text-white'
                                     : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f3e9df]',
                                 )}

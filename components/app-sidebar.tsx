@@ -19,6 +19,7 @@ import {
   Settings,
   GraduationCap,
   ClipboardList,
+  Flame,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -57,6 +58,7 @@ const navigationItems = [
   { title: 'Clientes',        url: '/dashboard/clients',    view: 'clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
   { title: 'Reservas',        url: '/dashboard/reservas',   view: 'reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
   { title: 'Alumnos y grupos',url: '/dashboard/alumnos',    view: 'alumnos',    icon: GraduationCap,enabled: true,  adminOnly: false },
+  { title: 'Producción',      url: '/dashboard/produccion', view: 'produccion', icon: Flame,        enabled: true,  adminOnly: false },
   { title: 'Equipo',          url: '/dashboard/equipo',     view: 'equipo',     icon: ClipboardList,enabled: true,  adminOnly: false },
   { title: 'Bot WhatsApp',    url: '/dashboard/reservas?tab=bot',        view: 'bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas

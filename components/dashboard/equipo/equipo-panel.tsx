@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Plus, Send, Trash2 } from 'lucide-react';
+import { Check, CheckCircle2, Hourglass, Plus, RotateCcw, Send, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
   tallerAdmin,
   type ShoppingItem,
   type StaffTask,
+  type TaskStatus,
 } from '@/services/taller.admin.service';
 import { usersAdmin, type Account } from '@/services/users.admin.service';
 import { StatusBadge } from '../reservas/_shared';
@@ -59,7 +60,8 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   const [tasks, setTasks] = useState<StaffTask[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDone, setShowDone] = useState(false);
+  // Completadas: se ven las últimas; el resto, a pedido.
+  const [showAllDone, setShowAllDone] = useState(false);
   // Filtro del admin por responsable: '' = todas, NONE = sin asignar.
   const [person, setPerson] = useState('');
   const [title, setTitle] = useState('');
@@ -112,14 +114,27 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     }
   }
 
-  async function toggle(t: StaffTask) {
+  async function setStatus(t: StaffTask, status: TaskStatus) {
+    // Se mueve de sección al instante; si falla, se recarga como estaba.
+    const now = new Date().toISOString();
+    setTasks((ts) =>
+      ts.map((x) =>
+        x._id === t._id
+          ? {
+              ...x,
+              status,
+              completedAt: status === 'DONE' ? now : undefined,
+              startedAt: status === 'IN_PROGRESS' ? now : status === 'PENDING' ? undefined : x.startedAt,
+            }
+          : x,
+      ),
+    );
     try {
-      await tallerAdmin.updateTask(t._id, {
-        status: t.status === 'DONE' ? 'PENDING' : 'DONE',
-      });
-      await load();
+      await tallerAdmin.updateTask(t._id, { status });
+      if (status === 'DONE') showToast.success(`"${t.title}" completada`);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error');
+      await load();
     }
   }
 
@@ -164,8 +179,13 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         const ids = assigneesOf(t).map((a) => a.userId);
         return person === NONE ? ids.length === 0 : ids.includes(person);
       });
+  const inProgress = visible.filter((t) => t.status === 'IN_PROGRESS');
   const pending = visible.filter((t) => t.status === 'PENDING');
-  const done = visible.filter((t) => t.status === 'DONE');
+  const done = visible
+    .filter((t) => t.status === 'DONE')
+    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+  const DONE_PREVIEW = 5;
+  const shownDone = showAllDone ? done : done.slice(0, DONE_PREVIEW);
   const personName =
     person === NONE ? 'Sin asignar' : people.rows.find((r) => r.id === person)?.name;
 
@@ -234,10 +254,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
               label={r.name}
               count={r.pending}
               on={person === r.id}
-              onClick={() => {
-                setPerson(person === r.id ? '' : r.id);
-                setShowDone(true);
-              }}
+              onClick={() => setPerson(person === r.id ? '' : r.id)}
             />
           ))}
           {people.unassigned > 0 && (
@@ -257,10 +274,10 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         <>
           {isAdmin && personName && (
             <p className='text-sm text-[#455a54]'>
-              <strong>{personName}</strong>: {pending.length} pendiente(s) · {done.length} finalizada(s)
+              <strong>{personName}</strong>: {inProgress.length} en proceso · {pending.length} pendiente(s) · {done.length} completada(s)
             </p>
           )}
-          {pending.length === 0 && (
+          {inProgress.length === 0 && pending.length === 0 && (
             <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
               {!isAdmin
                 ? 'No tenés tareas pendientes 🎉'
@@ -269,24 +286,24 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
                   : 'Sin tareas pendientes 🎉'}
             </p>
           )}
-          <div className='flex flex-col gap-2'>
-            {pending.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
-            ))}
-          </div>
-          {done.length > 0 && (
+          <TaskSection title='En proceso' tone='#9d684e' tasks={inProgress} render={(t) => (
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+          )} />
+          <TaskSection title='Pendientes' tone='#455a54' tasks={pending} render={(t) => (
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+          )} />
+          <TaskSection title='Completadas' tone='#7a6e6f' tasks={shownDone} total={done.length} render={(t) => (
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+          )} />
+          {done.length > DONE_PREVIEW && (
             <button
               type='button'
-              onClick={() => setShowDone(!showDone)}
+              onClick={() => setShowAllDone(!showAllDone)}
               className='w-fit text-[12px] font-medium text-[#7a6e6f] underline'
             >
-              {showDone ? 'Ocultar' : 'Ver'} finalizadas ({done.length})
+              {showAllDone ? 'Ver sólo las últimas' : `Ver todas las completadas (${done.length})`}
             </button>
           )}
-          {showDone &&
-            done.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
-            ))}
         </>
       )}
     </div>
@@ -294,6 +311,31 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
 }
 
 const NONE = '__none__';
+
+/** Una sección de la lista (En proceso / Pendientes / Completadas). */
+function TaskSection({
+  title,
+  tone,
+  tasks,
+  total,
+  render,
+}: Readonly<{
+  title: string;
+  tone: string;
+  tasks: StaffTask[];
+  total?: number;
+  render: (t: StaffTask) => React.ReactNode;
+}>) {
+  if (tasks.length === 0) return null;
+  return (
+    <section className='flex flex-col gap-2'>
+      <h3 className='text-xs font-semibold uppercase tracking-wider' style={{ color: tone }}>
+        {title} <span className='font-normal text-[#7a6e6f]'>({total ?? tasks.length})</span>
+      </h3>
+      {tasks.map(render)}
+    </section>
+  );
+}
 
 /** Responsables de una tarea (incluye el campo legacy de un solo responsable). */
 function assigneesOf(t: StaffTask): { userId: string; name: string }[] {
@@ -325,12 +367,12 @@ function PersonChip({
 
 function TaskRow({
   task: t,
-  onToggle,
+  onStatus,
   onRemove,
   onComment,
 }: Readonly<{
   task: StaffTask;
-  onToggle: (t: StaffTask) => void;
+  onStatus: (t: StaffTask, status: TaskStatus) => void;
   /** Sólo el admin borra tareas. */
   onRemove?: (t: StaffTask) => void;
   onComment: (t: StaffTask, body: string) => Promise<void>;
@@ -338,7 +380,7 @@ function TaskRow({
   const [comment, setComment] = useState('');
   const [commenting, setCommenting] = useState(false);
   const overdue =
-    t.status === 'PENDING' && t.dueDate && new Date(t.dueDate) < new Date();
+    t.status !== 'DONE' && t.dueDate && new Date(t.dueDate) < new Date();
   async function submitComment() {
     const body = comment.trim();
     if (!body || commenting) return;
@@ -355,30 +397,20 @@ function TaskRow({
   }
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border bg-white px-4 py-3 ${
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
         t.status === 'DONE'
-          ? 'border-[#e6dbcd] opacity-60'
-          : overdue
-            ? 'border-[#efb9b9]'
-            : 'border-[#e6dbcd]'
+          ? 'border-[#e6dbcd] bg-[#fbf9f6]'
+          : t.status === 'IN_PROGRESS'
+            ? 'border-[#e2c4ad] bg-white'
+            : overdue
+              ? 'border-[#efb9b9] bg-white'
+              : 'border-[#e6dbcd] bg-white'
       }`}
     >
-      <button
-        type='button'
-        onClick={() => onToggle(t)}
-        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
-          t.status === 'DONE'
-            ? 'border-[#455a54] bg-[#455a54] text-white'
-            : 'border-[#c9bfb0] bg-white hover:border-[#455a54]'
-        }`}
-        aria-label={t.status === 'DONE' ? 'Reabrir' : 'Marcar hecha'}
-      >
-        {t.status === 'DONE' && <Check className='h-3.5 w-3.5' />}
-      </button>
       <div className='min-w-0 flex-1'>
         <p
-          className={`text-sm font-medium text-[#3d3338] ${
-            t.status === 'DONE' ? 'line-through' : ''
+          className={`text-sm font-medium ${
+            t.status === 'DONE' ? 'text-[#7a6e6f] line-through' : 'text-[#3d3338]'
           }`}
         >
           {t.title}
@@ -397,10 +429,56 @@ function TaskRow({
               fg={overdue ? '#a33' : '#9d684e'}
             />
           )}
+          {t.status === 'IN_PROGRESS' && (
+            <StatusBadge
+              label={`En proceso${t.startedAt ? ` desde ${fmtDate(t.startedAt)}` : ''}`}
+              bg='#f6e9dc'
+              fg='#9d684e'
+            />
+          )}
           {t.status === 'DONE' && t.completedAt && (
             <span className='text-[11px] text-[#7a6e6f]'>
-              hecha el {fmtDate(t.completedAt)}
+              completada el {fmtDate(t.completedAt)}
             </span>
+          )}
+        </div>
+        {/* Estado: En proceso (vuelve a pendiente si se toca de nuevo) y
+            completada; una completada se puede reabrir. */}
+        <div className='mt-2 flex flex-wrap gap-1.5'>
+          {t.status === 'DONE' ? (
+            <button
+              type='button'
+              onClick={() => onStatus(t, 'PENDING')}
+              className='inline-flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-white px-2.5 py-1 text-xs font-medium text-[#7a6e6f] hover:bg-[#fbf5ef]'
+            >
+              <RotateCcw className='h-3.5 w-3.5' />
+              Reabrir
+            </button>
+          ) : (
+            <>
+              <button
+                type='button'
+                onClick={() => onStatus(t, t.status === 'IN_PROGRESS' ? 'PENDING' : 'IN_PROGRESS')}
+                aria-pressed={t.status === 'IN_PROGRESS'}
+                title={t.status === 'IN_PROGRESS' ? 'Volver a pendiente' : 'Marcar en proceso'}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                  t.status === 'IN_PROGRESS'
+                    ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                    : 'border-[#e6dbcd] bg-white text-[#9d684e] hover:bg-[#fbf5ef]'
+                }`}
+              >
+                <Hourglass className='h-3.5 w-3.5' />
+                En proceso
+              </button>
+              <button
+                type='button'
+                onClick={() => onStatus(t, 'DONE')}
+                className='inline-flex items-center gap-1.5 rounded-lg border border-[#455a54] bg-[#455a54] px-2.5 py-1 text-xs font-medium text-white transition hover:bg-[#3a4c47]'
+              >
+                <CheckCircle2 className='h-3.5 w-3.5' />
+                Tarea completada
+              </button>
+            </>
           )}
         </div>
         {(t.comments?.length ?? 0) > 0 && (

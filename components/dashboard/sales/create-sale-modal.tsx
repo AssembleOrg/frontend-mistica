@@ -46,6 +46,10 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { Product } from '@/lib/types';
 import { SaleScheduleSection, useSaleSchedule } from './sale-schedule';
 import { StudentFeeSection, useStudentFee } from './student-fee';
+import {
+  reservationsAdmin,
+  type ReservationCheckoutPlan,
+} from '@/services/reservations.admin.service';
 
 type AdjustmentType = 'discount' | 'surcharge';
 
@@ -64,9 +68,11 @@ interface CreateSaleModalProps {
   editingSale?: Sale | null;
   onSaleUpdated?: (saleId: string, updatedSale: UpdateSaleRequest) => Promise<void>;
   submitButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  /** "Cobrar" desde la Agenda: precarga cliente y ticket de esa reserva. */
+  reservationId?: string;
 }
 
-export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated, submitButtonRef }: CreateSaleModalProps) {
+export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated, submitButtonRef, reservationId }: CreateSaleModalProps) {
   // Cliente: si `selectedClient` no es null, derivamos clientId de ahí.
   // El `customerName` (free text) se usa cuando no hay cliente seleccionado:
   // al confirmar la venta, si no hay clientId pero sí hay nombre, creamos el
@@ -114,6 +120,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // saldo completo y se puede bajar para abonar parcial. El monto se suma al
   // total (sin stock) y el backend lo descuenta del saldo de la venta vieja.
   const [settleSel, setSettleSel] = useState<{ saleId: string; amount: number } | null>(null);
+  // Reserva que se está cobrando (botón "Cobrar" de la Agenda).
+  const [checkoutPlan, setCheckoutPlan] = useState<ReservationCheckoutPlan | null>(null);
+  const reservationSettle = checkoutPlan?.settle
+    ? { saleId: checkoutPlan.settle.saleId, amount: checkoutPlan.settle.amount }
+    : null;
   const [isConsumidorFinal, setIsConsumidorFinal] = useState(false);
   // Ítem libre (promo/producto fuera de catálogo): sólo admin. Se agrega al
   // carrito con un id sintético `free-…` como identidad local; ese id se quita
@@ -238,7 +249,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       mostradorPreloadedRef.current = false;
       return;
     }
-    if (editingSale) return;
+    if (editingSale || reservationId) return;
     if (mostradorPreloadedRef.current) return;
     mostradorPreloadedRef.current = true;
 
@@ -260,7 +271,55 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, editingSale]);
+  }, [isOpen, editingSale, reservationId]);
+
+  // Cobrar una reserva: cliente, líneas, descuento y el saldo de la venta de
+  // la seña (como abono a cuenta) vienen armados del backend.
+  useEffect(() => {
+    if (!isOpen || !reservationId || editingSale) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const plan = await reservationsAdmin.checkoutPlan(reservationId);
+        if (cancelled) return;
+        const r = plan.reservation;
+        setCheckoutPlan(plan);
+        setSaleName(r.customerName || `Reserva ${r.code}`);
+        setCustomerName(r.customerName || '');
+        setCustomerEmail(r.customerEmail || '');
+        setCustomerPhone(r.customerPhone || '');
+        if (r.clientId) {
+          clientsService
+            .getClient(r.clientId)
+            .then((res) => !cancelled && setSelectedClient(res.data))
+            .catch(() => undefined);
+        }
+        setCartItems(
+          plan.items.map((i) => ({
+            productId: i.productId ?? `free-${crypto.randomUUID()}`,
+            productName: i.productName,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            subtotal: i.quantity * i.unitPrice,
+            bonifiedQty: 0,
+          })),
+        );
+        if (plan.discount > 0) {
+          setAdjustmentType('discount');
+          setAdjustmentAmount(plan.discount);
+          setShowAdjustmentInput(true);
+        }
+        setSettleSel(
+          plan.settle ? { saleId: plan.settle.saleId, amount: plan.settle.amount } : null,
+        );
+      } catch (e) {
+        if (!cancelled) {
+          showToast.error(e instanceof Error ? e.message : 'No se pudo cargar la reserva');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, reservationId, editingSale]);
 
   // Fetcher para el AsyncSelect de clientes: usa el endpoint paginado con
   // search server-side. Devuelve los Client + meta de paginación.
@@ -418,7 +477,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const handleClientChange = async (client: Client | null) => {
     setSelectedClient(client);
     setRelatedSaleIds([]);
-    setSettleSel(null);
+    setSettleSel(reservationSettle);
     if (!client) {
       setRecentSales([]);
       setClientPrepaid(null);
@@ -545,6 +604,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const settledSaleLabel = (() => {
     if (!settleSel) return undefined;
     const s = recentSales.find((x) => x.id === settleSel.saleId);
+    if (!s && checkoutPlan?.settle?.saleId === settleSel.saleId) {
+      return `Reserva ${checkoutPlan.reservation.code}`;
+    }
     return s?.name?.trim() || s?.saleNumber;
   })();
 
@@ -659,6 +721,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setRecentSales([]);
     setRelatedSaleIds([]);
     setSettleSel(null);
+    setCheckoutPlan(null);
     setIsPartial(false);
     setIsConsumidorFinal(false);
 
@@ -674,6 +737,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     if (!saleName.trim()) {
       showToast.error('El título de la venta es requerido');
+      return;
+    }
+
+    if (checkoutPlan && isPartial) {
+      showToast.error('El cobro de una reserva no puede ser un pago parcial');
       return;
     }
 
@@ -800,7 +868,18 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         }
       } else {
         const saleData: CreateSaleRequest = { ...basePayload };
-        const createdSale = await createSale(saleData);
+        let createdSale: Sale;
+        if (checkoutPlan) {
+          // Cobro de reserva: la venta se crea y la reserva queda saldada.
+          try {
+            createdSale = await reservationsAdmin.checkout(checkoutPlan.reservation._id, saleData);
+          } catch (e) {
+            showToast.error(e instanceof Error ? e.message : 'No se pudo cobrar la reserva');
+            throw e;
+          }
+        } else {
+          createdSale = await createSale(saleData);
+        }
         // Persistir las relaciones marcadas en "Últimas transacciones" (mutuo).
         // Incluir los saldos cobrados: el backend ya los vinculó, pero setLinks
         // reemplaza el set completo — si no los sumamos acá los desvincularía.
@@ -853,6 +932,20 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col h-full px-4 sm:px-6 pb-4 sm:pb-6 space-y-6">
+          {checkoutPlan && (
+            <div className="rounded-lg border border-[#455a54]/30 bg-[#E7F0EC] px-3.5 py-2.5 text-sm text-[#455a54] font-winter-solid">
+              <p className="font-medium">
+                Cobro de la reserva {checkoutPlan.reservation.code} · {checkoutPlan.reservation.experienceName} ·{' '}
+                {checkoutPlan.reservation.quantity} persona(s)
+              </p>
+              <p className="text-xs text-[#455a54]/80">
+                {checkoutPlan.settle
+                  ? `Seña ya cobrada: ${formatCurrency(checkoutPlan.reservation.depositAmount ?? 0)} · se cobra el saldo de ${formatCurrency(checkoutPlan.reservation.balanceDue)}.`
+                  : `Saldo a cobrar: ${formatCurrency(checkoutPlan.reservation.balanceDue)}.`}{' '}
+                Podés sumar otros productos. Al guardar, la reserva queda cobrada.
+              </p>
+            </div>
+          )}
           {/* Nombre amigable de la venta (obligatorio). Para uso interno
               seguimos teniendo el N° de venta que genera el backend. */}
           <div className="space-y-1.5">

@@ -48,6 +48,16 @@ export default function SalesPage() {
   const submitEditButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const [showCreateSaleModal, setShowCreateSaleModal] = useState(false);
+  // "Cobrar" desde la Agenda de Reservas: /dashboard/sales?reserva=<id> abre
+  // Nueva venta con la reserva cargada.
+  const [reservationId, setReservationId] = useState<string>();
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('reserva');
+    if (!id) return;
+    setReservationId(id);
+    setShowCreateSaleModal(true);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
   const [showEditSaleModal, setShowEditSaleModal] = useState(false);
   const [showCashIncomeModal, setShowCashIncomeModal] = useState(false);
   const [showCashEgressModal, setShowCashEgressModal] = useState(false);
@@ -392,9 +402,13 @@ export default function SalesPage() {
       {/* ── Modales ─────────────────────────────────── */}
       <CreateSaleModal
         isOpen={showCreateSaleModal}
-        onClose={() => setShowCreateSaleModal(false)}
+        onClose={() => {
+          setShowCreateSaleModal(false);
+          setReservationId(undefined);
+        }}
         onSaleCreated={handleSaleCreated}
         submitButtonRef={submitCreateButtonRef}
+        reservationId={reservationId}
       />
       {canEdit && <EditSaleModal
         isOpen={showEditSaleModal}

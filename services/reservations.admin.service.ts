@@ -3,6 +3,7 @@
 // Cliente ADMIN de reservas (post-login, cookie auth vía apiService).
 
 import { apiService } from '@/services/api.service';
+import type { CreateSaleRequest, Sale } from '@/services/sales.service';
 import type {
   PublicExperience,
   PublicSession,
@@ -337,4 +338,37 @@ export const reservationsAdmin = {
         { payments },
       )
     ).data,
+  /** Qué se cobra al pasar la reserva por Ventas → Nueva venta. */
+  checkoutPlan: async (id: string) =>
+    (await apiService.get<ReservationCheckoutPlan>(`/admin/reservations/${id}/checkout`)).data,
+  /** Crea la venta del POS que cobra la reserva (la deja saldada). */
+  checkout: async (id: string, sale: CreateSaleRequest) =>
+    (
+      await apiService.post<Sale>(
+        `/admin/reservations/${id}/checkout`,
+        sale as unknown as Record<string, unknown>,
+      )
+    ).data,
 };
+
+export interface ReservationCheckoutPlan {
+  reservation: {
+    _id: string;
+    code: string;
+    experienceName: string;
+    startAt: string;
+    quantity: number;
+    totalAmount?: number;
+    depositAmount?: number;
+    balanceDue: number;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    clientId?: string;
+  };
+  /** Saldo de la venta de la seña, cobrado como abono dentro de la venta nueva. */
+  settle: { saleId: string; saleNumber: string; amount: number } | null;
+  items: { productId?: string; productName: string; quantity: number; unitPrice: number }[];
+  /** Descuento si las líneas suman más que el saldo (cumpleaños, precio especial). */
+  discount: number;
+}

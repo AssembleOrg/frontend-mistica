@@ -110,9 +110,12 @@ export function ReservasCalendar({
   refreshKey,
   anchor,
   hideHeader,
+  onOpenDay,
 }: {
   experienceId?: string;
   onOpen?: (r: ReservationItem) => void;
+  /** Tocar un día abre todo lo de ese día (vista Día de la Agenda). */
+  onOpenDay?: (ymd: string) => void;
   refreshKey?: number;
   /** 'YYYY-MM-DD': si viene, el mes lo maneja el padre (modo controlado). */
   anchor?: string;
@@ -305,9 +308,21 @@ export function ReservasCalendar({
               return (
                 <div
                   key={cell.ymd}
-                  title={isClosed ? `Cerrado${reason ? `: ${reason}` : ''}` : undefined}
+                  title={isClosed ? `Cerrado${reason ? `: ${reason}` : ''}` : onOpenDay ? 'Ver el día completo' : undefined}
+                  {...(onOpenDay && {
+                    role: 'button',
+                    tabIndex: 0,
+                    onClick: () => onOpenDay(cell.ymd),
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onOpenDay(cell.ymd);
+                      }
+                    },
+                  })}
                   className={cn(
                     'flex min-h-[128px] flex-col gap-1 p-1.5',
+                    onOpenDay && 'cursor-pointer transition-colors hover:bg-[#fbf5ef]',
                     di < 6 && 'border-r border-[#e6dbcd]',
                     wi < weeks.length - 1 && 'border-b border-[#e6dbcd]',
                     !cell.inMonth && 'bg-[#fbf5ef]/60',
@@ -341,7 +356,12 @@ export function ReservasCalendar({
                       <button
                         key={r._id}
                         type='button'
-                        onClick={() => onOpen?.(r)}
+                        onClick={(e) => {
+                          // La reserva abre su detalle, no el día.
+                          if (onOpen) e.stopPropagation();
+                          onOpen?.(r);
+                        }}
+                        onKeyDown={(e) => e.stopPropagation()}
                         className='flex items-center gap-1.5 overflow-hidden rounded-[5px] px-1.5 py-1 text-left'
                         style={{ backgroundColor: bg }}
                         title={`${hm} · ${r.experienceName} · ${r.customerName}`}
@@ -440,9 +460,20 @@ export function ReservasCalendar({
 
         {/* Lista del día seleccionado */}
         <div className='mt-3 flex flex-col gap-2'>
-          <p className='text-sm font-semibold capitalize text-[#3d3338]'>
-            {selectedLabel(selected)}
-          </p>
+          <div className='flex items-center justify-between gap-2'>
+            <p className='text-sm font-semibold capitalize text-[#3d3338]'>
+              {selectedLabel(selected)}
+            </p>
+            {onOpenDay && (
+              <button
+                type='button'
+                onClick={() => onOpenDay(selected)}
+                className='rounded-lg border border-[#e6dbcd] bg-white px-2.5 py-1 text-xs font-semibold text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                Ver día completo
+              </button>
+            )}
+          </div>
           {closed.has(selected) && (
             <p className='rounded-xl bg-[#ece6dd] px-3 py-2 text-xs font-medium text-[#7a6e6f]'>
               Local cerrado este día{closed.get(selected) ? ` · ${closed.get(selected)}` : ''}.

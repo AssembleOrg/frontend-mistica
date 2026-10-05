@@ -33,12 +33,15 @@ export function BotSessionPanel() {
     load();
   }, [load]);
 
-  // Auto-refresca el estado/QR mientras NO esté vinculado y no esté pausado.
-  // A los 3 minutos se pausa solo (para no consultar eternamente) y aparece
-  // "Conectar" para reanudar.
+  // Auto-refresca el estado/QR mientras NO esté vinculado y no esté pausado,
+  // y sólo con la pestaña visible (oculta no consulta: cada vuelta es una
+  // función de Netlify). A los 3 minutos se pausa solo (para no consultar
+  // eternamente) y aparece "Conectar" para reanudar.
   useEffect(() => {
     if (paused || status?.loggedIn) return;
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') void load();
+    }, 5000);
     const timeout = setTimeout(() => setPaused(true), 3 * 60 * 1000);
     return () => {
       clearInterval(interval);

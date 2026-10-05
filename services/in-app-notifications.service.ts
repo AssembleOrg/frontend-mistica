@@ -9,9 +9,14 @@ export interface InAppNotification {
   read: boolean;
 }
 
-// Antes había un `subscribe` por SSE; se sacó porque cada stream abierto
-// mantenía viva una función de Netlify. La campana ahora consulta `list` con
-// `pollWhileVisible` (ver `lib/poll-while-visible.ts`).
+export interface InAppNotificationEvent {
+  type: 'created' | 'read';
+  notification: InAppNotification;
+}
+
+/** Stream SSE (directo al backend, ver `lib/live-stream.ts`). */
+export const IN_APP_NOTIFICATIONS_STREAM_PATH = '/in-app-notifications/stream';
+
 export const inAppNotifications = {
   list: async () => (await apiService.get<InAppNotification[]>('/in-app-notifications')).data,
   markRead: async (id: string) =>

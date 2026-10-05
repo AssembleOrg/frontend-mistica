@@ -8,7 +8,9 @@
 // vuelve a atender. El tema de cada consulta (cumpleaños, reserva…) aparece
 // como etiqueta.
 //
-// Los avisos llegan por SSE, no por polling: la bandeja se actualiza sola.
+// La bandeja se actualiza sola con polling cada 30s, sólo con la pestaña
+// visible. Antes era SSE, pero en Netlify cada stream abierto mantenía viva una
+// función del proxy `/api` (horas de cómputo por pestaña).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -37,6 +39,7 @@ import {
 } from '@/services/conversations.admin.service';
 import { FilterChip } from './_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { pollWhileVisible } from '@/lib/poll-while-visible';
 
 const AR_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -72,6 +75,9 @@ const FILTRO_STATUS: Record<Filtro, string> = {
 
 const PAGE_SIZE = 40;
 
+// Cada cuánto se refresca la bandeja (y la charla abierta) con la pestaña a la vista.
+const POLL_MS = 30_000;
+
 type Counts = Partial<Record<ConversationStatus, number>>;
 
 export function ConversacionesTab() {
@@ -89,11 +95,17 @@ export function ConversacionesTab() {
   const [sending, setSending] = useState(false);
   const [live, setLive] = useState(true);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-  // El id seleccionado dentro del handler de SSE, sin re-suscribir en cada cambio.
+  // El id seleccionado y el filtro dentro del polling, sin reiniciarlo en cada cambio.
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedId;
   const filtroRef = useRef<Filtro>(filtro);
   filtroRef.current = filtro;
+  const pageRef = useRef(page);
+  pageRef.current = page;
+  // El `requestedAt` más nuevo ya visto: lo que venga después es charla nueva
+  // (reemplaza al evento `opened` del SSE). Usa la hora del server, sin desfasajes.
+  // Va por filtro: al cambiar de chip se vuelve a tomar referencia sin avisar.
+  const lastRequestedRef = useRef<{ filtro: Filtro; at: string | null } | null>(null);
 
   const loadCounts = useCallback(async () => {
     try {
@@ -156,57 +168,62 @@ export function ConversacionesTab() {
     loadInbox();
   }, [loadInbox]);
 
-  // Suscripción en vivo. Una sola, para toda la pestaña.
+  // Refresco periódico. Uno solo, para toda la pestaña.
   useEffect(() => {
-    const stop = conversationsAdmin.subscribe(
-      (event) => {
+    return pollWhileVisible(async () => {
+      try {
+        const f = filtroRef.current;
+        const rows = await conversationsAdmin.list({
+          status: FILTRO_STATUS[f],
+          limit: PAGE_SIZE,
+          page: 1,
+        });
         setLive(true);
-        // La bandeja siempre se refresca: cambió el orden, el estado o el
-        // contador de sin leer.
-        if (event.conversation) {
-          const conv = event.conversation;
-          const wanted = FILTRO_STATUS[filtroRef.current].split(',');
-          setItems((prev) => {
-            const rest = prev.filter((c) => c.id !== event.conversationId);
-            // Si cambió de estado y ya no entra en el filtro, sale de la lista.
-            if (!wanted.includes(conv.status)) return rest;
-            return [conv, ...rest].sort(
-              (a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt),
-            );
-          });
-          void loadCounts();
-        } else {
-          void loadInbox();
-        }
+        // Si cambiaron de chip mientras tanto, esta vuelta ya no sirve.
+        if (filtroRef.current !== f) return;
 
-        if (event.type === 'opened') {
-          showToast.success(
-            `Nueva charla: ${event.conversation?.customerName ?? event.phone}`,
+        // Aviso de charlas nuevas (no en la primera vuelta del filtro: ahí
+        // todo es "nuevo").
+        const last = lastRequestedRef.current;
+        const seeded = last?.filtro === f;
+        const prevMax = seeded ? last.at : null;
+        let max = prevMax;
+        for (const c of rows) {
+          if (seeded && (!prevMax || c.requestedAt > prevMax)) {
+            showToast.success(`Nueva charla: ${c.customerName ?? c.phone}`);
+          }
+          if (!max || c.requestedAt > max) max = c.requestedAt;
+        }
+        lastRequestedRef.current = { filtro: f, at: max };
+
+        // Con una sola página se reemplaza (así salen las que cambiaron de
+        // estado); con "cargar más" se mezcla para no perder lo ya cargado.
+        setItems((prev) => {
+          if (pageRef.current <= 1) return rows;
+          const fresh = new Set(rows.map((c) => c.id));
+          return [...rows, ...prev.filter((c) => !fresh.has(c.id))].sort(
+            (a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt),
+          );
+        });
+        void loadCounts();
+
+        // La charla abierta: sólo se toca si cambió, para no mover el scroll.
+        const openId = selectedRef.current;
+        if (openId) {
+          const { messages: msgs } = await conversationsAdmin.messages(openId);
+          if (selectedRef.current !== openId) return;
+          setMessages((prev) =>
+            prev.length === msgs.length &&
+            prev[prev.length - 1]?.id === msgs[msgs.length - 1]?.id
+              ? prev
+              : msgs,
           );
         }
-
-        // Si es la charla abierta, se agrega el mensaje sin recargar todo.
-        if (event.conversationId === selectedRef.current && event.message) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `${event.message!.createdAt}-${prev.length}`,
-              author: event.message!.author,
-              authorName: event.message!.authorName,
-              body: event.message!.body,
-              createdAt: event.message!.createdAt,
-              mediaKind: event.message!.mediaKind,
-              mediaMime: event.message!.mediaMime,
-              mediaName: event.message!.mediaName,
-              mediaUrl: event.message!.mediaUrl,
-            },
-          ]);
-        }
-      },
-      () => setLive(false),
-    );
-    return stop;
-  }, [loadInbox, loadCounts]);
+      } catch {
+        setLive(false);
+      }
+    }, POLL_MS);
+  }, [loadCounts]);
 
   useEffect(() => {
     if (selectedId) void loadMessages(selectedId);

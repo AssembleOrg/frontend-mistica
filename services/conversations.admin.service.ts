@@ -3,11 +3,11 @@
 // Charlas con una persona real. Cuando un cliente pide hablar con alguien del
 // equipo, el bot deja de responder ese chat y todo pasa por acá.
 //
-// Los avisos llegan por SSE (no por polling): son eventos servidor→panel, y el
-// panel manda sus mensajes por POST normal.
+// La bandeja se refresca con polling corto sólo con la pestaña visible (ver
+// `lib/poll-while-visible.ts`). Antes era SSE, pero en Netlify cada stream
+// abierto mantenía viva una función del proxy `/api` → demasiado cómputo.
 
 import { apiService } from '@/services/api.service';
-import { getApiBaseUrl } from '@/lib/api/base-url';
 
 export type ConversationStatus = 'BOT' | 'WAITING' | 'HUMAN' | 'CLOSED';
 export type MessageAuthor = 'CLIENT' | 'BOT' | 'ADMIN';
@@ -47,23 +47,6 @@ export interface ConversationMessage {
   mediaName?: string;
   /** URL firmada de corta vida para ver/descargar el adjunto. */
   mediaUrl?: string;
-}
-
-export interface ConversationEvent {
-  type: 'opened' | 'message' | 'closed';
-  conversationId: string;
-  phone: string;
-  message?: {
-    author: MessageAuthor;
-    authorName?: string;
-    body: string;
-    createdAt: string;
-    mediaKind?: MediaKind;
-    mediaMime?: string;
-    mediaName?: string;
-    mediaUrl?: string;
-  };
-  conversation?: Conversation;
 }
 
 export const conversationsAdmin = {
@@ -110,29 +93,4 @@ export const conversationsAdmin = {
 
   close: async (id: string) =>
     (await apiService.post<Conversation>(`/conversations/${id}/close`, {})).data,
-
-  /**
-   * Suscripción a los eventos en vivo. Devuelve la función para cortar.
-   *
-   * Usa EventSource, que reconecta solo si se cae la conexión. La cookie de
-   * sesión viaja con `withCredentials`, igual que el resto de las llamadas del
-   * panel.
-   */
-  subscribe(
-    onEvent: (event: ConversationEvent) => void,
-    onError?: () => void,
-  ): () => void {
-    const source = new EventSource(`${getApiBaseUrl()}/conversations/stream`, {
-      withCredentials: true,
-    });
-    source.onmessage = (e: MessageEvent<string>) => {
-      try {
-        onEvent(JSON.parse(e.data) as ConversationEvent);
-      } catch {
-        /* un evento mal formado no debe tirar abajo la suscripción */
-      }
-    };
-    source.onerror = () => onError?.();
-    return () => source.close();
-  },
 };

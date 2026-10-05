@@ -7,6 +7,9 @@ import {
   inAppNotifications,
   type InAppNotification,
 } from '@/services/in-app-notifications.service';
+import { pollWhileVisible } from '@/lib/poll-while-visible';
+
+const NOTIFICATIONS_POLL_MS = 60_000;
 
 export function InAppNotificationsBell() {
   const user = useAuthStore((state) => state.user);
@@ -16,13 +19,15 @@ export function InAppNotificationsBell() {
 
   useEffect(() => {
     if (!user) return;
-    void inAppNotifications.list().then(setItems).catch(() => setItems([]));
-    return inAppNotifications.subscribe((event) => {
-      setItems((current) => {
-        const rest = current.filter((item) => item.id !== event.notification.id);
-        return [event.notification, ...rest].slice(0, 50);
-      });
-    });
+    // Cada minuto y sólo con la pestaña visible (antes era un SSE que dejaba
+    // una función de Netlify abierta por cada pestaña del panel).
+    return pollWhileVisible(async () => {
+      try {
+        setItems((await inAppNotifications.list()).slice(0, 50));
+      } catch {
+        /* si falla una vuelta, queda lo que había */
+      }
+    }, NOTIFICATIONS_POLL_MS);
   }, [user]);
 
   useEffect(() => {

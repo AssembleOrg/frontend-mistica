@@ -8,9 +8,10 @@
 // vuelve a atender. El tema de cada consulta (cumpleaños, reserva…) aparece
 // como etiqueta.
 //
-// La bandeja se actualiza sola con polling cada 30s, sólo con la pestaña
-// visible. Antes era SSE, pero en Netlify cada stream abierto mantenía viva una
-// función del proxy `/api` (horas de cómputo por pestaña).
+// La bandeja se actualiza sola: eventos SSE directo al backend (sin pasar por
+// el proxy `/api` de Netlify, que cobraba cómputo por stream abierto). Si el
+// stream no está configurado o se cae, polling cada 30s con la pestaña visible
+// (ver `lib/live-stream.ts`).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -32,14 +33,16 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  CONVERSATIONS_STREAM_PATH,
   conversationsAdmin,
+  type ConversationEvent,
   type Conversation,
   type ConversationMessage,
   type ConversationStatus,
 } from '@/services/conversations.admin.service';
 import { FilterChip } from './_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { pollWhileVisible } from '@/lib/poll-while-visible';
+import { liveOrPoll } from '@/lib/live-stream';
 
 const AR_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -75,7 +78,8 @@ const FILTRO_STATUS: Record<Filtro, string> = {
 
 const PAGE_SIZE = 40;
 
-// Cada cuánto se refresca la bandeja (y la charla abierta) con la pestaña a la vista.
+// Sin stream en vivo: cada cuánto se refresca la bandeja (y la charla abierta)
+// con la pestaña a la vista.
 const POLL_MS = 30_000;
 
 type Counts = Partial<Record<ConversationStatus, number>>;
@@ -103,7 +107,8 @@ export function ConversacionesTab() {
   const pageRef = useRef(page);
   pageRef.current = page;
   // El `requestedAt` más nuevo ya visto: lo que venga después es charla nueva
-  // (reemplaza al evento `opened` del SSE). Usa la hora del server, sin desfasajes.
+  // (en modo polling, o lo que se perdió con el stream caído; con el stream
+  // abierto avisa el evento `opened`). Usa la hora del server, sin desfasajes.
   // Va por filtro: al cambiar de chip se vuelve a tomar referencia sin avisar.
   const lastRequestedRef = useRef<{ filtro: Filtro; at: string | null } | null>(null);
 
@@ -167,10 +172,15 @@ export function ConversacionesTab() {
   useEffect(() => {
     loadInbox();
   }, [loadInbox]);
+  // Para el handler del stream, sin reconectar en cada cambio de filtro.
+  const loadInboxRef = useRef(loadInbox);
+  loadInboxRef.current = loadInbox;
 
-  // Refresco periódico. Uno solo, para toda la pestaña.
+  // En vivo (o polling de respaldo). Uno solo, para toda la pestaña. `sync` es
+  // el refresco completo: corre al (re)conectar el stream y, sin stream, cada
+  // POLL_MS.
   useEffect(() => {
-    return pollWhileVisible(async () => {
+    const sync = async () => {
       try {
         const f = filtroRef.current;
         const rows = await conversationsAdmin.list({
@@ -222,7 +232,75 @@ export function ConversacionesTab() {
       } catch {
         setLive(false);
       }
-    }, POLL_MS);
+    };
+
+    const onEvent = (event: ConversationEvent) => {
+      setLive(true);
+      // La bandeja siempre se refresca: cambió el orden, el estado o el
+      // contador de sin leer.
+      if (event.conversation) {
+        const conv = event.conversation;
+        const wanted = FILTRO_STATUS[filtroRef.current].split(',');
+        setItems((prev) => {
+          const rest = prev.filter((c) => c.id !== event.conversationId);
+          // Si cambió de estado y ya no entra en el filtro, sale de la lista.
+          if (!wanted.includes(conv.status)) return rest;
+          return [conv, ...rest].sort(
+            (a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt),
+          );
+        });
+        // Ya avisada por el evento: que el próximo `sync` no la repita.
+        const last = lastRequestedRef.current;
+        if (
+          wanted.includes(conv.status) &&
+          last?.filtro === filtroRef.current &&
+          conv.requestedAt &&
+          (!last.at || conv.requestedAt > last.at)
+        ) {
+          lastRequestedRef.current = { filtro: last.filtro, at: conv.requestedAt };
+        }
+        void loadCounts();
+      } else {
+        void loadInboxRef.current();
+      }
+
+      if (event.type === 'opened') {
+        showToast.success(
+          `Nueva charla: ${event.conversation?.customerName ?? event.phone}`,
+        );
+      }
+
+      // Si es la charla abierta, se agrega el mensaje sin recargar todo.
+      if (event.conversationId === selectedRef.current && event.message) {
+        const msg = event.message;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${msg.createdAt}-${prev.length}`,
+            author: msg.author,
+            authorName: msg.authorName,
+            body: msg.body,
+            createdAt: msg.createdAt,
+            mediaKind: msg.mediaKind,
+            mediaMime: msg.mediaMime,
+            mediaName: msg.mediaName,
+            mediaUrl: msg.mediaUrl,
+          },
+        ]);
+      }
+    };
+
+    return liveOrPoll<ConversationEvent>({
+      path: CONVERSATIONS_STREAM_PATH,
+      pollMs: POLL_MS,
+      sync,
+      onEvent,
+      onModeChange: (mode) => {
+        // `polling`: el badge lo maneja cada vuelta de `sync`.
+        if (mode === 'live') setLive(true);
+        else if (mode === 'reconnecting') setLive(false);
+      },
+    });
   }, [loadCounts]);
 
   useEffect(() => {

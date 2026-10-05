@@ -4,10 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell, Check, X } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import {
+  IN_APP_NOTIFICATIONS_STREAM_PATH,
   inAppNotifications,
   type InAppNotification,
+  type InAppNotificationEvent,
 } from '@/services/in-app-notifications.service';
-import { pollWhileVisible } from '@/lib/poll-while-visible';
+import { liveOrPoll } from '@/lib/live-stream';
 
 const NOTIFICATIONS_POLL_MS = 60_000;
 
@@ -19,15 +21,26 @@ export function InAppNotificationsBell() {
 
   useEffect(() => {
     if (!user) return;
-    // Cada minuto y sólo con la pestaña visible (antes era un SSE que dejaba
-    // una función de Netlify abierta por cada pestaña del panel).
-    return pollWhileVisible(async () => {
-      try {
-        setItems((await inAppNotifications.list()).slice(0, 50));
-      } catch {
-        /* si falla una vuelta, queda lo que había */
-      }
-    }, NOTIFICATIONS_POLL_MS);
+    // En vivo por SSE directo al backend; si no se puede, cada minuto y sólo
+    // con la pestaña visible (ver `lib/live-stream.ts`).
+    return liveOrPoll<InAppNotificationEvent>({
+      path: IN_APP_NOTIFICATIONS_STREAM_PATH,
+      pollMs: NOTIFICATIONS_POLL_MS,
+      sync: async () => {
+        try {
+          setItems((await inAppNotifications.list()).slice(0, 50));
+        } catch {
+          /* si falla una vuelta, queda lo que había */
+        }
+      },
+      onEvent: (event) => {
+        if (!event?.notification) return;
+        setItems((current) => {
+          const rest = current.filter((item) => item.id !== event.notification.id);
+          return [event.notification, ...rest].slice(0, 50);
+        });
+      },
+    });
   }, [user]);
 
   useEffect(() => {

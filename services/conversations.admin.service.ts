@@ -3,9 +3,9 @@
 // Charlas con una persona real. Cuando un cliente pide hablar con alguien del
 // equipo, el bot deja de responder ese chat y todo pasa por acá.
 //
-// La bandeja se refresca con polling corto sólo con la pestaña visible (ver
-// `lib/poll-while-visible.ts`). Antes era SSE, pero en Netlify cada stream
-// abierto mantenía viva una función del proxy `/api` → demasiado cómputo.
+// Los avisos llegan por SSE directo al backend (`lib/live-stream.ts`, sin pasar
+// por el proxy de Netlify); si no está configurado o se cae, la bandeja vuelve
+// al polling corto con la pestaña visible.
 
 import { apiService } from '@/services/api.service';
 
@@ -48,6 +48,26 @@ export interface ConversationMessage {
   /** URL firmada de corta vida para ver/descargar el adjunto. */
   mediaUrl?: string;
 }
+
+export interface ConversationEvent {
+  type: 'opened' | 'message' | 'closed';
+  conversationId: string;
+  phone: string;
+  message?: {
+    author: MessageAuthor;
+    authorName?: string;
+    body: string;
+    createdAt: string;
+    mediaKind?: MediaKind;
+    mediaMime?: string;
+    mediaName?: string;
+    mediaUrl?: string;
+  };
+  conversation?: Conversation;
+}
+
+/** Stream SSE (directo al backend, ver `lib/live-stream.ts`). */
+export const CONVERSATIONS_STREAM_PATH = '/conversations/stream';
 
 export const conversationsAdmin = {
   /**

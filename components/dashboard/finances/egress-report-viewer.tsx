@@ -20,6 +20,8 @@ export function EgressReportViewer({ egresses, periodLabel }: Props) {
 
   const average = count > 0 ? total / count : 0;
   const topType = rows.length > 0 ? rows[0] : null;
+  const cash = items.filter((e) => e.paymentMethod === 'CASH');
+  const cashTotal = cash.reduce((sum, e) => sum + e.amount, 0);
 
   return (
     <PrintPage>
@@ -45,9 +47,10 @@ export function EgressReportViewer({ egresses, periodLabel }: Props) {
             color: C.terracota,
           },
           {
-            label: 'Categorías',
-            value: String(rows.length),
-            sub: rows.length === 1 ? 'categoría usada' : 'categorías usadas',
+            label: 'En efectivo',
+            value: formatCurrency(cashTotal),
+            sub: `${cash.length} ${cash.length === 1 ? 'egreso' : 'egresos'}`,
+            color: C.terracota,
           },
         ]}
       />

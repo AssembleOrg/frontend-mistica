@@ -296,8 +296,46 @@ export function EgressBreakdownPrint({
     );
   }
 
+  const byMethod = new Map<string, { count: number; amount: number }>();
+  for (const e of items) {
+    const prev = byMethod.get(e.paymentMethod) ?? { count: 0, amount: 0 };
+    byMethod.set(e.paymentMethod, { count: prev.count + 1, amount: prev.amount + e.amount });
+  }
+  const methodRows = Array.from(byMethod.entries()).sort((a, b) => b[1].amount - a[1].amount);
+
   return (
     <>
+      {/* Desglose por método de pago: cuánto salió en efectivo vs. el resto */}
+      <div style={{ marginBottom: 20 }}>
+        <SectionTitle>Egresos por método de pago</SectionTitle>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...thBase, textAlign: 'left' }}>Método</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 70 }}>Egresos</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 110 }}>Monto</th>
+              <th style={{ ...thBase, textAlign: 'right', width: 42 }}>%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {methodRows.map(([method, m]) => (
+              <tr key={method} style={{ breakInside: 'avoid' }}>
+                <td style={{ ...cellBase, color: C.tinta }}>{methodLabel(method)}</td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.gris }}>
+                  {m.count}
+                </td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.terracota }}>
+                  {formatCurrency(m.amount)}
+                </td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.gris }}>
+                  {total > 0 ? Math.round((m.amount / total) * 100) : 0}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* Desglose por categoría */}
       <div style={{ marginBottom: 20 }}>
         <SectionTitle>Egresos por categoría</SectionTitle>

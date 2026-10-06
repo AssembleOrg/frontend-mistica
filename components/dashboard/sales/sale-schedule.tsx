@@ -67,6 +67,13 @@ export function useSaleSchedule() {
       });
       showToast.success(`Agendada: ${fmtDateTime(r.startAt)}`);
     } catch (e) {
+      // Al editar una venta que ya tenía reserva el backend la rechaza: no es
+      // un error, la venta ya está en la agenda.
+      const msg = e instanceof Error ? e.message : '';
+      if (/ya está agendada/i.test(msg)) {
+        showToast.info(msg.replace('Esta venta ya está agendada', 'La venta ya estaba agendada'));
+        return;
+      }
       showToast.error(
         `La venta se registró, pero no se pudo agendar${
           e instanceof Error ? `: ${e.message}` : ''

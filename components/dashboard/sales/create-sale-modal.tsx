@@ -865,9 +865,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // venta de precio libre (el total es lo cobrado, no se descuenta nada).
         prepaidId: !isPartial && usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: !isPartial && usePrepaid,
-        studentFeeProductIds: studentFee.selectedIds.length
-          ? studentFee.selectedIds
-          : undefined,
+        // Con el cliente elegido, lo marcado manda (aunque no sea ninguna).
+        studentFeeProductIds: studentFee.active ? studentFee.selectedIds : undefined,
         isPartial: isPartial || undefined,
         onAccount: onAccount || undefined,
         // Abono a cuenta de la venta anterior seleccionada (sólo venta no
@@ -1602,6 +1601,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                 <StudentFeeSection
                   state={studentFee}
                   hasClient={!!selectedClient}
+                  clientName={selectedClient?.fullName}
                   cartHasLikelyFee={cartItems.some(
                     (i) =>
                       (!!i.productId && feeProductIds.has(i.productId)) ||

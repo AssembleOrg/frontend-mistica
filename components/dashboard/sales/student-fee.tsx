@@ -20,10 +20,10 @@ const fmtDay = (iso?: string) =>
     : '';
 
 /**
- * Cuota de alumno en la venta: si el cliente es alumno, se marca qué línea del
- * carrito es su cuota y al guardar la venta queda paga su cuota del mes.
- * Las marcadas como cuota en el catálogo o que por nombre lo parecen vienen
- * tildadas.
+ * Cuota de alumno en la venta: se marca qué línea del carrito es su cuota y al
+ * guardar la venta queda paga su cuota del mes. Si el cliente todavía no es
+ * alumno, el backend lo da de alta con sus datos. Las marcadas como cuota en
+ * el catálogo o que por nombre lo parecen vienen tildadas.
  */
 export function useStudentFee(
   clientId: string | undefined,
@@ -61,12 +61,16 @@ export function useStudentFee(
   const suggested = (i: Line) =>
     flaggedIds.has(i.productId) || LOOKS_LIKE_FEE.test(i.productName);
   const isOn = (i: Line) => choice[i.productId] ?? suggested(i);
-  const selectedIds = info ? lines.filter(isOn).map((i) => i.productId) : [];
+  /** El cliente elegido no es alumno (ninguna ficha de alumno lo tiene). */
+  const notStudent = !!clientId && checkedFor === clientId && !info;
+  // Ya se sabe qué es el cliente: lo marcado se manda (aunque no sea nada).
+  const active = !!info || notStudent;
+  const selectedIds = active ? lines.filter(isOn).map((i) => i.productId) : [];
 
   return {
     info,
-    /** El cliente elegido no es alumno (ninguna ficha de alumno lo tiene). */
-    notStudent: !!clientId && checkedFor === clientId && !info,
+    notStudent,
+    active,
     lines,
     selectedIds,
     isOn,
@@ -80,10 +84,12 @@ export type StudentFeeState = ReturnType<typeof useStudentFee>;
 export function StudentFeeSection({
   state,
   hasClient,
+  clientName,
   cartHasLikelyFee,
 }: {
   state: StudentFeeState;
   hasClient: boolean;
+  clientName?: string;
   cartHasLikelyFee: boolean;
 }) {
   const { info, lines, isOn, toggle, selectedIds, notStudent } = state;
@@ -98,15 +104,24 @@ export function StudentFeeSection({
         </p>
       );
     }
-    // Parece una cuota pero el cliente no es alumno: la venta no marca nada.
-    // Pasa cuando el alumno quedó vinculado a otro cliente (cargado dos veces).
-    if (notStudent && cartHasLikelyFee) {
+    // Parece una cuota y el cliente todavía no es alumno: al cobrar se lo da
+    // de alta. Si no es su cuota (p. ej. la paga un familiar), se destilda.
+    if (notStudent && cartHasLikelyFee && lines.length > 0) {
       return (
-        <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
-          Este cliente no figura como alumno/a: la venta no marca ninguna cuota.
-          Si es alumno/a, puede estar cargado/a con otro nombre: en Alumnos editá
-          su ficha y vinculala a este cliente antes de cobrar.
-        </p>
+        <div className='flex flex-col gap-2 rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] p-3 text-[#8a5638]'>
+          <p className='flex items-center gap-2 text-sm font-medium'>
+            <GraduationCap className='h-4 w-4' />
+            {clientName ?? 'El cliente'} todavía no es alumno/a · ¿qué es su cuota?
+          </p>
+          <FeeLineToggles lines={lines} isOn={isOn} toggle={toggle} />
+          <p className='text-xs'>
+            {selectedIds.length > 0
+              ? 'Al cobrar se lo/la da de alta como alumno/a con sus datos y se le marca paga la cuota del mes. Después asignale su grupo en Alumnos.'
+              : 'Ninguna línea marcada: no se da de alta ni se marca ninguna cuota.'}{' '}
+            Si es la cuota de otra persona (un hijo/a, por ejemplo), destildala o
+            elegí como cliente al alumno/a.
+          </p>
+        </div>
       );
     }
     return null;
@@ -124,26 +139,7 @@ export function StudentFeeSection({
         <GraduationCap className='h-4 w-4' />
         {info.name} es alumno/a · ¿qué es su cuota?
       </p>
-      <div className='flex flex-wrap gap-1.5'>
-        {lines.map((i) => {
-          const on = isOn(i);
-          return (
-            <button
-              key={i.productId}
-              type='button'
-              onClick={() => toggle(i)}
-              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition ${
-                on
-                  ? 'border-[#455a54] bg-[#455a54] text-white'
-                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
-              }`}
-            >
-              {on ? '✓ ' : ''}
-              {i.productName}
-            </button>
-          );
-        })}
-      </div>
+      <FeeLineToggles lines={lines} isOn={isOn} toggle={toggle} />
       <p className='text-xs'>
         {selectedIds.length === 0
           ? 'Ninguna línea marcada: la venta no toca sus cuotas.'
@@ -155,6 +151,40 @@ export function StudentFeeSection({
         {saldo > 0 &&
           ` Paga ${fmtPrice(price)} de ${fmtPrice(fee)}: queda un saldo de ${fmtPrice(saldo)} pendiente.`}
       </p>
+    </div>
+  );
+}
+
+/** Las líneas del carrito para tildar cuál es la cuota. */
+function FeeLineToggles({
+  lines,
+  isOn,
+  toggle,
+}: {
+  lines: StudentFeeState['lines'];
+  isOn: StudentFeeState['isOn'];
+  toggle: StudentFeeState['toggle'];
+}) {
+  return (
+    <div className='flex flex-wrap gap-1.5'>
+      {lines.map((i) => {
+        const on = isOn(i);
+        return (
+          <button
+            key={i.productId}
+            type='button'
+            onClick={() => toggle(i)}
+            className={`rounded-md border px-2.5 py-1 text-xs font-medium transition ${
+              on
+                ? 'border-[#455a54] bg-[#455a54] text-white'
+                : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+            }`}
+          >
+            {on ? '✓ ' : ''}
+            {i.productName}
+          </button>
+        );
+      })}
     </div>
   );
 }

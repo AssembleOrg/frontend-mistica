@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
-import { canAccessView } from '@/lib/views';
+import { ROLE_LABEL, canAccessView } from '@/lib/views';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
@@ -95,7 +95,7 @@ export default function Dashboard() {
               ¡Hola, {user?.name}!
             </h1>
             <p className='text-xs text-[#4e4247]/70 font-winter-solid'>
-              {format(new Date(), "EEEE d 'de' MMMM", { locale: es })} · {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
+              {format(new Date(), "EEEE d 'de' MMMM", { locale: es })} · {ROLE_LABEL[user?.role ?? 'user'] ?? 'Usuario'}
             </p>
           </div>
         </div>

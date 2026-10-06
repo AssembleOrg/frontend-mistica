@@ -18,12 +18,13 @@ import {
   ShieldCheck,
   Trash2,
   User as UserIcon,
+  UserCog,
   X,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
-import { ASSIGNABLE_VIEWS, ASSIGNABLE_RESERVAS_TABS, RESERVAS_TABS, normalizeViewKey, normalizeViewKeys } from '@/lib/views';
+import { ASSIGNABLE_RESERVAS_TABS, PANEL_VIEWS, RESERVAS_TABS, assignableViewsFor, normalizeViewKey, normalizeViewKeys } from '@/lib/views';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,8 +46,11 @@ function viewLabel(rawKey: string): string {
     const tab = RESERVAS_TABS.find((t) => t.key === key.slice('reservas:'.length));
     return tab ? `Reservas · ${tab.label}` : key;
   }
-  return ASSIGNABLE_VIEWS.find((v) => v.key === key)?.label ?? key;
+  return PANEL_VIEWS.find((v) => v.key === key)?.label ?? key;
 }
+
+/** Orden del listado: admin, encargados, empleados. */
+const ROLE_ORDER: Record<AccountRole, number> = { admin: 0, manager: 1, user: 2 };
 
 interface FormState {
   name: string;
@@ -96,7 +100,7 @@ export function AccountsPanel() {
     () =>
       [...items].sort(
         (a, b) =>
-          (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1) ||
+          ROLE_ORDER[a.role] - ROLE_ORDER[b.role] ||
           a.name.localeCompare(b.name),
       ),
     [items],
@@ -252,6 +256,7 @@ function AccountRow({
   onRemove: () => void;
 }) {
   const admin = account.role === 'admin';
+  const manager = account.role === 'manager';
   const views = normalizeViewKeys(account.allowedViews ?? []);
   return (
     <div className='flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3'>
@@ -288,8 +293,14 @@ function AccountRow({
           admin ? 'bg-[#455a54] text-white' : 'bg-[#f4ead9] text-[#9d684e]',
         )}
       >
-        {admin ? <ShieldCheck className='h-3 w-3' /> : <UserIcon className='h-3 w-3' />}
-        {admin ? 'Admin' : 'Empleado'}
+        {admin ? (
+          <ShieldCheck className='h-3 w-3' />
+        ) : manager ? (
+          <UserCog className='h-3 w-3' />
+        ) : (
+          <UserIcon className='h-3 w-3' />
+        )}
+        {admin ? 'Admin' : manager ? 'Encargado/a' : 'Empleado'}
       </span>
 
       <span className='flex max-w-[22rem] flex-wrap items-center gap-1'>
@@ -350,7 +361,9 @@ function AccountEditor({
   onCancel: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const isUser = form.role === 'user';
+  // Admin ve todo; encargado y empleado, según sus vistas.
+  const withViews = form.role !== 'admin';
+  const assignable = assignableViewsFor(form.role);
 
   function toggleView(key: string) {
     setForm({
@@ -415,6 +428,7 @@ function AccountEditor({
             {(
               [
                 { key: 'user', label: 'Empleado', icon: UserIcon },
+                { key: 'manager', label: 'Encargado/a', icon: UserCog },
                 { key: 'admin', label: 'Admin (ve todo)', icon: ShieldCheck },
               ] as const
             ).map(({ key, label, icon: Icon }) => {
@@ -423,7 +437,19 @@ function AccountEditor({
                 <button
                   key={key}
                   type='button'
-                  onClick={() => setForm({ ...form, role: key })}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      role: key,
+                      // Stock y Categorías son sólo para encargado/admin.
+                      allowedViews:
+                        key === 'user'
+                          ? form.allowedViews.filter((v) =>
+                              assignableViewsFor('user').some((a) => a.key === v.split(':')[0]),
+                            )
+                          : form.allowedViews,
+                    })
+                  }
                   className={cn(
                     'inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
                     on
@@ -437,6 +463,13 @@ function AccountEditor({
               );
             })}
           </div>
+          <p className='text-xs text-[#7a6e6f]'>
+            {form.role === 'admin'
+              ? 'Ve y hace todo: balances, cierres, cuentas y borrar registros.'
+              : form.role === 'manager'
+                ? 'Hace todo lo operativo en sus vistas (cobrar, reservar, editar, alumnos, stock). No ve balances ni cierres, no borra egresos ni ventas y no gestiona cuentas.'
+                : 'Ve sus vistas. Cobrar, editar y gestionar quedan para encargado/a o admin.'}
+          </p>
         </div>
 
         <label className='flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-3'>
@@ -457,7 +490,7 @@ function AccountEditor({
           </span>
         </label>
 
-        {isUser && (
+        {withViews && (
           <div className='space-y-1.5'>
             <Label className='text-[13px] text-[#455a54]'>
               Vistas que puede ver
@@ -468,7 +501,7 @@ function AccountEditor({
               </span>
             </Label>
             <div className='flex flex-wrap gap-1.5'>
-              {ASSIGNABLE_VIEWS.filter((v) => v.key !== 'reservas').map((v) => {
+              {assignable.filter((v) => v.key !== 'reservas').map((v) => {
                 const on = form.allowedViews.includes(v.key);
                 return (
                   <button

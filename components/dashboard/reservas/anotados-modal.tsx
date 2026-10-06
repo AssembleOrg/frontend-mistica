@@ -16,7 +16,7 @@ import { DietaryTags } from './dietary-badge';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import type { Client } from '@/services/clients.service';
 import { useAuth } from '@/hooks/useAuth';
-import { allowedReservasTabs, canSeeReservationDetails } from '@/lib/views';
+import { allowedReservasTabs, canManageRole, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
 import { ReservationManager } from './reservation-manager';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
@@ -75,6 +75,9 @@ export function AnotadosModal({
   const [chargeMode, setChargeMode] = useState<ChargeMode>('total');
   const [chargeAmount, setChargeAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  // Con gente anotada, el alta queda plegada: abierto parecía que había que
+  // "confirmar" las reservas que ya estaban.
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +133,7 @@ export function AnotadosModal({
         amount: charge.amount,
       });
       showToast.success('Reserva creada');
+      setAdding(false);
       setChargeMode('total');
       setChargeAmount('');
       setClient(null);
@@ -284,18 +288,45 @@ export function AnotadosModal({
             )}
           </div>
 
-          {/* Alta de reserva (sólo admin: el endpoint pide rol admin) */}
+          {/* Alta de otra reserva en el turno (admin o encargado/a). */}
+          {canManageRole(user?.role) && !loading && reservations.length > 0 && !adding && (
+            <div className='flex flex-col gap-2 self-start rounded-lg border border-dashed border-[#e6dbcd] p-4'>
+              <p className='text-xs text-[#7a6e6f]'>
+                Para ver, cobrar o cambiar una reserva, tocala en la lista.
+              </p>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() => setAdding(true)}
+                className='gap-1.5 border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                <UserPlus className='h-4 w-4 text-[#9d684e]' />
+                Agregar otra reserva
+              </Button>
+            </div>
+          )}
           <div
             className={cn(
               'flex-col gap-3 rounded-lg border border-[#e6dbcd] p-4',
-              user?.role === 'admin' ? 'flex' : 'hidden',
+              canManageRole(user?.role) && (adding || (!loading && reservations.length === 0))
+                ? 'flex'
+                : 'hidden',
             )}
           >
             <div className='flex items-center gap-2'>
               <UserPlus className='h-4 w-4 text-[#9d684e]' />
               <h3 className='font-tan-nimbus text-lg font-bold text-[#455a54]'>
-                Agregar reserva
+                Nueva reserva en este turno
               </h3>
+              {adding && (
+                <button
+                  type='button'
+                  onClick={() => setAdding(false)}
+                  className='ml-auto text-xs font-medium text-[#7a6e6f] hover:text-[#3d3338]'
+                >
+                  Cancelar
+                </button>
+              )}
             </div>
             {manual ? (
               <>
@@ -412,7 +443,7 @@ export function AnotadosModal({
               disabled={saving}
               className='font-mono text-xs tracking-wider'
             >
-              {saving ? 'CREANDO…' : 'CONFIRMAR RESERVA'}
+              {saving ? 'CREANDO…' : 'AGREGAR AL TURNO'}
             </Button>
           </div>
         </div>

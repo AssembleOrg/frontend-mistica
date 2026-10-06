@@ -45,7 +45,7 @@ import { ReservasCalendar } from './reservas-calendar';
 import { ReservationManager } from './reservation-manager';
 import { DietaryTags } from './dietary-badge';
 import { useAuth } from '@/hooks/useAuth';
-import { allowedReservasTabs, canSeeReservationDetails } from '@/lib/views';
+import { allowedReservasTabs, canManageRole, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
 import { tablesAdmin, type TableStatus } from '@/services/tables.admin.service';
@@ -142,7 +142,7 @@ export function ReservasTab() {
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
   // Cobrar: lleva a Ventas → Nueva venta con la reserva cargada. Con varias
   // reservas con saldo en el turno, se elige cuál.
-  const canCobrar = user?.role === 'admin';
+  const canCobrar = canManageRole(user?.role);
   const [cobrarOf, setCobrarOf] = useState<ReservationItem[] | null>(null);
   const cobrar = (r: ReservationItem) =>
     router.push(`/dashboard/sales?reserva=${r._id}`);
@@ -483,6 +483,14 @@ export function ReservasTab() {
                       </span>
                     </span>
                     <span className='flex shrink-0 items-center gap-2'>
+                      {(c.trials ?? 0) > 0 && (
+                        <span
+                          className='rounded-full border border-dashed border-[#cc844a]/50 bg-[#F6E9DC] px-2 py-0.5 text-[11px] font-semibold text-[#cc844a]'
+                          title='Vienen a una clase de prueba'
+                        >
+                          +{c.trials} prueba
+                        </span>
+                      )}
                       <span className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>
                         <Users className='h-3.5 w-3.5 text-[#455a54]' />
                         <span className='font-mono text-xs font-semibold text-[#3d3338]'>

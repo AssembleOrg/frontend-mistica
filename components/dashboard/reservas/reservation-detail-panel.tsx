@@ -42,6 +42,7 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { NewPieceModal } from './piezas-tab';
+import { canManageRole } from '@/lib/views';
 
 const PAYMENT_LABEL: Record<string, string> = {
   MERCADOPAGO: 'MercadoPago',
@@ -85,7 +86,8 @@ export function ReservationDetailPanel({
   // instante, sin esperar a que el listado se recargue.
   const [patch, setPatch] = useState<ReservationPatch>({});
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // Admin o encargado/a: la gestión operativa.
+  const canManage = canManageRole(user?.role);
 
   useEffect(() => {
     if (!reservation) return;
@@ -222,9 +224,9 @@ export function ReservationDetailPanel({
             )}
           </Section>
 
-          <KitchenSection reservation={r} canEdit={isAdmin} onChanged={applyPatch} />
+          <KitchenSection reservation={r} canEdit={canManage} onChanged={applyPatch} />
 
-          {isAdmin && <ReceiptsSection reservation={r} onChanged={applyPatch} />}
+          {canManage && <ReceiptsSection reservation={r} onChanged={applyPatch} />}
 
           <Section title='PAGO'>
             <div className='flex flex-col gap-2.5 rounded-xl bg-[#fbf5ef] p-4'>

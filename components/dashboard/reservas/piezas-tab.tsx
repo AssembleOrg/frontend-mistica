@@ -47,7 +47,7 @@ import {
 } from '@/services/taller.admin.service';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
-import { PieceTypeSelect } from './piece-type-select';
+import { PieceTypeSelect, usePieceCategories } from './piece-type-select';
 import { PieceExtraSelect } from './piece-extra-select';
 import { ColorsSelect } from './colors-select';
 import { usePieceExtrasStore } from '@/stores/piece-extras.store';
@@ -58,6 +58,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 import { ResponsableField, useResponsable } from '../responsable-field';
+import { canManageRole } from '@/lib/views';
 
 const LIMIT = 20;
 
@@ -135,8 +136,11 @@ export function PiezasTab() {
   // El PROFESOR registra y gestiona piezas (alta, estado, fotos), como pide
   // el alcance del taller. Borrar registros y configurar los estados del
   // proceso queda para el admin.
+  // Admin o encargado/a gestionan las fichas; borrarlas, sólo el admin.
+  const canManage = canManageRole(user?.role);
   const isAdmin = user?.role === 'admin';
-  const canManage = true;
+  // Las fotos las carga cualquiera que tenga la pestaña.
+  const canEditPhotos = true;
   const confirm = useConfirm();
   const [items, setItems] = useState<PieceItem[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
@@ -285,7 +289,7 @@ export function PiezasTab() {
   }
 
   function statusSelect(p: PieceItem) {
-    if (!isAdmin) {
+    if (!canManage) {
       if (cfgOf(p.status, statusCfg)?.isReady || cfgOf(p.status, statusCfg)?.isFinal) {
         return <StatusBadge label={labelOf(p.status, statusCfg)} bg='#dcebe1' fg='#2f4a40' />;
       }
@@ -486,14 +490,14 @@ export function PiezasTab() {
                     </button>
                     <div className='flex w-[8rem] flex-col gap-1'>
                       {statusSelect(p)}
-                      {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                      {canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
                         <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-7 w-full px-2 text-[11px]'>Avisar retiro</Button>
                       )}
-                      {isAdmin && p.notifiedReadyAt && (
+                      {canManage && p.notifiedReadyAt && (
                         <span className='text-center text-[10px] text-[#455a54]'>Avisado ✓</span>
                       )}
                     </div>
-                    {isAdmin && (
+                    {canManage && (
                       <div className='mt-1 flex items-center gap-2'>
                         <IconBtn
                           icon={Pencil}
@@ -501,13 +505,15 @@ export function PiezasTab() {
                           disabled={busy === p._id}
                           onClick={() => setEditing(p)}
                         />
-                        <IconBtn
-                          icon={Trash2}
-                          title='Eliminar'
-                          tone='rojo'
-                          disabled={busy === p._id}
-                          onClick={() => remove(p)}
-                        />
+                        {isAdmin && (
+                          <IconBtn
+                            icon={Trash2}
+                            title='Eliminar'
+                            tone='rojo'
+                            disabled={busy === p._id}
+                            onClick={() => remove(p)}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -587,14 +593,14 @@ export function PiezasTab() {
                 <div className='mt-3 flex flex-wrap items-center gap-2'>
                   <div className='flex items-center gap-2'>
                     <div className='w-[9rem]'>{statusSelect(p)}</div>
-                    {isAdmin && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                    {canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
                       <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar</Button>
                     )}
-                    {isAdmin && p.notifiedReadyAt && (
+                    {canManage && p.notifiedReadyAt && (
                       <span className='text-[10px] text-[#455a54]'>Avisado</span>
                     )}
                   </div>
-                  {isAdmin && (
+                  {canManage && (
                     <div className='ml-auto flex items-center gap-4'>
                       <IconBtn
                         icon={Pencil}
@@ -602,13 +608,15 @@ export function PiezasTab() {
                         disabled={busy === p._id}
                         onClick={() => setEditing(p)}
                       />
-                      <IconBtn
-                        icon={Trash2}
-                        title='Eliminar'
-                        tone='rojo'
-                        disabled={busy === p._id}
-                        onClick={() => remove(p)}
-                      />
+                      {isAdmin && (
+                        <IconBtn
+                          icon={Trash2}
+                          title='Eliminar'
+                          tone='rojo'
+                          disabled={busy === p._id}
+                          onClick={() => remove(p)}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -662,7 +670,7 @@ export function PiezasTab() {
       {photosOf && (
         <PhotosDialog
           piece={photosOf}
-          canManage={canManage}
+          canManage={canEditPhotos}
           onClose={() => setPhotosOf(null)}
           onSaved={async () => {
             setPhotosOf(null);
@@ -795,6 +803,8 @@ type ReservationEntry = {
   /** ¿Tiene adicional? (default no). Si sí, cuál del catálogo. */
   hasExtra: boolean;
   extraId: string;
+  /** 2x1: la segunda pieza (las dos van en esta ficha, una sola paleta). */
+  pieceType2: string;
 };
 
 const emptyReservationEntry = (personName = ''): ReservationEntry => ({
@@ -804,6 +814,7 @@ const emptyReservationEntry = (personName = ''): ReservationEntry => ({
   colorsUsed: '',
   hasExtra: false,
   extraId: '',
+  pieceType2: '',
 });
 
 export function NewPieceModal({
@@ -848,6 +859,29 @@ export function NewPieceModal({
   );
   // Adicionales elegidos: su suma va al total y al saldo de la reserva.
   const extrasCatalog = usePieceExtrasStore((st) => st.items);
+  const categoryOf = usePieceCategories();
+  const isPair = (entry: ReservationEntry) =>
+    entry.hasExtra && !!extrasCatalog.find((x) => x.id === entry.extraId)?.pair;
+
+  // Elegir la pieza propone su categoría: con monto, el adicional queda
+  // marcado (se puede cambiar); "Incluida" o sin categoría, sin adicional.
+  function pickPiece(index: number, name: string) {
+    const { category } = categoryOf(name);
+    setEntries((current) =>
+      current.map((entry, i) => {
+        if (i !== index) return entry;
+        if (!category) return { ...entry, pieceType: name };
+        const charged = category.amount > 0 || !!category.pair;
+        return {
+          ...entry,
+          pieceType: name,
+          hasExtra: charged,
+          extraId: charged ? category.id : '',
+          pieceType2: category.pair ? entry.pieceType2 : '',
+        };
+      }),
+    );
+  }
   const extrasTotal = entries.reduce(
     (sum, e) =>
       e.hasExtra && e.extraId
@@ -913,6 +947,9 @@ export function NewPieceModal({
     if (entries.some((entry) => entry.hasExtra && !entry.extraId)) {
       return showToast.error('Elegí el adicional de cada pieza que lo tiene');
     }
+    if (entries.some((entry) => isPair(entry) && !entry.pieceType2.trim())) {
+      return showToast.error('En el 2x1 van dos piezas: elegí la segunda');
+    }
     setSaving(true);
     try {
       await piecesAdmin.createReservationBatch(
@@ -923,6 +960,7 @@ export function NewPieceModal({
           pieceType: entry.pieceType.trim(),
           colorsUsed: entry.colorsUsed.trim(),
           extraId: entry.hasExtra ? entry.extraId : undefined,
+          ...(isPair(entry) && { pieceType2: entry.pieceType2.trim() }),
         })),
         responsable.value.trim() || undefined,
       );
@@ -1025,7 +1063,7 @@ export function NewPieceModal({
                       </Field>
                       <div className='flex flex-col gap-2'>
                         <Field label='Pieza elegida'>
-                          <PieceTypeSelect value={entry.pieceType} onChange={(name) => updateEntry(index, 'pieceType', name)} />
+                          <PieceTypeSelect value={entry.pieceType} onChange={(name) => pickPiece(index, name)} />
                         </Field>
                         <label className='flex w-fit cursor-pointer items-center gap-2 text-[13px] text-[#455a54]'>
                           <Switch
@@ -1037,6 +1075,20 @@ export function NewPieceModal({
                         </label>
                         {entry.hasExtra && (
                           <PieceExtraSelect value={entry.extraId} onChange={(id) => updateEntry(index, 'extraId', id)} />
+                        )}
+                        {isPair(entry) && (
+                          <Field label='Segunda pieza (2x1)'>
+                            <PieceTypeSelect
+                              value={entry.pieceType2}
+                              onChange={(name) => updateEntry(index, 'pieceType2', name)}
+                              only={(t) => t.extraId === entry.extraId}
+                              placeholder='Elegí la otra pieza…'
+                              manage={false}
+                            />
+                            <span className='text-[11px] text-[#7a6e6f]'>
+                              Las dos van en esta ficha, con una sola paleta de colores.
+                            </span>
+                          </Field>
                         )}
                       </div>
                       <Field label='Colores utilizados'>
@@ -1115,7 +1167,7 @@ function GroupPieceModal({
   onDone: () => void | Promise<void>;
 }>) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const canManage = canManageRole(user?.role);
   const confirm = useConfirm();
   const month = currentMonth();
   // Cuentas compartidas (tablets): quién carga las fichas.
@@ -1143,11 +1195,12 @@ function GroupPieceModal({
         if (!alive) return;
         setGroups(gs.filter((g) => g.isActive));
         setStudentsById(new Map(ss.map((s) => [s._id, s])));
+        // La pieza del mes de cada alumno (la primera que pidió).
         setMonthly(
           new Map(
             rows
-              .filter((r) => r.piece)
-              .map((r) => [r.student._id, r.piece as MonthlyPiece]),
+              .filter((r) => r.pieces.length > 0)
+              .map((r) => [r.student._id, r.pieces[0] as MonthlyPiece]),
           ),
         );
       })
@@ -1233,7 +1286,7 @@ function GroupPieceModal({
     // La Escuelita (y todo grupo sin pieza del mes) sólo carga las fichas.
     const withMonthly = group.hasMonthlyPiece !== false;
     const toCharge = withMonthly
-      ? entries.filter((e) => isAdmin && e.extraCharge && e.charge)
+      ? entries.filter((e) => canManage && e.extraCharge && e.charge)
       : [];
     if (toCharge.some((e) => !(Number(e.extraAmount) > 0))) {
       return showToast.error('Para cobrar el adicional cargá el monto.');
@@ -1280,7 +1333,7 @@ function GroupPieceModal({
           ...(!mp?.pieceName && { pieceName: e.pieceType.trim() }),
           bisque: e.bisque,
           fresh: e.fresh,
-          ...(isAdmin &&
+          ...(canManage &&
             !mp?.paid && {
               extraCharge: e.extraCharge,
               ...(e.extraCharge && amount > 0 && { extraAmount: amount }),
@@ -1502,7 +1555,7 @@ function GroupPieceModal({
                             ))}
                           </div>
 
-                          {isAdmin &&
+                          {canManage &&
                             (mp?.paid ? (
                               <p className='text-xs font-medium text-[#2f4a40]'>
                                 Adicional ya cobrado este mes

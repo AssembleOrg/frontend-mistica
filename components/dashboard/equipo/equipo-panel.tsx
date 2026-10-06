@@ -18,6 +18,7 @@ import { usersAdmin, type Account } from '@/services/users.admin.service';
 import { StatusBadge } from '../reservas/_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ResponsableField, useResponsable } from '../responsable-field';
+import { canManageRole } from '@/lib/views';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -31,7 +32,8 @@ function fmtDate(d?: string) {
 /** Tareas asignadas al personal + lista de compras, en dos pestañas. */
 export function EquipoPanel() {
   const user = useAuthStore((s) => s.user);
-  const isAdmin = user?.role === 'admin';
+  // Admin o encargado/a: la gestión operativa.
+  const canManage = canManageRole(user?.role);
   const [tab, setTab] = useState<'tareas' | 'compras'>('tareas');
   const chip = (on: boolean) =>
     `rounded-lg border px-4 py-2 text-sm font-semibold transition ${
@@ -51,9 +53,9 @@ export function EquipoPanel() {
         </button>
       </div>
       {tab === 'tareas' ? (
-        <TareasTab isAdmin={isAdmin} />
+        <TareasTab canManage={canManage} />
       ) : (
-        <ComprasTab isAdmin={isAdmin} />
+        <ComprasTab canManage={canManage} />
       )}
     </div>
   );
@@ -61,7 +63,7 @@ export function EquipoPanel() {
 
 // ───────────────────────── Tareas ─────────────────────────
 
-function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
+function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
   const [tasks, setTasks] = useState<StaffTask[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     try {
       const [ts, accs] = await Promise.all([
         tallerAdmin.listTasks(),
-        isAdmin ? usersAdmin.list() : Promise.resolve([] as Account[]),
+        canManage ? usersAdmin.list() : Promise.resolve([] as Account[]),
       ]);
       setTasks(ts);
       setAccounts(accs);
@@ -90,7 +92,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, [canManage]);
 
   useEffect(() => {
     load();
@@ -178,7 +180,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     return { rows, unassigned };
   }, [tasks]);
 
-  const visible = !isAdmin || !person
+  const visible = !canManage || !person
     ? tasks
     : tasks.filter((t) => {
         const ids = assigneesOf(t).map((a) => a.userId);
@@ -197,13 +199,13 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   return (
     <div className='flex flex-col gap-4'>
       {/* Alta rápida: las tareas las crea el admin. El resto ve las suyas. */}
-      {!isAdmin && (
+      {!canManage && (
         <p className='text-sm text-[#7a6e6f]'>
           Tus tareas asignadas. Sumá tu progreso en cada una y marcala hecha
           cuando la termines.
         </p>
       )}
-      {isAdmin && (
+      {canManage && (
         <div className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
           {/* Mobile: campos apilados; desktop: una fila que envuelve. */}
           <div className='flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center'>
@@ -249,7 +251,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
 
       {/* Filtro por responsable: tocar un nombre muestra sus tareas,
           pendientes y finalizadas, con sus observaciones. */}
-      {isAdmin && !loading && (people.rows.length > 0 || people.unassigned > 0) && (
+      {canManage && !loading && (people.rows.length > 0 || people.unassigned > 0) && (
         <div className='flex flex-wrap items-center gap-1.5'>
           <span className='mr-1 text-xs font-medium text-[#7a6e6f]'>Ver tareas de</span>
           <PersonChip label='Todas' on={!person} onClick={() => setPerson('')} />
@@ -277,14 +279,14 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
       ) : (
         <>
-          {isAdmin && personName && (
+          {canManage && personName && (
             <p className='text-sm text-[#455a54]'>
               <strong>{personName}</strong>: {inProgress.length} en proceso · {pending.length} pendiente(s) · {done.length} completada(s)
             </p>
           )}
           {inProgress.length === 0 && pending.length === 0 && (
             <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
-              {!isAdmin
+              {!canManage
                 ? 'No tenés tareas pendientes 🎉'
                 : personName
                   ? `${personName} no tiene tareas pendientes 🎉`
@@ -292,13 +294,13 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
             </p>
           )}
           <TaskSection title='En proceso' tone='#9d684e' tasks={inProgress} render={(t) => (
-            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={canManage ? remove : undefined} onComment={addComment} />
           )} />
           <TaskSection title='Pendientes' tone='#455a54' tasks={pending} render={(t) => (
-            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={canManage ? remove : undefined} onComment={addComment} />
           )} />
           <TaskSection title='Completadas' tone='#7a6e6f' tasks={shownDone} total={done.length} render={(t) => (
-            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={canManage ? remove : undefined} onComment={addComment} />
           )} />
           {done.length > DONE_PREVIEW && (
             <button
@@ -535,7 +537,7 @@ const requesterOf = (it: ShoppingItem) =>
  * Lista de compras. Cada cuenta ve sólo lo que pidió (así no se mezcla lo de
  * cocina con lo del taller); el admin ve todo, separado por persona.
  */
-function ComprasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
+function ComprasTab({ canManage }: Readonly<{ canManage: boolean }>) {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -626,11 +628,11 @@ function ComprasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [pending]);
   // El nombre de quién pidió sólo aporta cuando se ven pedidos de varios.
-  const showWho = isAdmin || responsable.shared;
+  const showWho = canManage || responsable.shared;
 
   return (
     <div className='flex flex-col gap-4'>
-      {!isAdmin && (
+      {!canManage && (
         <p className='text-[13px] text-[#7a6e6f]'>
           Ves lo que pediste desde esta cuenta.
         </p>
@@ -670,7 +672,7 @@ function ComprasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         />
       </div>
 
-      {isAdmin && people.length > 1 && (
+      {canManage && people.length > 1 && (
         <div className='flex flex-wrap items-center gap-1.5'>
           <span className='mr-1 text-[12px] text-[#7a6e6f]'>Pedidos de</span>
           <PersonChip label='Todos' on={!person} onClick={() => setPerson('')} />
@@ -695,7 +697,7 @@ function ComprasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
               Nada pendiente de comprar.
             </p>
           )}
-          {isAdmin && !person && pendingByPerson.length > 1 ? (
+          {canManage && !person && pendingByPerson.length > 1 ? (
             pendingByPerson.map(([who, list]) => (
               <div key={who} className='flex flex-col gap-1.5'>
                 <h3 className='text-[13px] font-semibold text-[#455a54]'>

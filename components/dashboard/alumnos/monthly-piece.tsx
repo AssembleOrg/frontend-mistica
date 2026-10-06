@@ -4,7 +4,7 @@
 // la planilla (Piezas del mes) y la ficha del alumno.
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Undo2 } from 'lucide-react';
+import { Check, Gift, Loader2, Trash2, Undo2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,10 @@ import {
   type MonthlyPiece,
   type MonthlyPieceInput,
 } from '@/services/taller.admin.service';
+import {
+  PieceTypeSelect,
+  usePieceCategories,
+} from '@/components/dashboard/reservas/piece-type-select';
 
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -87,28 +91,41 @@ export const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 /**
- * Editor de la pieza del mes. Guarda solo (upsert) al cambiar cada campo; el
- * nombre de la pieza al salir del campo. `compact` = fila de planilla.
+ * Editor de una pieza del mes. Guarda solo al cambiar cada campo. La pieza se
+ * elige del catálogo (el mismo de las fichas): su categoría propone el
+ * adicional, que admin/encargado puede bonificar. `compact` = fila de planilla.
+ * Sin `value` todavía no existe: el primer cambio la crea (como la pieza del
+ * mes, o aparte si es `additional`).
  */
 export function MonthlyPieceFields({
   studentId,
   month,
   value,
-  isAdmin,
+  additional = false,
+  canManage,
   slots = [],
   compact = false,
+  doneBy,
   onSaved,
+  onRemove,
 }: {
   studentId: string;
   month: string;
   value: MonthlyPiece | null;
-  isAdmin: boolean;
+  /** Otra pieza del mismo mes (no la primera). */
+  additional?: boolean;
+  canManage: boolean;
   /** Horarios en que cursa: de ahí salen las fechas de "Para". */
   slots?: GroupSlot[];
   compact?: boolean;
+  /** Quién hace la gestión (cuentas compartidas). */
+  doneBy?: string;
   onSaved?: (p: MonthlyPiece) => void;
+  /** Botón para borrarla (o descartarla si todavía no se guardó). */
+  onRemove?: () => void;
 }) {
   const confirm = useConfirm();
+  const categoryOf = usePieceCategories();
   const [name, setName] = useState(value?.pieceName ?? '');
   const [amount, setAmount] = useState(value?.extraAmount != null ? String(value.extraAmount) : '');
   const [saving, setSaving] = useState(false);
@@ -123,7 +140,12 @@ export function MonthlyPieceFields({
   async function save(input: MonthlyPieceInput) {
     setSaving(true);
     try {
-      const p = await tallerAdmin.saveMonthlyPiece(studentId, month, input);
+      const body = doneBy ? { ...input, doneBy } : input;
+      const p = value?._id
+        ? await tallerAdmin.updateMonthlyPiece(value._id, body)
+        : additional
+          ? await tallerAdmin.addMonthlyPiece(studentId, month, body)
+          : await tallerAdmin.saveMonthlyPiece(studentId, month, body);
       onSaved?.(p);
       setSavedTick((t) => t + 1);
     } catch (e) {
@@ -131,6 +153,33 @@ export function MonthlyPieceFields({
     } finally {
       setSaving(false);
     }
+  }
+
+  // Elegida del catálogo: el backend pone el nombre y, por su categoría, el
+  // adicional. Si no está en el catálogo, queda el nombre suelto.
+  function pickPiece(picked: string) {
+    setName(picked);
+    const { type } = categoryOf(picked);
+    void save(type ? { pieceTypeId: type.id } : { pieceName: picked, pieceTypeId: '' });
+  }
+
+  async function remove() {
+    if (!onRemove) return;
+    if (value?._id) {
+      const ok = await confirm({
+        title: 'Borrar pieza',
+        description: `Se borra ${value.pieceName ? `"${value.pieceName}"` : 'esta pieza'} de ${monthLabel(month).toLowerCase()}.`,
+        confirmLabel: 'Borrar',
+      });
+      if (!ok) return;
+      try {
+        await tallerAdmin.removeMonthlyPiece(value._id);
+      } catch (e) {
+        showToast.error(e instanceof Error ? e.message : 'No se pudo borrar');
+        return;
+      }
+    }
+    onRemove();
   }
 
   const bisque = value?.bisque ?? false;
@@ -141,6 +190,7 @@ export function MonthlyPieceFields({
   const delivered = value?.delivered ?? false;
   const ready = value?.ready ?? false;
   const extra = value?.extraCharge ?? false;
+  const waived = value?.waived ?? false;
   const paid = value?.paid ?? false;
   const undoUntil = value?.undoUntil ? new Date(value.undoUntil).getTime() : 0;
   const canUndo = paid && undoUntil > Date.now();
@@ -197,17 +247,24 @@ export function MonthlyPieceFields({
 
   return (
     <div className={cn(compact ? 'contents' : 'grid gap-3 sm:grid-cols-2')}>
-      <div className={cn(!compact && 'sm:col-span-2')}>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => {
-            if (name.trim() !== (value?.pieceName ?? '')) void save({ pieceName: name.trim() });
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          placeholder={compact ? 'Pieza…' : 'Qué pieza pidió (ej. tazón XL)'}
-          className={cn(fieldCls, 'h-9 text-sm')}
-        />
+      <div className={cn('flex min-w-0 flex-col gap-1', !compact && 'sm:col-span-2')}>
+        <div className='flex items-center gap-1.5'>
+          <PieceTypeSelect
+            value={name}
+            onChange={pickPiece}
+            manage={!compact}
+            placeholder={compact ? 'Pieza…' : 'Qué pieza pidió (del catálogo)'}
+            className='min-w-0 flex-1'
+          />
+          {!compact && onRemove && (
+            <Button type='button' size='icon' variant='ghost' onClick={() => void remove()} aria-label='Borrar pieza' className='size-9 shrink-0 text-[#a33]'>
+              <Trash2 className='h-4 w-4' />
+            </Button>
+          )}
+        </div>
+        {value?.category && (
+          <span className='truncate text-[11px] text-[#7a6e6f]'>{value.category}</span>
+        )}
       </div>
       {slots.length > 0 ? (
         <select
@@ -235,26 +292,62 @@ export function MonthlyPieceFields({
       {toggle('Bizcocho', bisque, (v) => void save({ bisque: v }), undefined, fresh)}
       {toggle('Lista (Producción la terminó)', ready, (v) => void save({ ready: v }))}
       {toggle('Entregada', delivered, (v) => void save({ delivered: v }))}
-      {isAdmin && (
+      {canManage && (
         <>
           <div className={cn('flex items-center gap-2', compact && 'justify-center')}>
-            {toggle('Adicional', extra, (v) => void save({ extraCharge: v }), 'rojo')}
-            {extra && (
-              <Input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-                onBlur={() => {
-                  const n = amount === '' ? undefined : Number(amount);
-                  if (n !== value?.extraAmount) void save({ extraAmount: n ?? 0 });
-                }}
-                inputMode='numeric'
-                placeholder='$'
-                className={cn(fieldCls, 'h-8 w-24 text-sm')}
-              />
+            {waived ? (
+              <>
+                <span
+                  className='rounded-full bg-[#E7F0EC] px-2 py-0.5 text-[11px] font-semibold text-[#455a54]'
+                  title='El adicional no se cobra'
+                >
+                  Bonificada
+                </span>
+                <button
+                  type='button'
+                  onClick={() => void save({ waived: false })}
+                  title='Quitar la bonificación (vuelve a cobrarse)'
+                  className='inline-flex items-center rounded-full border border-[#e6dbcd] bg-white p-1 text-[#9d684e] hover:bg-[#fbf5ef]'
+                >
+                  <Undo2 className='h-3 w-3' />
+                </button>
+              </>
+            ) : (
+              <>
+                {toggle('Adicional', extra, (v) => void save({ extraCharge: v }), 'rojo')}
+                {extra && (
+                  <Input
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
+                    onBlur={() => {
+                      const n = amount === '' ? undefined : Number(amount);
+                      if (n !== value?.extraAmount) void save({ extraAmount: n ?? 0 });
+                    }}
+                    inputMode='numeric'
+                    placeholder='$'
+                    className={cn(fieldCls, 'h-8 w-20 text-sm')}
+                  />
+                )}
+                {extra && !paid && (
+                  <button
+                    type='button'
+                    onClick={() => void save({ waived: true })}
+                    title='Bonificar: no se le cobra (p. ej. por una clase que no pudo recuperar)'
+                    className='inline-flex items-center gap-1 rounded-full border border-[#e6dbcd] bg-white px-1.5 py-1 text-[11px] text-[#455a54] hover:bg-[#fbf5ef]'
+                  >
+                    <Gift className='h-3 w-3' />
+                    {!compact && 'Bonificar'}
+                  </button>
+                )}
+              </>
             )}
           </div>
           <div className={cn('flex items-center gap-2', compact && 'justify-center')}>
-            {toggle('Cobrado', paid, onPaidChange)}
+            {waived ? (
+              <span className='text-xs text-[#7a6e6f]'>—</span>
+            ) : (
+              toggle('Cobrado', paid, onPaidChange)
+            )}
             {canUndo && (
               <button
                 type='button'
@@ -268,6 +361,21 @@ export function MonthlyPieceFields({
             )}
           </div>
         </>
+      )}
+      {compact && (
+        <span className='flex justify-center'>
+          {onRemove && !paid && (
+            <button
+              type='button'
+              onClick={() => void remove()}
+              title={value?._id ? 'Borrar esta pieza' : 'Descartar'}
+              aria-label='Borrar pieza'
+              className='inline-flex size-7 items-center justify-center rounded-md text-[#a33] hover:bg-[#fbe4e4]'
+            >
+              <Trash2 className='h-3.5 w-3.5' />
+            </button>
+          )}
+        </span>
       )}
       {cobro && (
         <CobroDialog

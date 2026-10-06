@@ -24,6 +24,7 @@ import {
   errMsg,
   norm,
 } from './catalog-combobox';
+import { canManageRole } from '@/lib/views';
 
 /**
  * Adicional de la pieza (Incluida, Estándar, Premium…): desplegable con
@@ -41,7 +42,8 @@ export function PieceExtraSelect({
   className?: string;
 }) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // Admin o encargado/a: la gestión operativa.
+  const canManage = canManageRole(user?.role);
   const { items, loaded, load } = usePieceExtrasStore();
   const [managing, setManaging] = useState<string | null>(null);
 
@@ -62,8 +64,8 @@ export function PieceExtraSelect({
         loaded={loaded}
         placeholder='Elegí el adicional…'
         // Alta rápida: abre el ABM con el título escrito, para cargar el monto.
-        onAdd={isAdmin ? (q) => setManaging(q) : undefined}
-        onManage={isAdmin ? () => setManaging('') : undefined}
+        onAdd={canManage ? (q) => setManaging(q) : undefined}
+        onManage={canManage ? () => setManaging('') : undefined}
         manageLabel='Gestionar adicionales'
         emptyText='No hay adicionales cargados.'
         className={className}
@@ -97,10 +99,12 @@ function PieceExtrasManager({
   const [search, setSearch] = useState('');
   const [name, setName] = useState(initialName);
   const [amount, setAmount] = useState('');
+  const [pair, setPair] = useState(false);
   const [editing, setEditing] = useState<{
     id: string;
     name: string;
     amount: string;
+    pair: boolean;
   } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -118,9 +122,10 @@ function PieceExtrasManager({
     if (value == null) return showToast.error('Poné un monto válido');
     setBusy(true);
     try {
-      const x = await create({ name, amount: value });
+      const x = await create({ name, amount: value, pair });
       setName('');
       setAmount('');
+      setPair(false);
       // Si se abrió desde "Agregar …" del desplegable, queda elegido.
       if (initialName) {
         onCreated(x);
@@ -140,7 +145,7 @@ function PieceExtrasManager({
     if (value == null) return showToast.error('Poné un monto válido');
     setBusy(true);
     try {
-      await update(x.id, { name: editing.name, amount: value });
+      await update(x.id, { name: editing.name, amount: value, pair: editing.pair });
       setEditing(null);
     } catch (e) {
       showToast.error(errMsg(e, 'No se pudo guardar'));
@@ -176,7 +181,9 @@ function PieceExtrasManager({
             Adicionales de pieza
           </DialogTitle>
           <DialogDescription>
-            El monto del adicional elegido se suma al total de la reserva.
+            Las categorías de las piezas (Incluida, Especial, Premium…): el
+            monto se suma al total de la reserva. Con 2x1 se eligen dos
+            piezas que van en una sola ficha y se cobra una vez.
           </DialogDescription>
         </DialogHeader>
 
@@ -204,6 +211,7 @@ function PieceExtrasManager({
             autoFocus={!!initialName}
             className={cn('w-28 shrink-0', fieldCls)}
           />
+          <PairToggle on={pair} onChange={setPair} />
           <Button
             type='submit'
             variant='verde'
@@ -258,6 +266,10 @@ function PieceExtrasManager({
                       onChange={(e) => setEditing({ ...editing, amount: e.target.value })}
                       className={cn('h-8 w-24 shrink-0', fieldCls)}
                     />
+                    <PairToggle
+                      on={editing.pair}
+                      onChange={(v) => setEditing({ ...editing, pair: v })}
+                    />
                     <Button type='submit' size='icon' variant='ghost' disabled={busy} aria-label='Guardar' className='size-8 shrink-0 text-[#455a54]'>
                       <Check className='h-4 w-4' />
                     </Button>
@@ -268,13 +280,23 @@ function PieceExtrasManager({
                 ) : (
                   <>
                     <span className='flex-1 truncate text-sm text-[#3d3338]'>{x.name}</span>
+                    {x.pair && (
+                      <span
+                        title='Se eligen dos piezas para una sola ficha'
+                        className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-[10px] font-semibold text-[#9d684e]'
+                      >
+                        2x1
+                      </span>
+                    )}
                     <span className='text-sm font-medium text-[#455a54]'>{fmtPrice(x.amount)}</span>
                     <Button
                       type='button'
                       size='icon'
                       variant='ghost'
                       disabled={busy}
-                      onClick={() => setEditing({ id: x.id, name: x.name, amount: String(x.amount) })}
+                      onClick={() =>
+                        setEditing({ id: x.id, name: x.name, amount: String(x.amount), pair: !!x.pair })
+                      }
                       aria-label={`Editar ${x.name}`}
                       className='size-8 text-[#455a54]'
                     >
@@ -299,5 +321,25 @@ function PieceExtrasManager({
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** 2x1: la categoría pide dos piezas para una sola ficha. */
+function PairToggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type='button'
+      onClick={() => onChange(!on)}
+      title='2x1: se eligen dos piezas que van en una sola ficha'
+      aria-pressed={on}
+      className={cn(
+        'h-8 shrink-0 rounded-lg border px-2 text-xs font-semibold transition-colors',
+        on
+          ? 'border-[#9d684e] bg-[#9d684e] text-white'
+          : 'border-[#e6dbcd] bg-white text-[#9d684e] hover:bg-[#fbf5ef]',
+      )}
+    >
+      2x1
+    </button>
   );
 }

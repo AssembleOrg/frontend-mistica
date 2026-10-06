@@ -109,19 +109,25 @@ export interface ReservationPieceEntryInput {
   colorsUsed: string;
   /** Adicional del catálogo: su monto se suma al saldo de la reserva. */
   extraId?: string;
+  /** 2x1: la segunda pieza, que va en la misma ficha (una sola paleta). */
+  pieceType2?: string;
 }
 
-/** Adicional de pieza (Incluida, Estándar, Premium…) con su monto. */
+/** Adicional de pieza (Incluida, Especial, Premium, 2x1…) con su monto. */
 export interface PieceExtraItem {
   id: string;
   name: string;
   amount: number;
+  /** 2x1: se eligen dos piezas de esta categoría para una sola ficha. */
+  pair?: boolean;
 }
 
 /** Ítem del catálogo de piezas (taza, bowl, plato…). */
 export interface PieceTypeItem {
   id: string;
   name: string;
+  /** Categoría: el adicional que le corresponde (lo pone admin/encargado). */
+  extraId?: string;
 }
 
 /** Una ficha por alumno del grupo. */
@@ -228,18 +234,32 @@ export const piecesAdmin = {
   /** Catálogo de piezas para "Pieza elegida". */
   listTypes: async () =>
     (await apiService.get<PieceTypeItem[]>('/pieces/types')).data,
-  createType: async (name: string) =>
-    (await apiService.post<PieceTypeItem>('/pieces/types', { name })).data,
-  updateType: async (id: string, name: string) =>
-    (await apiService.patch<PieceTypeItem>(`/pieces/types/${id}`, { name })).data,
+  /** `extraId`: categoría ('' la quita; sin enviar, no la toca). */
+  createType: async (name: string, extraId?: string) =>
+    (
+      await apiService.post<PieceTypeItem>('/pieces/types', {
+        name,
+        ...(extraId !== undefined && { extraId }),
+      })
+    ).data,
+  updateType: async (id: string, name: string, extraId?: string) =>
+    (
+      await apiService.patch<PieceTypeItem>(`/pieces/types/${id}`, {
+        name,
+        ...(extraId !== undefined && { extraId }),
+      })
+    ).data,
   removeType: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/types/${id}`)).data,
   /** Adicionales de pieza (su monto se suma a la reserva). */
   listExtras: async () =>
     (await apiService.get<PieceExtraItem[]>('/pieces/extras')).data,
-  createExtra: async (input: { name: string; amount: number }) =>
+  createExtra: async (input: { name: string; amount: number; pair?: boolean }) =>
     (await apiService.post<PieceExtraItem>('/pieces/extras', input)).data,
-  updateExtra: async (id: string, input: { name: string; amount: number }) =>
+  updateExtra: async (
+    id: string,
+    input: { name: string; amount: number; pair?: boolean },
+  ) =>
     (await apiService.patch<PieceExtraItem>(`/pieces/extras/${id}`, input)).data,
   removeExtra: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/extras/${id}`)).data,

@@ -6,7 +6,7 @@
 
 import { apiService } from '@/services/api.service';
 
-export type AccountRole = 'admin' | 'user';
+export type AccountRole = 'admin' | 'manager' | 'user';
 
 export interface Account {
   id: string;

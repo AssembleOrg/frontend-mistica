@@ -12,13 +12,15 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { setBusinessHoursCache } from '@/hooks/useBusinessHours';
 import { tablesAdmin } from '@/services/tables.admin.service';
+import { canManageRole } from '@/lib/views';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
 export function BusinessHoursPanel({ onSaved }: { onSaved?: () => void }) {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  // Admin o encargado/a: la gestión operativa.
+  const canManage = canManageRole(user?.role);
   const [saved, setSaved] = useState<{ open: string; close: string } | null>(null);
   const [open, setOpen] = useState('');
   const [close, setClose] = useState('');
@@ -75,7 +77,7 @@ export function BusinessHoursPanel({ onSaved }: { onSaved?: () => void }) {
           experiencias van.
         </p>
       </div>
-      {isAdmin ? (
+      {canManage ? (
         <div className='flex flex-wrap items-end gap-3'>
           <label className='flex flex-col gap-1 text-[13px] font-medium text-[#455a54]'>
             Abre

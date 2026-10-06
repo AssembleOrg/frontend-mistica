@@ -4,7 +4,7 @@ import { piecesAdmin, type PieceExtraItem } from '@/services/pieces.admin.servic
 const byAmount = (a: PieceExtraItem, b: PieceExtraItem) =>
   a.amount - b.amount || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
 
-type ExtraInput = { name: string; amount: number };
+type ExtraInput = { name: string; amount: number; pair?: boolean };
 
 interface PieceExtrasState {
   items: PieceExtraItem[];

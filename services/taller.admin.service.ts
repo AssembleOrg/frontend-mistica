@@ -230,11 +230,17 @@ export interface ShoppingItem {
   createdAt: string;
 }
 
-/** Pieza del mes de un alumno (una por mes). Adicional/cobro sólo llegan al admin. */
+/**
+ * Pieza del mes de un alumno (puede pedir más de una). Adicional y cobro sólo
+ * llegan a admin/encargado.
+ */
 export interface MonthlyPiece {
   _id: string;
   month: string; // 'YYYY-MM'
   pieceName: string;
+  /** Pieza del catálogo y su categoría (define el adicional). */
+  pieceTypeId?: string;
+  category?: string;
   /** Fresca y bizcocho se excluyen; las dos apagadas = sin elegir. */
   bisque: boolean;
   fresh: boolean;
@@ -249,6 +255,8 @@ export interface MonthlyPiece {
   notes?: string;
   extraCharge?: boolean;
   extraAmount?: number;
+  /** Adicional bonificado: no se cobra. */
+  waived?: boolean;
   paid?: boolean;
   /** Cuándo se cobró y hasta cuándo se puede deshacer desde el panel (24 hs). */
   paidAt?: string;
@@ -270,19 +278,65 @@ export type MonthlyPieceInput = Partial<
     | 'notes'
     | 'extraCharge'
     | 'extraAmount'
+    | 'waived'
     | 'paid'
   >
 > & {
+  /** Pieza del catálogo ('' la desvincula). */
+  pieceTypeId?: string;
   paymentMethod?: string;
   /** Quién hace la gestión (cuentas compartidas); si no, la cuenta. */
   doneBy?: string;
 };
 
-/** Fila de la planilla del mes. */
+/** Pieza de la lista de Producción (una fila por pieza). */
 export interface MonthlyPieceRow {
   student: { _id: string; name: string };
   groups: Array<{ name: string; schedule: GroupSlot[] }>;
   piece: MonthlyPiece | null;
+}
+
+/** Fila de la planilla del mes: un alumno con sus piezas (una o más). */
+export interface MonthlyPieceSheetRow {
+  student: { _id: string; name: string };
+  groups: Array<{ name: string; schedule: GroupSlot[] }>;
+  pieces: MonthlyPiece[];
+}
+
+/** Clase de prueba agendada en un grupo. */
+export interface TrialClass {
+  _id: string;
+  groupId: string;
+  groupName: string;
+  /** Hora de la clase ('18:00'). */
+  start?: string;
+  date: string; // 'YYYY-MM-DD'
+  student: { _id: string; name: string; phone?: string };
+  notes?: string;
+  createdByName?: string;
+  /** Vino (la asistencia marcó su prueba). */
+  attended: boolean;
+  /** Ya se inscribió en el grupo. */
+  enrolled: boolean;
+}
+
+export interface ScheduleTrialInput {
+  groupId: string;
+  date: string;
+  studentId?: string;
+  name?: string;
+  phone?: string;
+  notes?: string;
+  doneBy?: string;
+}
+
+export interface EnrollTrialInput {
+  /** Desde qué clase cursa y paga ('YYYY-MM-DD'). */
+  startDate: string;
+  paymentDay: number;
+  monthlyFee?: number;
+  /** Primera cuota (p. ej. el proporcional); si no, la cuota mensual. */
+  firstAmount?: number;
 }
 
 type Json = Record<string, unknown>;
@@ -342,7 +396,7 @@ export const tallerAdmin = {
   // Pieza del mes
   monthlyPieces: async (month: string) =>
     (
-      await apiService.get<MonthlyPieceRow[]>(
+      await apiService.get<MonthlyPieceSheetRow[]>(
         `/students/monthly-pieces?month=${month}`,
       )
     ).data,
@@ -352,6 +406,7 @@ export const tallerAdmin = {
         `/students/${studentId}/monthly-pieces`,
       )
     ).data,
+  /** La pieza del mes (la primera que pidió); si no tiene, la crea. */
   saveMonthlyPiece: async (
     studentId: string,
     month: string,
@@ -360,6 +415,26 @@ export const tallerAdmin = {
     (
       await apiService.put<MonthlyPiece>(
         `/students/${studentId}/monthly-pieces/${month}`,
+        input as unknown as Json,
+      )
+    ).data,
+  /** Otra pieza del mismo mes. */
+  addMonthlyPiece: async (
+    studentId: string,
+    month: string,
+    input: MonthlyPieceInput,
+  ) =>
+    (
+      await apiService.post<MonthlyPiece>(
+        `/students/${studentId}/monthly-pieces/${month}`,
+        input as unknown as Json,
+      )
+    ).data,
+  /** Edita una pieza del mes puntual. */
+  updateMonthlyPiece: async (pieceId: string, input: MonthlyPieceInput) =>
+    (
+      await apiService.patch<MonthlyPiece>(
+        `/students/monthly-pieces/${pieceId}`,
         input as unknown as Json,
       )
     ).data,
@@ -378,10 +453,33 @@ export const tallerAdmin = {
         { ready },
       )
     ).data,
-  removeMonthlyPiece: async (studentId: string, month: string) =>
+  /** Borra una pieza del mes (si su adicional no se cobró). */
+  removeMonthlyPiece: async (pieceId: string) =>
     (
       await apiService.delete<{ success: boolean }>(
-        `/students/${studentId}/monthly-pieces/${month}`,
+        `/students/monthly-pieces/${pieceId}`,
+      )
+    ).data,
+
+  // Clases de prueba agendadas
+  listTrials: async (params: { from?: string; to?: string; groupId?: string } = {}) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => !!v) as [string, string][],
+    ).toString();
+    return (
+      await apiService.get<TrialClass[]>(`/students/trials${q ? `?${q}` : ''}`)
+    ).data;
+  },
+  scheduleTrial: async (input: ScheduleTrialInput) =>
+    (await apiService.post<TrialClass>('/students/trials', input as unknown as Json))
+      .data,
+  cancelTrial: async (id: string) =>
+    (await apiService.delete<{ success: boolean }>(`/students/trials/${id}`)).data,
+  enrollTrial: async (id: string, input: EnrollTrialInput) =>
+    (
+      await apiService.post<{ success: boolean; groupName: string }>(
+        `/students/trials/${id}/enroll`,
+        input as unknown as Json,
       )
     ).data,
 
@@ -543,6 +641,8 @@ export interface GroupDayClass {
   professorName?: string;
   start: string;
   end: string;
+  /** Cuántos vienen ese día a una clase de prueba. */
+  trials?: number;
   students: number;
 }
 

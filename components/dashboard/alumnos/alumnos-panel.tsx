@@ -35,6 +35,7 @@ import {
 } from '@/services/taller.admin.service';
 import { PIECE_STATUS_LABEL, type PieceStatus } from '@/services/pieces.admin.service';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
+import { canManageRole } from '@/lib/views';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -67,7 +68,8 @@ function fmtDate(d?: string) {
  */
 export function AlumnosPanel() {
   const user = useAuthStore((s) => s.user);
-  const isAdmin = user?.role === 'admin';
+  // Admin o encargado/a: la gestión operativa.
+  const canManage = canManageRole(user?.role);
   const confirm = useConfirm();
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
@@ -87,7 +89,7 @@ export function AlumnosPanel() {
     try {
       const [list, al, gs] = await Promise.all([
         tallerAdmin.listStudents(showInactive),
-        isAdmin ? tallerAdmin.paymentAlerts(7) : Promise.resolve([]),
+        canManage ? tallerAdmin.paymentAlerts(7) : Promise.resolve([]),
         tallerAdmin.listGroups(),
       ]);
       setStudents(list);
@@ -98,7 +100,7 @@ export function AlumnosPanel() {
     } finally {
       setLoading(false);
     }
-  }, [showInactive, isAdmin]);
+  }, [showInactive, canManage]);
 
   useEffect(() => {
     load();
@@ -156,7 +158,7 @@ export function AlumnosPanel() {
       {/* Situaciones administrativas: cuotas vencidas y por vencer.
           Dropdown nativo (details) para condensar en mobile; la fila vencida
           se pinta con fondo rojo en vez de badge. */}
-      {isAdmin && alerts.length > 0 && (
+      {canManage && alerts.length > 0 && (
         <details className='group rounded-2xl border border-[#e8b84b]/50 bg-[#fdf6e3] px-4 py-3'>
           <summary className='flex cursor-pointer list-none items-center gap-2 text-sm font-semibold text-[#8a6d1a]'>
             <AlertTriangle className='h-4 w-4 shrink-0' />
@@ -205,7 +207,7 @@ export function AlumnosPanel() {
           </label>
           */}
         </div>
-        {isAdmin && (
+        {canManage && (
           <Button
             type='button'
             variant='verde'
@@ -250,7 +252,7 @@ export function AlumnosPanel() {
                   <StatusBadge label='Baja' bg='#f1efe9' fg='#7a6e6f' />
                 )}
               </div>
-              {(isAdmin || s.joinedAt || s.guardianName || s.phone) && (
+              {(canManage || s.joinedAt || s.guardianName || s.phone) && (
                 <p className='text-sm text-[#7a6e6f]'>
                   {s.joinedAt && `Desde ${fmtDate(s.joinedAt)}`}
                   {s.guardianName ? `${s.joinedAt ? ' · ' : ''}Resp.: ${s.guardianName}` : ''}
@@ -277,7 +279,7 @@ export function AlumnosPanel() {
                 >
                   Ficha
                 </Button>
-                {isAdmin && (
+                {canManage && (
                   <>
                     <IconBtn
                       icon={Pencil}
@@ -407,7 +409,7 @@ export function AlumnosPanel() {
                   />
                 </Field>
               </div>
-              {isAdmin && (
+              {canManage && (
                 <div className='grid grid-cols-2 gap-3'>
                   <Field label='Día límite de pago'>
                     <Input
@@ -509,7 +511,7 @@ export function AlumnosPanel() {
       {detail && (
         <StudentDetailDialog
           student={detail}
-          isAdmin={isAdmin}
+          canManage={canManage}
           onClose={() => setDetail(null)}
         />
       )}
@@ -667,15 +669,15 @@ function MarkPaidDialog({
 
 function StudentDetailDialog({
   student,
-  isAdmin,
+  canManage,
   onClose,
 }: Readonly<{
   student: Student;
-  isAdmin: boolean;
+  canManage: boolean;
   onClose: () => void;
 }>) {
   const [tab, setTab] = useState<'admin' | 'practica'>(
-    isAdmin ? 'admin' : 'practica',
+    canManage ? 'admin' : 'practica',
   );
   const [adminData, setAdminData] = useState<StudentAdminProfile | null>(null);
   const [practical, setPractical] = useState<StudentPracticalProfile | null>(
@@ -707,9 +709,9 @@ function StudentDetailDialog({
   }, [student._id]);
 
   useEffect(() => {
-    if (isAdmin) loadAdmin();
+    if (canManage) loadAdmin();
     loadPractical();
-  }, [isAdmin, loadAdmin, loadPractical]);
+  }, [canManage, loadAdmin, loadPractical]);
 
   async function savePayment() {
     if (!payForm) return;
@@ -781,7 +783,7 @@ function StudentDetailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {isAdmin && (
+        {canManage && (
           <div className='flex gap-1.5'>
             <button type='button' className={chip(tab === 'admin')} onClick={() => setTab('admin')}>
               Administrativo
@@ -796,7 +798,7 @@ function StudentDetailDialog({
           </div>
         )}
 
-        {tab === 'admin' && isAdmin && (
+        {tab === 'admin' && canManage && (
           <div className='flex flex-col gap-3'>
             {!adminData ? (
               <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
@@ -1117,7 +1119,7 @@ function StudentDetailDialog({
                 )}
 
                 <span className='text-sm font-semibold text-[#455a54]'>Pieza del mes</span>
-                <MonthlyPieceSection studentId={student._id} isAdmin={isAdmin} />
+                <MonthlyPieceSection studentId={student._id} canManage={canManage} />
 
                 <span className='text-sm font-semibold text-[#455a54]'>Piezas</span>
                 {practical.pieces.length === 0 ? (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, ChevronLeft, ChevronRight, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarCheck, CalendarPlus, ChevronLeft, ChevronRight, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   DndContext,
   KeyboardSensor,
@@ -40,6 +40,7 @@ import {
   type CreateGroupInput,
   type Group,
   type Student,
+  type TrialClass,
 } from '@/services/taller.admin.service';
 import {
   professorsAdmin,
@@ -51,6 +52,14 @@ import {
   professorFields,
 } from '@/components/ui/quick-create-select';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
+import { canManageRole } from '@/lib/views';
+import {
+  EnrollTrialDialog,
+  GroupTrials,
+  ScheduleTrialDialog,
+  todayAR,
+  useCancelTrial,
+} from './trial-classes';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -106,7 +115,8 @@ function monthLabel(value: Date) {
  */
 export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   const user = useAuthStore((s) => s.user);
-  const isAdmin = user?.role === 'admin';
+  // Admin o encargado/a: la gestión operativa.
+  const canManage = canManageRole(user?.role);
   const confirm = useConfirm();
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -117,6 +127,11 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   const [editing, setEditing] = useState<Group | null>(null);
   const [saving, setSaving] = useState(false);
   const [attendanceOf, setAttendanceOf] = useState<Group | null>(null);
+  // Clases de prueba: las de las últimas semanas (para inscribir) y las próximas.
+  const [trials, setTrials] = useState<TrialClass[]>([]);
+  const [trialFor, setTrialFor] = useState<Group | null>(null);
+  const [enrolling, setEnrolling] = useState<TrialClass | null>(null);
+  const cancelTrial = useCancelTrial((id) => setTrials((ts) => ts.filter((t) => t._id !== id)));
   // Deep-link desde la Agenda: abrir la asistencia del grupo indicado una vez.
   const [focusHandled, setFocusHandled] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
@@ -129,14 +144,21 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [gs, ss, ps] = await Promise.all([
+      const since = new Date(`${todayAR()}T12:00:00Z`);
+      since.setUTCDate(since.getUTCDate() - 21);
+      const [gs, ss, ps, ts] = await Promise.all([
         tallerAdmin.listGroups(true),
         tallerAdmin.listStudents(false),
         professorsAdmin.list(),
+        // Las pruebas son un extra: si no cargan, los grupos se ven igual.
+        tallerAdmin
+          .listTrials({ from: since.toISOString().slice(0, 10) })
+          .catch(() => [] as TrialClass[]),
       ]);
       setGroups(gs);
       setStudents(ss);
       setProfessors(ps);
+      setTrials(ts);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error al cargar');
     } finally {
@@ -318,9 +340,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
     <div className='flex flex-col gap-4'>
       <div className='flex items-center justify-between gap-3'>
         <p className='text-sm text-[#7a6e6f]'>
-          {isAdmin
-            ? 'Todos los grupos del taller.'
-            : 'Tus grupos: creá, editá y tomá asistencia.'}
+          Todos los grupos del taller: asistencia y clases de prueba.
         </p>
         <Button
           type='button'
@@ -346,7 +366,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
         <SortableContext items={groups.map((g) => g._id)} strategy={rectSortingStrategy}>
         <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>
           {groups.map((g) => (
-            <SortableCard key={g._id} id={g._id} draggable={isAdmin}>
+            <SortableCard key={g._id} id={g._id} draggable={canManage}>
               {(handle) => (
               <>
               <div className='flex items-start justify-between gap-2'>
@@ -384,7 +404,24 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
                 {g.studentIds.length} alumno(s)
                 {g.professorName ? ` · Prof. ${g.professorName}` : ''}
               </p>
-              <div className='flex items-center justify-end gap-1.5'>
+              <GroupTrials
+                trials={trials.filter((t) => t.groupId === g._id)}
+                canManage={canManage}
+                onCancel={(t) => void cancelTrial(t)}
+                onEnroll={setEnrolling}
+              />
+              <div className='flex flex-wrap items-center justify-end gap-1.5'>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => setTrialFor(g)}
+                  title='Agendar una clase de prueba (gratis, no cuenta para el mes)'
+                  className='h-7 gap-1 border border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
+                >
+                  <CalendarPlus className='h-3.5 w-3.5' />
+                  Prueba
+                </Button>
                 <Button
                   type='button'
                   variant='ghost'
@@ -435,7 +472,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
                   className={fieldCls}
                 />
               </Field>
-              {isAdmin && (
+              {canManage && (
                 <Field label='Profesor a cargo'>
                   <QuickCreateSelect
                     value={form.professorId ?? ''}
@@ -629,7 +666,36 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
           allGroups={groups}
           allStudents={students}
           studentName={studentName}
-          onClose={() => setAttendanceOf(null)}
+          onClose={() => {
+            setAttendanceOf(null);
+            // Si marcó una prueba, la tarjeta pasa a decir si vino.
+            void load();
+          }}
+        />
+      )}
+      {trialFor && (
+        <ScheduleTrialDialog
+          group={trialFor}
+          students={students}
+          groups={groups}
+          onClose={() => setTrialFor(null)}
+          onDone={(t) => {
+            setTrialFor(null);
+            setTrials((ts) => [...ts, t].sort((a, b) => a.date.localeCompare(b.date)));
+            void load();
+          }}
+        />
+      )}
+      {enrolling && (
+        <EnrollTrialDialog
+          trial={enrolling}
+          group={groups.find((g) => g._id === enrolling.groupId) ?? groups[0]}
+          students={students}
+          onClose={() => setEnrolling(null)}
+          onDone={() => {
+            setEnrolling(null);
+            void load();
+          }}
         />
       )}
     </div>
@@ -802,7 +868,7 @@ function AttendanceDialog({
       trial?: boolean;
     }>
   >(group.studentIds.map((id) => ({ studentId: id, status: null })));
-  const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
+  const canManage = useAuthStore((s) => canManageRole(s.user?.role));
   // Clase de prueba: alumno existente o uno nuevo (sólo admin puede crearlo).
   const [trialStudent, setTrialStudent] = useState('');
   const [trialName, setTrialName] = useState('');
@@ -815,13 +881,31 @@ function AttendanceDialog({
   const [extraSourceDate, setExtraSourceDate] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Si ya se tomó asistencia ese día, se carga para editar (no duplicar).
+  // Si ya se tomó asistencia ese día, se carga para editar (no duplicar). Las
+  // clases de prueba agendadas para ese día aparecen ya sumadas.
   useEffect(() => {
     let alive = true;
-    tallerAdmin
-      .attendanceOfGroup(group._id, 60)
-      .then((docs) => {
+    Promise.all([
+      tallerAdmin.attendanceOfGroup(group._id, 60),
+      tallerAdmin
+        .listTrials({ from: date, to: date, groupId: group._id })
+        .catch(() => []),
+    ])
+      .then(([docs, dayTrials]) => {
         if (!alive) return;
+        const withTrials = <T extends { studentId: string }>(rows: T[]) => [
+          ...rows,
+          ...dayTrials
+            .filter((t) => !t.enrolled && !rows.some((r) => r.studentId === t.student._id))
+            .map((t) => ({ studentId: t.student._id, status: null, trial: true })),
+        ];
+        if (dayTrials.length) {
+          setNewNames((m) => {
+            const next = new Map(m);
+            for (const t of dayTrials) next.set(t.student._id, t.student.name);
+            return next;
+          });
+        }
         const doc = docs.find((d) => d.dateKey === date);
         if (doc) {
           const savedByStudent = new Map(doc.records.map((r) => [r.studentId, r]));
@@ -829,7 +913,7 @@ function AttendanceDialog({
             ...group.studentIds,
             ...doc.records.map((r) => r.studentId).filter((id) => !group.studentIds.includes(id)),
           ];
-          setRecords(orderedIds.map((studentId) => {
+          setRecords(withTrials(orderedIds.map((studentId) => {
             const r = savedByStudent.get(studentId);
             return r ? {
               studentId: r.studentId,
@@ -841,10 +925,10 @@ function AttendanceDialog({
               recoveredAt: r.recoveredAt,
               trial: r.trial,
             } : { studentId, status: null };
-          }));
+          })));
         } else {
           setRecords(
-            group.studentIds.map((id) => ({ studentId: id, status: null })),
+            withTrials(group.studentIds.map((id) => ({ studentId: id, status: null }))),
           );
         }
       })
@@ -1132,7 +1216,7 @@ function AttendanceDialog({
               className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
             >
               <option value=''>Sumar clase de prueba (gratis)…</option>
-              {isAdmin && <option value='new'>+ Alumno nuevo</option>}
+              {canManage && <option value='new'>+ Alumno nuevo</option>}
               {outsiders.map((s) => (
                 <option key={s._id} value={s._id} disabled={!!trialBlockedReason(s)}>
                   {s.name}

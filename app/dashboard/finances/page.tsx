@@ -62,7 +62,8 @@ function defaultSessionLabel(openedAt: string) {
 
 export default function FinancesPage() {
   const router = useRouter();
-  const { canEdit } = usePermissions();
+  // Balances y cierres: sólo el admin (el encargado no los ve).
+  const { isAdmin: canEdit } = usePermissions();
 
   useEffect(() => {
     if (!canEdit) router.replace('/dashboard');

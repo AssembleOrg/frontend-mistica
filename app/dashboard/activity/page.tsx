@@ -15,7 +15,8 @@ import { RefreshCw } from 'lucide-react';
 
 export default function ActivityPage() {
   const router = useRouter();
-  const { canEdit: isAdmin } = usePermissions();
+  // La actividad (auditoría) es del admin: el encargado no la ve.
+  const { isAdmin } = usePermissions();
 
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);

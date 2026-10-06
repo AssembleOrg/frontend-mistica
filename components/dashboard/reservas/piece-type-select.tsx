@@ -15,7 +15,10 @@ import {
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { usePieceTypesStore } from '@/stores/piece-types.store';
-import type { PieceTypeItem } from '@/services/pieces.admin.service';
+import { usePieceExtrasStore } from '@/stores/piece-extras.store';
+import { useAuth } from '@/hooks/useAuth';
+import { canManageRole } from '@/lib/views';
+import type { PieceExtraItem, PieceTypeItem } from '@/services/pieces.admin.service';
 import {
   CatalogCombobox,
   catalogFieldCls as fieldCls,
@@ -24,25 +27,63 @@ import {
 } from './catalog-combobox';
 
 /**
+ * Categoría de cada pieza del catálogo (su adicional), para proponerla al
+ * elegir la pieza.
+ */
+export function usePieceCategories() {
+  const types = usePieceTypesStore((st) => st.items);
+  const loadTypes = usePieceTypesStore((st) => st.load);
+  const extras = usePieceExtrasStore((st) => st.items);
+  const loadExtras = usePieceExtrasStore((st) => st.load);
+  useEffect(() => {
+    loadTypes().catch(() => undefined);
+    loadExtras().catch(() => undefined);
+  }, [loadTypes, loadExtras]);
+  /** Pieza del catálogo por nombre y su categoría (si tiene). */
+  return (name: string): { type?: PieceTypeItem; category?: PieceExtraItem } => {
+    const type = types.find((t) => norm(t.name) === norm(name));
+    const category = type?.extraId
+      ? extras.find((x) => x.id === type.extraId)
+      : undefined;
+    return { type, category };
+  };
+}
+
+/**
  * "Pieza elegida": desplegable del catálogo con búsqueda en memoria. Si lo que
  * se escribe no está, se agrega al catálogo desde el mismo desplegable. El
- * botón de al lado abre la gestión del catálogo (alta, edición y baja).
+ * botón de al lado abre la gestión del catálogo (alta, edición y baja). Cada
+ * pieza muestra su categoría.
  */
 export function PieceTypeSelect({
   value,
   onChange,
+  only,
+  placeholder = 'Elegí la pieza…',
+  manage = true,
   className,
 }: {
   value: string;
   onChange: (name: string) => void;
+  /** Sólo las piezas que cumplen (p. ej. las de la misma categoría 2x1). */
+  only?: (t: PieceTypeItem) => boolean;
+  placeholder?: string;
+  /** Muestra el botón de gestión del catálogo (no en una fila de planilla). */
+  manage?: boolean;
   className?: string;
 }) {
   const { items, loaded, load, create } = usePieceTypesStore();
+  const extras = usePieceExtrasStore((st) => st.items);
+  const loadExtras = usePieceExtrasStore((st) => st.load);
   const [managing, setManaging] = useState(false);
 
   useEffect(() => {
     load().catch(() => showToast.error('No se pudo cargar el catálogo de piezas'));
-  }, [load]);
+    loadExtras().catch(() => undefined);
+  }, [load, loadExtras]);
+
+  const categoryName = (t: PieceTypeItem) =>
+    t.extraId ? extras.find((x) => x.id === t.extraId)?.name : undefined;
 
   async function add(name: string) {
     try {
@@ -57,14 +98,18 @@ export function PieceTypeSelect({
   return (
     <>
       <CatalogCombobox
-        options={items.map((t) => ({ key: t.name, label: t.name }))}
+        options={(only ? items.filter(only) : items).map((t) => ({
+          key: t.name,
+          label: t.name,
+          hint: categoryName(t),
+        }))}
         selectedKey={value}
         onPick={onChange}
         loaded={loaded}
-        placeholder='Elegí la pieza…'
+        placeholder={placeholder}
         fallbackLabel={value}
         onAdd={add}
-        onManage={() => setManaging(true)}
+        onManage={manage ? () => setManaging(true) : undefined}
         manageLabel='Gestionar catálogo de piezas'
         emptyText='El catálogo está vacío. Escribí una pieza para agregarla.'
         className={className}
@@ -88,6 +133,10 @@ function PieceTypesManager({
   onRenamed: (prev: string, next: string) => void;
 }) {
   const { items, create, update, remove } = usePieceTypesStore();
+  const extras = usePieceExtrasStore((st) => st.items);
+  const { user } = useAuth();
+  // La categoría define el adicional que se cobra: la pone admin/encargado.
+  const canManage = canManageRole(user?.role);
   const confirm = useConfirm();
   const [search, setSearch] = useState('');
   const [newName, setNewName] = useState('');
@@ -125,6 +174,17 @@ function PieceTypesManager({
     }
   }
 
+  async function setCategory(t: PieceTypeItem, extraId: string) {
+    setBusy(true);
+    try {
+      await update(t.id, t.name, extraId);
+    } catch (e) {
+      showToast.error(errMsg(e, 'No se pudo guardar la categoría'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function del(t: PieceTypeItem) {
     const ok = await confirm({
       title: 'Borrar pieza del catálogo',
@@ -151,7 +211,8 @@ function PieceTypesManager({
             Catálogo de piezas
           </DialogTitle>
           <DialogDescription>
-            Las opciones de &quot;Pieza elegida&quot; al registrar fichas.
+            Las opciones de &quot;Pieza elegida&quot; al registrar fichas y en
+            la pieza del mes de los alumnos. La categoría define el adicional.
           </DialogDescription>
         </DialogHeader>
 
@@ -221,6 +282,28 @@ function PieceTypesManager({
                 ) : (
                   <>
                     <span className='flex-1 truncate text-sm text-[#3d3338]'>{t.name}</span>
+                    {canManage ? (
+                      <select
+                        value={t.extraId ?? ''}
+                        onChange={(e) => void setCategory(t, e.target.value)}
+                        disabled={busy}
+                        aria-label={`Categoría de ${t.name}`}
+                        className={cn('h-8 max-w-[9rem] rounded-md border px-1.5 text-xs', fieldCls)}
+                      >
+                        <option value=''>Sin categoría</option>
+                        {extras.map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      t.extraId && (
+                        <span className='text-xs text-[#7a6e6f]'>
+                          {extras.find((x) => x.id === t.extraId)?.name}
+                        </span>
+                      )
+                    )}
                     <Button type='button' size='icon' variant='ghost' disabled={busy} onClick={() => setEditing({ id: t.id, name: t.name })} aria-label={`Editar ${t.name}`} className='size-8 text-[#455a54]'>
                       <Pencil className='h-4 w-4' />
                     </Button>

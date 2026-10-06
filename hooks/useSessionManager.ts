@@ -43,7 +43,7 @@ export function useSessionManager(options: UseSessionManagerOptions = {}) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role === 'admin' ? 'gerente' : 'cajero', // Map admin to gerente, others to cajero
+        role: user.role === 'user' ? 'cajero' : 'gerente', // admin y encargado → gerente; el resto, cajero
         startDate: new Date(), // Default start date for session
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -85,7 +85,7 @@ export function useSessionManager(options: UseSessionManagerOptions = {}) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role === 'admin' ? 'gerente' : 'cajero',
+        role: user.role === 'user' ? 'cajero' : 'gerente',
         startDate: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),

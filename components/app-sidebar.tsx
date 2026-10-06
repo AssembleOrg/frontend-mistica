@@ -36,6 +36,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
+import { PANEL_VIEWS, canAccessView } from '@/lib/views';
 import { CashboxCta } from '@/components/dashboard/cashbox/cashbox-cta';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { InstallAppButton } from '@/components/pwa/install-app-button';
@@ -93,19 +94,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const filteredNavItems = React.useMemo(() => {
     return navigationItems.filter((item) => {
       if (item.enabled === false) return false;
-      if (item.adminOnly && userRole !== 'admin') return false;
-      // Whitelist de vistas por cuenta: si la cuenta (no admin) tiene una
-      // lista, sólo ve esas vistas. Vacía = acceso estándar por rol. Una
-      // clave granular ('reservas:piezas') habilita la vista madre.
-      if (
-        userRole !== 'admin' &&
-        allowedViews.length > 0 &&
-        !allowedViews.includes(item.view) &&
-        !allowedViews.some((v) => v.startsWith(`${item.view}:`))
-      ) {
-        return false;
+      if (item.adminOnly && !PANEL_VIEWS.some((v) => v.key === item.view)) {
+        return userRole === 'admin';
       }
-      return true;
+      // Rol + whitelist de vistas de la cuenta (ver lib/views.ts): vacía =
+      // acceso estándar; una clave granular ('reservas:piezas') habilita la
+      // vista madre; el encargado puede tener Stock y Categorías.
+      return canAccessView(item.view, userRole, allowedViews);
     });
   }, [userRole, allowedViews]);
 

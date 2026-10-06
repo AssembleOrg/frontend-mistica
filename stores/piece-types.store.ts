@@ -9,8 +9,9 @@ interface PieceTypesState {
   loaded: boolean;
   /** Carga una vez (lo comparten todos los selectores abiertos). */
   load: (force?: boolean) => Promise<void>;
-  create: (name: string) => Promise<PieceTypeItem>;
-  update: (id: string, name: string) => Promise<PieceTypeItem>;
+  /** `extraId`: categoría ('' la quita; sin enviar, no la toca). */
+  create: (name: string, extraId?: string) => Promise<PieceTypeItem>;
+  update: (id: string, name: string, extraId?: string) => Promise<PieceTypeItem>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -31,13 +32,13 @@ export const usePieceTypesStore = create<PieceTypesState>((set, get) => ({
     }
     return inflight;
   },
-  create: async (name) => {
-    const t = await piecesAdmin.createType(name);
+  create: async (name, extraId) => {
+    const t = await piecesAdmin.createType(name, extraId);
     set({ items: [...get().items, t].sort(byName) });
     return t;
   },
-  update: async (id, name) => {
-    const t = await piecesAdmin.updateType(id, name);
+  update: async (id, name, extraId) => {
+    const t = await piecesAdmin.updateType(id, name, extraId);
     set({ items: get().items.map((x) => (x.id === id ? t : x)).sort(byName) });
     return t;
   },

@@ -3,12 +3,32 @@
 // `key` es el segmento de la URL bajo /dashboard ('' = inicio). Las cuentas
 // no-admin pueden tener una whitelist (`allowedViews`) con estas claves: si
 // está vacía, ven las vistas estándar (las no adminOnly). Los admin ven todo.
+//
+// Roles: el admin ve y hace todo. El encargado/a (la compu del local) hace
+// lo operativo del admin en sus vistas, pero no ve balances ni cierres, ni
+// borra registros con plata, ni gestiona cuentas. La cuenta común, según sus
+// vistas y sin gestión (cobros, ediciones).
+
+export type UserRoleKey = 'admin' | 'manager' | 'user';
+
+export const ROLE_LABEL: Record<UserRoleKey, string> = {
+  admin: 'Administrador',
+  manager: 'Encargado/a',
+  user: 'Usuario',
+};
+
+/** ¿Hace la gestión operativa (cobrar, reservar, editar)? Admin o encargado. */
+export function canManageRole(role: string | null | undefined): boolean {
+  return role === 'admin' || role === 'manager';
+}
 
 export interface PanelView {
   key: string;
   label: string;
   /** Sólo la ven los admin: no se puede habilitar a una cuenta común. */
   adminOnly: boolean;
+  /** De gestión, pero se le puede habilitar a un encargado/a. */
+  managerOk?: boolean;
 }
 
 export const PANEL_VIEWS: PanelView[] = [
@@ -26,8 +46,8 @@ export const PANEL_VIEWS: PanelView[] = [
   { key: 'equipo', label: 'Equipo', adminOnly: false },
   { key: 'bot', label: 'Bot WhatsApp', adminOnly: true },
   { key: 'finances', label: 'Caja y Finanzas', adminOnly: true },
-  { key: 'categories', label: 'Categorías', adminOnly: true },
-  { key: 'stock', label: 'Stock', adminOnly: true },
+  { key: 'categories', label: 'Categorías', adminOnly: true, managerOk: true },
+  { key: 'stock', label: 'Stock', adminOnly: true, managerOk: true },
   { key: 'activity', label: 'Actividad', adminOnly: true },
   { key: 'settings', label: 'Configuración', adminOnly: true },
   { key: 'cuentas', label: 'Cuentas', adminOnly: true },
@@ -35,6 +55,13 @@ export const PANEL_VIEWS: PanelView[] = [
 
 /** Vistas que se le pueden habilitar/quitar a una cuenta común. */
 export const ASSIGNABLE_VIEWS = PANEL_VIEWS.filter((v) => !v.adminOnly);
+
+/** Vistas que se le pueden habilitar a una cuenta según su rol. */
+export function assignableViewsFor(role: string | null | undefined): PanelView[] {
+  return role === 'manager'
+    ? PANEL_VIEWS.filter((v) => !v.adminOnly || v.managerOk)
+    : ASSIGNABLE_VIEWS;
+}
 
 /**
  * Pestañas de la vista Reservas, asignables una por una: la clave granular es
@@ -91,7 +118,7 @@ export function canAccessView(
   const def = PANEL_VIEWS.find((v) => v.key === view);
   if (!def) return true; // rutas fuera del catálogo no se gatean acá
   if (role === 'admin') return true;
-  if (def.adminOnly) return false;
+  if (def.adminOnly && !(def.managerOk && role === 'manager')) return false;
   if (!allowedViews || allowedViews.length === 0) return true;
   return (
     allowedViews.includes(view) ||

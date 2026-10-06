@@ -143,6 +143,10 @@ export function ExperienciasTab() {
       showToast.error('Elegí un color para la agenda');
       return;
     }
+    if ((form.ownSchedule ?? []).some((slot) => slot.date === '')) {
+      showToast.error('Elegí la fecha de cada horario de fecha única');
+      return;
+    }
     setSaving(true);
     try {
       if (editing) {
@@ -406,9 +410,10 @@ export function ExperienciasTab() {
                     className={fieldCls}
                   />
                 </Field>
-                <Field label='Cupo def.'>
+                <Field label='Cupo por turno'>
                   <Input
                     type='number'
+                    min={1}
                     value={form.defaultCapacity}
                     onChange={(ev) =>
                       setForm({
@@ -416,6 +421,7 @@ export function ExperienciasTab() {
                         defaultCapacity: Number(ev.target.value),
                       })
                     }
+                    title='Máximo de personas por turno de esta experiencia'
                     className={fieldCls}
                   />
                 </Field>
@@ -437,7 +443,12 @@ export function ExperienciasTab() {
                 basePrice={form.basePrice}
                 onChange={(priceVariants) => setForm({ ...form, priceVariants })}
               />
-              <Field label='Lugares fijos en el salón (mesa)'>
+              <p className='-mt-1 text-xs text-[#455a54]/60'>
+                Cupo por turno: máximo de personas en un mismo turno de esta
+                experiencia. En los turnos generales además lo limitan las mesas
+                libres; con horario propio o fecha única, es el único límite.
+              </p>
+              <Field label='Lugares fijos en el salón (asientos, no mesas)'>
                 <Input
                   type='number'
                   min={0}
@@ -448,9 +459,9 @@ export function ExperienciasTab() {
                   className={fieldCls}
                 />
                 <p className='mt-1 text-xs text-[#455a54]/60'>
-                  Lugares del salón que un turno abierto ocupa sí o sí aunque
-                  haya menos anotados (ej. la mesa del taller = 10). 0 = usa los
-                  anotados.
+                  Casi siempre 0. Son asientos que un turno abierto ocupa sí o sí
+                  aunque haya menos anotados (ej. la mesa grande del taller = 10
+                  lugares). Con 0 cuentan sólo los anotados.
                 </p>
               </Field>
               {(form.bookableOnline ?? true) && !form.isBirthday && (
@@ -1392,11 +1403,15 @@ function VariantForm({
 // Día en singular para el selector del horario propio.
 const DAY_LABEL = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
+/** Día ISO (1=lunes … 7=domingo) de una fecha 'YYYY-MM-DD'. */
+const isoWeekday = (ymd: string) => new Date(`${ymd}T12:00:00Z`).getUTCDay() || 7;
+
 /**
- * Horario propio de la experiencia (ej. Escuelita: miércoles 18:00). Si tiene
- * alguno, se ofrece SÓLO en esos días y horas y no en los turnos generales; ahí
- * el lugar es el cupo de la experiencia (el espacio lo aparta un bloqueo
- * semanal de mesas).
+ * Horario propio de la experiencia (ej. Escuelita: miércoles 18:00), o fechas
+ * únicas para un evento (ej. Día de la Madre: sábado 17/10 a las 15:00). Si
+ * tiene alguno, se ofrece SÓLO en esos días y horas y no en los turnos
+ * generales; ahí el lugar es el cupo de la experiencia (el espacio lo aparta
+ * un bloqueo de mesas).
  */
 function OwnScheduleEditor({
   value,
@@ -1410,22 +1425,39 @@ function OwnScheduleEditor({
   return (
     <div className='flex flex-col gap-2'>
       {value.map((slot, i) => (
-        <div key={i} className='flex items-center gap-2'>
-          <Select
-            value={String(slot.weekday)}
-            onValueChange={(v) => update(i, { weekday: Number(v) })}
-          >
-            <SelectTrigger className={`w-40 ${fieldCls}`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WEEKDAYS.map((d) => (
-                <SelectItem key={d.iso} value={String(d.iso)}>
-                  {DAY_LABEL[d.iso]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div key={i} className='flex flex-wrap items-center gap-2'>
+          {slot.date !== undefined ? (
+            <>
+              <DatePicker
+                value={slot.date}
+                onChange={(date) =>
+                  update(i, { date, ...(date ? { weekday: isoWeekday(date) } : {}) })
+                }
+                disablePast
+                placeholder='Fecha del evento'
+                className='w-44'
+              />
+              <span className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-[11px] font-semibold text-[#9d684e]'>
+                fecha única
+              </span>
+            </>
+          ) : (
+            <Select
+              value={String(slot.weekday)}
+              onValueChange={(v) => update(i, { weekday: Number(v) })}
+            >
+              <SelectTrigger className={`w-40 ${fieldCls}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {WEEKDAYS.map((d) => (
+                  <SelectItem key={d.iso} value={String(d.iso)}>
+                    {DAY_LABEL[d.iso]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input
             type='time'
             value={slot.start}
@@ -1440,19 +1472,32 @@ function OwnScheduleEditor({
           />
         </div>
       ))}
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        className='w-fit border-[#e6dbcd] text-[#455a54]'
-        onClick={() => onChange([...value, { weekday: 3, start: '18:00' }])}
-      >
-        <Plus className='mr-1 h-4 w-4' /> Agregar horario
-      </Button>
+      <div className='flex flex-wrap gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          className='w-fit border-[#e6dbcd] text-[#455a54]'
+          onClick={() => onChange([...value, { weekday: 3, start: '18:00' }])}
+        >
+          <Plus className='mr-1 h-4 w-4' /> Todas las semanas
+        </Button>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          className='w-fit border-[#e6dbcd] text-[#455a54]'
+          onClick={() => onChange([...value, { weekday: 6, start: '15:00', date: '' }])}
+        >
+          <Plus className='mr-1 h-4 w-4' /> Fecha única (evento)
+        </Button>
+      </div>
       <p className='text-xs text-[#455a54]/60'>
-        Vacío = se reserva en los turnos generales del salón. Si cargás al menos
-        un horario, la experiencia se ofrece SÓLO en esos días y horas (ej.
-        Escuelita: miércoles 18:00) y el lugar es su cupo, no las mesas.
+        Vacío = se reserva en los turnos generales del salón. Si cargás algún
+        horario, la experiencia se ofrece SÓLO en esos días y horas (ej.
+        Escuelita: miércoles 18:00) y el lugar es su cupo, no las mesas. Para un
+        evento de un solo día (ej. Día de la Madre), usá &quot;Fecha única&quot;: la web,
+        el bot y la agenda la ofrecen sólo ese día y a esa hora.
       </p>
     </div>
   );

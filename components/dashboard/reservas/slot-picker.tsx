@@ -308,18 +308,23 @@ export function SlotPicker({
                 </span>
               </button>
             ))}
-            <span className='mx-1 text-[12px] text-[#a99f92]'>
-              u otra hora:
-            </span>
-            <Input
-              type='time'
-              value={freeTime}
-              min={picker.hours.open}
-              max={latestStart}
-              step={300}
-              onChange={(e) => setFreeTime(e.target.value)}
-              className={cn('h-9 w-28', field)}
-            />
+            {/* Con horario propio (o fecha única) sólo se ofrecen sus horas. */}
+            {!picker.exp?.ownSchedule?.length && (
+              <>
+                <span className='mx-1 text-[12px] text-[#a99f92]'>
+                  u otra hora:
+                </span>
+                <Input
+                  type='time'
+                  value={freeTime}
+                  min={picker.hours.open}
+                  max={latestStart}
+                  step={300}
+                  onChange={(e) => setFreeTime(e.target.value)}
+                  className={cn('h-9 w-28', field)}
+                />
+              </>
+            )}
           </div>
           {selectedSlot && !freeTime && (
             <p className='text-[12px] font-medium text-[#455a54]'>

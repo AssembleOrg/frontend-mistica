@@ -38,7 +38,7 @@ export interface PublicExperience {
    * días y horas, no en los turnos generales (ej. Escuelita: miércoles 18:00).
    * weekday ISO: 1=lunes … 7=domingo.
    */
-  ownSchedule?: Array<{ weekday: number; start: string }>;
+  ownSchedule?: Array<{ weekday: number; start: string; date?: string }>;
   /** Variantes de precio (modalidades, tiers por cantidad y promos por día/fecha). */
   priceVariants?: Array<{
     name: string;

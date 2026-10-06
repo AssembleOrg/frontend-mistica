@@ -132,6 +132,8 @@ export interface PriceVariant {
 export interface OwnSlot {
   weekday: number;
   start: string;
+  /** Fecha única 'YYYY-MM-DD' (un evento): vale sólo ese día. */
+  date?: string;
 }
 
 export interface CreateExperienceInput {

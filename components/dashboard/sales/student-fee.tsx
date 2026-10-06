@@ -31,6 +31,8 @@ export function useStudentFee(
   flaggedIds: Set<string>,
 ) {
   const [info, setInfo] = useState<StudentFeeInfo | null>(null);
+  // Para qué cliente ya se sabe si es alumno (evita avisar mientras carga).
+  const [checkedFor, setCheckedFor] = useState('');
   // Elección manual por producto; sin elección, se usa la sugerencia.
   const [choice, setChoice] = useState<Record<string, boolean>>({});
 
@@ -40,7 +42,11 @@ export function useStudentFee(
     let alive = true;
     salesService
       .studentFeeOfClient(clientId)
-      .then((r) => alive && setInfo(r))
+      .then((r) => {
+        if (!alive) return;
+        setInfo(r);
+        setCheckedFor(clientId);
+      })
       .catch(() => alive && setInfo(null));
     return () => {
       alive = false;
@@ -59,6 +65,8 @@ export function useStudentFee(
 
   return {
     info,
+    /** El cliente elegido no es alumno (ninguna ficha de alumno lo tiene). */
+    notStudent: !!clientId && checkedFor === clientId && !info,
     lines,
     selectedIds,
     isOn,
@@ -78,7 +86,7 @@ export function StudentFeeSection({
   hasClient: boolean;
   cartHasLikelyFee: boolean;
 }) {
-  const { info, lines, isOn, toggle, selectedIds } = state;
+  const { info, lines, isOn, toggle, selectedIds, notStudent } = state;
 
   if (!info) {
     // Sin cliente elegido y con algo que parece cuota: recordarlo.
@@ -87,6 +95,17 @@ export function StudentFeeSection({
         <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
           ¿Es la cuota de un alumno? Elegí el cliente (el alumno) y se le marca
           paga la cuota del mes.
+        </p>
+      );
+    }
+    // Parece una cuota pero el cliente no es alumno: la venta no marca nada.
+    // Pasa cuando el alumno quedó vinculado a otro cliente (cargado dos veces).
+    if (notStudent && cartHasLikelyFee) {
+      return (
+        <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
+          Este cliente no figura como alumno/a: la venta no marca ninguna cuota.
+          Si es alumno/a, puede estar cargado/a con otro nombre: en Alumnos editá
+          su ficha y vinculala a este cliente antes de cobrar.
         </p>
       );
     }

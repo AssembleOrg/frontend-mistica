@@ -876,6 +876,10 @@ function AttendanceDialog({
   const [addingTrial, setAddingTrial] = useState(false);
   const [newNames, setNewNames] = useState<Map<string, string>>(new Map());
   const nameOf = (id: string) => studentName.get(id) ?? newNames.get(id);
+  // Pruebas agendadas para el día elegido: alumno → clase de prueba.
+  const [scheduled, setScheduled] = useState<Map<string, string>>(new Map());
+  // Una clase que todavía no pasó: se ve quién viene, la asistencia se toma ese día.
+  const isFuture = date > todayKey;
   const [extra, setExtra] = useState('');
   const [extraSourceGroup, setExtraSourceGroup] = useState('');
   const [extraSourceDate, setExtraSourceDate] = useState('');
@@ -906,7 +910,26 @@ function AttendanceDialog({
             return next;
           });
         }
+        setScheduled(new Map(dayTrials.filter((t) => !t.enrolled).map((t) => [t.student._id, t._id])));
         const doc = docs.find((d) => d.dateKey === date);
+        // Alumnos de la asistencia que no están en la lista (recién dados de
+        // alta, o inactivos): se buscan sus nombres para no ver "(alumno)".
+        const unknown = [
+          ...new Set([...(doc?.records ?? []).map((r) => r.studentId), ...group.studentIds]),
+        ].filter((id) => !studentName.has(id) && !dayTrials.some((t) => t.student._id === id));
+        if (unknown.length) {
+          tallerAdmin
+            .listStudents(true)
+            .then((all) => {
+              if (!alive) return;
+              setNewNames((m) => {
+                const next = new Map(m);
+                for (const st of all) if (unknown.includes(st._id)) next.set(st._id, st.name);
+                return next;
+              });
+            })
+            .catch(() => undefined);
+        }
         if (doc) {
           const savedByStudent = new Map(doc.records.map((r) => [r.studentId, r]));
           const orderedIds = [
@@ -939,6 +962,10 @@ function AttendanceDialog({
   }, [date, group._id, group.studentIds]);
 
   async function save() {
+    if (isFuture) {
+      showToast.error('Esa clase todavía no pasó: la asistencia se toma ese día.');
+      return;
+    }
     if (records.some((r) => r.status === 'MAKEUP' && (!r.makeupForGroupId || !r.makeupForDate))) {
       showToast.error('Indicá qué clase recupera cada alumno marcado como Recupera');
       return;
@@ -993,6 +1020,35 @@ function AttendanceDialog({
         : '';
 
   async function addTrial() {
+    // Para una clase que todavía no pasó, la prueba se agenda (no se guarda
+    // asistencia por adelantado: dejaba a todo el grupo presente).
+    if (isFuture) {
+      if (trialStudent === 'new' && !trialName.trim()) {
+        return showToast.error('Escribí el nombre de quien viene a probar');
+      }
+      setAddingTrial(true);
+      try {
+        const t = await tallerAdmin.scheduleTrial({
+          groupId: group._id,
+          date,
+          ...(trialStudent === 'new'
+            ? { name: trialName.trim(), phone: trialPhone.trim() || undefined }
+            : { studentId: trialStudent }),
+        });
+        setNewNames((m) => new Map(m).set(t.student._id, t.student.name));
+        setScheduled((m) => new Map(m).set(t.student._id, t._id));
+        setRecords([...records, { studentId: t.student._id, status: null, trial: true }]);
+        setTrialStudent('');
+        setTrialName('');
+        setTrialPhone('');
+        showToast.success('Clase de prueba agendada');
+      } catch (e) {
+        showToast.error(e instanceof Error ? e.message : 'No se pudo agendar la prueba');
+      } finally {
+        setAddingTrial(false);
+      }
+      return;
+    }
     let studentId = trialStudent;
     if (studentId === 'new') {
       if (!trialName.trim()) return showToast.error('Escribí el nombre de quien viene a probar');
@@ -1150,7 +1206,28 @@ function AttendanceDialog({
                     <button
                       type='button'
                       aria-label='Quitar de esta asistencia'
-                      onClick={() => setRecords(records.filter((_, j) => j !== i))}
+                      onClick={() => {
+                        const trialId = scheduled.get(r.studentId);
+                        // Una prueba agendada se cancela (si no, vuelve a aparecer).
+                        if (trialId && isFuture) {
+                          tallerAdmin
+                            .cancelTrial(trialId)
+                            .then(() => {
+                              setScheduled((m) => {
+                                const next = new Map(m);
+                                next.delete(r.studentId);
+                                return next;
+                              });
+                              setRecords((rs) => rs.filter((x) => x.studentId !== r.studentId));
+                              showToast.success('Clase de prueba cancelada');
+                            })
+                            .catch((e) =>
+                              showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar'),
+                            );
+                          return;
+                        }
+                        setRecords(records.filter((_, j) => j !== i));
+                      }}
                       className='rounded-md border border-[#e6dbcd] bg-white px-2 py-1 text-[11px] text-[#a33] hover:bg-[#fbe4e4]'
                     >
                       Quitar
@@ -1216,7 +1293,7 @@ function AttendanceDialog({
               className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
             >
               <option value=''>Sumar clase de prueba (gratis)…</option>
-              {canManage && <option value='new'>+ Alumno nuevo</option>}
+              {(canManage || isFuture) && <option value='new'>+ Persona nueva</option>}
               {outsiders.map((s) => (
                 <option key={s._id} value={s._id} disabled={!!trialBlockedReason(s)}>
                   {s.name}
@@ -1248,7 +1325,13 @@ function AttendanceDialog({
               onClick={() => void addTrial()}
               className='border-[#e6dbcd] text-[#455a54]'
             >
-              {addingTrial ? 'Creando alumno…' : 'Sumar a esta clase como prueba'}
+              {addingTrial
+                ? isFuture
+                  ? 'Agendando…'
+                  : 'Creando alumno…'
+                : isFuture
+                  ? 'Agendar la prueba para esta clase'
+                  : 'Sumar a esta clase como prueba'}
             </Button>
           </div>
 
@@ -1322,6 +1405,12 @@ function AttendanceDialog({
             </Button>
           </div>
         </div>
+        {isFuture && (
+          <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
+            Esta clase todavía no pasó: la asistencia se toma ese día. Las pruebas
+            que sumes quedan agendadas y aparecen solas en la asistencia.
+          </p>
+        )}
         <DialogFooter>
           <Button
             type='button'
@@ -1329,9 +1418,9 @@ function AttendanceDialog({
             onClick={onClose}
             className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
           >
-            Cancelar
+            {isFuture ? 'Cerrar' : 'Cancelar'}
           </Button>
-          <Button type='button' variant='verde' onClick={save} disabled={saving}>
+          <Button type='button' variant='verde' onClick={save} disabled={saving || isFuture}>
             {saving ? 'Guardando…' : 'Guardar asistencia'}
           </Button>
         </DialogFooter>

@@ -222,7 +222,10 @@ export interface ShoppingItem {
   quantity?: string;
   notes?: string;
   status: 'PENDING' | 'BOUGHT';
+  addedById?: string;
   addedByName?: string;
+  /** Quién lo pidió (la persona; en cuentas compartidas se elige al cargar). */
+  requestedByName?: string;
   boughtAt?: string;
   createdAt: string;
 }
@@ -251,6 +254,8 @@ export interface MonthlyPiece {
   paidAt?: string;
   paymentId?: string;
   undoUntil?: string;
+  /** Quién hizo el último cambio. */
+  updatedByName?: string;
 }
 
 export type MonthlyPieceInput = Partial<
@@ -267,7 +272,11 @@ export type MonthlyPieceInput = Partial<
     | 'extraAmount'
     | 'paid'
   >
-> & { paymentMethod?: string };
+> & {
+  paymentMethod?: string;
+  /** Quién hace la gestión (cuentas compartidas); si no, la cuenta. */
+  doneBy?: string;
+};
 
 /** Fila de la planilla del mes. */
 export interface MonthlyPieceRow {
@@ -384,6 +393,20 @@ export const tallerAdmin = {
         input as unknown as Json,
       )
     ).data,
+  /**
+   * Cobra una cuota pendiente. Menos que su importe = pago parcial: queda
+   * registrado lo cobrado y la cuota sigue pendiente por el saldo.
+   */
+  collectPayment: async (
+    paymentId: string,
+    input: { amount: number; method?: string; balanceDueDate?: string },
+  ) =>
+    (
+      await apiService.post<{ paid: number; remaining: number }>(
+        `/students/payments/${paymentId}/collect`,
+        input as unknown as Json,
+      )
+    ).data,
   updatePayment: async (
     paymentId: string,
     input: Partial<CreateStudentPaymentInput>,
@@ -485,6 +508,8 @@ export const tallerAdmin = {
     name: string;
     quantity?: string;
     notes?: string;
+    /** Cuentas compartidas: quién lo pide. */
+    requestedBy?: string;
   }) =>
     (
       await apiService.post<ShoppingItem>(

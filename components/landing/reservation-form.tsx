@@ -19,11 +19,7 @@ import {
   type PublicExperience,
 } from '@/services/reservations.public.service';
 import { SectionLabel } from '@/components/landing/primitives';
-
-// Ventana de reservas del salón (hora local AR). El backend valida con sus
-// envs BUSINESS_OPEN/BUSINESS_CLOSE; esto sólo acota el input en el front.
-const BUSINESS_OPEN = '15:00';
-const BUSINESS_CLOSE = '20:00';
+import { useBusinessHours } from '@/hooks/useBusinessHours';
 
 function toMin(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -195,10 +191,13 @@ export function ReservationForm({
 
   const slotKey = (s: AvailableShift) => `${s.dateKey}|${s.startTime}`;
 
+  // Ventana de reservas del salón (hora local AR), configurable en el panel.
+  // El backend es la autoridad; esto sólo acota el input.
+  const hours = useBusinessHours();
   const exp = experiences.find((e) => e._id === expId);
   const duration = exp?.durationMinutes ?? 120;
   /** Última hora de inicio que permite terminar antes del cierre. */
-  const latestStart = fromMin(toMin(BUSINESS_CLOSE) - duration);
+  const latestStart = fromMin(toMin(hours.close) - duration);
 
   // Valida la hora libre contra el salón real (mesas + limpieza) con un
   // pequeño debounce. El backend es la autoridad; esto es feedback temprano.
@@ -207,10 +206,10 @@ export function ReservationForm({
       setCustomCheck({ status: 'idle' });
       return;
     }
-    if (toMin(customTime) < toMin(BUSINESS_OPEN) || customTime > latestStart) {
+    if (toMin(customTime) < toMin(hours.open) || customTime > latestStart) {
       setCustomCheck({
         status: 'no',
-        message: `Podés empezar entre las ${BUSINESS_OPEN} y las ${latestStart} (dura ${duration} min y cerramos ${BUSINESS_CLOSE}).`,
+        message: `Podés empezar entre las ${hours.open} y las ${latestStart} (dura ${duration} min y cerramos ${hours.close}).`,
       });
       return;
     }
@@ -249,7 +248,7 @@ export function ReservationForm({
       alive = false;
       clearTimeout(t);
     };
-  }, [customDay, customTime, expId, duration, latestStart]);
+  }, [customDay, customTime, expId, duration, latestStart, hours.open]);
 
   // Bloques agrupados por día (para la grilla): [{ key, header, slots }].
   const slotsByDay = useMemo(() => {
@@ -525,7 +524,7 @@ export function ReservationForm({
                 <input
                   type='time'
                   value={customTime}
-                  min={BUSINESS_OPEN}
+                  min={hours.open}
                   max={latestStart}
                   step={300}
                   disabled={!customDay}
@@ -536,7 +535,7 @@ export function ReservationForm({
                   className='border border-linea bg-arena px-3 py-2 text-sm text-ciruela-oscuro outline-none focus:border-terracota disabled:opacity-40'
                 />
                 <span className='text-[12px] text-piedra'>
-                  entre {BUSINESS_OPEN} y {latestStart}
+                  entre {hours.open} y {latestStart}
                 </span>
               </div>
               {customCheck.status === 'checking' && (

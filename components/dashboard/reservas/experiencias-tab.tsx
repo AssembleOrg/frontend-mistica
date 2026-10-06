@@ -28,6 +28,7 @@ import {
 import { DatePicker } from '@/components/ui/date-picker';
 import { ImageUploadButton } from '@/components/ui/image-upload-button';
 import { fmtPrice } from '@/lib/reservas-format';
+import { experienceHasBuffet } from '@/lib/kitchen';
 import {
   DEFAULT_EXPERIENCE_COLOR,
   EXPERIENCE_COLOR_PALETTE,
@@ -126,6 +127,7 @@ export function ExperienciasTab() {
       color: e.color ?? DEFAULT_EXPERIENCE_COLOR,
       bookableOnline: e.bookableOnline ?? true,
       venueSeats: e.venueSeats ?? 0,
+      hasBuffet: experienceHasBuffet(e),
       isBirthday: e.isBirthday ?? false,
       isActive: e.isActive,
     });
@@ -519,6 +521,28 @@ export function ExperienciasTab() {
                 <p className='pl-12 text-xs text-[#455a54]/60'>
                   Si lo apagás, es un servicio coordinado: el bot solo informa y
                   toma la consulta (sin turnos ni pago online).
+                </p>
+              </div>
+              <div className='flex flex-col gap-1'>
+                <div className='flex items-center gap-2.5'>
+                  <Switch
+                    id='exp-buffet'
+                    checked={form.hasBuffet ?? experienceHasBuffet(form)}
+                    onCheckedChange={(checked) =>
+                      setForm({ ...form, hasBuffet: checked })
+                    }
+                    className='data-[state=checked]:bg-[#455a54]'
+                  />
+                  <Label
+                    htmlFor='exp-buffet'
+                    className='text-sm text-[#455a54]'
+                  >
+                    Incluye buffet o merienda
+                  </Label>
+                </div>
+                <p className='pl-12 text-xs text-[#455a54]/60'>
+                  La vista de Cocina cuenta a sus personas para preparar el
+                  buffet.
                 </p>
               </div>
               <div className='flex items-center gap-2.5'>

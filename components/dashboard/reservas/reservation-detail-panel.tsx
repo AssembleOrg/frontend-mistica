@@ -7,7 +7,12 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { DietaryTags } from './dietary-badge';
+import {
+  KitchenSection,
+  ReceiptsSection,
+  type ReservationPatch,
+} from './reservation-kitchen';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Ban,
   Building2,
@@ -76,6 +81,11 @@ export function ReservationDetailPanel({
 }) {
   const [loadPieces, setLoadPieces] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
+  // Cambios hechos desde la ficha (cocina, tortas, comprobantes): se ven al
+  // instante, sin esperar a que el listado se recargue.
+  const [patch, setPatch] = useState<ReservationPatch>({});
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     if (!reservation) return;
@@ -95,10 +105,15 @@ export function ReservationDetailPanel({
   useEffect(() => {
     setLoadPieces(false);
     setEditingClient(false);
+    setPatch({});
   }, [reservation?._id]);
 
   if (!reservation) return null;
-  const r = reservation;
+  const r: ReservationItem = { ...reservation, ...patch };
+  const applyPatch = (p: ReservationPatch) => {
+    setPatch((prev) => ({ ...prev, ...p }));
+    onUpdated?.();
+  };
   // Editar datos e insertar piezas sólo cuando la cuenta ve los detalles: si
   // vienen recortados (cocina) no hay nombre/contacto ni sentido de editar.
   const canEdit = r.customerName != null;
@@ -207,11 +222,9 @@ export function ReservationDetailPanel({
             )}
           </Section>
 
-          {((r.dietaryTags?.length ?? 0) > 0 || r.dietaryNotes) && (
-            <Section title='RESTRICCIONES ALIMENTARIAS'>
-              <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} />
-            </Section>
-          )}
+          <KitchenSection reservation={r} canEdit={isAdmin} onChanged={applyPatch} />
+
+          {isAdmin && <ReceiptsSection reservation={r} onChanged={applyPatch} />}
 
           <Section title='PAGO'>
             <div className='flex flex-col gap-2.5 rounded-xl bg-[#fbf5ef] p-4'>

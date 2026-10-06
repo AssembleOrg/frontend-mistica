@@ -16,6 +16,8 @@ export interface Account {
   avatar?: string | null;
   /** Whitelist de vistas del panel; vacía = acceso estándar según el rol. */
   allowedViews: string[];
+  /** Cuenta compartida (compu del mostrador, tablets). */
+  sharedAccount?: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -27,6 +29,7 @@ export interface CreateAccountInput {
   password: string;
   role: AccountRole;
   allowedViews?: string[];
+  sharedAccount?: boolean;
 }
 
 export interface UpdateAccountInput {
@@ -36,10 +39,20 @@ export interface UpdateAccountInput {
   password?: string;
   role?: AccountRole;
   allowedViews?: string[];
+  sharedAccount?: boolean;
+}
+
+/** Una persona del equipo (cuenta personal), para elegir quién hace algo. */
+export interface TeamPerson {
+  id: string;
+  name: string;
 }
 
 export const usersAdmin = {
   list: async () => (await apiService.get<Account[]>('/users/all')).data,
+
+  /** Personas del equipo (cualquier cuenta puede pedirlas). */
+  team: async () => (await apiService.get<TeamPerson[]>('/users/team')).data,
 
   create: async (input: CreateAccountInput) =>
     (

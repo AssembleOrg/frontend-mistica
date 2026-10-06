@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { salesService, type StudentFeeInfo } from '@/services/sales.service';
+import { fmtPrice } from '@/lib/reservas-format';
 /** Línea del carrito (productId ausente en ítems libres). */
-type SaleItem = { productId?: string; productName: string };
+type SaleItem = { productId?: string; productName: string; unitPrice?: number };
 
 /** Líneas que por nombre parecen la cuota ("mes cerámica", "escuelita"…). */
 const LOOKS_LIKE_FEE = /\b(mes|cuota|escuelita|mensual)\b/i;
@@ -94,6 +95,10 @@ export function StudentFeeSection({
   if (lines.length === 0) return null;
 
   const next = info.pending[0];
+  // Cobra menos que la cuota: pago parcial, queda el saldo pendiente.
+  const price = lines.find(isOn)?.unitPrice ?? 0;
+  const fee = next ? next.amount || info.monthlyFee || 0 : info.monthlyFee || 0;
+  const saldo = selectedIds.length > 0 && price > 0 && fee > price + 0.01 ? fee - price : 0;
   return (
     <div className='flex flex-col gap-2 rounded-lg border border-[#455a54]/30 bg-[#E7F0EC] p-3 text-[#455a54]'>
       <p className='flex items-center gap-2 text-sm font-medium'>
@@ -128,6 +133,8 @@ export function StudentFeeSection({
                 info.pending.length > 1 ? ` · debe ${info.pending.length} cuotas` : ''
               }.`
             : 'No debe cuotas: se registra como adelanto del mes siguiente.'}
+        {saldo > 0 &&
+          ` Paga ${fmtPrice(price)} de ${fmtPrice(fee)}: queda un saldo de ${fmtPrice(saldo)} pendiente.`}
       </p>
     </div>
   );

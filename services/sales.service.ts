@@ -16,6 +16,26 @@ export interface SalePayment {
   createdAt?: string;
 }
 
+/** Un cliente que debe fiados, con sus ventas (la más vieja primero). */
+export interface ReceivableGroup {
+  clientId?: string;
+  clientName: string;
+  phone?: string;
+  balanceDue: number;
+  sales: Array<{
+    id: string;
+    saleNumber: string;
+    name?: string;
+    createdAt: string;
+    items: Array<{ productName: string; quantity: number; subtotal: number }>;
+    total: number;
+    paid: number;
+    balanceDue: number;
+    seller?: string;
+    notes?: string;
+  }>;
+}
+
 export interface CreateSaleRequest {
   /** Nombre amigable opcional (ej. "Pepe"). El N° se sigue generando aparte. */
   name?: string;
@@ -47,6 +67,9 @@ export interface CreateSaleRequest {
   /** Marca la venta como PARTIAL (seña/pago parcial). Σ payments puede ser
    *  menor al total; la diferencia queda como `balanceDue`. */
   isPartial?: boolean;
+  /** Fiado: el cliente se lleva los productos y paga después (todo o una
+   *  parte). Descuenta stock; el saldo queda en Ventas → Por cobrar. */
+  onAccount?: boolean;
   /** Total de la venta cuando es PARTIAL y NO tiene items (servicio sin
    *  productos). Si hay items, el total se deriva normalmente. */
   partialTotal?: number;
@@ -159,6 +182,8 @@ export interface Sale {
   afipFechaVto?: string;
   /** Saldo pendiente (sólo > 0 cuando status === 'PARTIAL'). */
   balanceDue?: number;
+  /** Fiado: se llevó los productos y paga después. */
+  onAccount?: boolean;
   /** Cobros de saldo de ventas anteriores hechos en esta venta. Se muestran
    *  como línea "Saldo pendiente V-XXX". El monto ya está incluido en `total`. */
   settledLines?: { saleId?: string; saleNumber: string; saleName?: string; amount: number }[];
@@ -334,6 +359,12 @@ export class SalesService {
   }
 
   /** Si el cliente es alumno: su nombre y las cuotas pendientes (null si no). */
+  /** Fiados con saldo, agrupados por cliente (quién debe, cuánto y de qué). */
+  async receivables(): Promise<ReceivableGroup[]> {
+    const response = await apiService.get<ReceivableGroup[]>('/sales/receivables');
+    return response.data ?? [];
+  }
+
   async studentFeeOfClient(clientId: string): Promise<StudentFeeInfo | null> {
     const res = await apiService.get<StudentFeeInfo | null>(`/sales/student-fee/${clientId}`);
     return res.data ?? null;

@@ -57,6 +57,7 @@ import {
 } from '@/components/dashboard/alumnos/monthly-piece';
 import { useAuth } from '@/hooks/useAuth';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
+import { ResponsableField, useResponsable } from '../responsable-field';
 
 const LIMIT = 20;
 
@@ -456,6 +457,11 @@ export function PiezasTab() {
                       )}
                     </p>
                     <p className='truncate text-xs text-[#7a6e6f]'>Colores: {p.colorsUsed || '—'}</p>
+                    {p.registeredByName && (
+                      <p className='truncate text-[11px] text-[#a99f92]'>
+                        Cargó {p.registeredByName}
+                      </p>
+                    )}
                   </div>
                   <span className='truncate text-sm text-[#7a6e6f]'>
                     {p.professorName || '—'}
@@ -572,6 +578,7 @@ export function PiezasTab() {
                     p.colorsUsed && `Colores: ${p.colorsUsed}`,
                     p.professorName && `Prof. ${p.professorName}`,
                     p.reservationCode && `Reserva ${p.reservationCode}`,
+                    p.registeredByName && `Cargó ${p.registeredByName}`,
                     cfgOf(p.status, statusCfg)?.isFinal && p.pickedUpAt && `Retirada ${fmtDate(p.pickedUpAt)}`,
                   ]
                     .filter(Boolean)
@@ -824,6 +831,8 @@ export function NewPieceModal({
   );
   // Con una reserva fija no se puede volver al buscador (se abrió desde su ficha).
   const locked = !!fixedReservation;
+  // Cuentas compartidas (tablets): quién carga las fichas.
+  const responsable = useResponsable();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [entries, setEntries] = useState<ReservationEntry[]>(
@@ -915,6 +924,7 @@ export function NewPieceModal({
           colorsUsed: entry.colorsUsed.trim(),
           extraId: entry.hasExtra ? entry.extraId : undefined,
         })),
+        responsable.value.trim() || undefined,
       );
       showToast.success(
         extrasTotal > 0
@@ -1053,6 +1063,11 @@ export function NewPieceModal({
                   </span>
                 </p>
               )}
+              <ResponsableField
+                value={responsable.value}
+                onChange={responsable.onChange}
+                label='¿Quién carga las fichas?'
+              />
             </>
           )}
         </div>
@@ -1103,6 +1118,8 @@ function GroupPieceModal({
   const isAdmin = user?.role === 'admin';
   const confirm = useConfirm();
   const month = currentMonth();
+  // Cuentas compartidas (tablets): quién carga las fichas.
+  const responsable = useResponsable();
   const [groups, setGroups] = useState<Group[]>([]);
   const [studentsById, setStudentsById] = useState<Map<string, Student>>(
     new Map(),
@@ -1242,6 +1259,7 @@ function GroupPieceModal({
           pieceType: e.pieceType.trim(),
           colorsUsed: e.colorsUsed.trim(),
         })),
+        responsable.value.trim() || undefined,
       );
     } catch (e) {
       showToast.error(
@@ -1258,6 +1276,7 @@ function GroupPieceModal({
         const mp = monthly.get(e.studentId);
         const amount = Number(e.extraAmount);
         return tallerAdmin.saveMonthlyPiece(e.studentId, month, {
+          ...(responsable.value.trim() && { doneBy: responsable.value.trim() }),
           ...(!mp?.pieceName && { pieceName: e.pieceType.trim() }),
           bisque: e.bisque,
           fresh: e.fresh,
@@ -1563,6 +1582,13 @@ function GroupPieceModal({
                 </div>
               )}
             </>
+          )}
+          {group && (
+            <ResponsableField
+              value={responsable.value}
+              onChange={responsable.onChange}
+              label='¿Quién carga las fichas?'
+            />
           )}
         </div>
 

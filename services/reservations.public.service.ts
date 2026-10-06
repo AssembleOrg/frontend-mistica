@@ -26,6 +26,8 @@ export interface PublicExperience {
   // Lugares FIJOS del salón que ocupa un turno abierto (ej. mesa de taller = 10).
   // 0/ausente = el control del salón usa los anotados.
   venueSeats?: number;
+  /** ¿Incluye buffet/merienda? Cocina cuenta a sus personas. */
+  hasBuffet?: boolean;
   /**
    * Es la ocasión "Cumpleaños": no se reserva directo, envuelve a la
    * experiencia elegida (hereda precio/duración) y aporta beneficios.
@@ -209,6 +211,10 @@ export interface PreviewTablesResult {
 
 export const reservationsPublic = {
   listExperiences: () => req<PublicExperience[]>('/experiences/public'),
+
+  /** Horario del salón: desde y hasta qué hora se toman reservas. */
+  businessHours: () =>
+    req<{ open: string; close: string }>('/reservations/business-hours'),
 
   listSessions: (experienceId?: string) =>
     req<PublicSession[]>(

@@ -17,6 +17,7 @@ import {
 import { usersAdmin, type Account } from '@/services/users.admin.service';
 import { StatusBadge } from '../reservas/_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ResponsableField, useResponsable } from '../responsable-field';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -49,7 +50,11 @@ export function EquipoPanel() {
           Lista de compras
         </button>
       </div>
-      {tab === 'tareas' ? <TareasTab isAdmin={isAdmin} /> : <ComprasTab />}
+      {tab === 'tareas' ? (
+        <TareasTab isAdmin={isAdmin} />
+      ) : (
+        <ComprasTab isAdmin={isAdmin} />
+      )}
     </div>
   );
 }
@@ -522,7 +527,15 @@ function TaskRow({
 
 // ───────────────────────── Lista de compras ─────────────────────────
 
-function ComprasTab() {
+/** Quién pidió el ítem (la persona; si no, la cuenta que lo cargó). */
+const requesterOf = (it: ShoppingItem) =>
+  it.requestedByName || it.addedByName || 'Sin nombre';
+
+/**
+ * Lista de compras. Cada cuenta ve sólo lo que pidió (así no se mezcla lo de
+ * cocina con lo del taller); el admin ve todo, separado por persona.
+ */
+function ComprasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -530,6 +543,9 @@ function ComprasTab() {
   const [showBought, setShowBought] = useState(true);
   const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
+  const responsable = useResponsable();
+  // Admin: '' = todos (separados por persona); si no, sólo los de esa persona.
+  const [person, setPerson] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -553,6 +569,9 @@ function ComprasTab() {
       await tallerAdmin.addShoppingItem({
         name: name.trim(),
         quantity: qty.trim() || undefined,
+        ...(responsable.value.trim()
+          ? { requestedBy: responsable.value.trim() }
+          : {}),
       });
       setName('');
       setQty('');
@@ -585,38 +604,87 @@ function ComprasTab() {
     }
   }
 
-  const pending = items.filter((i) => i.status === 'PENDING');
-  const bought = items.filter((i) => i.status === 'BOUGHT');
+  // Personas con algo pedido, con cuántos pendientes tiene cada una.
+  const people = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const it of items) {
+      const who = requesterOf(it);
+      count.set(who, (count.get(who) ?? 0) + (it.status === 'PENDING' ? 1 : 0));
+    }
+    return [...count.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [items]);
+  const shown = person ? items.filter((i) => requesterOf(i) === person) : items;
+  const pending = shown.filter((i) => i.status === 'PENDING');
+  const bought = shown.filter((i) => i.status === 'BOUGHT');
+  // Vista general del admin: lo pendiente, separado por quién lo pidió.
+  const pendingByPerson = useMemo(() => {
+    const groups = new Map<string, ShoppingItem[]>();
+    for (const it of pending) {
+      const who = requesterOf(it);
+      groups.set(who, [...(groups.get(who) ?? []), it]);
+    }
+    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [pending]);
+  // El nombre de quién pidió sólo aporta cuando se ven pedidos de varios.
+  const showWho = isAdmin || responsable.shared;
 
   return (
     <div className='flex flex-col gap-4'>
+      {!isAdmin && (
+        <p className='text-[13px] text-[#7a6e6f]'>
+          Ves lo que pediste desde esta cuenta.
+        </p>
+      )}
       {/* Carga rápida: pensada para usarse al vuelo durante la jornada */}
-      <div className='flex flex-wrap items-center gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder='¿Qué hace falta? (ej. "Esmalte blanco")'
-          className={`${fieldCls} h-9 min-w-56 flex-1`}
+      <div className='flex flex-col gap-3 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder='¿Qué hace falta? (ej. "Esmalte blanco")'
+            className={`${fieldCls} h-9 min-w-56 flex-1`}
+          />
+          <Input
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder='Cantidad (ej. 2 cajas)'
+            className={`${fieldCls} h-9 w-40`}
+          />
+          <Button
+            type='button'
+            variant='verde'
+            onClick={add}
+            disabled={creating || !name.trim()}
+            className='gap-1.5'
+          >
+            <Plus className='h-4 w-4' />
+            Agregar
+          </Button>
+        </div>
+        <ResponsableField
+          value={responsable.value}
+          onChange={responsable.onChange}
+          label='¿Quién lo pide?'
         />
-        <Input
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder='Cantidad (ej. 2 cajas)'
-          className={`${fieldCls} h-9 w-40`}
-        />
-        <Button
-          type='button'
-          variant='verde'
-          onClick={add}
-          disabled={creating || !name.trim()}
-          className='gap-1.5'
-        >
-          <Plus className='h-4 w-4' />
-          Agregar
-        </Button>
       </div>
+
+      {isAdmin && people.length > 1 && (
+        <div className='flex flex-wrap items-center gap-1.5'>
+          <span className='mr-1 text-[12px] text-[#7a6e6f]'>Pedidos de</span>
+          <PersonChip label='Todos' on={!person} onClick={() => setPerson('')} />
+          {people.map(([who, n]) => (
+            <PersonChip
+              key={who}
+              label={who}
+              count={n}
+              on={person === who}
+              onClick={() => setPerson(person === who ? '' : who)}
+            />
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
@@ -627,11 +695,30 @@ function ComprasTab() {
               Nada pendiente de comprar.
             </p>
           )}
-          <div className='flex flex-col gap-1.5'>
-            {pending.map((it) => (
-              <ShoppingRow key={it._id} item={it} onToggle={toggle} onRemove={remove} />
-            ))}
-          </div>
+          {isAdmin && !person && pendingByPerson.length > 1 ? (
+            pendingByPerson.map(([who, list]) => (
+              <div key={who} className='flex flex-col gap-1.5'>
+                <h3 className='text-[13px] font-semibold text-[#455a54]'>
+                  {who} <span className='font-normal text-[#9d684e]'>· {list.length}</span>
+                </h3>
+                {list.map((it) => (
+                  <ShoppingRow key={it._id} item={it} onToggle={toggle} onRemove={remove} />
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className='flex flex-col gap-1.5'>
+              {pending.map((it) => (
+                <ShoppingRow
+                  key={it._id}
+                  item={it}
+                  showWho={showWho && !person}
+                  onToggle={toggle}
+                  onRemove={remove}
+                />
+              ))}
+            </div>
+          )}
           {bought.length > 0 && (
             <div className='flex items-center justify-between gap-2 border-t border-[#e6dbcd] pt-3'>
               <h3 className='text-sm font-semibold text-[#455a54]'>
@@ -648,7 +735,13 @@ function ComprasTab() {
           )}
           {showBought &&
             bought.map((it) => (
-              <ShoppingRow key={it._id} item={it} onToggle={toggle} onRemove={remove} />
+              <ShoppingRow
+                key={it._id}
+                item={it}
+                showWho={showWho && !person}
+                onToggle={toggle}
+                onRemove={remove}
+              />
             ))}
         </>
       )}
@@ -658,10 +751,13 @@ function ComprasTab() {
 
 function ShoppingRow({
   item: it,
+  showWho = false,
   onToggle,
   onRemove,
 }: Readonly<{
   item: ShoppingItem;
+  /** Mostrar quién lo pidió (cuando se ven pedidos de varias personas). */
+  showWho?: boolean;
   onToggle: (i: ShoppingItem) => void;
   onRemove: (i: ShoppingItem) => void;
 }>) {
@@ -696,7 +792,7 @@ function ShoppingRow({
       </span>
       <span className='shrink-0 text-right text-[11px] leading-tight text-[#7a6e6f]'>
         Pedido {fmtDate(it.createdAt)}
-        {it.addedByName && <span className='hidden sm:inline'> · {it.addedByName}</span>}
+        {showWho && <span> · {requesterOf(it)}</span>}
         {it.status === 'BOUGHT' && it.boughtAt && (
           <span className='block'>Resuelto {fmtDate(it.boughtAt)}</span>
         )}

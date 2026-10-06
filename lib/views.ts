@@ -49,6 +49,8 @@ export const RESERVAS_TABS = [
   { key: 'experiencias', label: 'Experiencias', adminOnly: false },
   { key: 'consultas', label: 'Consultas', adminOnly: false },
   { key: 'piezas', label: 'Piezas', adminOnly: false },
+  // La semana para cocina: personas con buffet, tortas y restricciones.
+  { key: 'cocina', label: 'Cocina', adminOnly: false },
   // Configuración del bot de WhatsApp: sólo el dueño/admin.
   { key: 'bot', label: 'Bot', adminOnly: true },
 ] as const;
@@ -111,7 +113,12 @@ export function allowedReservasTabs(
   if (!allowedViews || allowedViews.length === 0) return common;
   if (allowedViews.includes('reservas')) return common;
   const granted = normalizeViewKeys(allowedViews);
-  return common.filter((k) => granted.includes(`reservas:${k}`));
+  // Cocina muestra lo mismo que la agenda, resumido: quien ve la agenda la ve.
+  return common.filter(
+    (k) =>
+      granted.includes(`reservas:${k}`) ||
+      (k === 'cocina' && granted.includes('reservas:reservas')),
+  );
 }
 
 /**

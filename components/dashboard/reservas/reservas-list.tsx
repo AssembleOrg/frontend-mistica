@@ -39,14 +39,14 @@ import { NewPieceModal } from './piezas-tab';
 import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs } from '@/lib/views';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
-import {
-  SALON_CLOSE,
-  SALON_OPEN,
-  SlotPicker,
-  useSlotPicker,
-} from './slot-picker';
+import { SlotPicker, useSlotPicker } from './slot-picker';
+import { DIETARY_OPTIONS } from './dietary-badge';
 
 const LIMIT = 20;
+
+/** Mandó un comprobante por WhatsApp que todavía nadie verificó. */
+const hasPendingReceipt = (r: ReservationItem) =>
+  (r.transferReceipts ?? []).some((x) => x.status === 'PENDING');
 
 // Política del local: las modificaciones se aceptan hasta 48 hs antes del turno.
 const RESCHEDULE_MIN_HOURS = 48;
@@ -412,6 +412,12 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                           🎉
                         </span>
                       )}
+                      {hasPendingReceipt(r) && (
+                        <span title='Mandó un comprobante: verificalo en la ficha'>
+                          {' '}
+                          📎
+                        </span>
+                      )}
                     </p>
                     <p className='font-mono text-xs text-[#7a6e6f]'>
                       {fmtDateTime(r.startAt)}
@@ -493,6 +499,9 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                   {r.experienceName}
                   {r.isBirthday && (
                     <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
+                  )}
+                  {hasPendingReceipt(r) && (
+                    <span title='Mandó un comprobante: verificalo en la ficha'> 📎</span>
                   )}
                   <span className='ml-1.5 font-mono text-xs text-[#7a6e6f]'>
                     · {fmtDateTime(r.startAt)}
@@ -622,6 +631,11 @@ export function NewReservationModal({
   // Cumpleaños: el backend aplica los beneficios (regalos, lugares
   // bonificados) sobre el precio de la experiencia elegida.
   const [isBday, setIsBday] = useState(false);
+  // Para cocina: restricciones del grupo y lo que haya que saber (cumpleañero,
+  // torta…). Las reservas del bot ya las traen; las del local, se cargan acá.
+  const [diet, setDiet] = useState<string[]>([]);
+  const [dietNotes, setDietNotes] = useState('');
+  const [kitchenNotes, setKitchenNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const quantity = Math.max(1, Number(qty) || 1);
@@ -657,6 +671,9 @@ export function NewReservationModal({
         paymentMethod: method,
         amount: charge.amount,
         isBirthday: isBday || undefined,
+        ...(diet.length ? { dietaryTags: diet } : {}),
+        ...(dietNotes.trim() ? { dietaryNotes: dietNotes.trim() } : {}),
+        ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
       });
       showToast.success('Reserva creada');
       await onDone();
@@ -677,8 +694,8 @@ export function NewReservationModal({
         <DialogHeader>
           <DialogTitle>Nueva reserva</DialogTitle>
           <DialogDescription>
-            El horario es libre entre las {SALON_OPEN} y las {SALON_CLOSE}; los destacados
-            son los turnos sugeridos.
+            El horario es libre entre las {picker.hours.open} y las{' '}
+            {picker.hours.close}; los destacados son los turnos sugeridos.
           </DialogDescription>
         </DialogHeader>
 
@@ -816,6 +833,49 @@ export function NewReservationModal({
               </span>
             </span>
           </button>
+
+          <div className='space-y-2 rounded-xl border border-[#e6dbcd] bg-white px-3.5 py-3'>
+            <p className='text-[13px] font-medium text-[#455a54]'>
+              Para cocina
+            </p>
+            <div className='flex flex-wrap gap-1.5'>
+              {DIETARY_OPTIONS.map((t) => {
+                const on = diet.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type='button'
+                    onClick={() =>
+                      setDiet(on ? diet.filter((x) => x !== t) : [...diet, t])
+                    }
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-semibold transition',
+                      on
+                        ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                        : 'border-[#e0c9a8] bg-[#f4ead9] text-[#9d684e] hover:bg-[#efe0c8]',
+                    )}
+                  >
+                    {on ? '✓ ' : ''}
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+            <Input
+              value={dietNotes}
+              onChange={(e) => setDietNotes(e.target.value)}
+              placeholder='Alergias u otra restricción (detalle)'
+              maxLength={500}
+              className={field}
+            />
+            <Input
+              value={kitchenNotes}
+              onChange={(e) => setKitchenNotes(e.target.value)}
+              placeholder='Nota para cocina (cumpleañero, torta, horario…)'
+              maxLength={500}
+              className={field}
+            />
+          </div>
 
           {total > 0 && (
             <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>

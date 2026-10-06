@@ -14,6 +14,7 @@ import {
   Wallet,
   Flame,
   Banknote,
+  Armchair,
 } from 'lucide-react';
 import {
   Dialog,
@@ -47,6 +48,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
+import { tablesAdmin, type TableStatus } from '@/services/tables.admin.service';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -258,6 +260,34 @@ export function ReservasTab() {
     [dayTurnos, isToday, now],
   );
 
+  // Mesas libres ahora (sólo hoy): las que no tienen una reserva o un bloqueo
+  // en curso, contando la limpieza. Se vuelve a pedir cada 5 minutos.
+  const [mesas, setMesas] = useState<TableStatus[] | null>(null);
+  const cincoMin = Math.floor(now / 300_000);
+  useEffect(() => {
+    if (mode !== 'day' || !isToday) return setMesas(null);
+    let alive = true;
+    tablesAdmin
+      .agenda(anchor)
+      .then((a) => alive && setMesas(a.tables))
+      .catch(() => alive && setMesas(null));
+    return () => {
+      alive = false;
+    };
+  }, [mode, anchor, isToday, tick, cincoMin]);
+  const mesasLibres = useMemo(() => {
+    if (!mesas?.length) return null;
+    const ocupada = (t: TableStatus) =>
+      t.holders.some((h) => {
+        const start = h.startAt ? Date.parse(h.startAt) : NaN;
+        const end = Date.parse(h.busyUntil ?? h.endAt ?? '');
+        // Un bloqueo sin horario ocupa la mesa todo el día.
+        if (Number.isNaN(start) || Number.isNaN(end)) return true;
+        return start <= now && now < end;
+      });
+    return mesas.filter((t) => !ocupada(t)).length;
+  }, [mesas, now]);
+
   function move(delta: number) {
     if (mode === 'month') return setAnchor(addMonths(anchor, delta));
     setAnchor(mode === 'day' ? addDays(anchor, delta) : addDays(mondayOf(anchor), delta * 7));
@@ -367,12 +397,19 @@ export function ReservasTab() {
         />
       ) : mode === 'day' ? (
         <>
-          <div className='flex items-stretch overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
+          <div className='flex items-stretch divide-x divide-[#e6dbcd] overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
             <Stat
               icon={Users}
               value={String(personas)}
               label={isToday ? 'personas en el salón ahora' : 'personas en el día'}
             />
+            {mesasLibres !== null && mesas && (
+              <Stat
+                icon={Armchair}
+                value={`${mesasLibres} de ${mesas.length}`}
+                label='mesas libres ahora'
+              />
+            )}
           </div>
 
           {/* Turnos del día */}

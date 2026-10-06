@@ -31,6 +31,7 @@ import {
 } from '@/services/tables.admin.service';
 import { StatusBadge } from './_shared';
 import { ShiftTemplatesPanel } from './shift-templates-panel';
+import { BusinessHoursPanel } from './business-hours-panel';
 import { RecurringBlocksPanel } from './recurring-blocks-panel';
 import { DietaryTags } from './dietary-badge';
 
@@ -357,12 +358,14 @@ export function MesasTab() {
           ¿Cómo funciona el horario y la limpieza?
         </summary>
         <p className='pb-3 pl-6'>
-          El horario es libre: una reserva puede arrancar a cualquier hora entre la
-          apertura y el cierre. Cada mesa queda ocupada hasta el fin de la
-          experiencia más {agenda?.cleaningMinutes ?? 10} minutos de limpieza. Los
-          turnos de abajo son sugerencias para ordenar la oferta, no un límite.
+          Una reserva arranca dentro del horario del salón y tiene que entrar en
+          uno de los turnos del día (los de abajo, que son los que ofrecen la web
+          y el bot). Cada mesa queda ocupada hasta el fin de la experiencia más{' '}
+          {agenda?.cleaningMinutes ?? 10} minutos de limpieza.
         </p>
       </details>
+
+      <BusinessHoursPanel onSaved={() => void load()} />
 
       <RecurringBlocksPanel />
 

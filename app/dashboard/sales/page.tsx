@@ -5,12 +5,13 @@ import dynamic from 'next/dynamic';
 import { DateRange } from 'react-day-picker';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ReceivablesTab } from '@/components/dashboard/sales/receivables-tab';
 import { showToast } from '@/lib/toast';
 import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { Sale, UpdateSaleRequest } from '@/services/sales.service';
-import { Plus, BarChart3, ShoppingCart, Wallet, TrendingDown, PackageMinus } from 'lucide-react';
+import { Plus, BarChart3, ShoppingCart, Wallet, TrendingDown, PackageMinus, HandCoins } from 'lucide-react';
 
 import { SalesTable } from '@/components/dashboard/sales/sales-table';
 import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
@@ -256,6 +257,13 @@ export default function SalesPage() {
               <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
               Estadísticas
             </TabsTrigger>
+            <TabsTrigger
+              value="receivables"
+              className="data-[state=active]:bg-[#9d684e] data-[state=active]:text-white text-[#455a54] text-xs h-6 px-3 font-winter-solid"
+            >
+              <HandCoins className="h-3.5 w-3.5 mr-1.5" />
+              Por cobrar
+            </TabsTrigger>
             {/* Tab Transacciones desactivado: ahora los movimientos viven dentro
                 del modal de detalle de sesión (accesible desde la card "Caja abierta"
                 en Estadísticas, o desde /dashboard/finances). */}
@@ -388,6 +396,11 @@ export default function SalesPage() {
           <div className="p-4 sm:p-6">
             <SalesStatsCards />
           </div>
+        </TabsContent>
+
+        {/* ── Tab: Por cobrar (fiados) ─────────────── */}
+        <TabsContent value="receivables" className="flex-1 min-h-0 overflow-y-auto mt-0">
+          <ReceivablesTab />
         </TabsContent>
 
         {/* Tab Transacciones desactivado — los movimientos se ven dentro del

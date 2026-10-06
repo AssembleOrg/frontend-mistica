@@ -127,7 +127,8 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
   // no se puede crear.
   const isFormValid =
     formData.name.trim().length >= 3 &&
-    formData.price > 0 &&
+    // Precio 0 vale: producto de regalo (ej. torta simbólica).
+    formData.price >= 0 &&
     formData.barcode.trim().length > 0 &&
     formData.category.trim().length > 0;
 
@@ -166,8 +167,8 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
     if (!formData.category.trim()) {
       errors.category = 'Elegí una categoría para el producto.';
     }
-    if (formData.price <= 0) {
-      errors.price = 'Ingresá un precio mayor a cero.';
+    if (!(formData.price >= 0)) {
+      errors.price = 'Ingresá un precio válido.';
     }
     return errors;
   };
@@ -481,6 +482,11 @@ export function ProductForm({ product, mode, onSuccess, onCancel }: ProductFormP
                   placeholder='0,00'
                   className={hasMarginIssue ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''}
                 />
+                {formData.price === 0 && (
+                  <p className='mt-1 text-xs text-[#9d684e]'>
+                    Se vende a $0: producto de regalo (ej. torta simbólica).
+                  </p>
+                )}
               </div>
 
               {!isService && (

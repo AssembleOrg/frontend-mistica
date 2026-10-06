@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Plus, Send, Trash2 } from 'lucide-react';
+import { Check, CheckCircle2, Hourglass, Plus, RotateCcw, Send, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,12 @@ import {
   tallerAdmin,
   type ShoppingItem,
   type StaffTask,
+  type TaskStatus,
 } from '@/services/taller.admin.service';
 import { usersAdmin, type Account } from '@/services/users.admin.service';
 import { StatusBadge } from '../reservas/_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { ResponsableField, useResponsable } from '../responsable-field';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -48,7 +50,11 @@ export function EquipoPanel() {
           Lista de compras
         </button>
       </div>
-      {tab === 'tareas' ? <TareasTab isAdmin={isAdmin} /> : <ComprasTab />}
+      {tab === 'tareas' ? (
+        <TareasTab isAdmin={isAdmin} />
+      ) : (
+        <ComprasTab isAdmin={isAdmin} />
+      )}
     </div>
   );
 }
@@ -59,7 +65,8 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   const [tasks, setTasks] = useState<StaffTask[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDone, setShowDone] = useState(false);
+  // Completadas: se ven las últimas; el resto, a pedido.
+  const [showAllDone, setShowAllDone] = useState(false);
   // Filtro del admin por responsable: '' = todas, NONE = sin asignar.
   const [person, setPerson] = useState('');
   const [title, setTitle] = useState('');
@@ -112,14 +119,27 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
     }
   }
 
-  async function toggle(t: StaffTask) {
+  async function setStatus(t: StaffTask, status: TaskStatus) {
+    // Se mueve de sección al instante; si falla, se recarga como estaba.
+    const now = new Date().toISOString();
+    setTasks((ts) =>
+      ts.map((x) =>
+        x._id === t._id
+          ? {
+              ...x,
+              status,
+              completedAt: status === 'DONE' ? now : undefined,
+              startedAt: status === 'IN_PROGRESS' ? now : status === 'PENDING' ? undefined : x.startedAt,
+            }
+          : x,
+      ),
+    );
     try {
-      await tallerAdmin.updateTask(t._id, {
-        status: t.status === 'DONE' ? 'PENDING' : 'DONE',
-      });
-      await load();
+      await tallerAdmin.updateTask(t._id, { status });
+      if (status === 'DONE') showToast.success(`"${t.title}" completada`);
     } catch (e) {
       showToast.error(e instanceof Error ? e.message : 'Error');
+      await load();
     }
   }
 
@@ -164,8 +184,13 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         const ids = assigneesOf(t).map((a) => a.userId);
         return person === NONE ? ids.length === 0 : ids.includes(person);
       });
+  const inProgress = visible.filter((t) => t.status === 'IN_PROGRESS');
   const pending = visible.filter((t) => t.status === 'PENDING');
-  const done = visible.filter((t) => t.status === 'DONE');
+  const done = visible
+    .filter((t) => t.status === 'DONE')
+    .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''));
+  const DONE_PREVIEW = 5;
+  const shownDone = showAllDone ? done : done.slice(0, DONE_PREVIEW);
   const personName =
     person === NONE ? 'Sin asignar' : people.rows.find((r) => r.id === person)?.name;
 
@@ -234,10 +259,7 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
               label={r.name}
               count={r.pending}
               on={person === r.id}
-              onClick={() => {
-                setPerson(person === r.id ? '' : r.id);
-                setShowDone(true);
-              }}
+              onClick={() => setPerson(person === r.id ? '' : r.id)}
             />
           ))}
           {people.unassigned > 0 && (
@@ -257,10 +279,10 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
         <>
           {isAdmin && personName && (
             <p className='text-sm text-[#455a54]'>
-              <strong>{personName}</strong>: {pending.length} pendiente(s) · {done.length} finalizada(s)
+              <strong>{personName}</strong>: {inProgress.length} en proceso · {pending.length} pendiente(s) · {done.length} completada(s)
             </p>
           )}
-          {pending.length === 0 && (
+          {inProgress.length === 0 && pending.length === 0 && (
             <p className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
               {!isAdmin
                 ? 'No tenés tareas pendientes 🎉'
@@ -269,24 +291,24 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
                   : 'Sin tareas pendientes 🎉'}
             </p>
           )}
-          <div className='flex flex-col gap-2'>
-            {pending.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
-            ))}
-          </div>
-          {done.length > 0 && (
+          <TaskSection title='En proceso' tone='#9d684e' tasks={inProgress} render={(t) => (
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+          )} />
+          <TaskSection title='Pendientes' tone='#455a54' tasks={pending} render={(t) => (
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+          )} />
+          <TaskSection title='Completadas' tone='#7a6e6f' tasks={shownDone} total={done.length} render={(t) => (
+            <TaskRow key={t._id} task={t} onStatus={setStatus} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
+          )} />
+          {done.length > DONE_PREVIEW && (
             <button
               type='button'
-              onClick={() => setShowDone(!showDone)}
+              onClick={() => setShowAllDone(!showAllDone)}
               className='w-fit text-[12px] font-medium text-[#7a6e6f] underline'
             >
-              {showDone ? 'Ocultar' : 'Ver'} finalizadas ({done.length})
+              {showAllDone ? 'Ver sólo las últimas' : `Ver todas las completadas (${done.length})`}
             </button>
           )}
-          {showDone &&
-            done.map((t) => (
-              <TaskRow key={t._id} task={t} onToggle={toggle} onRemove={isAdmin ? remove : undefined} onComment={addComment} />
-            ))}
         </>
       )}
     </div>
@@ -294,6 +316,31 @@ function TareasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
 }
 
 const NONE = '__none__';
+
+/** Una sección de la lista (En proceso / Pendientes / Completadas). */
+function TaskSection({
+  title,
+  tone,
+  tasks,
+  total,
+  render,
+}: Readonly<{
+  title: string;
+  tone: string;
+  tasks: StaffTask[];
+  total?: number;
+  render: (t: StaffTask) => React.ReactNode;
+}>) {
+  if (tasks.length === 0) return null;
+  return (
+    <section className='flex flex-col gap-2'>
+      <h3 className='text-xs font-semibold uppercase tracking-wider' style={{ color: tone }}>
+        {title} <span className='font-normal text-[#7a6e6f]'>({total ?? tasks.length})</span>
+      </h3>
+      {tasks.map(render)}
+    </section>
+  );
+}
 
 /** Responsables de una tarea (incluye el campo legacy de un solo responsable). */
 function assigneesOf(t: StaffTask): { userId: string; name: string }[] {
@@ -325,12 +372,12 @@ function PersonChip({
 
 function TaskRow({
   task: t,
-  onToggle,
+  onStatus,
   onRemove,
   onComment,
 }: Readonly<{
   task: StaffTask;
-  onToggle: (t: StaffTask) => void;
+  onStatus: (t: StaffTask, status: TaskStatus) => void;
   /** Sólo el admin borra tareas. */
   onRemove?: (t: StaffTask) => void;
   onComment: (t: StaffTask, body: string) => Promise<void>;
@@ -338,7 +385,7 @@ function TaskRow({
   const [comment, setComment] = useState('');
   const [commenting, setCommenting] = useState(false);
   const overdue =
-    t.status === 'PENDING' && t.dueDate && new Date(t.dueDate) < new Date();
+    t.status !== 'DONE' && t.dueDate && new Date(t.dueDate) < new Date();
   async function submitComment() {
     const body = comment.trim();
     if (!body || commenting) return;
@@ -355,30 +402,20 @@ function TaskRow({
   }
   return (
     <div
-      className={`flex items-start gap-3 rounded-xl border bg-white px-4 py-3 ${
+      className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${
         t.status === 'DONE'
-          ? 'border-[#e6dbcd] opacity-60'
-          : overdue
-            ? 'border-[#efb9b9]'
-            : 'border-[#e6dbcd]'
+          ? 'border-[#e6dbcd] bg-[#fbf9f6]'
+          : t.status === 'IN_PROGRESS'
+            ? 'border-[#e2c4ad] bg-white'
+            : overdue
+              ? 'border-[#efb9b9] bg-white'
+              : 'border-[#e6dbcd] bg-white'
       }`}
     >
-      <button
-        type='button'
-        onClick={() => onToggle(t)}
-        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
-          t.status === 'DONE'
-            ? 'border-[#455a54] bg-[#455a54] text-white'
-            : 'border-[#c9bfb0] bg-white hover:border-[#455a54]'
-        }`}
-        aria-label={t.status === 'DONE' ? 'Reabrir' : 'Marcar hecha'}
-      >
-        {t.status === 'DONE' && <Check className='h-3.5 w-3.5' />}
-      </button>
       <div className='min-w-0 flex-1'>
         <p
-          className={`text-sm font-medium text-[#3d3338] ${
-            t.status === 'DONE' ? 'line-through' : ''
+          className={`text-sm font-medium ${
+            t.status === 'DONE' ? 'text-[#7a6e6f] line-through' : 'text-[#3d3338]'
           }`}
         >
           {t.title}
@@ -397,10 +434,56 @@ function TaskRow({
               fg={overdue ? '#a33' : '#9d684e'}
             />
           )}
+          {t.status === 'IN_PROGRESS' && (
+            <StatusBadge
+              label={`En proceso${t.startedAt ? ` desde ${fmtDate(t.startedAt)}` : ''}`}
+              bg='#f6e9dc'
+              fg='#9d684e'
+            />
+          )}
           {t.status === 'DONE' && t.completedAt && (
             <span className='text-[11px] text-[#7a6e6f]'>
-              hecha el {fmtDate(t.completedAt)}
+              completada el {fmtDate(t.completedAt)}
             </span>
+          )}
+        </div>
+        {/* Estado: En proceso (vuelve a pendiente si se toca de nuevo) y
+            completada; una completada se puede reabrir. */}
+        <div className='mt-2 flex flex-wrap gap-1.5'>
+          {t.status === 'DONE' ? (
+            <button
+              type='button'
+              onClick={() => onStatus(t, 'PENDING')}
+              className='inline-flex items-center gap-1.5 rounded-lg border border-[#e6dbcd] bg-white px-2.5 py-1 text-xs font-medium text-[#7a6e6f] hover:bg-[#fbf5ef]'
+            >
+              <RotateCcw className='h-3.5 w-3.5' />
+              Reabrir
+            </button>
+          ) : (
+            <>
+              <button
+                type='button'
+                onClick={() => onStatus(t, t.status === 'IN_PROGRESS' ? 'PENDING' : 'IN_PROGRESS')}
+                aria-pressed={t.status === 'IN_PROGRESS'}
+                title={t.status === 'IN_PROGRESS' ? 'Volver a pendiente' : 'Marcar en proceso'}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+                  t.status === 'IN_PROGRESS'
+                    ? 'border-[#9d684e] bg-[#9d684e] text-white'
+                    : 'border-[#e6dbcd] bg-white text-[#9d684e] hover:bg-[#fbf5ef]'
+                }`}
+              >
+                <Hourglass className='h-3.5 w-3.5' />
+                En proceso
+              </button>
+              <button
+                type='button'
+                onClick={() => onStatus(t, 'DONE')}
+                className='inline-flex items-center gap-1.5 rounded-lg border border-[#455a54] bg-[#455a54] px-2.5 py-1 text-xs font-medium text-white transition hover:bg-[#3a4c47]'
+              >
+                <CheckCircle2 className='h-3.5 w-3.5' />
+                Tarea completada
+              </button>
+            </>
           )}
         </div>
         {(t.comments?.length ?? 0) > 0 && (
@@ -444,7 +527,15 @@ function TaskRow({
 
 // ───────────────────────── Lista de compras ─────────────────────────
 
-function ComprasTab() {
+/** Quién pidió el ítem (la persona; si no, la cuenta que lo cargó). */
+const requesterOf = (it: ShoppingItem) =>
+  it.requestedByName || it.addedByName || 'Sin nombre';
+
+/**
+ * Lista de compras. Cada cuenta ve sólo lo que pidió (así no se mezcla lo de
+ * cocina con lo del taller); el admin ve todo, separado por persona.
+ */
+function ComprasTab({ isAdmin }: Readonly<{ isAdmin: boolean }>) {
   const [items, setItems] = useState<ShoppingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -452,6 +543,9 @@ function ComprasTab() {
   const [showBought, setShowBought] = useState(true);
   const confirm = useConfirm();
   const [creating, setCreating] = useState(false);
+  const responsable = useResponsable();
+  // Admin: '' = todos (separados por persona); si no, sólo los de esa persona.
+  const [person, setPerson] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -475,6 +569,9 @@ function ComprasTab() {
       await tallerAdmin.addShoppingItem({
         name: name.trim(),
         quantity: qty.trim() || undefined,
+        ...(responsable.value.trim()
+          ? { requestedBy: responsable.value.trim() }
+          : {}),
       });
       setName('');
       setQty('');
@@ -507,38 +604,87 @@ function ComprasTab() {
     }
   }
 
-  const pending = items.filter((i) => i.status === 'PENDING');
-  const bought = items.filter((i) => i.status === 'BOUGHT');
+  // Personas con algo pedido, con cuántos pendientes tiene cada una.
+  const people = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const it of items) {
+      const who = requesterOf(it);
+      count.set(who, (count.get(who) ?? 0) + (it.status === 'PENDING' ? 1 : 0));
+    }
+    return [...count.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [items]);
+  const shown = person ? items.filter((i) => requesterOf(i) === person) : items;
+  const pending = shown.filter((i) => i.status === 'PENDING');
+  const bought = shown.filter((i) => i.status === 'BOUGHT');
+  // Vista general del admin: lo pendiente, separado por quién lo pidió.
+  const pendingByPerson = useMemo(() => {
+    const groups = new Map<string, ShoppingItem[]>();
+    for (const it of pending) {
+      const who = requesterOf(it);
+      groups.set(who, [...(groups.get(who) ?? []), it]);
+    }
+    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [pending]);
+  // El nombre de quién pidió sólo aporta cuando se ven pedidos de varios.
+  const showWho = isAdmin || responsable.shared;
 
   return (
     <div className='flex flex-col gap-4'>
+      {!isAdmin && (
+        <p className='text-[13px] text-[#7a6e6f]'>
+          Ves lo que pediste desde esta cuenta.
+        </p>
+      )}
       {/* Carga rápida: pensada para usarse al vuelo durante la jornada */}
-      <div className='flex flex-wrap items-center gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder='¿Qué hace falta? (ej. "Esmalte blanco")'
-          className={`${fieldCls} h-9 min-w-56 flex-1`}
+      <div className='flex flex-col gap-3 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder='¿Qué hace falta? (ej. "Esmalte blanco")'
+            className={`${fieldCls} h-9 min-w-56 flex-1`}
+          />
+          <Input
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder='Cantidad (ej. 2 cajas)'
+            className={`${fieldCls} h-9 w-40`}
+          />
+          <Button
+            type='button'
+            variant='verde'
+            onClick={add}
+            disabled={creating || !name.trim()}
+            className='gap-1.5'
+          >
+            <Plus className='h-4 w-4' />
+            Agregar
+          </Button>
+        </div>
+        <ResponsableField
+          value={responsable.value}
+          onChange={responsable.onChange}
+          label='¿Quién lo pide?'
         />
-        <Input
-          value={qty}
-          onChange={(e) => setQty(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder='Cantidad (ej. 2 cajas)'
-          className={`${fieldCls} h-9 w-40`}
-        />
-        <Button
-          type='button'
-          variant='verde'
-          onClick={add}
-          disabled={creating || !name.trim()}
-          className='gap-1.5'
-        >
-          <Plus className='h-4 w-4' />
-          Agregar
-        </Button>
       </div>
+
+      {isAdmin && people.length > 1 && (
+        <div className='flex flex-wrap items-center gap-1.5'>
+          <span className='mr-1 text-[12px] text-[#7a6e6f]'>Pedidos de</span>
+          <PersonChip label='Todos' on={!person} onClick={() => setPerson('')} />
+          {people.map(([who, n]) => (
+            <PersonChip
+              key={who}
+              label={who}
+              count={n}
+              on={person === who}
+              onClick={() => setPerson(person === who ? '' : who)}
+            />
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className='text-sm text-[#7a6e6f]'>Cargando…</p>
@@ -549,11 +695,30 @@ function ComprasTab() {
               Nada pendiente de comprar.
             </p>
           )}
-          <div className='flex flex-col gap-1.5'>
-            {pending.map((it) => (
-              <ShoppingRow key={it._id} item={it} onToggle={toggle} onRemove={remove} />
-            ))}
-          </div>
+          {isAdmin && !person && pendingByPerson.length > 1 ? (
+            pendingByPerson.map(([who, list]) => (
+              <div key={who} className='flex flex-col gap-1.5'>
+                <h3 className='text-[13px] font-semibold text-[#455a54]'>
+                  {who} <span className='font-normal text-[#9d684e]'>· {list.length}</span>
+                </h3>
+                {list.map((it) => (
+                  <ShoppingRow key={it._id} item={it} onToggle={toggle} onRemove={remove} />
+                ))}
+              </div>
+            ))
+          ) : (
+            <div className='flex flex-col gap-1.5'>
+              {pending.map((it) => (
+                <ShoppingRow
+                  key={it._id}
+                  item={it}
+                  showWho={showWho && !person}
+                  onToggle={toggle}
+                  onRemove={remove}
+                />
+              ))}
+            </div>
+          )}
           {bought.length > 0 && (
             <div className='flex items-center justify-between gap-2 border-t border-[#e6dbcd] pt-3'>
               <h3 className='text-sm font-semibold text-[#455a54]'>
@@ -570,7 +735,13 @@ function ComprasTab() {
           )}
           {showBought &&
             bought.map((it) => (
-              <ShoppingRow key={it._id} item={it} onToggle={toggle} onRemove={remove} />
+              <ShoppingRow
+                key={it._id}
+                item={it}
+                showWho={showWho && !person}
+                onToggle={toggle}
+                onRemove={remove}
+              />
             ))}
         </>
       )}
@@ -580,10 +751,13 @@ function ComprasTab() {
 
 function ShoppingRow({
   item: it,
+  showWho = false,
   onToggle,
   onRemove,
 }: Readonly<{
   item: ShoppingItem;
+  /** Mostrar quién lo pidió (cuando se ven pedidos de varias personas). */
+  showWho?: boolean;
   onToggle: (i: ShoppingItem) => void;
   onRemove: (i: ShoppingItem) => void;
 }>) {
@@ -618,7 +792,7 @@ function ShoppingRow({
       </span>
       <span className='shrink-0 text-right text-[11px] leading-tight text-[#7a6e6f]'>
         Pedido {fmtDate(it.createdAt)}
-        {it.addedByName && <span className='hidden sm:inline'> · {it.addedByName}</span>}
+        {showWho && <span> · {requesterOf(it)}</span>}
         {it.status === 'BOUGHT' && it.boughtAt && (
           <span className='block'>Resuelto {fmtDate(it.boughtAt)}</span>
         )}

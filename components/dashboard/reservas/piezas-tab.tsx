@@ -49,6 +49,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
 import { PieceTypeSelect } from './piece-type-select';
 import { PieceExtraSelect } from './piece-extra-select';
+import { ColorsSelect } from './colors-select';
 import { usePieceExtrasStore } from '@/stores/piece-extras.store';
 import {
   currentMonth,
@@ -56,6 +57,7 @@ import {
 } from '@/components/dashboard/alumnos/monthly-piece';
 import { useAuth } from '@/hooks/useAuth';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
+import { ResponsableField, useResponsable } from '../responsable-field';
 
 const LIMIT = 20;
 
@@ -455,6 +457,11 @@ export function PiezasTab() {
                       )}
                     </p>
                     <p className='truncate text-xs text-[#7a6e6f]'>Colores: {p.colorsUsed || '—'}</p>
+                    {p.registeredByName && (
+                      <p className='truncate text-[11px] text-[#a99f92]'>
+                        Cargó {p.registeredByName}
+                      </p>
+                    )}
                   </div>
                   <span className='truncate text-sm text-[#7a6e6f]'>
                     {p.professorName || '—'}
@@ -571,6 +578,7 @@ export function PiezasTab() {
                     p.colorsUsed && `Colores: ${p.colorsUsed}`,
                     p.professorName && `Prof. ${p.professorName}`,
                     p.reservationCode && `Reserva ${p.reservationCode}`,
+                    p.registeredByName && `Cargó ${p.registeredByName}`,
                     cfgOf(p.status, statusCfg)?.isFinal && p.pickedUpAt && `Retirada ${fmtDate(p.pickedUpAt)}`,
                   ]
                     .filter(Boolean)
@@ -738,7 +746,7 @@ function EditPieceModal({
           </label>
           <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
             Colores
-            <Input value={colorsUsed} onChange={(e) => setColorsUsed(e.target.value)} className={field} />
+            <ColorsSelect value={colorsUsed} onChange={setColorsUsed} />
           </label>
           <label className='flex flex-col gap-1 text-xs text-[#7a6e6f]'>
             Cantidad
@@ -823,6 +831,8 @@ export function NewPieceModal({
   );
   // Con una reserva fija no se puede volver al buscador (se abrió desde su ficha).
   const locked = !!fixedReservation;
+  // Cuentas compartidas (tablets): quién carga las fichas.
+  const responsable = useResponsable();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [entries, setEntries] = useState<ReservationEntry[]>(
@@ -914,6 +924,7 @@ export function NewPieceModal({
           colorsUsed: entry.colorsUsed.trim(),
           extraId: entry.hasExtra ? entry.extraId : undefined,
         })),
+        responsable.value.trim() || undefined,
       );
       showToast.success(
         extrasTotal > 0
@@ -1029,7 +1040,7 @@ export function NewPieceModal({
                         )}
                       </div>
                       <Field label='Colores utilizados'>
-                        <Input value={entry.colorsUsed} onChange={(event) => updateEntry(index, 'colorsUsed', event.target.value)} placeholder='Ej. azul, blanco y rosa' className={fieldCls} />
+                        <ColorsSelect value={entry.colorsUsed} onChange={(v) => updateEntry(index, 'colorsUsed', v)} />
                       </Field>
                     </div>
                   </div>
@@ -1052,6 +1063,11 @@ export function NewPieceModal({
                   </span>
                 </p>
               )}
+              <ResponsableField
+                value={responsable.value}
+                onChange={responsable.onChange}
+                label='¿Quién carga las fichas?'
+              />
             </>
           )}
         </div>
@@ -1080,6 +1096,7 @@ type GroupEntry = {
   colorsUsed: string;
   // Pieza del mes del alumno (la misma que se ve en Alumnos).
   bisque: boolean;
+  fresh: boolean;
   extraCharge: boolean;
   extraAmount: string;
   /** Cobrar el adicional ahora (sólo admin): crea el pago del alumno. */
@@ -1101,6 +1118,8 @@ function GroupPieceModal({
   const isAdmin = user?.role === 'admin';
   const confirm = useConfirm();
   const month = currentMonth();
+  // Cuentas compartidas (tablets): quién carga las fichas.
+  const responsable = useResponsable();
   const [groups, setGroups] = useState<Group[]>([]);
   const [studentsById, setStudentsById] = useState<Map<string, Student>>(
     new Map(),
@@ -1171,6 +1190,7 @@ function GroupPieceModal({
       pieceType: '',
       colorsUsed: '',
       bisque: mp?.bisque ?? false,
+      fresh: mp?.fresh ?? false,
       extraCharge: mp?.extraCharge ?? false,
       extraAmount: mp?.extraAmount != null ? String(mp.extraAmount) : '',
       charge: false,
@@ -1239,6 +1259,7 @@ function GroupPieceModal({
           pieceType: e.pieceType.trim(),
           colorsUsed: e.colorsUsed.trim(),
         })),
+        responsable.value.trim() || undefined,
       );
     } catch (e) {
       showToast.error(
@@ -1255,8 +1276,10 @@ function GroupPieceModal({
         const mp = monthly.get(e.studentId);
         const amount = Number(e.extraAmount);
         return tallerAdmin.saveMonthlyPiece(e.studentId, month, {
+          ...(responsable.value.trim() && { doneBy: responsable.value.trim() }),
           ...(!mp?.pieceName && { pieceName: e.pieceType.trim() }),
           bisque: e.bisque,
+          fresh: e.fresh,
           ...(isAdmin &&
             !mp?.paid && {
               extraCharge: e.extraCharge,
@@ -1441,13 +1464,9 @@ function GroupPieceModal({
                             />
                           </Field>
                           <Field label='Colores utilizados'>
-                            <Input
+                            <ColorsSelect
                               value={entry.colorsUsed}
-                              onChange={(e) =>
-                                updateEntry(index, 'colorsUsed', e.target.value)
-                              }
-                              placeholder='Ej. azul, blanco y rosa'
-                              className={fieldCls}
+                              onChange={(v) => updateEntry(index, 'colorsUsed', v)}
                             />
                           </Field>
                         </div>
@@ -1459,19 +1478,21 @@ function GroupPieceModal({
                             <span className='text-xs font-medium text-[#7a6e6f]'>
                               Pieza del mes
                             </span>
+                            {/* Fresca y bizcocho se excluyen: con una prendida, la otra se bloquea. */}
                             {(
                               [
-                                [false, 'Fresca'],
-                                [true, 'Bizcocho'],
+                                ['fresh', 'bisque', 'Fresca'],
+                                ['bisque', 'fresh', 'Bizcocho'],
                               ] as const
-                            ).map(([val, label]) => (
+                            ).map(([key, other, label]) => (
                               <button
-                                key={label}
+                                key={key}
                                 type='button'
-                                onClick={() => updateEntry(index, 'bisque', val)}
+                                disabled={entry[other]}
+                                onClick={() => updateEntry(index, key, !entry[key])}
                                 className={cn(
-                                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                                  entry.bisque === val
+                                  'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                                  entry[key]
                                     ? 'border-[#455a54] bg-[#455a54] text-white'
                                     : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#f3e9df]',
                                 )}
@@ -1561,6 +1582,13 @@ function GroupPieceModal({
                 </div>
               )}
             </>
+          )}
+          {group && (
+            <ResponsableField
+              value={responsable.value}
+              onChange={responsable.onChange}
+              label='¿Quién carga las fichas?'
+            />
           )}
         </div>
 

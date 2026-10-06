@@ -53,6 +53,8 @@ interface FormState {
   email: string;
   role: AccountRole;
   allowedViews: string[];
+  /** Cuenta compartida: el panel pide quién hace cada gestión. */
+  sharedAccount: boolean;
   /** Vacía = no tocar la contraseña (en edición). */
   password: string;
 }
@@ -62,6 +64,7 @@ const EMPTY: FormState = {
   email: '',
   role: 'user',
   allowedViews: [],
+  sharedAccount: false,
   password: '',
 };
 
@@ -111,6 +114,7 @@ export function AccountsPanel() {
       email: account.email,
       role: account.role,
       allowedViews: normalizeViewKeys(account.allowedViews ?? []),
+      sharedAccount: !!account.sharedAccount,
       password: '',
     });
   }
@@ -139,6 +143,7 @@ export function AccountsPanel() {
         role: form.role,
         // La whitelist sólo aplica a cuentas comunes; a un admin se le limpia.
         allowedViews: form.role === 'admin' ? [] : form.allowedViews,
+        sharedAccount: form.sharedAccount,
       };
       if (editing) {
         await usersAdmin.update(editing.id, {
@@ -266,6 +271,11 @@ function AccountRow({
           {isMe && (
             <span className='rounded-full bg-[#E7F0EC] px-2 py-0.5 text-[10px] font-semibold text-[#455a54]'>
               vos
+            </span>
+          )}
+          {account.sharedAccount && (
+            <span className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-[10px] font-semibold text-[#9d684e]'>
+              compartida
             </span>
           )}
         </div>
@@ -428,6 +438,24 @@ function AccountEditor({
             })}
           </div>
         </div>
+
+        <label className='flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-3'>
+          <input
+            type='checkbox'
+            checked={form.sharedAccount}
+            onChange={(e) => setForm({ ...form, sharedAccount: e.target.checked })}
+            className='mt-0.5 size-4 accent-[#455a54]'
+          />
+          <span className='flex flex-col gap-0.5'>
+            <span className='text-[13px] font-medium text-[#455a54]'>
+              Cuenta compartida (compu del mostrador, tablets)
+            </span>
+            <span className='text-xs text-[#7a6e6f]'>
+              La usan varias personas: al cargar la lista de compras o las
+              piezas se elige quién lo hizo.
+            </span>
+          </span>
+        </label>
 
         {isUser && (
           <div className='space-y-1.5'>

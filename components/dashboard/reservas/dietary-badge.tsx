@@ -9,6 +9,9 @@
 import { UtensilsCrossed } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+/** Etiquetas rápidas al cargar una reserva a mano (las mismas que usa el bot). */
+export const DIETARY_OPTIONS = ['sin TACC', 'vegano', 'vegetariano', 'sin lactosa'];
+
 /** Las que conviene que salten a la vista (alergias sobre todo). */
 const CRITICAS = ['alergia', 'alergias', 'celiaco', 'celíaco', 'celiaca', 'celíaca'];
 

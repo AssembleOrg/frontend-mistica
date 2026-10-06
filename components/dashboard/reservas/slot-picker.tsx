@@ -8,10 +8,7 @@ import {
   reservationsPublic,
   type AvailableShift,
 } from '@/services/reservations.public.service';
-
-// Ventana del salón (espejo de BUSINESS_OPEN/CLOSE del backend, que valida).
-export const SALON_OPEN = '15:00';
-export const SALON_CLOSE = '20:00';
+import { useBusinessHours } from '@/hooks/useBusinessHours';
 
 const toMin = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
@@ -58,9 +55,11 @@ export function useSlotPicker(
   const [freeTime, setFreeTime] = useState('');
   const [check, setCheck] = useState<Check>({ status: 'idle' });
 
+  // Horario del salón (configurable en Mesas; el backend es el que valida).
+  const hours = useBusinessHours();
   const exp = experiences.find((e) => e._id === expId) ?? null;
   const duration = exp?.durationMinutes ?? 120;
-  const latestStart = fromMin(toMin(SALON_CLOSE) - duration);
+  const latestStart = fromMin(toMin(hours.close) - duration);
 
   // Días y horarios sugeridos con lugar, agrupados por día.
   useEffect(() => {
@@ -114,10 +113,10 @@ export function useSlotPicker(
       if (!time) setCheck({ status: 'idle' });
       return;
     }
-    if (toMin(freeTime) < toMin(SALON_OPEN) || freeTime > latestStart) {
+    if (toMin(freeTime) < toMin(hours.open) || freeTime > latestStart) {
       setCheck({
         status: 'no',
-        message: `Podés empezar entre las ${SALON_OPEN} y las ${latestStart} (dura ${duration} min, cerramos ${SALON_CLOSE}).`,
+        message: `Podés empezar entre las ${hours.open} y las ${latestStart} (dura ${duration} min, cerramos ${hours.close}).`,
       });
       return;
     }
@@ -155,7 +154,7 @@ export function useSlotPicker(
       alive = false;
       clearTimeout(t);
     };
-  }, [freeTime, expId, day, duration, latestStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [freeTime, expId, day, duration, latestStart, hours.open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxParty = selectedSlot
     ? selectedSlot.maxPartySize
@@ -169,6 +168,7 @@ export function useSlotPicker(
     setExpId,
     exp,
     duration,
+    hours,
     latestStart,
     slotsLoading,
     days,
@@ -314,7 +314,7 @@ export function SlotPicker({
             <Input
               type='time'
               value={freeTime}
-              min={SALON_OPEN}
+              min={picker.hours.open}
               max={latestStart}
               step={300}
               onChange={(e) => setFreeTime(e.target.value)}

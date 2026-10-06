@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { canAccessView } from '@/lib/views';
@@ -14,6 +15,14 @@ import { Footer } from '@/components/ui/footer';
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
   const sessionCheckFailed = useAuthStore((s) => s.sessionCheckFailed);
+  // Si "Cargando..." se estira (app instalada en iPhone con la sesión a medio
+  // copiar, red lenta), se ofrecen las salidas en vez de dejarlo trabado.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (isAuthenticated) return;
+    const t = window.setTimeout(() => setSlow(true), 8000);
+    return () => window.clearTimeout(t);
+  }, [isAuthenticated]);
   const canView = (view: string) => canAccessView(view, user?.role, user?.allowedViews);
 
   const primaryModules = [
@@ -36,9 +45,13 @@ export default function Dashboard() {
   if (!isAuthenticated) {
     return (
       <div className='flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center'>
-        {sessionCheckFailed ? (
+        {sessionCheckFailed || slow ? (
           <>
-            <p className='text-[#455a54]'>No pudimos conectar con el servidor.</p>
+            <p className='text-[#455a54]'>
+              {sessionCheckFailed
+                ? 'No pudimos conectar con el servidor.'
+                : 'Está tardando más de lo normal.'}
+            </p>
             <div className='flex gap-2'>
               <button
                 type='button'

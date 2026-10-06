@@ -10,11 +10,18 @@ import {
   ClipboardList,
   Loader2,
   Plus,
-  Ticket,
   Users,
   Wallet,
   Flame,
+  Banknote,
+  Armchair,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,7 +30,6 @@ import {
   arDayEndISO,
   arDayStartISO,
   fmtPrice,
-  fmtPriceCompact,
   SESSION_STATUS_LABEL,
 } from '@/lib/reservas-format';
 import { DEFAULT_EXPERIENCE_COLOR } from '@/lib/experience-colors';
@@ -42,6 +48,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
+import { tablesAdmin, type TableStatus } from '@/services/tables.admin.service';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -133,6 +140,12 @@ export function ReservasTab() {
   // varias, se elige entre las del turno.
   const [piecesOf, setPiecesOf] = useState<ReservationItem[] | null>(null);
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
+  // Cobrar: lleva a Ventas → Nueva venta con la reserva cargada. Con varias
+  // reservas con saldo en el turno, se elige cuál.
+  const canCobrar = user?.role === 'admin';
+  const [cobrarOf, setCobrarOf] = useState<ReservationItem[] | null>(null);
+  const cobrar = (r: ReservationItem) =>
+    router.push(`/dashboard/sales?reserva=${r._id}`);
   const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -225,21 +238,55 @@ export function ReservasTab() {
 
   const dayTurnos = byDay.get(anchor) ?? [];
 
-  // Resumen del día: turnos, personas y saldo por cobrar en el local.
-  const stats = useMemo(() => {
-    // La Agenda cuenta sólo personas confirmadas (sin holds pendientes).
-    const personas = dayTurnos.reduce(
-      (n, s) => n + (s.confirmedSeats ?? s.seatsTaken),
-      0,
-    );
-    let porCobrar = 0;
-    for (const s of dayTurnos) {
-      for (const r of attendees[s.id] ?? []) {
-        if (r.status === 'CONFIRMED' && r.balanceDue) porCobrar += r.balanceDue;
-      }
-    }
-    return { turnos: dayTurnos.length, personas, porCobrar };
-  }, [dayTurnos, attendees]);
+  // Reloj para "en el salón ahora": se refresca cada minuto.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Personas confirmadas (sin holds pendientes) de los turnos en curso. En
+  // otro día que no es hoy no hay "ahora": se muestra el total del día.
+  const isToday = anchor === todayYmd();
+  const personas = useMemo(
+    () =>
+      dayTurnos
+        .filter(
+          (s) =>
+            !isToday ||
+            (Date.parse(s.startAt) <= now && now < Date.parse(s.endAt)),
+        )
+        .reduce((n, s) => n + (s.confirmedSeats ?? s.seatsTaken), 0),
+    [dayTurnos, isToday, now],
+  );
+
+  // Mesas libres ahora (sólo hoy): las que no tienen una reserva o un bloqueo
+  // en curso, contando la limpieza. Se vuelve a pedir cada 5 minutos.
+  const [mesas, setMesas] = useState<TableStatus[] | null>(null);
+  const cincoMin = Math.floor(now / 300_000);
+  useEffect(() => {
+    if (mode !== 'day' || !isToday) return setMesas(null);
+    let alive = true;
+    tablesAdmin
+      .agenda(anchor)
+      .then((a) => alive && setMesas(a.tables))
+      .catch(() => alive && setMesas(null));
+    return () => {
+      alive = false;
+    };
+  }, [mode, anchor, isToday, tick, cincoMin]);
+  const mesasLibres = useMemo(() => {
+    if (!mesas?.length) return null;
+    const ocupada = (t: TableStatus) =>
+      t.holders.some((h) => {
+        const start = h.startAt ? Date.parse(h.startAt) : NaN;
+        const end = Date.parse(h.busyUntil ?? h.endAt ?? '');
+        // Un bloqueo sin horario ocupa la mesa todo el día.
+        if (Number.isNaN(start) || Number.isNaN(end)) return true;
+        return start <= now && now < end;
+      });
+    return mesas.filter((t) => !ocupada(t)).length;
+  }, [mesas, now]);
 
   function move(delta: number) {
     if (mode === 'month') return setAnchor(addMonths(anchor, delta));
@@ -343,20 +390,24 @@ export function ReservasTab() {
           hideHeader
           refreshKey={tick}
           onOpen={verDetalle ? setDetail : undefined}
+          onOpenDay={(ymd) => {
+            setAnchor(ymd);
+            setMode('day');
+          }}
         />
       ) : mode === 'day' ? (
         <>
-          {/* Resumen del día: una sola barra segmentada, condensada. */}
           <div className='flex items-stretch divide-x divide-[#e6dbcd] overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white'>
-            <Stat icon={Ticket} value={String(stats.turnos)} label='turnos' />
-            <Stat icon={Users} value={String(stats.personas)} label='personas' />
-            {verDetalle && (
+            <Stat
+              icon={Users}
+              value={String(personas)}
+              label={isToday ? 'personas en el salón ahora' : 'personas en el día'}
+            />
+            {mesasLibres !== null && mesas && (
               <Stat
-                icon={Wallet}
-                value={fmtPriceCompact(stats.porCobrar)}
-                title={fmtPrice(stats.porCobrar)}
-                label='por cobrar'
-                color='#9d684e'
+                icon={Armchair}
+                value={`${mesasLibres} de ${mesas.length}`}
+                label='mesas libres ahora'
               />
             )}
           </div>
@@ -381,6 +432,17 @@ export function ReservasTab() {
                           setPiecesOf(
                             (attendees[s.id] ?? []).filter((r) => r.status === 'CONFIRMED'),
                           )
+                      : undefined
+                  }
+                  onCobrar={
+                    canCobrar
+                      ? () => {
+                          const conSaldo = (attendees[s.id] ?? []).filter(
+                            (r) => r.status === 'CONFIRMED' && (r.balanceDue ?? 0) > 0,
+                          );
+                          if (conSaldo.length === 1) cobrar(conSaldo[0]);
+                          else setCobrarOf(conSaldo);
+                        }
                       : undefined
                   }
                 />
@@ -454,6 +516,40 @@ export function ReservasTab() {
         />
       )}
 
+      {cobrarOf && (
+        <Dialog open onOpenChange={(o) => !o && setCobrarOf(null)}>
+          <DialogContent className='sm:max-w-md'>
+            <DialogHeader className='text-left'>
+              <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
+                ¿Qué reserva cobrás?
+              </DialogTitle>
+            </DialogHeader>
+            <div className='overflow-hidden rounded-xl border border-[#e6dbcd]'>
+              {cobrarOf.map((r) => (
+                <button
+                  key={r._id}
+                  type='button'
+                  onClick={() => cobrar(r)}
+                  className='flex w-full items-center justify-between gap-3 border-b border-[#e6dbcd] px-4 py-3 text-left last:border-0 hover:bg-[#fbf5ef]'
+                >
+                  <span>
+                    <span className='block text-sm font-semibold text-[#3d3338]'>
+                      {r.customerName ?? '—'}
+                    </span>
+                    <span className='block text-xs text-[#7a6e6f]'>
+                      {r.quantity} persona(s) · {r.code}
+                    </span>
+                  </span>
+                  <span className='text-sm font-semibold text-[#9d684e]'>
+                    {fmtPrice(r.balanceDue ?? 0)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {anotados && (
         <AnotadosModal
           sessionId={anotados}
@@ -490,7 +586,7 @@ function Stat({
   title,
   color = '#455a54',
 }: {
-  icon: typeof Ticket;
+  icon: typeof Users;
   value: string;
   label: string;
   title?: string;
@@ -515,6 +611,7 @@ function TurnoCard({
   verDetalle,
   onVer,
   onPieces,
+  onCobrar,
 }: {
   session: AdminSession;
   reservations: ReservationItem[];
@@ -522,6 +619,8 @@ function TurnoCard({
   onVer: () => void;
   /** Cargar piezas de las reservas del turno (si la cuenta tiene Piezas). */
   onPieces?: () => void;
+  /** Cobrar una reserva del turno en Ventas (sólo admin). */
+  onCobrar?: () => void;
 }) {
   // La Agenda es la fuente de verdad del negocio: el conteo y el cupo cuentan
   // sólo lo confirmado. Las pendientes (holds del bot/landing) se muestran
@@ -664,6 +763,22 @@ function TurnoCard({
               >
                 <Flame className='h-3.5 w-3.5' />
                 Piezas
+              </button>
+            )}
+            {onCobrar && porCobrar > 0 && (
+              <button
+                type='button'
+                title='Cobrar en Ventas'
+                aria-label='Cobrar en Ventas'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCobrar();
+                }}
+                onKeyDown={(e) => e.stopPropagation()}
+                className='inline-flex h-8 items-center gap-1 rounded-lg border border-[#455a54]/30 bg-[#E7F0EC] px-2 text-xs font-medium text-[#455a54] transition-colors hover:bg-[#d9e8e1]'
+              >
+                <Banknote className='h-3.5 w-3.5' />
+                Cobrar
               </button>
             )}
             <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>

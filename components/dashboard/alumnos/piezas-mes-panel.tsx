@@ -58,8 +58,8 @@ export function PiezasMesPanel() {
   }, [rows]);
 
   const cols = isAdmin
-    ? 'grid-cols-[1fr_9rem_11rem_5rem_5.5rem_9rem_5rem]'
-    : 'grid-cols-[1fr_9rem_11rem_5rem_5.5rem]';
+    ? 'grid-cols-[1fr_9rem_11rem_8rem_5rem_5rem_4.5rem_5.5rem_9rem_5rem]'
+    : 'grid-cols-[1fr_9rem_11rem_8rem_5rem_5rem_4.5rem_5.5rem]';
 
   return (
     <div className='flex flex-col gap-4'>
@@ -92,16 +92,19 @@ export function PiezasMesPanel() {
       </div>
 
       <p className='text-xs text-[#7a6e6f]'>
-        Una pieza por alumno y mes. Bizcocho apagado = fresca. Cada cambio se guarda solo; la pieza al salir del campo.
+        Una pieza por alumno y mes. Fresca o bizcocho: con una prendida, la otra se bloquea. &quot;Para&quot; es la clase en que la quiere. Cada cambio se guarda solo; la pieza al salir del campo.
       </p>
 
       <div className='overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white'>
-        <div className={cn('min-w-[52rem]', isAdmin && 'min-w-[66rem]')}>
+        <div className={cn('min-w-[70rem]', isAdmin && 'min-w-[84rem]')}>
           <div className={cn('grid items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]', cols)}>
             <span>ALUMNO</span>
             <span>DÍA QUE CURSA</span>
             <span>PIEZA</span>
+            <span>PARA</span>
+            <span className='text-center'>FRESCA</span>
             <span className='text-center'>BIZCOCHO</span>
+            <span className='text-center'>LISTA</span>
             <span className='text-center'>ENTREGADA</span>
             {isAdmin && <span className='text-center'>ADICIONAL</span>}
             {isAdmin && <span className='text-center'>COBRADO</span>}
@@ -124,6 +127,7 @@ export function PiezasMesPanel() {
                   month={month}
                   value={r.piece}
                   isAdmin={isAdmin}
+                  slots={r.groups.flatMap((g) => g.schedule)}
                   compact
                   onSaved={(p) =>
                     setRows((prev) =>

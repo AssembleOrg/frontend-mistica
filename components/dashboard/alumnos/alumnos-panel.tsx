@@ -544,7 +544,19 @@ const ATT_LABEL: Record<string, string> = {
  */
 const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta', 'Mercado Pago'];
 
-/** Marcar una cuota como pagada: monto y medio de pago. */
+/** Día (YYYY-MM-DD) de una fecha, en hora de Argentina. */
+function ymdAR(iso?: string): string {
+  return iso
+    ? new Date(iso).toLocaleDateString('en-CA', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+      })
+    : '';
+}
+
+/**
+ * Cobrar una cuota: monto y medio de pago. Si se cobra menos que la cuota es
+ * un pago parcial: queda el saldo pendiente, con el vencimiento que se elija.
+ */
 function MarkPaidDialog({
   payment,
   defaultAmount,
@@ -552,19 +564,38 @@ function MarkPaidDialog({
   onConfirm,
 }: Readonly<{
   payment: StudentPayment;
+  /** Importe de la cuota (o la cuota mensual del alumno si vino en $0). */
   defaultAmount: number;
   onClose: () => void;
-  onConfirm: (amount: number, method: string) => Promise<void>;
+  onConfirm: (
+    amount: number,
+    method: string,
+    partial?: { feeAmount: number; balanceDueDate?: string },
+  ) => Promise<void>;
 }>) {
   const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : '');
   const [method, setMethod] = useState(METODOS_PAGO[0]);
+  const [balanceDue, setBalanceDue] = useState(ymdAR(payment.dueDate));
   const [saving, setSaving] = useState(false);
+  const value = Number(amount);
+  const partial = defaultAmount > 0 && value > 0 && value < defaultAmount - 0.01;
   async function confirm() {
-    const value = Number(amount);
     if (!(value > 0)) return showToast.error('Ingresá el monto cobrado');
     setSaving(true);
     try {
-      await onConfirm(value, method);
+      await onConfirm(
+        value,
+        method,
+        partial
+          ? {
+              feeAmount: defaultAmount,
+              // Fin del día elegido, en Argentina.
+              balanceDueDate: balanceDue
+                ? `${balanceDue}T23:59:00-03:00`
+                : undefined,
+            }
+          : undefined,
+      );
     } finally {
       setSaving(false);
     }
@@ -605,13 +636,28 @@ function MarkPaidDialog({
               </button>
             ))}
           </div>
+          {partial && (
+            <div className='flex flex-col gap-2 rounded-xl border border-[#e8b84b]/50 bg-[#fdf6e3] p-3 text-[13px] text-[#5b512f]'>
+              <p>
+                <span className='font-semibold'>Pago parcial:</span> queda un saldo
+                de {fmtPrice(defaultAmount - value)} pendiente.
+              </p>
+              <Field label='¿Para cuándo el saldo?'>
+                <DateInput value={balanceDue} onChange={setBalanceDue} />
+              </Field>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button type='button' variant='outline' onClick={onClose} className='border-[#e6dbcd] text-[#455a54]'>
             Cancelar
           </Button>
           <Button type='button' variant='verde' onClick={() => void confirm()} disabled={saving}>
-            {saving ? 'Guardando…' : 'Marcar pagada'}
+            {saving
+              ? 'Guardando…'
+              : partial
+                ? 'Registrar pago parcial'
+                : 'Marcar pagada'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -682,18 +728,40 @@ function StudentDetailDialog({
     }
   }
 
-  // Cuota a marcar pagada: pide monto (las generadas pueden venir en $0) y
-  // cómo se cobró.
+  // Cuota a cobrar: pide monto (las generadas pueden venir en $0) y cómo se
+  // cobró. Menos que la cuota = pago parcial: queda el saldo pendiente.
   const [paying, setPaying] = useState<StudentPayment | null>(null);
 
-  async function markPaid(paymentId: string, amount: number, method: string) {
+  async function markPaid(
+    payment: StudentPayment,
+    amount: number,
+    method: string,
+    partial?: { feeAmount: number; balanceDueDate?: string },
+  ) {
     try {
-      await tallerAdmin.updatePayment(paymentId, { status: 'PAID', amount, method });
+      // La cuota vino en $0 y se cobra una parte de la cuota mensual: primero
+      // se le pone el importe, así el saldo queda bien calculado.
+      if (partial && !(payment.amount > 0)) {
+        await tallerAdmin.updatePayment(payment._id, { amount: partial.feeAmount });
+      }
+      const res = await tallerAdmin.collectPayment(payment._id, {
+        amount,
+        method,
+        ...(partial?.balanceDueDate
+          ? { balanceDueDate: partial.balanceDueDate }
+          : {}),
+      });
       setPaying(null);
       await loadAdmin();
-      showToast.success('Marcada como pagada');
+      showToast.success(
+        res.remaining > 0
+          ? `Pago parcial registrado · queda ${fmtPrice(res.remaining)}`
+          : 'Marcada como pagada',
+      );
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(
+        (e as { message?: string })?.message ?? 'No se pudo registrar el pago',
+      );
     }
   }
 
@@ -865,7 +933,7 @@ function StudentDetailDialog({
                               onClick={() => setPaying(p)}
                               className='ml-auto text-[12px] font-medium text-[#455a54] underline hover:opacity-70'
                             >
-                              Marcar pagada
+                              Cobrar
                             </button>
                           )}
                         </div>
@@ -879,7 +947,9 @@ function StudentDetailDialog({
                     payment={paying}
                     defaultAmount={paying.amount || adminData?.student.monthlyFee || 0}
                     onClose={() => setPaying(null)}
-                    onConfirm={(amount, method) => markPaid(paying._id, amount, method)}
+                    onConfirm={(amount, method, partial) =>
+                      markPaid(paying, amount, method, partial)
+                    }
                   />
                 )}
 

@@ -29,6 +29,8 @@ export interface User {
   avatar?: string;
   /** Whitelist de vistas del panel; vacía = acceso estándar según el rol. */
   allowedViews?: string[];
+  /** Cuenta compartida (compu, tablets): se pide quién hace cada gestión. */
+  sharedAccount?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

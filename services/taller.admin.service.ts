@@ -61,6 +61,9 @@ export interface Student {
   adminNotes?: string;
   practicalNotes?: string;
   isActive: boolean;
+  /** Clase de prueba gratuita que ya usó (grupo y día). Sin valor = disponible. */
+  trialGroupId?: string;
+  trialDate?: string;
   createdAt: string;
 }
 
@@ -173,6 +176,8 @@ export interface AttendanceDoc {
     recoveredInDate?: string;
     recoveredAt?: string;
     notes?: string;
+    /** Clase de prueba gratuita. */
+    trial?: boolean;
   }>;
 }
 
@@ -187,6 +192,8 @@ export interface PaymentAlert {
   overdue: boolean;
 }
 
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
+
 export interface StaffTask {
   _id: string;
   title: string;
@@ -194,8 +201,10 @@ export interface StaffTask {
   assigneeUserId?: string;
   assigneeName?: string;
   assignees?: Array<{ userId: string; name: string }>;
-  status: 'PENDING' | 'DONE';
+  status: TaskStatus;
   dueDate?: string;
+  /** Cuándo se puso "En proceso". */
+  startedAt?: string;
   completedAt?: string;
   comments?: Array<{
     _id: string;
@@ -213,7 +222,10 @@ export interface ShoppingItem {
   quantity?: string;
   notes?: string;
   status: 'PENDING' | 'BOUGHT';
+  addedById?: string;
   addedByName?: string;
+  /** Quién lo pidió (la persona; en cuentas compartidas se elige al cargar). */
+  requestedByName?: string;
   boughtAt?: string;
   createdAt: string;
 }
@@ -223,7 +235,16 @@ export interface MonthlyPiece {
   _id: string;
   month: string; // 'YYYY-MM'
   pieceName: string;
-  bisque: boolean; // true = bizcocho, false = fresca
+  /** Fresca y bizcocho se excluyen; las dos apagadas = sin elegir. */
+  bisque: boolean;
+  fresh: boolean;
+  /** Cuándo la pidió: ordena la lista de Producción. */
+  requestedAt?: string;
+  /** Para qué clase la quiere ('YYYY-MM-DD'). */
+  dueDate?: string;
+  /** Producción la terminó (lista para entregar). */
+  ready: boolean;
+  readyAt?: string;
   delivered: boolean;
   notes?: string;
   extraCharge?: boolean;
@@ -233,14 +254,29 @@ export interface MonthlyPiece {
   paidAt?: string;
   paymentId?: string;
   undoUntil?: string;
+  /** Quién hizo el último cambio. */
+  updatedByName?: string;
 }
 
 export type MonthlyPieceInput = Partial<
   Pick<
     MonthlyPiece,
-    'pieceName' | 'bisque' | 'delivered' | 'notes' | 'extraCharge' | 'extraAmount' | 'paid'
+    | 'pieceName'
+    | 'bisque'
+    | 'fresh'
+    | 'dueDate'
+    | 'ready'
+    | 'delivered'
+    | 'notes'
+    | 'extraCharge'
+    | 'extraAmount'
+    | 'paid'
   >
-> & { paymentMethod?: string };
+> & {
+  paymentMethod?: string;
+  /** Quién hace la gestión (cuentas compartidas); si no, la cuenta. */
+  doneBy?: string;
+};
 
 /** Fila de la planilla del mes. */
 export interface MonthlyPieceRow {
@@ -327,6 +363,21 @@ export const tallerAdmin = {
         input as unknown as Json,
       )
     ).data,
+  /** Lista de Producción: piezas pedidas, en el orden en que se pidieron. */
+  productionList: async (includeDelivered = false) =>
+    (
+      await apiService.get<MonthlyPieceRow[]>(
+        `/students/monthly-pieces/production${includeDelivered ? '?all=true' : ''}`,
+      )
+    ).data,
+  /** Producción marca la pieza lista (terminada) o la desmarca. */
+  setPieceReady: async (pieceId: string, ready: boolean) =>
+    (
+      await apiService.patch<MonthlyPiece>(
+        `/students/monthly-pieces/${pieceId}/ready`,
+        { ready },
+      )
+    ).data,
   removeMonthlyPiece: async (studentId: string, month: string) =>
     (
       await apiService.delete<{ success: boolean }>(
@@ -339,6 +390,20 @@ export const tallerAdmin = {
     (
       await apiService.post<StudentPayment>(
         `/students/${studentId}/payments`,
+        input as unknown as Json,
+      )
+    ).data,
+  /**
+   * Cobra una cuota pendiente. Menos que su importe = pago parcial: queda
+   * registrado lo cobrado y la cuota sigue pendiente por el saldo.
+   */
+  collectPayment: async (
+    paymentId: string,
+    input: { amount: number; method?: string; balanceDueDate?: string },
+  ) =>
+    (
+      await apiService.post<{ paid: number; remaining: number }>(
+        `/students/payments/${paymentId}/collect`,
         input as unknown as Json,
       )
     ).data,
@@ -375,6 +440,7 @@ export const tallerAdmin = {
       makeupForGroupId?: string;
       makeupForDate?: string;
       notes?: string;
+      trial?: boolean;
     }>;
   }) =>
     (
@@ -412,7 +478,7 @@ export const tallerAdmin = {
       description: string;
       assigneeUserIds: string[];
       dueDate: string;
-      status: 'PENDING' | 'DONE';
+      status: TaskStatus;
     }>,
   ) =>
     (
@@ -442,6 +508,8 @@ export const tallerAdmin = {
     name: string;
     quantity?: string;
     notes?: string;
+    /** Cuentas compartidas: quién lo pide. */
+    requestedBy?: string;
   }) =>
     (
       await apiService.post<ShoppingItem>(

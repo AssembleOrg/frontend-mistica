@@ -46,6 +46,10 @@ import { usePermissions } from '@/hooks/usePermissions';
 import type { Product } from '@/lib/types';
 import { SaleScheduleSection, useSaleSchedule } from './sale-schedule';
 import { StudentFeeSection, useStudentFee } from './student-fee';
+import {
+  reservationsAdmin,
+  type ReservationCheckoutPlan,
+} from '@/services/reservations.admin.service';
 
 type AdjustmentType = 'discount' | 'surcharge';
 
@@ -64,9 +68,11 @@ interface CreateSaleModalProps {
   editingSale?: Sale | null;
   onSaleUpdated?: (saleId: string, updatedSale: UpdateSaleRequest) => Promise<void>;
   submitButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  /** "Cobrar" desde la Agenda: precarga cliente y ticket de esa reserva. */
+  reservationId?: string;
 }
 
-export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated, submitButtonRef }: CreateSaleModalProps) {
+export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, onSaleUpdated, submitButtonRef, reservationId }: CreateSaleModalProps) {
   // Cliente: si `selectedClient` no es null, derivamos clientId de ahí.
   // El `customerName` (free text) se usa cuando no hay cliente seleccionado:
   // al confirmar la venta, si no hay clientId pero sí hay nombre, creamos el
@@ -98,6 +104,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // ignora y la cuenta queda saldada (sin descuento ni saldo). El backend
   // reescala los ítems a ese total.
   const [isPartial, setIsPartial] = useState(false);
+  // Fiado: se lleva los productos y paga después (todo o una parte). Descuenta
+  // stock y la deuda queda a nombre del cliente en Ventas → Por cobrar.
+  const [onAccount, setOnAccount] = useState(false);
   // Producto seña pendiente de capturar monto. Cuando es no-null, mostramos
   // el PrepaidAmountDialog para que el operador ingrese el monto antes de
   // agregarlo al carrito.
@@ -114,6 +123,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // saldo completo y se puede bajar para abonar parcial. El monto se suma al
   // total (sin stock) y el backend lo descuenta del saldo de la venta vieja.
   const [settleSel, setSettleSel] = useState<{ saleId: string; amount: number } | null>(null);
+  // Reserva que se está cobrando (botón "Cobrar" de la Agenda).
+  const [checkoutPlan, setCheckoutPlan] = useState<ReservationCheckoutPlan | null>(null);
+  const reservationSettle = checkoutPlan?.settle
+    ? { saleId: checkoutPlan.settle.saleId, amount: checkoutPlan.settle.amount }
+    : null;
   const [isConsumidorFinal, setIsConsumidorFinal] = useState(false);
   // Ítem libre (promo/producto fuera de catálogo): sólo admin. Se agrega al
   // carrito con un id sintético `free-…` como identidad local; ese id se quita
@@ -238,7 +252,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       mostradorPreloadedRef.current = false;
       return;
     }
-    if (editingSale) return;
+    if (editingSale || reservationId) return;
     if (mostradorPreloadedRef.current) return;
     mostradorPreloadedRef.current = true;
 
@@ -260,7 +274,55 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       }
     })();
     return () => { cancelled = true; };
-  }, [isOpen, editingSale]);
+  }, [isOpen, editingSale, reservationId]);
+
+  // Cobrar una reserva: cliente, líneas, descuento y el saldo de la venta de
+  // la seña (como abono a cuenta) vienen armados del backend.
+  useEffect(() => {
+    if (!isOpen || !reservationId || editingSale) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const plan = await reservationsAdmin.checkoutPlan(reservationId);
+        if (cancelled) return;
+        const r = plan.reservation;
+        setCheckoutPlan(plan);
+        setSaleName(r.customerName || `Reserva ${r.code}`);
+        setCustomerName(r.customerName || '');
+        setCustomerEmail(r.customerEmail || '');
+        setCustomerPhone(r.customerPhone || '');
+        if (r.clientId) {
+          clientsService
+            .getClient(r.clientId)
+            .then((res) => !cancelled && setSelectedClient(res.data))
+            .catch(() => undefined);
+        }
+        setCartItems(
+          plan.items.map((i) => ({
+            productId: i.productId ?? `free-${crypto.randomUUID()}`,
+            productName: i.productName,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            subtotal: i.quantity * i.unitPrice,
+            bonifiedQty: 0,
+          })),
+        );
+        if (plan.discount > 0) {
+          setAdjustmentType('discount');
+          setAdjustmentAmount(plan.discount);
+          setShowAdjustmentInput(true);
+        }
+        setSettleSel(
+          plan.settle ? { saleId: plan.settle.saleId, amount: plan.settle.amount } : null,
+        );
+      } catch (e) {
+        if (!cancelled) {
+          showToast.error(e instanceof Error ? e.message : 'No se pudo cargar la reserva');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOpen, reservationId, editingSale]);
 
   // Fetcher para el AsyncSelect de clientes: usa el endpoint paginado con
   // search server-side. Devuelve los Client + meta de paginación.
@@ -418,7 +480,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const handleClientChange = async (client: Client | null) => {
     setSelectedClient(client);
     setRelatedSaleIds([]);
-    setSettleSel(null);
+    setSettleSel(reservationSettle);
     if (!client) {
       setRecentSales([]);
       setClientPrepaid(null);
@@ -545,6 +607,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const settledSaleLabel = (() => {
     if (!settleSel) return undefined;
     const s = recentSales.find((x) => x.id === settleSel.saleId);
+    if (!s && checkoutPlan?.settle?.saleId === settleSel.saleId) {
+      return `Reserva ${checkoutPlan.reservation.code}`;
+    }
     return s?.name?.trim() || s?.saleNumber;
   })();
 
@@ -602,7 +667,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   // En edición la venta ya trae sus pagos: tampoco.
   const prevTotalRef = useRef(0);
   useEffect(() => {
-    if (editingSale || isPartial) {
+    // En un fiado lo que paga ahora (si algo) lo tipea el operador.
+    if (editingSale || isPartial || onAccount) {
       prevTotalRef.current = total;
       return;
     }
@@ -630,7 +696,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
       return copy;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [total, isPartial, editingSale]);
+  }, [total, isPartial, onAccount, editingSale]);
 
   const resetForm = () => {
     schedule.reset();
@@ -659,7 +725,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
     setRecentSales([]);
     setRelatedSaleIds([]);
     setSettleSel(null);
+    setCheckoutPlan(null);
     setIsPartial(false);
+    setOnAccount(false);
     setIsConsumidorFinal(false);
 
     if (barcodeProcessingTimeout) {
@@ -674,6 +742,16 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     if (!saleName.trim()) {
       showToast.error('El título de la venta es requerido');
+      return;
+    }
+
+    if (checkoutPlan && isPartial) {
+      showToast.error('El cobro de una reserva no puede ser un pago parcial');
+      return;
+    }
+
+    if (checkoutPlan && onAccount) {
+      showToast.error('El cobro de una reserva no puede quedar fiado');
       return;
     }
 
@@ -697,10 +775,24 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
     const paymentsSum = payments.reduce((acc, p) => acc + (p.amount || 0), 0);
 
-    // Sólo pedimos al menos un pago > 0. A pedido del cliente NO bloqueamos
-    // cuando los pagos exceden el total a cobrar: el operador puede cargar el
-    // monto que necesite (la diferencia ≤ total sigue siendo descuento auto).
-    if (!(paymentsSum > 0)) {
+    if (onAccount) {
+      // Fiado: puede no pagar nada ahora, pero la deuda tiene que tener dueño.
+      if (cartItems.length === 0) {
+        showToast.error('Para fiar, agregá los productos que se lleva');
+        return;
+      }
+      if (isConsumidorFinal) {
+        showToast.error('Para fiar, elegí el cliente que se los lleva');
+        return;
+      }
+      if (paymentsSum > total + 0.01) {
+        showToast.error('Lo que paga ahora supera el total de la venta');
+        return;
+      }
+    } else if (!(paymentsSum > 0)) {
+      // Sólo pedimos al menos un pago > 0. A pedido del cliente NO bloqueamos
+      // cuando los pagos exceden el total a cobrar: el operador puede cargar el
+      // monto que necesite (la diferencia ≤ total sigue siendo descuento auto).
       showToast.error('Ingresá al menos un pago');
       return;
     }
@@ -735,6 +827,12 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           console.warn('No se pudo crear el cliente, sigo con venta sin asociar:', err);
         }
       }
+      if (onAccount && !effectiveClientId) {
+        showToast.error(
+          'Para fiar, el cliente tiene que quedar registrado: elegilo de la lista o revisá sus datos.',
+        );
+        return;
+      }
 
       const basePayload = {
         name: saleName.trim(),
@@ -757,7 +855,10 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // En PARTIAL no aplicamos descuento/recargo: el saldo pendiente NO
         // es un descuento (es deuda viva). Para el backend mandamos 0.
         discount: isPartial ? 0 : signedDiscount,
-        payments,
+        // Fiado: sólo lo que efectivamente paga ahora (puede ser nada).
+        payments: onAccount
+          ? payments.filter((p) => (p.amount || 0) > 0)
+          : payments,
         notes: notes,
         seller: sellerName.trim(),
         // Las señas/prepaids existentes (consumedPrepaid) no se mezclan con una
@@ -768,10 +869,11 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           ? studentFee.selectedIds
           : undefined,
         isPartial: isPartial || undefined,
+        onAccount: onAccount || undefined,
         // Abono a cuenta de la venta anterior seleccionada (sólo venta no
         // parcial, monto > 0). Va como array de 1 elemento.
         settlements:
-          !isPartial && settleSel && settleSel.amount > 0
+          !isPartial && !onAccount && settleSel && settleSel.amount > 0
             ? [{ saleId: settleSel.saleId, amount: settleSel.amount }]
             : undefined,
       } as const;
@@ -800,7 +902,18 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         }
       } else {
         const saleData: CreateSaleRequest = { ...basePayload };
-        const createdSale = await createSale(saleData);
+        let createdSale: Sale;
+        if (checkoutPlan) {
+          // Cobro de reserva: la venta se crea y la reserva queda saldada.
+          try {
+            createdSale = await reservationsAdmin.checkout(checkoutPlan.reservation._id, saleData);
+          } catch (e) {
+            showToast.error(e instanceof Error ? e.message : 'No se pudo cobrar la reserva');
+            throw e;
+          }
+        } else {
+          createdSale = await createSale(saleData);
+        }
         // Persistir las relaciones marcadas en "Últimas transacciones" (mutuo).
         // Incluir los saldos cobrados: el backend ya los vinculó, pero setLinks
         // reemplaza el set completo — si no los sumamos acá los desvincularía.
@@ -853,6 +966,20 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col h-full px-4 sm:px-6 pb-4 sm:pb-6 space-y-6">
+          {checkoutPlan && (
+            <div className="rounded-lg border border-[#455a54]/30 bg-[#E7F0EC] px-3.5 py-2.5 text-sm text-[#455a54] font-winter-solid">
+              <p className="font-medium">
+                Cobro de la reserva {checkoutPlan.reservation.code} · {checkoutPlan.reservation.experienceName} ·{' '}
+                {checkoutPlan.reservation.quantity} persona(s)
+              </p>
+              <p className="text-xs text-[#455a54]/80">
+                {checkoutPlan.settle
+                  ? `Seña ya cobrada: ${formatCurrency(checkoutPlan.reservation.depositAmount ?? 0)} · se cobra el saldo de ${formatCurrency(checkoutPlan.reservation.balanceDue)}.`
+                  : `Saldo a cobrar: ${formatCurrency(checkoutPlan.reservation.balanceDue)}.`}{' '}
+                Podés sumar otros productos. Al guardar, la reserva queda cobrada.
+              </p>
+            </div>
+          )}
           {/* Nombre amigable de la venta (obligatorio). Para uso interno
               seguimos teniendo el N° de venta que genera el backend. */}
           <div className="space-y-1.5">
@@ -1095,6 +1222,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   onChange={(e) => {
                     const next = e.target.checked;
                     setIsPartial(next);
+                    if (next) setOnAccount(false);
                     // Al cambiar de modo limpiamos pagos para que el operador
                     // ingrese los montos del modo correcto sin arrastrar valores.
                     setPayments([]);
@@ -1113,6 +1241,40 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                   </div>
                 </label>
               </div>
+
+              {/* Fiado: se lleva los productos y paga después. Descuenta stock
+                  y la deuda queda en Ventas → Por cobrar a nombre del cliente. */}
+              {!editingSale && !checkoutPlan && (
+                <div className="flex items-start gap-2 rounded-md border border-[#9d684e]/20 bg-white p-2.5">
+                  <input
+                    type="checkbox"
+                    id="onAccount"
+                    checked={onAccount}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      setOnAccount(next);
+                      if (next) {
+                        setIsPartial(false);
+                        setSettleSel(null);
+                        setIsConsumidorFinal(false);
+                      }
+                      setPayments([]);
+                    }}
+                    disabled={isSubmitting}
+                    className="mt-0.5 rounded border-[#9d684e]/40 text-[#cc844a] focus:ring-[#cc844a]"
+                  />
+                  <label htmlFor="onAccount" className="flex-1 cursor-pointer">
+                    <div className="text-sm font-medium text-[#455a54] font-winter-solid">
+                      Fiado · se lo lleva y paga después
+                    </div>
+                    <div className="text-[11px] text-[#455a54]/60 font-winter-solid">
+                      Para el equipo, familia o clientes de confianza. Descuenta
+                      stock y queda debiendo a su nombre (Ventas → Por cobrar).
+                      Si deja algo ahora, cargalo abajo.
+                    </div>
+                  </label>
+                </div>
+              )}
 
               <PaymentsEditor
                 total={total}
@@ -1536,6 +1698,44 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                     // lista con el ajuste aplicado. El descuento es solo visual en
                     // este modo: NO afecta el total cobrado ni se guarda en el
                     // backend (en parcial el backend fuerza discount = 0).
+                    // Fiado: el total es el de lista y lo que no paga ahora queda
+                    // debiendo (no hay descuento automático).
+                    if (onAccount) {
+                      const debe = Math.max(0, Number((total - cobradoAhora).toFixed(2)));
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs sm:text-sm">
+                            <span>Subtotal:</span>
+                            <span>{formatCurrency(subtotal)}</span>
+                          </div>
+                          {adjustmentApplied !== 0 && (
+                            <div className="flex justify-between text-xs sm:text-sm">
+                              <span>{adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}:</span>
+                              <span>
+                                {adjustmentApplied > 0 ? '-' : '+'}
+                                {formatCurrency(Math.abs(adjustmentApplied))}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-xs sm:text-sm">
+                            <span>Paga ahora:</span>
+                            <span>{formatCurrency(cobradoAhora)}</span>
+                          </div>
+                          <div
+                            className="flex justify-between text-xs sm:text-sm font-winter-solid"
+                            style={{ color: 'var(--color-naranja-medio)' }}
+                          >
+                            <span>Queda debiendo:</span>
+                            <span>{formatCurrency(debe)}</span>
+                          </div>
+                          <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2">
+                            <span>Total:</span>
+                            <span className="text-[#9d684e]">{formatCurrency(total)}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     if (isPartial) {
                       const listSubtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
                       // signedDiscount: positivo = descuento (baja el faltante),
@@ -1667,6 +1867,8 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               type="submit"
               disabled={(() => {
                 if (!customerName.trim() || isSubmitting) return true;
+                // Fiado: alcanza con productos (puede no pagar nada ahora).
+                if (onAccount) return cartItems.length === 0;
                 if (isPartial) {
                   // Precio libre: habilitamos cuando hay al menos un pago > 0
                   // (lo cobrado ES el total).

@@ -97,6 +97,21 @@ export interface DayAgenda {
 export const tablesAdmin = {
   list: async () => (await apiService.get<AdminTable[]>('/tables')).data,
 
+  /** Horario del salón (ventana de reservas del día). */
+  businessHours: async () =>
+    (await apiService.get<{ open: string; close: string }>('/tables/business-hours'))
+      .data,
+
+  /** Lo cambia (admin). Devuelve los turnos que quedan fuera del horario. */
+  setBusinessHours: async (input: { open: string; close: string }) =>
+    (
+      await apiService.put<{
+        open: string;
+        close: string;
+        outsideShifts: string[];
+      }>('/tables/business-hours', input)
+    ).data,
+
   shifts: async () => (await apiService.get<Shift[]>('/tables/shifts')).data,
 
   /** Agenda de un día. `date` en formato YYYY-MM-DD (hora de Argentina). */

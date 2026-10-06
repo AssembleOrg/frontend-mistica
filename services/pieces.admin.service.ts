@@ -51,6 +51,8 @@ export interface PieceItem {
   signature?: string;
   pieceType?: string;
   colorsUsed?: string;
+  /** Quién cargó la ficha (la persona, en cuentas compartidas). */
+  registeredByName?: string;
   /** Adicional elegido al registrar la ficha (copia del catálogo). */
   extraName?: string;
   extraAmount?: number;
@@ -183,21 +185,35 @@ export const piecesAdmin = {
         input as unknown as Record<string, unknown>,
       )
     ).data,
+  /** `registeredBy`: quién carga (cuentas compartidas); si no, la cuenta. */
   createReservationBatch: async (
     reservationId: string,
     entries: ReservationPieceEntryInput[],
+    registeredBy?: string,
   ) =>
     (
       await apiService.post<PieceItem[]>(
         '/pieces/reservation-batch',
-        { reservationId, entries } as unknown as Record<string, unknown>,
+        {
+          reservationId,
+          entries,
+          ...(registeredBy ? { registeredBy } : {}),
+        } as unknown as Record<string, unknown>,
       )
     ).data,
-  createGroupBatch: async (groupId: string, entries: GroupPieceEntryInput[]) =>
+  createGroupBatch: async (
+    groupId: string,
+    entries: GroupPieceEntryInput[],
+    registeredBy?: string,
+  ) =>
     (
       await apiService.post<PieceItem[]>(
         '/pieces/group-batch',
-        { groupId, entries } as unknown as Record<string, unknown>,
+        {
+          groupId,
+          entries,
+          ...(registeredBy ? { registeredBy } : {}),
+        } as unknown as Record<string, unknown>,
       )
     ).data,
   update: async (id: string, input: UpdatePieceInput) =>

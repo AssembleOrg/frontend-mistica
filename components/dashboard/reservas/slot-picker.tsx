@@ -199,11 +199,11 @@ const chip = (on: boolean) =>
       : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
   );
 
-/** Pasos 1 · Experiencia, 2 · Día y 3 · Horario. */
+/** Experiencia, día y horario. */
 export function SlotPicker({
   picker,
   experiences,
-  experienceLabel = '1 · Experiencia',
+  experienceLabel = 'Experiencia',
 }: {
   picker: SlotPickerState;
   experiences: AdminExperience[];
@@ -255,7 +255,7 @@ export function SlotPicker({
       {expId && (
         <div className='space-y-1.5'>
           <label className='text-[13px] font-medium text-[#455a54]'>
-            2 · Día
+            Día
           </label>
           {slotsLoading ? (
             <p className='text-sm text-[#7a6e6f]'>Buscando fechas…</p>
@@ -287,7 +287,7 @@ export function SlotPicker({
       {expId && day && (
         <div className='space-y-1.5'>
           <label className='text-[13px] font-medium text-[#455a54]'>
-            3 · Horario
+            Horario
           </label>
           <div className='flex flex-wrap items-center gap-1.5'>
             {daySlots.map((sl) => (

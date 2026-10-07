@@ -30,6 +30,9 @@
   --color-blanco: #ffffff;
   --color-gris-claro: #d9dadb;
   --color-negro: #000000;
+  /* Texto secundario de formularios (ayudas). Reemplaza #455a54/60, que no
+     llegaba a contraste AA sobre blanco. */
+  --color-texto-suave: #5f6b67;
   --color-verde-profundo-hover: #5a746c;
   --color-terracota-hover: #b17e65;
   --color-ciruela-oscuro-hover: #63555b;

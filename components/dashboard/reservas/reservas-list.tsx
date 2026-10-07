@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Ban, CalendarClock, CheckCircle2, Flame, Search, Wallet } from 'lucide-react';
+import {
+  Ban,
+  CalendarClock,
+  CheckCircle2,
+  Flame,
+  Search,
+  Wallet,
+} from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +47,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs } from '@/lib/views';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
 import { SlotPicker, useSlotPicker } from './slot-picker';
-import { DIETARY_OPTIONS } from './dietary-badge';
+import { DietaryPicker } from './dietary-badge';
+import { FormField, FormSection } from '@/components/ui/form-section';
 
 const LIMIT = 20;
 
@@ -690,61 +698,55 @@ export function NewReservationModal({
     'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-lg'>
+      <DialogContent className='sm:max-w-xl'>
         <DialogHeader>
           <DialogTitle>Nueva reserva</DialogTitle>
-          <DialogDescription>
-            El horario es libre entre las {picker.hours.open} y las{' '}
-            {picker.hours.close}; los destacados son los turnos sugeridos.
-          </DialogDescription>
         </DialogHeader>
 
-        <div className='space-y-3'>
-          <SlotPicker picker={picker} experiences={experiences} />
-
-          {/* 4 · Personas y datos */}
-          <div className='grid grid-cols-2 gap-3'>
-            <div className='space-y-1.5'>
-              <label className='text-[13px] font-medium text-[#455a54]'>
-                Personas{maxParty != null ? ` (hasta ${maxParty})` : ''}
-              </label>
+        <div className='flex flex-col gap-3'>
+          <FormSection
+            title='1 · Cuándo'
+            description={`Horario libre entre las ${picker.hours.open} y las ${picker.hours.close}; los destacados son los turnos sugeridos.`}
+          >
+            <SlotPicker picker={picker} experiences={experiences} />
+            <FormField
+              label={`Personas${maxParty != null ? ` (hasta ${maxParty})` : ''}`}
+              htmlFor='res-qty'
+            >
               <Input
+                id='res-qty'
                 type='number'
                 min={1}
                 max={maxParty ?? undefined}
                 value={qty}
                 onChange={(e) => setQty(e.target.value)}
-                className={field}
+                className={cn('w-28', field)}
               />
-            </div>
-            {manual && (
-              <div className='space-y-1.5'>
-                <label className='text-[13px] font-medium text-[#455a54]'>
-                  Teléfono
-                </label>
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder='Opcional'
-                  className={field}
-                />
-              </div>
-            )}
-          </div>
+            </FormField>
+          </FormSection>
 
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>
-              Cliente
-            </label>
+          <FormSection title='2 · Quién'>
             {manual ? (
               <>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder='Nombre y apellido'
-                  className={field}
-                  autoFocus
-                />
+                <div className='grid gap-3 sm:grid-cols-2'>
+                  <FormField label='Nombre y apellido' htmlFor='res-name'>
+                    <Input
+                      id='res-name'
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={field}
+                      autoFocus
+                    />
+                  </FormField>
+                  <FormField label='Teléfono (opcional)' htmlFor='res-phone'>
+                    <Input
+                      id='res-phone'
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={field}
+                    />
+                  </FormField>
+                </div>
                 <button
                   type='button'
                   onClick={() => {
@@ -752,145 +754,93 @@ export function NewReservationModal({
                     setName('');
                     setPhone('');
                   }}
-                  className='text-xs font-medium text-[#9d684e] hover:underline'
+                  className='w-fit text-xs font-medium text-[#9d684e] hover:underline'
                 >
                   ← Buscar un cliente existente
                 </button>
               </>
             ) : (
-              <ClientPicker
-                value={client}
-                onChange={setClient}
-                placeholder='Buscar cliente por nombre o teléfono…'
-                onCreateNew={(q) => {
-                  setClient(null);
-                  setName(q);
-                  setManual(true);
-                }}
+              <FormField label='Cliente'>
+                <ClientPicker
+                  value={client}
+                  onChange={setClient}
+                  placeholder='Buscar cliente por nombre o teléfono…'
+                  onCreateNew={(q) => {
+                    setClient(null);
+                    setName(q);
+                    setManual(true);
+                  }}
+                />
+              </FormField>
+            )}
+          </FormSection>
+
+          <FormSection title='3 · Cobro'>
+            <FormField label='Cómo abona'>
+              <div className='grid grid-cols-3 gap-2'>
+                {PAY_METHODS.map((m) => {
+                  const on = m.key === method;
+                  return (
+                    <Button
+                      key={m.key}
+                      type='button'
+                      variant={on ? 'verde' : 'outline'}
+                      size='sm'
+                      aria-pressed={on}
+                      onClick={() => setMethod(m.key)}
+                      className={cn(
+                        !on &&
+                          'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
+                      )}
+                    >
+                      {m.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </FormField>
+            <ChargeNow
+              total={total}
+              mode={chargeMode}
+              onModeChange={setChargeMode}
+              amount={chargeAmount}
+              onAmountChange={setChargeAmount}
+            />
+          </FormSection>
+
+          {/* Para cocina: siempre a la vista y en terracota, para que no se
+              pase por alto (restricciones y alergias son lo que más importa). */}
+          <section className='rounded-xl border border-linea border-t-[3px] border-t-terracota bg-white'>
+            <h3 className='px-4 pt-4 text-sm font-semibold text-terracota'>
+              4 · Para cocina
+            </h3>
+            <div className='flex flex-col gap-3 p-4 pt-3'>
+              <SwitchCard
+                checked={isBday}
+                onChange={setIsBday}
+                label='Es un cumpleaños 🎉'
+                hint='Se aplican los beneficios del festejo sobre el precio de la experiencia (regalos, lugares bonificados).'
               />
-            )}
-          </div>
-
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>
-              Cómo abona
-            </label>
-            <div className='grid grid-cols-3 gap-2'>
-              {PAY_METHODS.map((m) => {
-                const on = m.key === method;
-                return (
-                  <Button
-                    key={m.key}
-                    type='button'
-                    variant={on ? 'verde' : 'outline'}
-                    size='sm'
-                    onClick={() => setMethod(m.key)}
-                    className={cn(
-                      !on &&
-                        'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
-                    )}
-                  >
-                    {m.label}
-                  </Button>
-                );
-              })}
+              <FormField label='Restricciones alimentarias'>
+                <DietaryPicker
+                  tags={diet}
+                  onTagsChange={setDiet}
+                  notes={dietNotes}
+                  onNotesChange={setDietNotes}
+                />
+              </FormField>
+              <FormField label='Nota para cocina' htmlFor='res-kitchen'>
+                <Input
+                  id='res-kitchen'
+                  value={kitchenNotes}
+                  onChange={(e) => setKitchenNotes(e.target.value)}
+                  placeholder='Cumpleañero, torta, horario…'
+                  maxLength={500}
+                  className={field}
+                />
+              </FormField>
             </div>
-          </div>
-
-          <ChargeNow
-            total={total}
-            mode={chargeMode}
-            onModeChange={setChargeMode}
-            amount={chargeAmount}
-            onAmountChange={setChargeAmount}
-          />
-
-          <button
-            type='button'
-            onClick={() => setIsBday(!isBday)}
-            className={cn(
-              'flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-sm transition',
-              isBday
-                ? 'border-[#6d5a78] bg-[#efe6f2] text-[#6d5a78]'
-                : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
-            )}
-          >
-            <span
-              className={cn(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px]',
-                isBday
-                  ? 'border-[#6d5a78] bg-[#6d5a78] text-white'
-                  : 'border-[#c9bfb0] bg-white',
-              )}
-            >
-              {isBday ? '✓' : ''}
-            </span>
-            <span>
-              Es un cumpleaños 🎉
-              <span className='block text-[11px] text-[#7a6e6f]'>
-                Se aplican los beneficios del festejo sobre el precio de la
-                experiencia (regalos, lugares bonificados).
-              </span>
-            </span>
-          </button>
-
-          <div className='space-y-2 rounded-xl border border-[#e6dbcd] bg-white px-3.5 py-3'>
-            <p className='text-[13px] font-medium text-[#455a54]'>
-              Para cocina
-            </p>
-            <div className='flex flex-wrap gap-1.5'>
-              {DIETARY_OPTIONS.map((t) => {
-                const on = diet.includes(t);
-                return (
-                  <button
-                    key={t}
-                    type='button'
-                    onClick={() =>
-                      setDiet(on ? diet.filter((x) => x !== t) : [...diet, t])
-                    }
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-semibold transition',
-                      on
-                        ? 'border-[#9d684e] bg-[#9d684e] text-white'
-                        : 'border-[#e0c9a8] bg-[#f4ead9] text-[#9d684e] hover:bg-[#efe0c8]',
-                    )}
-                  >
-                    {on ? '✓ ' : ''}
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
-            <Input
-              value={dietNotes}
-              onChange={(e) => setDietNotes(e.target.value)}
-              placeholder='Alergias u otra restricción (detalle)'
-              maxLength={500}
-              className={field}
-            />
-            <Input
-              value={kitchenNotes}
-              onChange={(e) => setKitchenNotes(e.target.value)}
-              placeholder='Nota para cocina (cumpleañero, torta, horario…)'
-              maxLength={500}
-              className={field}
-            />
-          </div>
-
-          {total > 0 && (
-            <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>
-              Total: <strong>{fmtPrice(total)}</strong>{' '}
-              <span className='text-[#7a6e6f]'>
-                ({quantity} × {fmtPrice(unit)})
-              </span>
-              {isBday && (
-                <span className='block text-[12px] text-[#6d5a78]'>
-                  Es estimado: si un beneficio de cumpleaños aplica (ej. lugar
-                  bonificado), el total real se calcula al crear.
-                </span>
-              )}
-            </p>
-          )}
+          </section>
         </div>
 
         <DialogFooter>
@@ -910,9 +860,69 @@ export function NewReservationModal({
           >
             {saving ? 'Creando…' : 'Crear reserva'}
           </Button>
+          {/* Total siempre a la vista (footer fijo). Va último en el DOM: en
+              mobile el footer está invertido y así queda arriba de los botones. */}
+          {total > 0 && (
+            <div className='flex flex-col text-sm text-[#455a54] sm:order-first sm:mr-auto sm:justify-center'>
+              <span>
+                Total <strong className='text-base'>{fmtPrice(total)}</strong>{' '}
+                <span className='text-texto-suave'>
+                  ({quantity} × {fmtPrice(unit)})
+                </span>
+              </span>
+              {isBday && (
+                <span className='text-[11px] text-[#6d5a78]'>
+                  Estimado: los beneficios de cumpleaños se calculan al crear.
+                </span>
+              )}
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Tarjeta clickeable tipo checkbox (ej. "Es un cumpleaños"). */
+function SwitchCard({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type='button'
+      role='checkbox'
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-sm transition',
+        checked
+          ? 'border-[#6d5a78] bg-[#efe6f2] text-[#6d5a78]'
+          : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]',
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-[11px]',
+          checked
+            ? 'border-[#6d5a78] bg-[#6d5a78] text-white'
+            : 'border-[#c9bfb0] bg-white',
+        )}
+      >
+        {checked ? '✓' : ''}
+      </span>
+      <span>
+        {label}
+        <span className='block text-[11px] text-texto-suave'>{hint}</span>
+      </span>
+    </button>
   );
 }
 

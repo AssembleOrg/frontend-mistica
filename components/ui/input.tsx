@@ -2,10 +2,35 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Input({ className, type, onWheel, ...props }: React.ComponentProps<"input">) {
+// "06" -> "6", "-007" -> "-7"; deja "0", "0.5" y "-0.5" como están.
+const LEADING_ZEROS = /^(-?)0+(?=\d)/
+
+function Input({ className, type, onWheel, onFocus, onChange, ...props }: React.ComponentProps<"input">) {
+  const isNumber = type === "number"
   return (
     <input
       type={type}
+      // Al entrar a un numérico se selecciona todo: escribir reemplaza el 0 en
+      // vez de quedar "06".
+      onFocus={
+        isNumber
+          ? (e) => {
+              e.currentTarget.select()
+              onFocus?.(e)
+            }
+          : onFocus
+      }
+      // React no repinta "06" si el estado ya vale 6 (son el mismo número), así
+      // que los ceros a la izquierda se limpian en el propio input.
+      onChange={
+        isNumber && onChange
+          ? (e) => {
+              const clean = e.currentTarget.value.replace(LEADING_ZEROS, "$1")
+              if (clean !== e.currentTarget.value) e.currentTarget.value = clean
+              onChange(e)
+            }
+          : onChange
+      }
       // La rueda del mouse sobre un input numérico NO debe cambiar el valor
       // (clásico: scrolleás la página y te cambia un precio sin darte cuenta).
       onWheel={

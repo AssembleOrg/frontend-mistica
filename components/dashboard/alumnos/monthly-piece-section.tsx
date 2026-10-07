@@ -13,8 +13,8 @@ import { ResponsableField, useResponsable } from '@/components/dashboard/respons
 export function MonthlyPieceSection({ studentId, canManage }: { studentId: string; canManage: boolean }) {
   const [month, setMonth] = useState(currentMonth);
   const [history, setHistory] = useState<MonthlyPiece[]>([]);
-  // Piezas de más todavía sin guardar.
-  const [drafts, setDrafts] = useState(0);
+  // Piezas de más sin guardar, cada una con su id: al guardarse sale ESA fila.
+  const [drafts, setDrafts] = useState<string[]>([]);
   const responsable = useResponsable();
 
   const load = useCallback(async () => {
@@ -30,7 +30,7 @@ export function MonthlyPieceSection({ studentId, canManage }: { studentId: strin
   }, [load]);
 
   useEffect(() => {
-    setDrafts(0);
+    setDrafts([]);
   }, [month]);
 
   const current = history.filter((h) => h.month === month);
@@ -76,8 +76,8 @@ export function MonthlyPieceSection({ studentId, canManage }: { studentId: strin
           />
         </div>
       ))}
-      {Array.from({ length: drafts }, (_, i) => (
-        <div key={`draft-${month}-${i}`} className='border-t border-[#e6dbcd] pt-3'>
+      {drafts.map((draftId) => (
+        <div key={draftId} className='border-t border-[#e6dbcd] pt-3'>
           <MonthlyPieceFields
             studentId={studentId}
             month={month}
@@ -86,17 +86,17 @@ export function MonthlyPieceSection({ studentId, canManage }: { studentId: strin
             canManage={canManage}
             doneBy={responsable.value || undefined}
             onSaved={(p) => {
-              setDrafts((n) => Math.max(0, n - 1));
+              setDrafts((d) => d.filter((x) => x !== draftId));
               upsert(p);
             }}
-            onRemove={() => setDrafts((n) => Math.max(0, n - 1))}
+            onRemove={() => setDrafts((d) => d.filter((x) => x !== draftId))}
           />
         </div>
       ))}
       {current.some((p) => p.pieceName) && (
         <button
           type='button'
-          onClick={() => setDrafts((n) => n + 1)}
+          onClick={() => setDrafts((d) => [...d, crypto.randomUUID()])}
           className='inline-flex items-center gap-1 self-start text-xs font-medium text-[#9d684e] hover:underline'
         >
           <Plus className='h-3.5 w-3.5' /> Otra pieza este mes (las de más llevan adicional)

@@ -33,8 +33,9 @@ export function PiezasMesPanel() {
   const responsable = useResponsable();
   const [month, setMonth] = useState(currentMonth);
   const [rows, setRows] = useState<MonthlyPieceSheetRow[] | null>(null);
-  // Piezas de más todavía sin guardar, por alumno.
-  const [drafts, setDrafts] = useState<Record<string, number>>({});
+  // Piezas de más todavía sin guardar, por alumno. Cada una con su id: al
+  // guardarse o descartarse sale ESA fila, no la última.
+  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
   const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
@@ -95,13 +96,17 @@ export function PiezasMesPanel() {
     );
   }
 
-  function setDraft(studentId: string, delta: number) {
-    setDrafts((d) => ({ ...d, [studentId]: Math.max(0, (d[studentId] ?? 0) + delta) }));
+  function addDraft(studentId: string) {
+    setDrafts((d) => ({ ...d, [studentId]: [...(d[studentId] ?? []), crypto.randomUUID()] }));
+  }
+
+  function dropDraft(studentId: string, draftId: string) {
+    setDrafts((d) => ({ ...d, [studentId]: (d[studentId] ?? []).filter((x) => x !== draftId) }));
   }
 
   const cols = canManage
-    ? 'grid-cols-[1fr_9rem_11rem_8rem_5rem_5rem_4.5rem_5.5rem_11rem_5rem_2rem]'
-    : 'grid-cols-[1fr_9rem_11rem_8rem_5rem_5rem_4.5rem_5.5rem_2rem]';
+    ? 'grid-cols-[minmax(10rem,1fr)_8rem_11rem_7rem_9.5rem_15rem_13rem_2rem]'
+    : 'grid-cols-[minmax(10rem,1fr)_8rem_11rem_7rem_9.5rem_15rem_2rem]';
 
   return (
     <div className='flex flex-col gap-4'>
@@ -139,23 +144,21 @@ export function PiezasMesPanel() {
         label='¿Quién carga las piezas?'
       />
 
-      <p className='text-xs text-[#7a6e6f]'>
-        La pieza se elige del catálogo (escribí 2 o 3 letras): su categoría dice si lleva adicional, que se puede bonificar. Si pide más de una, sumala con &quot;Otra pieza&quot;. Fresca o bizcocho: con una prendida, la otra se bloquea. &quot;Para&quot; es la clase en que la quiere. Cada cambio se guarda solo.
+      <p className='text-xs text-texto-suave'>
+        Elegí la pieza del catálogo y después marcá cómo avanza: <b>Pedida → Lista → Entregada</b>. Si su
+        categoría lleva adicional, aparece <b>Cobrar $</b>. Cada cambio se guarda solo.
       </p>
 
       <div className='overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white'>
-        <div className={cn('min-w-[72rem]', canManage && 'min-w-[88rem]')}>
+        <div className={cn('min-w-[66rem]', canManage && 'min-w-[80rem]')}>
           <div className={cn('grid items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]', cols)}>
             <span>ALUMNO</span>
             <span>DÍA QUE CURSA</span>
             <span>PIEZA</span>
             <span>PARA</span>
-            <span className='text-center'>FRESCA</span>
-            <span className='text-center'>BIZCOCHO</span>
-            <span className='text-center'>LISTA</span>
-            <span className='text-center'>ENTREGADA</span>
+            <span className='text-center'>COCCIÓN</span>
+            <span className='text-center'>ESTADO</span>
             {canManage && <span className='text-center'>ADICIONAL</span>}
-            {canManage && <span className='text-center'>COBRADO</span>}
             <span className='sr-only'>Borrar</span>
           </div>
           {rows === null ? (
@@ -170,7 +173,7 @@ export function PiezasMesPanel() {
               const slots = r.groups.flatMap((g) => g.schedule);
               // Sin piezas todavía: una fila vacía que crea la pieza del mes.
               const pieces: (MonthlyPiece | null)[] = r.pieces.length ? r.pieces : [null];
-              const draftCount = drafts[sid] ?? 0;
+              const draftIds = drafts[sid] ?? [];
               const canAddMore = r.pieces.some((p) => p.pieceName);
               return (
                 <div key={sid} className='border-b border-[#e6dbcd] last:border-0'>
@@ -182,7 +185,7 @@ export function PiezasMesPanel() {
                           {canAddMore && (
                             <button
                               type='button'
-                              onClick={() => setDraft(sid, 1)}
+                              onClick={() => addDraft(sid)}
                               className='inline-flex items-center gap-1 text-[11px] font-medium text-[#9d684e] hover:underline'
                             >
                               <Plus className='h-3 w-3' /> Otra pieza
@@ -212,8 +215,8 @@ export function PiezasMesPanel() {
                       />
                     </div>
                   ))}
-                  {Array.from({ length: draftCount }, (_, i) => (
-                    <div key={`draft-${sid}-${i}`} className={cn('grid items-center gap-3 px-4 py-2.5', cols)}>
+                  {draftIds.map((draftId) => (
+                    <div key={draftId} className={cn('grid items-center gap-3 px-4 py-2.5', cols)}>
                       <span className='pl-3 text-xs text-[#9d684e]'>Otra pieza (nueva)</span>
                       <span />
                       <MonthlyPieceFields
@@ -226,10 +229,10 @@ export function PiezasMesPanel() {
                         compact
                         doneBy={responsable.value || undefined}
                         onSaved={(saved) => {
-                          setDraft(sid, -1);
+                          dropDraft(sid, draftId);
                           upsertPiece(sid, saved);
                         }}
-                        onRemove={() => setDraft(sid, -1)}
+                        onRemove={() => dropDraft(sid, draftId)}
                       />
                     </div>
                   ))}

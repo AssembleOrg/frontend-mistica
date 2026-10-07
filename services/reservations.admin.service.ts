@@ -291,6 +291,9 @@ export const reservationsAdmin = {
       quantity: number;
       isBirthday?: boolean;
       notes?: string;
+      dietaryTags?: string[];
+      dietaryNotes?: string;
+      kitchenNotes?: string;
     },
   ) =>
     (

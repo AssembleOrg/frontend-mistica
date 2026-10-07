@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { DietaryTags } from './dietary-badge';
+import { DietaryPicker, DietaryTags } from './dietary-badge';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import type { Client } from '@/services/clients.service';
 import { useAuth } from '@/hooks/useAuth';
@@ -74,6 +74,8 @@ export function AnotadosModal({
   // Cobrar todo o una parte (seña); el resto queda como saldo.
   const [chargeMode, setChargeMode] = useState<ChargeMode>('total');
   const [chargeAmount, setChargeAmount] = useState('');
+  const [diet, setDiet] = useState<string[]>([]);
+  const [dietNotes, setDietNotes] = useState('');
   const [saving, setSaving] = useState(false);
   // Con gente anotada, el alta queda plegada: abierto parecía que había que
   // "confirmar" las reservas que ya estaban.
@@ -131,6 +133,8 @@ export function AnotadosModal({
             }),
         paymentMethod: method,
         amount: charge.amount,
+        ...(diet.length ? { dietaryTags: diet } : {}),
+        ...(dietNotes.trim() ? { dietaryNotes: dietNotes.trim() } : {}),
       });
       showToast.success('Reserva creada');
       setAdding(false);
@@ -141,6 +145,8 @@ export function AnotadosModal({
       setName('');
       setContact('');
       setQty(1);
+      setDiet([]);
+      setDietNotes('');
       await load();
       onChanged();
     } catch (e) {
@@ -394,6 +400,17 @@ export function AnotadosModal({
               <span className='text-xs text-[#455a54]/60'>
                 {session ? `${session.seatsAvailable} disp.` : ''}
               </span>
+            </div>
+            <div className='space-y-2'>
+              <p className='text-[13px] font-medium text-terracota'>
+                Restricciones alimentarias
+              </p>
+              <DietaryPicker
+                tags={diet}
+                onTagsChange={setDiet}
+                notes={dietNotes}
+                onNotesChange={setDietNotes}
+              />
             </div>
             <div className='grid grid-cols-3 gap-2'>
               {METHODS.map((m) => {

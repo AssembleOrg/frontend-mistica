@@ -137,7 +137,8 @@ export class ApiService {
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
-    config: HttpConfig = {}
+    config: HttpConfig = {},
+    isRetry = false
   ): Promise<ApiResponse<T>> {
     const method = options.method || 'GET';
     
@@ -162,56 +163,124 @@ export class ApiService {
     this.updateRequestCache(endpoint, method);
     this.activeRequests++;
 
+    let response: Response;
     try {
-      const response = await fetch(url, {
+      response = await fetch(url, {
         ...options,
         headers: this.buildHeaders(config.headers),
         credentials: 'include',
+        cache: 'no-store',
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-      this.activeRequests--;
-
-      if (response.status === 401) {
-        this.handleUnauthorized(endpoint);
-      }
-
-      return this.handleResponse<T>(response);
     } catch (error) {
       clearTimeout(timeoutId);
       this.activeRequests--;
+      throw this.toApiError(error);
+    }
 
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw {
-          message: 'Request timeout',
-          status: 408,
-          code: 'TIMEOUT',
-        } as ApiError;
+    clearTimeout(timeoutId);
+    this.activeRequests--;
+
+    if (
+      response.status === 401 &&
+      this.usesSession(endpoint) &&
+      (await this.isSessionRejection(response))
+    ) {
+      // Safari en iPhone/iPad (sobre todo la app instalada) a veces manda un
+      // fetch sin la cookie de sesión aunque la sesión siga viva (bug de
+      // WebKit con las cookies SameSite=Lax). Antes de echar a la persona al
+      // login se confirma la sesión y, si está bien, se reintenta una vez.
+      if (!isRetry && (await this.sessionStillValid())) {
+        return this.request<T>(endpoint, options, config, true);
       }
+      this.handleUnauthorized();
+    }
 
-      // Re-throw API errors
-      if (typeof error === 'object' && error !== null && 'status' in error) {
-        throw error;
-      }
-
-      // Handle network or other errors
-      throw {
-        message: error instanceof Error ? error.message : 'Network error',
-        status: 0,
-        code: 'NETWORK_ERROR',
-        details: error,
-      } as ApiError;
+    try {
+      return await this.handleResponse<T>(response);
+    } catch (error) {
+      throw this.toApiError(error);
     }
   }
 
-  // Si el backend devuelve 401 y había una sesión persistida, la cookie está
-  // vencida o fue invalidada → limpiamos el user y mandamos al login.
-  // Excepciones: el endpoint de login no debe rebotar (un 401 ahí significa
-  // "credenciales inválidas", no "sesión expirada"); ya estar en `/` tampoco.
-  private handleUnauthorized(endpoint: string): void {
-    if (typeof window === 'undefined') return;
-    if (endpoint.startsWith('/auth/login')) return;
+  private toApiError(error: unknown): ApiError {
+    if (error instanceof Error && error.name === 'AbortError') {
+      return {
+        message: 'Request timeout',
+        status: 408,
+        code: 'TIMEOUT',
+      };
+    }
+
+    // Re-throw API errors
+    if (typeof error === 'object' && error !== null && 'status' in error) {
+      return error as ApiError;
+    }
+
+    // Handle network or other errors
+    return {
+      message: error instanceof Error ? error.message : 'Network error',
+      status: 0,
+      code: 'NETWORK_ERROR',
+      details: error,
+    };
+  }
+
+  // Un 401 en login significa "credenciales inválidas", no "sesión vencida".
+  private usesSession(endpoint: string): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      !endpoint.startsWith('/auth/login') &&
+      !endpoint.startsWith('/auth/logout')
+    );
+  }
+
+  // El 401 del guard de sesión (sin cookie, vencida o cuenta borrada). Otros
+  // 401 son del propio endpoint ("PIN incorrecto") y vuelven como error común.
+  private async isSessionRejection(response: Response): Promise<boolean> {
+    try {
+      const body = await response.clone().json();
+      return body?.message === 'Unauthorized' || body?.message === 'Sesión inválida';
+    } catch {
+      return true;
+    }
+  }
+
+  // Varios pedidos que rebotan juntos comparten una sola verificación.
+  private sessionCheck: Promise<boolean> | null = null;
+
+  private sessionStillValid(): Promise<boolean> {
+    if (!this.sessionCheck) {
+      this.sessionCheck = this.checkSession().finally(() => {
+        this.sessionCheck = null;
+      });
+    }
+    return this.sessionCheck;
+  }
+
+  // Dos intentos contra /auth/me: si Safari omitió la cookie en uno, el otro
+  // la lleva. Sólo un 401 en ambos cuenta como sesión vencida.
+  private async checkSession(): Promise<boolean> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise((resolve) => setTimeout(resolve, 500));
+      try {
+        const res = await fetch(`${this.baseURL}/auth/me`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (res.ok) return true;
+        if (res.status !== 401) return false;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  // Si el backend devuelve 401 (confirmado) y había una sesión persistida, la
+  // cookie está vencida o fue invalidada → limpiamos el user y mandamos al
+  // login. Ya estar en `/login` no rebota.
+  private handleUnauthorized(): void {
     if (window.location.pathname === '/login') return;
 
     const persisted = window.localStorage.getItem('mistica-auth-storage');

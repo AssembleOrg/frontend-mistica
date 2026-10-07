@@ -16,6 +16,8 @@ function ReceiptPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   
   const saleId = searchParams.get('saleId');
+  // print=1: viene de "Imprimir ticket" — imprime solo y se cierra.
+  const autoPrint = searchParams.get('print') === '1';
   let type = (searchParams.get('type') as 'thermal' | 'a4') || 'a4';
   
   // También revisar el parámetro 'receipt' como alternativa
@@ -78,6 +80,7 @@ function ReceiptPageContent() {
       sale={sale} 
       onClose={handleClose} 
       type={type}
+      autoPrint={autoPrint}
     />
   );
 }

@@ -15,6 +15,15 @@ export function generateReceiptUrl(sale: Sale, options: ReceiptOptions): string 
   return `/receipt?${params.toString()}`;
 }
 
+/**
+ * Imprimir el ticket térmico en un paso: abre el ticket, lanza la impresión y
+ * la ventana se cierra sola al terminar (sin pasar por "Ver comprobante").
+ */
+export function printThermalTicket(saleId: string): void {
+  const params = new URLSearchParams({ saleId, type: 'thermal', print: '1' });
+  window.open(`/receipt?${params.toString()}`, '_blank', 'width=420,height=720');
+}
+
 export function openReceiptInNewTab(sale: Sale, options: ReceiptOptions): void {
   const url = generateReceiptUrl(sale, options);
   window.open(url, '_blank', 'width=800,height=1000,scrollbars=yes,resizable=yes');

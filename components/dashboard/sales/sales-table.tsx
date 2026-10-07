@@ -25,6 +25,7 @@ import {
   Receipt,
   Pencil,
   Link2,
+  Printer,
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 
@@ -63,6 +64,7 @@ import { Input } from '@/components/ui/input';
 import { TableFilters, FilterOption } from '@/components/ui/table-filters';
 import { Sale, salesService } from '@/services/sales.service';
 import { showToast } from '@/lib/toast';
+import { printThermalTicket } from '@/lib/receipt-utils';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 
@@ -629,6 +631,16 @@ export function SalesTable({
                 Ver detalles
               </DropdownMenuItem>
               
+              {(isCompleted || isPending) && (
+                <DropdownMenuItem
+                  className='hover:bg-[#efcbb9]/30 text-[#455a54] font-medium'
+                  onClick={() => printThermalTicket(sale.id)}
+                  disabled={isActionLoading}
+                >
+                  <Printer className='mr-2 h-4 w-4' />
+                  Imprimir ticket
+                </DropdownMenuItem>
+              )}
               {(isCompleted || isPending) && (
                 <DropdownMenuItem
                   className='hover:bg-[#efcbb9]/30 text-[#455a54]'

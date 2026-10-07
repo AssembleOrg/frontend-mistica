@@ -20,6 +20,8 @@ interface KbdShortcutsProps {
   onSearchChange: (v: string) => void;
   onRequestEdit: (sale: Sale) => void;
   onViewReceipt: (sale: Sale) => void;
+  /** F6: imprimir el ticket térmico directo. */
+  onPrintTicket?: (sale: Sale) => void;
 }
 
 export function KbdShortcuts({
@@ -38,6 +40,7 @@ export function KbdShortcuts({
   onSearchChange,
   onRequestEdit,
   onViewReceipt,
+  onPrintTicket,
 }: KbdShortcutsProps) {
   const selectedIndex = sales.findIndex(s => s.id === selectedSale?.id);
 
@@ -155,6 +158,19 @@ export function KbdShortcuts({
     },
     { enableOnFormTags: false },
     [selectedSale],
+  );
+
+  // F6: imprimir el ticket térmico de la venta seleccionada
+  useHotkeys(
+    'f6',
+    (e) => {
+      e.preventDefault();
+      if (selectedSale?.status === 'COMPLETED' || selectedSale?.status === 'PENDING') {
+        onPrintTicket?.(selectedSale);
+      }
+    },
+    { enableOnFormTags: false },
+    [selectedSale, onPrintTicket],
   );
 
   // Enter en el buscador: quitar foco y seleccionar primera fila

@@ -20,6 +20,13 @@ function detectIOS(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || isIPadOS;
 }
 
+/** Safari en cualquier equipo de Apple (en iOS todos los navegadores son WebKit). */
+function detectAppleWebKit(): boolean {
+  if (detectIOS()) return true;
+  const ua = navigator.userAgent;
+  return /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(ua);
+}
+
 /** Registra el service worker y captura el aviso de instalación del navegador. */
 export function PwaProvider() {
   const setDeferredPrompt = usePwaStore((s) => s.setDeferredPrompt);
@@ -40,9 +47,20 @@ export function PwaProvider() {
     window.addEventListener('appinstalled', onInstalled);
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js', { scope: '/', updateViaCache: 'none' })
-        .catch(() => {});
+      if (detectAppleWebKit()) {
+        // En Safari (iPhone, iPad, Mac) un service worker con handler de fetch
+        // hace que a veces no viaje la cookie de sesión (SameSite=Lax) y la app
+        // instalada rebotaba al login. iOS no lo necesita para instalar la web,
+        // así que ahí no se registra y se da de baja el que haya quedado.
+        navigator.serviceWorker
+          .getRegistrations()
+          .then((registrations) => registrations.forEach((r) => void r.unregister()))
+          .catch(() => {});
+      } else {
+        navigator.serviceWorker
+          .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+          .catch(() => {});
+      }
     }
 
     return () => {

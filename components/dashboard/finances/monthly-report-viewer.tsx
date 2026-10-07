@@ -3,6 +3,8 @@
 import { type FinanceSummary } from '@/services/finance.service';
 import { formatCurrency } from '@/lib/sales-calculations';
 import { defaultSessionLabel } from '@/lib/session-label';
+import type { EgressBreakdown } from '@/hooks/useEgressBreakdown';
+import { EgressBreakdownPrint } from './egress-breakdown';
 import {
   C,
   KpiBand,
@@ -18,9 +20,16 @@ import {
 interface Props {
   summary: FinanceSummary;
   monthLabel: string;
+  /** Egresos del período por categoría (sueldos, impuestos, cocina…). */
+  egresses?: EgressBreakdown;
 }
 
-export function MonthlyReportViewer({ summary, monthLabel }: Props) {
+/**
+ * Cierre de mes en un solo documento: ingresos (ventas, señas y otros),
+ * egresos discriminados por categoría con su detalle, caja y top de productos.
+ */
+export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
+  const incomeTotal = summary.totalRevenue + summary.prepaids.total + summary.incomes.total;
   const paymentTotal = summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER + (summary.byPaymentMethod.MERCADOPAGO ?? 0);
   const pct = (n: number) => paymentTotal > 0 ? Math.round((n / paymentTotal) * 100) : 0;
 
@@ -41,8 +50,8 @@ export function MonthlyReportViewer({ summary, monthLabel }: Props) {
           },
           {
             label: 'Ingresos totales',
-            value: formatCurrency(summary.totalRevenue),
-            sub: summary.incomes.count > 0 ? `+ ${summary.incomes.count} otros ingresos` : 'ventas + señas',
+            value: formatCurrency(incomeTotal),
+            sub: 'ventas + señas + otros',
           },
           {
             label: 'Egresos',
@@ -57,6 +66,48 @@ export function MonthlyReportViewer({ summary, monthLabel }: Props) {
           },
         ]}
       />
+
+      {/* Ingresos y egresos del período */}
+      <div style={{ marginBottom: 20 }}>
+        <SectionTitle>Ingresos y egresos</SectionTitle>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <tbody>
+            {[
+              { label: `Ventas (${summary.salesCount})`, amount: summary.totalRevenue },
+              { label: `Señas (${summary.prepaids.count})`, amount: summary.prepaids.total },
+              { label: `Otros ingresos (${summary.incomes.count})`, amount: summary.incomes.total },
+            ].map((row) => (
+              <tr key={row.label}>
+                <td style={{ ...cellBase, color: C.gris }}>{row.label}</td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.tinta, width: 120 }}>
+                  {formatCurrency(row.amount)}
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td style={totalCell}>Total ingresos</td>
+              <td className="tabular-nums" style={{ ...totalCell, textAlign: 'right', fontWeight: 800, fontSize: 11, color: C.verde }}>
+                {formatCurrency(incomeTotal)}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ ...cellBase, color: C.gris }}>Egresos ({summary.expenses.count})</td>
+              <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.terracota }}>
+                − {formatCurrency(summary.expenses.total)}
+              </td>
+            </tr>
+            <tr>
+              <td style={totalCell}>Balance neto</td>
+              <td
+                className="tabular-nums"
+                style={{ ...totalCell, textAlign: 'right', fontWeight: 800, fontSize: 11, color: summary.netBalance >= 0 ? C.verde : C.rojo }}
+              >
+                {formatCurrency(summary.netBalance)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       {/* Sesiones de caja */}
       <div style={{ marginBottom: 20 }}>
@@ -232,6 +283,19 @@ export function MonthlyReportViewer({ summary, monthLabel }: Props) {
           </table>
         )}
       </div>
+
+      {/* Egresos discriminados por categoría + detalle */}
+      {egresses && (
+        <EgressBreakdownPrint
+          rows={egresses.rows}
+          items={egresses.items}
+          total={egresses.total}
+          count={egresses.count}
+          error={egresses.error}
+          truncated={egresses.truncated}
+          totalAvailable={egresses.totalAvailable}
+        />
+      )}
 
       <PrintFooter />
     </PrintPage>

@@ -627,6 +627,9 @@ export function NewReservationModal({
   const { expId, day, time, maxParty, unit } = picker;
 
   const [qty, setQty] = useState('1');
+  // De esas personas, cuántas van de regalo: entran (piezas, cocina) pero no
+  // se cobran (p. ej. un cumple de 8 con 1 bonificada).
+  const [free, setFree] = useState('0');
   // Cliente existente (buscador) o, si no está, nombre + teléfono a mano.
   const [client, setClient] = useState<Client | null>(null);
   const [manual, setManual] = useState(false);
@@ -647,15 +650,18 @@ export function NewReservationModal({
   const [saving, setSaving] = useState(false);
 
   const quantity = Math.max(1, Number(qty) || 1);
-  const total = unit * quantity;
+  const freeSpots = Math.min(quantity, Math.max(0, Math.floor(Number(free) || 0)));
+  const billable = quantity - freeSpots;
+  const total = unit * billable;
+  // Más de lo que entra con las mesas libres: se puede (el admin acomoda el
+  // salón), sólo se avisa.
+  const overMax = maxParty != null && quantity > maxParty;
 
   async function submit() {
     if (!expId) return showToast.error('Elegí una experiencia');
     if (!day || !time) return showToast.error('Elegí día y horario');
     if (!client && name.trim().length < 2)
       return showToast.error('Elegí un cliente o ingresá el nombre');
-    if (maxParty != null && quantity > maxParty)
-      return showToast.error(`A esa hora entran hasta ${maxParty} personas`);
     const charge = partialAmount(chargeMode, chargeAmount, total);
     if (charge.error) return showToast.error(charge.error);
     setSaving(true);
@@ -665,6 +671,7 @@ export function NewReservationModal({
         date: day,
         startTime: time,
         quantity,
+        ...(freeSpots > 0 ? { freeSpots } : {}),
         ...(client
           ? {
               clientId: clientIdOf(client),
@@ -709,20 +716,39 @@ export function NewReservationModal({
             description={`Horario libre entre las ${picker.hours.open} y las ${picker.hours.close}; los destacados son los turnos sugeridos.`}
           >
             <SlotPicker picker={picker} experiences={experiences} />
-            <FormField
-              label={`Personas${maxParty != null ? ` (hasta ${maxParty})` : ''}`}
-              htmlFor='res-qty'
-            >
-              <Input
-                id='res-qty'
-                type='number'
-                min={1}
-                max={maxParty ?? undefined}
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                className={cn('w-28', field)}
-              />
-            </FormField>
+            <div className='flex flex-wrap gap-3'>
+              <FormField label='Personas' htmlFor='res-qty'>
+                <Input
+                  id='res-qty'
+                  type='number'
+                  min={1}
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  className={cn('w-28', field)}
+                />
+              </FormField>
+              <FormField label='Bonificadas' htmlFor='res-free'>
+                <Input
+                  id='res-free'
+                  type='number'
+                  min={0}
+                  max={quantity}
+                  value={free}
+                  onChange={(e) => setFree(e.target.value)}
+                  className={cn('w-28', field)}
+                />
+              </FormField>
+            </div>
+            {overMax ? (
+              <p className='text-[12px] font-medium text-[#cc844a]'>
+                Con las mesas libres entran {maxParty}: con {quantity} se toman todas
+                las libres y el resto lo acomodás en el salón.
+              </p>
+            ) : freeSpots > 0 ? (
+              <p className='text-[12px] text-[#7a6e6f]'>
+                Entran {quantity} (cuentan para piezas y cocina) y se cobran {billable}.
+              </p>
+            ) : null}
           </FormSection>
 
           <FormSection title='2 · Quién'>
@@ -867,7 +893,8 @@ export function NewReservationModal({
               <span>
                 Total <strong className='text-base'>{fmtPrice(total)}</strong>{' '}
                 <span className='text-texto-suave'>
-                  ({quantity} × {fmtPrice(unit)})
+                  ({billable} × {fmtPrice(unit)}
+                  {freeSpots > 0 ? ` · ${freeSpots} bonificada${freeSpots === 1 ? '' : 's'}` : ''})
                 </span>
               </span>
               {isBday && (

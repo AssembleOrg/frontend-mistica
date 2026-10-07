@@ -67,13 +67,14 @@ export function MonthlyCloseDialog({
   let label = '';
 
   if (tipo === 'mes') {
-    // Mes contable del negocio: del 10 del mes elegido al 10 del siguiente
-    // (septiembre = 10/09 → 10/10).
+    // Mes contable del negocio: del 11 del mes elegido al 10 del siguiente
+    // (septiembre = 11/09 → 10/10). El 10 se pagan los sueldos y cierra el
+    // mes; así ningún día cae en dos cierres.
     const nextMonth = selectedMonth === 12 ? 1 : selectedMonth + 1;
     const nextYear = selectedMonth === 12 ? selectedYear + 1 : selectedYear;
-    from = `${selectedYear}-${monthStr}-10`;
+    from = `${selectedYear}-${monthStr}-11`;
     to = `${nextYear}-${pad(nextMonth)}-10`;
-    label = `${MONTHS[selectedMonth - 1]} ${selectedYear} (10 al 10)`;
+    label = `${MONTHS[selectedMonth - 1]} ${selectedYear} (11 al 10)`;
   } else if (tipo === 'quincena') {
     from = quincena === 1
       ? `${selectedYear}-${monthStr}-01`
@@ -134,7 +135,7 @@ export function MonthlyCloseDialog({
             }}
             onClick={() => setTipo('mes')}
           >
-            Mes (10 al 10)
+            Mes (11 al 10)
           </button>
           <button
             style={{

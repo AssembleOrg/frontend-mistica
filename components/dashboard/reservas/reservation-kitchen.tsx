@@ -35,6 +35,9 @@ export type ReservationPatch = Partial<
     | 'balanceDue'
     | 'totalAmount'
     | 'extras'
+    | 'quantity'
+    | 'freeSpots'
+    | 'tableCodes'
   >
 >;
 

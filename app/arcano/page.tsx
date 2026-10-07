@@ -3,6 +3,16 @@
 import { useSearchParams, notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { AtSign, CalendarHeart, Star } from 'lucide-react';
+
+// Lo que sigue después del mensaje (el QR va en tarjetitas que se entregan en
+// el local): dejarnos una reseña, seguirnos y volver a reservar.
+// Reemplazar por el link "Pedir reseñas" del Perfil de Empresa de Google
+// (g.page/r/…/review): abre directo la ventana para calificar.
+const GOOGLE_REVIEW_URL =
+  'https://www.google.com/maps/search/?api=1&query=M%C3%ADstica+Aut%C3%A9ntica+Videla+57+Quilmes';
+const INSTAGRAM_URL = 'https://www.instagram.com/mistica.autentica/';
 
 const arcanosData = {
   '0': {
@@ -222,6 +232,43 @@ function ArcanoContent() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Después del mensaje: reseña, Instagram y volver a reservar */}
+          <div className='mt-8 rounded-2xl border border-[#efcbb9]/15 bg-black/25 p-6 text-center backdrop-blur-md sm:p-8'>
+            <p className='font-tan-nimbus text-xl text-[#efcbb9] sm:text-2xl'>
+              ¿Te gustó tu visita?
+            </p>
+            <p className='mt-1 text-sm text-[#efcbb9]/70 font-winter-solid'>
+              Tu reseña nos ayuda a que más personas nos encuentren.
+            </p>
+            <div className='mt-5 grid gap-3 sm:grid-cols-3'>
+              <a
+                href={GOOGLE_REVIEW_URL}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#efcbb9] px-4 py-3 text-[15px] font-semibold text-[#2d2426] transition hover:bg-[#f5dccf]'
+              >
+                <Star className='h-4 w-4 fill-current' />
+                Calificanos en Google
+              </a>
+              <a
+                href={INSTAGRAM_URL}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#efcbb9]/40 px-4 py-3 text-[15px] font-semibold text-[#efcbb9] transition hover:bg-[#efcbb9]/10'
+              >
+                <AtSign className='h-4 w-4' />
+                Seguinos en Instagram
+              </a>
+              <Link
+                href='/'
+                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#efcbb9]/40 px-4 py-3 text-[15px] font-semibold text-[#efcbb9] transition hover:bg-[#efcbb9]/10'
+              >
+                <CalendarHeart className='h-4 w-4' />
+                Reservá tu próxima visita
+              </Link>
             </div>
           </div>
         </div>

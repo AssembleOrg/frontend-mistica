@@ -8,7 +8,6 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Printer, Download, X } from 'lucide-react';
-import QRCode from 'qrcode';
 import { hasAfipData } from '@/lib/receipt-utils';
 import { parseNotesAndSeller } from '@/lib/sales-seller';
 
@@ -16,40 +15,50 @@ interface ReceiptViewerProps {
   sale: Sale;
   onClose: () => void;
   type?: 'thermal' | 'a4';
+  /** Imprimir apenas carga y cerrar la ventana al terminar ("Imprimir ticket"). */
+  autoPrint?: boolean;
 }
 
-export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps) {
+/**
+ * Cuánto papel avanza la térmica después del ticket, para que lo impreso
+ * pase la sierra y se corte entero. El driver recorta el blanco del final,
+ * por eso el espacio termina en una marca mínima. Se ajusta desde el ticket y
+ * queda guardado en esta compu.
+ */
+const FEED_KEY = 'mistica:ticket-feed-mm';
+const DEFAULT_FEED_MM = 15;
+
+export function ReceiptViewer({ sale, onClose, type = 'a4', autoPrint = false }: ReceiptViewerProps) {
   const { formatCurrency } = useCurrencyFormat();
-  const [isLoading, setIsLoading] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const { seller, notes: cleanNotes } = parseNotesAndSeller(sale.notes);
+  const [feedMm, setFeedMm] = useState(DEFAULT_FEED_MM);
 
-  // Generar QR aleatorio (mensaje del Tarot) para A4 y térmico.
-  // Alta resolución + quiet zone (margin 2) para que escanee bien impreso en térmica 203 DPI.
   useEffect(() => {
-    if (type === 'a4' || type === 'thermal') {
-      const generateRandomQR = async () => {
-        try {
-          // URL fija: el arcano se elige al azar en el momento del escaneo
-          const arcanoUrl = `${window.location.origin}/arcano/random`;
-          // Generar el código QR
-          const qrDataUrl = await QRCode.toDataURL(arcanoUrl, {
-            width: 320,
-            margin: 2,
-            color: {
-              dark: '#000000',
-              light: '#FFFFFF'
-            }
-          });
-          setQrCodeUrl(qrDataUrl);
-        } catch (error) {
-          console.error('Error generando QR:', error);
-        }
-      };
+    const raw = window.localStorage.getItem(FEED_KEY);
+    const saved = raw === null ? NaN : Number(raw);
+    if (Number.isFinite(saved) && saved >= 0 && saved <= 60) setFeedMm(saved);
+  }, []);
 
-      generateRandomQR();
-    }
-  }, [type]);
+  function changeFeed(value: number) {
+    const mm = Math.min(60, Math.max(0, Math.round(value) || 0));
+    setFeedMm(mm);
+    window.localStorage.setItem(FEED_KEY, String(mm));
+  }
+
+  // "Imprimir ticket": imprime solo (con las fuentes ya cargadas) y cierra.
+  useEffect(() => {
+    if (!autoPrint) return;
+    const close = () => window.close();
+    window.addEventListener('afterprint', close);
+    let timer: number | undefined;
+    void document.fonts.ready.then(() => {
+      timer = window.setTimeout(() => window.print(), 250);
+    });
+    return () => {
+      window.removeEventListener('afterprint', close);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [autoPrint]);
 
   const formatDate = (date: Date) => {
     return format(date, "dd/MM/yyyy HH:mm", { locale: es });
@@ -79,6 +88,11 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Desde el A4: pasar al ticket térmico e imprimirlo directo.
+  const handlePrintTicket = () => {
+    window.location.href = `${window.location.origin}/receipt?saleId=${sale.id}&type=thermal&print=1`;
   };
 
   const handleToggleFormat = () => {
@@ -212,19 +226,6 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         ))}
       </div>
 
-      {/* QR Mensaje del Tarot */}
-      {qrCodeUrl && (
-        <div className="qr-thermal border-b border-dashed border-black pb-2 mb-2" style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '10px' }}>🔮 Tu mensaje del Tarot</div>
-          <img
-            src={qrCodeUrl}
-            alt="QR Tarot"
-            style={{ width: '28mm', height: '28mm', margin: '4px auto', display: 'block' }}
-          />
-          <div style={{ fontSize: '9px' }}>Escaneá para tu mensaje personalizado</div>
-        </div>
-      )}
-
       {/* Footer */}
       <div>
         <div className="thermal-thanks mb-1">¡Gracias por su compra!</div>
@@ -243,6 +244,11 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
           {formatDate(new Date())}
         </div>
       </div>
+
+      {/* Avance para el corte (sólo al imprimir): espacio + marca mínima, si no
+          el driver recorta el blanco y lo último queda adentro de la impresora. */}
+      <div className="thermal-feed" aria-hidden style={{ height: `${feedMm}mm` }} />
+      <div className="thermal-end" aria-hidden>.</div>
     </div>
   );
 
@@ -425,38 +431,34 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
             </div>
           </div>
           
-          {/* Right side - QR Code */}
-          {qrCodeUrl && (
-            <div className="flex-shrink-0 text-center ml-8">
-              <div className="text-sm font-medium text-[#455a54] mb-2">
-                🔮 Tu Mensaje del Tarot
-              </div>
-              <img 
-                src={qrCodeUrl} 
-                alt="QR Mensaje del Tarot" 
-                className="mx-auto border border-gray-300 rounded-lg"
-                style={{ width: 120, height: 120 }}
-              />
-              <div className="text-xs text-gray-500 mt-2">
-                Escanea para recibir<br />tu mensaje personalizado
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-full max-h-full overflow-auto">
+    <div className="receipt-overlay fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className="receipt-shell bg-white rounded-lg shadow-2xl max-w-full max-h-full overflow-auto">
         {/* Controls */}
-        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center print:hidden">
-          <div className="flex gap-2">
-            <Button onClick={handlePrint} variant="outline" size="sm">
-              <Printer className="w-4 h-4 mr-2" />
-              Imprimir
-            </Button>
+        <div className="sticky top-0 bg-white border-b p-4 flex flex-wrap gap-2 justify-between items-center print:hidden">
+          <div className="flex flex-wrap items-center gap-2">
+            {type === 'thermal' ? (
+              <Button onClick={handlePrint} size="sm" className="bg-[#455a54] text-white hover:bg-[#455a54]/90">
+                <Printer className="w-4 h-4 mr-2" />
+                Imprimir ticket
+              </Button>
+            ) : (
+              <>
+                <Button onClick={handlePrintTicket} size="sm" className="bg-[#455a54] text-white hover:bg-[#455a54]/90">
+                  <Printer className="w-4 h-4 mr-2" />
+                  Imprimir ticket
+                </Button>
+                <Button onClick={handlePrint} variant="outline" size="sm">
+                  <Printer className="w-4 h-4 mr-2" />
+                  Imprimir A4
+                </Button>
+              </>
+            )}
             <Button
               onClick={handleToggleFormat}
               variant="outline"
@@ -465,6 +467,23 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
               <Download className="w-4 h-4 mr-2" />
               {type === 'thermal' ? 'Ver A4' : 'Ver Térmico'}
             </Button>
+            {type === 'thermal' && (
+              <label
+                className="flex items-center gap-1.5 text-xs text-[#7a6e6f]"
+                title="Si lo último queda adentro de la impresora, subilo; si sobra papel, bajalo."
+              >
+                Avance al final
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={feedMm}
+                  onChange={(e) => changeFeed(Number(e.target.value))}
+                  className="h-8 w-14 rounded-md border border-[#e6dbcd] px-2 text-xs"
+                />
+                mm
+              </label>
+            )}
           </div>
           <Button onClick={type === 'thermal' ? () => window.close() : onClose} variant="outline" size="sm">
             <X className="w-4 h-4" />
@@ -472,7 +491,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4' }: ReceiptViewerProps
         </div>
 
         {/* Receipt Content */}
-        <div className="p-4">
+        <div className="receipt-body p-4">
           {type === 'thermal' ? <ThermalReceipt /> : <A4Receipt />}
         </div>
       </div>

@@ -752,14 +752,38 @@ html:has([data-slot='sheet-content'][data-state='open']) body {
     visibility: visible;
   }
 
+  /* Hojas imprimibles sueltas (tarjetas del Tarot). */
+  .hoja-imprimible, .hoja-imprimible * {
+    visibility: visible;
+  }
+
+  /* El visor es una capa fija en pantalla: al imprimir pasa al flujo normal,
+     así el ticket arranca en el borde de arriba del papel (sin margen blanco)
+     y la página mide lo que mide el ticket. */
+  .receipt-overlay {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    background: none !important;
+  }
+  .receipt-shell {
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  .receipt-body {
+    padding: 0 !important;
+  }
+
   .receipt-thermal {
-    position: absolute;
-    left: 0;
-    top: 0;
+    position: static;
     margin: 0 !important;
-    /* izq 2mm, der 6mm — margen derecho generoso para que nada toque el borde */
-    /* bottom 20mm: fuerza al driver a avanzar el papel antes del corte automático */
-    padding: 4px 6mm 20mm 2mm !important;
+    /* izq 2mm, der 6mm — margen derecho generoso para que nada toque el borde.
+       Arriba 0: el ticket empieza pegado al borde. El avance para el corte lo
+       da .thermal-feed (el padding de abajo el driver lo recortaba). */
+    padding: 0 6mm 0 2mm !important;
     width: 68mm !important;
     max-width: 68mm !important;
     min-height: auto !important;
@@ -853,6 +877,17 @@ html:has([data-slot='sheet-content'][data-state='open']) body {
     font-weight: 900 !important;
   }
 
+  /* Avance al final + marca mínima: la marca obliga al driver a sacar el
+     papel hasta ahí, así lo impreso pasa la sierra y se corta entero. */
+  .receipt-thermal .thermal-feed {
+    display: block !important;
+  }
+  .receipt-thermal .thermal-end {
+    display: block !important;
+    font-size: 6px !important;
+    line-height: 1 !important;
+  }
+
   /* Separadores punteados en negro sólido, no gris */
   .receipt-thermal [class*="border-"] {
     border-color: #000 !important;
@@ -871,6 +906,12 @@ html:has([data-slot='sheet-content'][data-state='open']) body {
   .print\:hidden {
     display: none !important;
   }
+}
+
+/* En pantalla no se ve el avance para el corte: es sólo para el papel. */
+.receipt-thermal .thermal-feed,
+.receipt-thermal .thermal-end {
+  display: none;
 }
 
 .receipt-thermal {

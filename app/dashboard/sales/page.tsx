@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ReceivablesTab } from '@/components/dashboard/sales/receivables-tab';
 import { showToast } from '@/lib/toast';
-import { processReceiptGeneration, hasAfipData } from '@/lib/receipt-utils';
+import { processReceiptGeneration, hasAfipData, printThermalTicket } from '@/lib/receipt-utils';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { useSalesAPI } from '@/hooks/useSalesAPI';
 import { Sale, UpdateSaleRequest } from '@/services/sales.service';
@@ -462,6 +462,7 @@ export default function SalesPage() {
         onSearchChange={handleSearchChange}
         onRequestEdit={handleEditSale}
         onViewReceipt={handleViewReceipt}
+        onPrintTicket={(s) => printThermalTicket(s.id)}
       />
     </div>
   );

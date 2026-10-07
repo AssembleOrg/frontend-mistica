@@ -930,14 +930,13 @@ function qtyPhrase(v: PriceVariant): string | null {
  * el admin en la lista y en la vista previa del editor: dice exactamente
  * cuándo se cobra ese precio, sin tener que interpretar campos.
  */
-function describeVariant(v: PriceVariant): string {
+function describeVariant(v: PriceVariant, kind: VariantKind = kindOf(v)): string {
   const price =
     v.price == null
       ? 'mismo precio'
       : v.unit === 'FLAT'
         ? `${fmtPrice(v.price)} total`
         : `${fmtPrice(v.price)} por persona`;
-  const kind = kindOf(v);
   const qty = qtyPhrase(v);
 
   if (kind === 'modality') return `${price} · el bot la menciona, no se aplica sola`;
@@ -995,20 +994,30 @@ function VariantsEditor({
 }>) {
   // Índice de la variante desplegada en modo edición (null = todas plegadas).
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  // Tipo elegido en el editor. Se guarda aparte porque deducirlo de las
+  // condiciones no alcanza: "Por fecha" o "Por día" recién elegidos todavía
+  // no tienen fecha ni días, y se leían como "Modalidad" (el botón no quedaba
+  // marcado y no aparecían los campos).
+  const [editingKind, setEditingKind] = useState<VariantKind | null>(null);
+
+  function openEditor(i: number | null) {
+    setEditingIdx(i);
+    setEditingKind(null);
+  }
 
   function patch(i: number, part: Partial<PriceVariant>) {
     onChange(variants.map((v, idx) => (idx === i ? { ...v, ...part } : v)));
   }
   function remove(i: number) {
     onChange(variants.filter((_, idx) => idx !== i));
-    setEditingIdx(null);
+    openEditor(null);
   }
   function add() {
     onChange([
       ...variants,
       { name: '', price: basePrice || 0, unit: 'PER_PERSON', active: true },
     ]);
-    setEditingIdx(variants.length);
+    openEditor(variants.length);
   }
 
   /**
@@ -1031,6 +1040,7 @@ function VariantsEditor({
     if (kind === 'weekday') cleared.days = v.days?.length ? v.days : [];
     if (kind === 'modality') cleared.unit = v.unit;
     patch(i, cleared);
+    setEditingKind(kind);
   }
 
   return (
@@ -1064,17 +1074,18 @@ function VariantsEditor({
           <VariantForm
             key={i}
             variant={v}
+            kind={editingKind ?? kindOf(v)}
             basePrice={basePrice}
             onPatch={(part) => patch(i, part)}
             onKind={(k) => setKind(i, k)}
-            onDone={() => setEditingIdx(null)}
+            onDone={() => openEditor(null)}
             onRemove={() => remove(i)}
           />
         ) : (
           <VariantRow
             key={i}
             variant={v}
-            onEdit={() => setEditingIdx(i)}
+            onEdit={() => openEditor(i)}
             onToggle={(active) => patch(i, { active })}
             onRemove={() => remove(i)}
           />
@@ -1134,6 +1145,7 @@ function VariantRow({
 /** Editor desplegado de una variante: tipo, precio, condición y detalle. */
 function VariantForm({
   variant: v,
+  kind,
   basePrice,
   onPatch,
   onKind,
@@ -1141,13 +1153,14 @@ function VariantForm({
   onRemove,
 }: Readonly<{
   variant: PriceVariant;
+  /** Tipo elegido (no se deduce: una fecha recién elegida aún no tiene día). */
+  kind: VariantKind;
   basePrice: number;
   onPatch: (part: Partial<PriceVariant>) => void;
   onKind: (kind: VariantKind) => void;
   onDone: () => void;
   onRemove: () => void;
 }>) {
-  const kind = kindOf(v);
   const incomplete =
     !v.name.trim() ||
     (kind === 'weekday' && !(v.days && v.days.length > 0)) ||
@@ -1397,7 +1410,7 @@ function VariantForm({
         <span className='font-mono text-xs tracking-wider text-[#7a6e6f]'>
           ASÍ QUEDA:{' '}
         </span>
-        {describeVariant(v)}
+        {describeVariant(v, kind)}
         {kind !== 'modality' &&
           basePrice > 0 &&
           v.price != null &&

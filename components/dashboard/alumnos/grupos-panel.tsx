@@ -39,6 +39,7 @@ import {
   type AttendanceStatus,
   type CreateGroupInput,
   type Group,
+  type MakeupClass,
   type Student,
   type TrialClass,
 } from '@/services/taller.admin.service';
@@ -47,6 +48,10 @@ import {
   type Professor,
 } from '@/services/professors.admin.service';
 import { ClientsService, type Client } from '@/services/clients.service';
+import {
+  reservationsAdmin,
+  type AdminExperience,
+} from '@/services/reservations.admin.service';
 import {
   QuickCreateSelect,
   professorFields,
@@ -122,6 +127,8 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [professors, setProfessors] = useState<Professor[]>([]);
+  // Experiencias que se pueden reservar para venir a un grupo (la Escuelita).
+  const [experiences, setExperiences] = useState<AdminExperience[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<CreateGroupInput | null>(null);
   const [editing, setEditing] = useState<Group | null>(null);
@@ -199,6 +206,13 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
   // Con 2+ letras la misma búsqueda también trae clientes del servidor.
   const formOpen = form !== null;
   useEffect(() => {
+    if (!formOpen || !canManage || experiences.length > 0) return;
+    reservationsAdmin
+      .listExperiences(false)
+      .then(setExperiences)
+      .catch(() => undefined);
+  }, [formOpen, canManage, experiences.length]);
+  useEffect(() => {
     const term = debouncedStudentSearch;
     if (!formOpen || term.length < 2) return;
     let active = true;
@@ -253,6 +267,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
             studentIds: [...group.studentIds],
             isActive: group.isActive,
             hasMonthlyPiece: group.hasMonthlyPiece ?? true,
+            experienceIds: [...(group.experienceIds ?? [])],
           }
         : { ...EMPTY, schedule: [{ ...DEFAULT_SLOT }], studentIds: [], hasMonthlyPiece: true },
     );
@@ -564,6 +579,39 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
                 </span>
               </label>
 
+              {canManage && experiences.length > 0 && (
+                <Field label='Reservas que suman alumnos'>
+                  <div className='flex flex-col gap-1 rounded-lg border border-[#e6dbcd] bg-white p-2'>
+                    {experiences.map((exp) => {
+                      const on = form.experienceIds?.includes(exp._id) ?? false;
+                      const other = groups.find(
+                        (g) => g._id !== editing?._id && g.experienceIds?.includes(exp._id),
+                      );
+                      return (
+                        <PickRow
+                          key={exp._id}
+                          on={on}
+                          label={exp.name}
+                          hint={other ? `ya va al grupo ${other.name}` : undefined}
+                          onClick={() =>
+                            setForm({
+                              ...form,
+                              experienceIds: on
+                                ? (form.experienceIds ?? []).filter((id) => id !== exp._id)
+                                : [...(form.experienceIds ?? []), exp._id],
+                            })
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                  <p className='mt-1 text-[11px] text-[#7a6e6f]'>
+                    Quien reserva esa experiencia (web, bot o venta agendada) queda como
+                    alumno de este grupo y aparece en su clase, no como un turno aparte.
+                  </p>
+                </Field>
+              )}
+
               <Field label={`Alumnos (${(form.studentIds?.length ?? 0) + pendingClients.length})`}>
                 {(form.studentIds?.length ?? 0) + pendingClients.length === 0 ? (
                   <p className='mb-2 text-xs text-[#7a6e6f]'>El grupo todavía no tiene alumnos.</p>
@@ -806,10 +854,11 @@ function PickRow({ on, label, hint, onClick }: Readonly<{
   );
 }
 
+// Alumno del grupo: vino o faltó. Si faltó, abajo se elige en qué clase de
+// otro grupo recupera (queda agendada en el momento).
 const ATT_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
   { key: 'PRESENT', label: 'Presente' },
   { key: 'ABSENT', label: 'Ausente' },
-  { key: 'MAKEUP', label: 'Recupera' },
 ];
 
 // Para quien vino de otro grupo: presente = recuperó la clase original.
@@ -826,12 +875,33 @@ const TRIAL_OPTIONS: Array<{ key: AttendanceStatus; label: string }> = [
 
 // Las asistencias se llevan desde octubre 2026: antes no hay clases que recuperar.
 const RECOVERY_FROM = '2026-10-01';
+// Hasta cuántos días después se puede agendar dónde recupera.
+const RECOVERY_WINDOW_DAYS = 35;
+
+function addDaysKey(key: string, days: number) {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d + days));
+}
+
+/** Días de clase de un horario entre dos fechas (inclusive). */
+function datesBetween(slot: Group['schedule'][number] | undefined, from: string, to: string) {
+  if (!slot || from > to) return [];
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  const out: string[] = [];
+  for (let month = new Date(fy, fm - 1, 1); month <= new Date(ty, tm - 1, 1); month = new Date(month.getFullYear(), month.getMonth() + 1, 1)) {
+    out.push(...datesForMonth(slot, month).filter((d) => d >= from && d <= to));
+  }
+  return out;
+}
 
 /**
  * Asistencia de una clase: se elige el día, cada alumno del grupo arranca
- * PRESENTE y se marca ausente/recuperando con un toque. También se puede
- * sumar un alumno de OTRO grupo que vino a recuperar, o a alguien que viene a
- * su clase de prueba gratuita (una sola por alumno).
+ * PRESENTE y se marca ausente con un toque; al ausente se le agenda en qué
+ * clase de otro grupo recupera. También se puede sumar un alumno de OTRO grupo
+ * que viene a recuperar, o a alguien que viene a su clase de prueba gratuita
+ * (una sola por alumno). Pruebas y recuperaciones se agendan en el momento:
+ * una clase que todavía no pasó ya las muestra.
  */
 
 function AttendanceDialog({
@@ -884,6 +954,29 @@ function AttendanceDialog({
   const [extraSourceGroup, setExtraSourceGroup] = useState('');
   const [extraSourceDate, setExtraSourceDate] = useState('');
   const [saving, setSaving] = useState(false);
+  // Recuperaciones de esta clase: las que salen (alumnos del grupo que faltan y
+  // recuperan otro día) y las que llegan (alumnos de otros grupos).
+  const [makeups, setMakeups] = useState<MakeupClass[]>([]);
+  const [pickingFor, setPickingFor] = useState<string | null>(null);
+  const [busyMakeup, setBusyMakeup] = useState(false);
+  const outgoing = new Map(
+    makeups
+      .filter((m) => m.fromGroupId === group._id && m.fromDate === date)
+      .map((m) => [m.student._id, m]),
+  );
+  const incomingOf = (r: { studentId: string; makeupForGroupId?: string; makeupForDate?: string }) =>
+    makeups.find(
+      (m) =>
+        m.toGroupId === group._id &&
+        m.toDate === date &&
+        m.student._id === r.studentId &&
+        m.fromGroupId === r.makeupForGroupId &&
+        m.fromDate === r.makeupForDate,
+    );
+  // Recién inscripto: su primera clase es ésta (p. ej. reservó la Escuelita).
+  const joinedOn = new Map(
+    allStudents.filter((s) => s.joinedAt).map((s) => [s._id, dateKey(new Date(s.joinedAt))]),
+  );
 
   // Si ya se tomó asistencia ese día, se carga para editar (no duplicar). Las
   // clases de prueba agendadas para ese día aparecen ya sumadas.
@@ -894,19 +987,39 @@ function AttendanceDialog({
       tallerAdmin
         .listTrials({ from: date, to: date, groupId: group._id })
         .catch(() => []),
+      tallerAdmin
+        .listMakeups({ groupId: group._id, date })
+        .catch(() => [] as MakeupClass[]),
     ])
-      .then(([docs, dayTrials]) => {
+      .then(([docs, dayTrials, dayMakeups]) => {
         if (!alive) return;
-        const withTrials = <T extends { studentId: string }>(rows: T[]) => [
-          ...rows,
+        setMakeups(dayMakeups);
+        setPickingFor(null);
+        const away = new Set(
+          dayMakeups.filter((m) => m.fromGroupId === group._id && m.fromDate === date).map((m) => m.student._id),
+        );
+        const arriving = dayMakeups.filter((m) => m.toGroupId === group._id && m.toDate === date);
+        // Pruebas y recuperaciones agendadas para ese día aparecen sumadas; quien
+        // avisó que recupera otro día arranca ausente.
+        const withTrials = <T extends { studentId: string; status: AttendanceStatus | null }>(rows: T[]) => [
+          ...rows.map((r) => (r.status === null && away.has(r.studentId) ? { ...r, status: 'ABSENT' as const } : r)),
           ...dayTrials
             .filter((t) => !t.enrolled && !rows.some((r) => r.studentId === t.student._id))
             .map((t) => ({ studentId: t.student._id, status: null, trial: true })),
+          ...arriving
+            .filter((m) => !rows.some((r) => r.studentId === m.student._id))
+            .map((m) => ({
+              studentId: m.student._id,
+              status: null,
+              makeupForGroupId: m.fromGroupId,
+              makeupForDate: m.fromDate,
+            })),
         ];
-        if (dayTrials.length) {
+        if (dayTrials.length || arriving.length) {
           setNewNames((m) => {
             const next = new Map(m);
             for (const t of dayTrials) next.set(t.student._id, t.student.name);
+            for (const a of arriving) next.set(a.student._id, a.student.name);
             return next;
           });
         }
@@ -916,7 +1029,12 @@ function AttendanceDialog({
         // alta, o inactivos): se buscan sus nombres para no ver "(alumno)".
         const unknown = [
           ...new Set([...(doc?.records ?? []).map((r) => r.studentId), ...group.studentIds]),
-        ].filter((id) => !studentName.has(id) && !dayTrials.some((t) => t.student._id === id));
+        ].filter(
+          (id) =>
+            !studentName.has(id) &&
+            !dayTrials.some((t) => t.student._id === id) &&
+            !arriving.some((m) => m.student._id === id),
+        );
         if (unknown.length) {
           tallerAdmin
             .listStudents(true)
@@ -968,6 +1086,17 @@ function AttendanceDialog({
     }
     if (records.some((r) => r.status === 'MAKEUP' && (!r.makeupForGroupId || !r.makeupForDate))) {
       showToast.error('Indicá qué clase recupera cada alumno marcado como Recupera');
+      return;
+    }
+    // Presente pero con la recuperación agendada: o vino, o recupera otro día.
+    const conflict = records.find(
+      (r) => group.studentIds.includes(r.studentId) && (r.status ?? 'PRESENT') === 'PRESENT' && outgoing.has(r.studentId),
+    );
+    if (conflict) {
+      const m = outgoing.get(conflict.studentId)!;
+      showToast.error(
+        `${nameOf(conflict.studentId) ?? 'Un alumno'} recupera el ${displayClassDate(m.toDate)}: marcalo Ausente o quitá la recuperación.`,
+      );
       return;
     }
     setSaving(true);
@@ -1082,26 +1211,105 @@ function AttendanceDialog({
   }
 
   function sourceGroupsFor(studentId: string) {
-    const enrolled = allGroups.filter((candidate) => candidate.studentIds.includes(studentId));
-    return enrolled.length > 0 ? enrolled : allGroups;
+    const others = allGroups.filter((candidate) => candidate._id !== group._id);
+    const enrolled = others.filter((candidate) => candidate.studentIds.includes(studentId));
+    return enrolled.length > 0 ? enrolled : others;
   }
 
+  // Clase que recupera quien viene de otro grupo: de dos meses antes a cinco
+  // semanas después de ésta (puede adelantarla).
   function sourceDatesFor(sourceGroupId?: string) {
     const source = allGroups.find((candidate) => candidate._id === sourceGroupId);
-    if (!source?.schedule[0]) return [];
-    const targetParts = date.split('-').map(Number);
-    const targetMonth = new Date(targetParts[0], targetParts[1] - 1, 1);
-    const options: string[] = [];
-    for (let offset = -6; offset <= 6; offset += 1) {
-      options.push(...datesForMonth(
-        source.schedule[0],
-        new Date(targetMonth.getFullYear(), targetMonth.getMonth() + offset, 1),
-      ));
+    const from = [RECOVERY_FROM, addDaysKey(date, -60)].sort().at(-1)!;
+    return datesBetween(source?.schedule[0], from, addDaysKey(date, RECOVERY_WINDOW_DAYS));
+  }
+
+  // Dónde puede recuperar un alumno de este grupo: clases de OTROS grupos (el
+  // suyo ese día ya es su clase), de hoy en adelante.
+  function recoveryOptions(studentId: string) {
+    const from = [RECOVERY_FROM, todayKey].sort().at(-1)!;
+    const to = addDaysKey(date > todayKey ? date : todayKey, RECOVERY_WINDOW_DAYS);
+    return allGroups
+      .filter((g) => g._id !== group._id && g.isActive && !g.studentIds.includes(studentId))
+      .flatMap((g) =>
+        datesBetween(g.schedule[0], from, to).map((d) => ({
+          key: `${g._id}|${d}`,
+          date: d,
+          start: g.schedule[0]?.start ?? '',
+          name: g.name,
+        })),
+      )
+      .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+  }
+
+  async function scheduleOutgoing(studentId: string, key: string) {
+    const [toGroupId, toDate] = key.split('|');
+    if (!toGroupId || !toDate) return;
+    setBusyMakeup(true);
+    try {
+      const m = await tallerAdmin.scheduleMakeup({
+        studentId,
+        fromGroupId: group._id,
+        fromDate: date,
+        toGroupId,
+        toDate,
+      });
+      setMakeups((ms) => [...ms.filter((x) => x._id !== m._id), m]);
+      setRecords((rs) => rs.map((r) => (r.studentId === studentId ? { ...r, status: 'ABSENT' } : r)));
+      setPickingFor(null);
+      showToast.success(`Recupera el ${displayClassDate(toDate)} en ${m.toGroupName}`);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo agendar la recuperación');
+    } finally {
+      setBusyMakeup(false);
     }
-    return options
-      .filter((candidate) => candidate >= RECOVERY_FROM)
-      .filter((candidate) => !(sourceGroupId === group._id && candidate === date))
-      .sort((a, b) => a.localeCompare(b));
+  }
+
+  async function cancelMakeup(m: MakeupClass) {
+    setBusyMakeup(true);
+    try {
+      await tallerAdmin.cancelMakeup(m._id);
+      setMakeups((ms) => ms.filter((x) => x._id !== m._id));
+      return true;
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar la recuperación');
+      return false;
+    } finally {
+      setBusyMakeup(false);
+    }
+  }
+
+  // Alumno de otro grupo que viene a recuperar: queda agendado (también en una
+  // clase que todavía no pasó) y la clase que falta lo muestra.
+  async function addRecoveringGuest() {
+    setBusyMakeup(true);
+    try {
+      const m = await tallerAdmin.scheduleMakeup({
+        studentId: extra,
+        fromGroupId: extraSourceGroup,
+        fromDate: extraSourceDate,
+        toGroupId: group._id,
+        toDate: date,
+      });
+      setMakeups((ms) => [...ms.filter((x) => x._id !== m._id), m]);
+      setRecords((rs) => [
+        ...rs,
+        {
+          studentId: extra,
+          status: null,
+          makeupForGroupId: extraSourceGroup,
+          makeupForDate: extraSourceDate,
+        },
+      ]);
+      setExtra('');
+      setExtraSourceGroup('');
+      setExtraSourceDate('');
+      showToast.success(isFuture ? 'Recuperación agendada para esta clase' : 'Sumado a esta asistencia');
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar la recuperación');
+    } finally {
+      setBusyMakeup(false);
+    }
   }
 
   return (
@@ -1174,6 +1382,11 @@ function AttendanceDialog({
                         · recuperada el {displayClassDate(r.recoveredInDate)}
                       </span>
                     )}
+                    {group.studentIds.includes(r.studentId) && joinedOn.get(r.studentId) === date && (
+                      <span className='ml-1.5 rounded-full bg-[#F6E9DC] px-2 py-0.5 text-[11px] font-medium text-[#8a5638]'>
+                        Se suma hoy
+                      </span>
+                    )}
                   </span>
                   <div className='flex gap-1'>
                   {(r.trial ? TRIAL_OPTIONS : isRecoveringGuest(r) ? GUEST_OPTIONS : ATT_OPTIONS).map((o) => (
@@ -1208,6 +1421,16 @@ function AttendanceDialog({
                       aria-label='Quitar de esta asistencia'
                       onClick={() => {
                         const trialId = scheduled.get(r.studentId);
+                        // Una recuperación agendada se cancela (si no, vuelve a aparecer).
+                        const makeup = isRecoveringGuest(r) ? incomingOf(r) : undefined;
+                        if (makeup) {
+                          void cancelMakeup(makeup).then((ok) => {
+                            if (!ok) return;
+                            setRecords((rs) => rs.filter((x) => x.studentId !== r.studentId));
+                            showToast.success('Recuperación quitada');
+                          });
+                          return;
+                        }
                         // Una prueba agendada se cancela (si no, vuelve a aparecer).
                         if (trialId && isFuture) {
                           tallerAdmin
@@ -1248,39 +1471,81 @@ function AttendanceDialog({
                     {r.status === 'ABSENT' ? ' · no vino: la clase original sigue pendiente' : ' · al guardarlo presente, la clase original queda recuperada'}
                   </p>
                 )}
-                {r.status === 'MAKEUP' && !isRecoveringGuest(r) && (
-                  <div className='grid grid-cols-1 gap-1.5 border-t border-[#eee4d8] pt-2 sm:grid-cols-2'>
-                    <select
-                      value={r.makeupForGroupId ?? ''}
-                      onChange={(e) => {
-                        const next = [...records];
-                        next[i] = { ...r, makeupForGroupId: e.target.value || undefined, makeupForDate: undefined };
-                        setRecords(next);
-                      }}
-                      className={`${fieldCls} h-9 rounded-md border px-2 text-xs`}
-                    >
-                      <option value=''>Grupo de la clase original…</option>
-                      {sourceGroupsFor(r.studentId).map((candidate) => (
-                        <option key={candidate._id} value={candidate._id}>{candidate.name}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={r.makeupForDate ?? ''}
-                      disabled={!r.makeupForGroupId}
-                      onChange={(e) => {
-                        const next = [...records];
-                        next[i] = { ...r, makeupForDate: e.target.value || undefined };
-                        setRecords(next);
-                      }}
-                      className={`${fieldCls} h-9 rounded-md border px-2 text-xs disabled:opacity-50`}
-                    >
-                      <option value=''>Fecha que recupera…</option>
-                      {sourceDatesFor(r.makeupForGroupId).map((sourceDate) => (
-                        <option key={sourceDate} value={sourceDate}>{displayClassDate(sourceDate)}</option>
-                      ))}
-                    </select>
-                  </div>
+                {r.status === 'MAKEUP' && !isRecoveringGuest(r) && r.makeupForDate && (
+                  <p className='text-[11px] text-[#6d5a78]'>
+                    Recupera {allGroups.find((candidate) => candidate._id === r.makeupForGroupId)?.name ?? 'otra clase'} del {displayClassDate(r.makeupForDate)}
+                  </p>
                 )}
+                {group.studentIds.includes(r.studentId) && !r.trial && (() => {
+                  const m = outgoing.get(r.studentId);
+                  if (m && pickingFor !== r.studentId) {
+                    return (
+                      <div className='flex flex-wrap items-center justify-between gap-2 border-t border-[#eee4d8] pt-2'>
+                        <span className='text-[12px] text-[#6d5a78]'>
+                          {m.status === 'DONE' ? 'Recuperó' : m.status === 'MISSED' ? 'No fue a recuperar' : 'Recupera'}{' '}
+                          el <strong className='font-semibold'>{displayClassDate(m.toDate)} · {m.toStart}</strong> en {m.toGroupName}
+                          {m.status === 'MISSED' && ' · la clase sigue pendiente'}
+                        </span>
+                        {m.status !== 'DONE' && (
+                          <span className='flex gap-1'>
+                            <button
+                              type='button'
+                              disabled={busyMakeup}
+                              onClick={() => setPickingFor(r.studentId)}
+                              className='rounded-md border border-[#e6dbcd] bg-white px-2 py-1 text-[11px] text-[#455a54] hover:bg-[#fbf5ef]'
+                            >
+                              Cambiar
+                            </button>
+                            <button
+                              type='button'
+                              disabled={busyMakeup}
+                              onClick={() =>
+                                void cancelMakeup(m).then((ok) => ok && showToast.success('Recuperación quitada'))
+                              }
+                              className='rounded-md border border-[#e6dbcd] bg-white px-2 py-1 text-[11px] text-[#a33] hover:bg-[#fbe4e4]'
+                            >
+                              Quitar
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+                  if (r.status !== 'ABSENT' && pickingFor !== r.studentId) return null;
+                  const options = recoveryOptions(r.studentId);
+                  return (
+                    <div className='flex items-center gap-1.5 border-t border-[#eee4d8] pt-2'>
+                      <select
+                        value=''
+                        disabled={busyMakeup || options.length === 0}
+                        onChange={(e) => void scheduleOutgoing(r.studentId, e.target.value)}
+                        className={`${fieldCls} h-9 min-w-0 flex-1 rounded-md border px-2 text-xs disabled:opacity-50`}
+                      >
+                        <option value=''>
+                          {options.length === 0
+                            ? 'No hay clases de otros grupos para recuperar'
+                            : m
+                              ? 'Elegí la nueva clase donde recupera…'
+                              : '¿Recupera otro día? Elegí la clase…'}
+                        </option>
+                        {options.map((o) => (
+                          <option key={o.key} value={o.key}>
+                            {displayClassDate(o.date)} · {o.start} · {o.name}
+                          </option>
+                        ))}
+                      </select>
+                      {m && (
+                        <button
+                          type='button'
+                          onClick={() => setPickingFor(null)}
+                          className='shrink-0 rounded-md border border-[#e6dbcd] bg-white px-2 py-1 text-[11px] text-[#455a54] hover:bg-[#fbf5ef]'
+                        >
+                          Volver
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -1341,7 +1606,9 @@ function AttendanceDialog({
               value={extra}
               onChange={(e) => {
                 setExtra(e.target.value);
-                setExtraSourceGroup('');
+                // Con un solo grupo habitual, ya queda elegido.
+                const usual = e.target.value ? sourceGroupsFor(e.target.value) : [];
+                setExtraSourceGroup(usual.length === 1 ? usual[0]._id : '');
                 setExtraSourceDate('');
               }}
               className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
@@ -1387,28 +1654,19 @@ function AttendanceDialog({
               type='button'
               variant='outline'
               size='sm'
-              disabled={!extra || !extraSourceGroup || !extraSourceDate}
-              onClick={() => {
-                setRecords([...records, {
-                  studentId: extra,
-                  status: null,
-                  makeupForGroupId: extraSourceGroup,
-                  makeupForDate: extraSourceDate,
-                }]);
-                setExtra('');
-                setExtraSourceGroup('');
-                setExtraSourceDate('');
-              }}
+              disabled={!extra || !extraSourceGroup || !extraSourceDate || busyMakeup}
+              onClick={() => void addRecoveringGuest()}
               className='border-[#e6dbcd] text-[#455a54]'
             >
-              Incorporar a esta asistencia
+              {isFuture ? 'Agendar la recuperación en esta clase' : 'Incorporar a esta asistencia'}
             </Button>
           </div>
         </div>
         {isFuture && (
           <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
             Esta clase todavía no pasó: la asistencia se toma ese día. Las pruebas
-            que sumes quedan agendadas y aparecen solas en la asistencia.
+            y recuperaciones que sumes quedan agendadas y aparecen solas en la
+            asistencia.
           </p>
         )}
         <DialogFooter>

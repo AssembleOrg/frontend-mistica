@@ -236,7 +236,18 @@ export function ReservasTab() {
     return map;
   }, [sessions]);
 
-  const dayTurnos = byDay.get(anchor) ?? [];
+  // Las reservas de una experiencia que va a un grupo del taller (Escuelita)
+  // se ven en "Taller de este día", no como un turno aparte. Si hay alguna sin
+  // confirmar, el turno se sigue mostrando para que no pase desapercibida.
+  const tallerExperiences = useMemo(
+    () => new Set(clases.flatMap((c) => c.experienceIds ?? [])),
+    [clases],
+  );
+  const dayTurnos = (byDay.get(anchor) ?? []).filter(
+    (s) =>
+      !tallerExperiences.has(s.experienceId) ||
+      (attendees[s.id] ?? []).some((r) => r.status === 'PENDING' || r.status === 'NEEDS_REVIEW'),
+  );
 
   // Reloj para "en el salón ahora": se refresca cada minuto.
   const [now, setNow] = useState(() => Date.now());
@@ -491,6 +502,22 @@ export function ReservasTab() {
                           title='Vienen a una clase de prueba'
                         >
                           +{c.trials} prueba
+                        </span>
+                      )}
+                      {(c.makeups ?? 0) > 0 && (
+                        <span
+                          className='rounded-full border border-dashed border-[#6d5a78]/40 bg-[#efe9f2] px-2 py-0.5 text-[11px] font-semibold text-[#6d5a78]'
+                          title='Alumnos de otros grupos que vienen a recuperar'
+                        >
+                          +{c.makeups} recupera
+                        </span>
+                      )}
+                      {(c.away ?? 0) > 0 && (
+                        <span
+                          className='rounded-full border border-[#e6dbcd] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#7a6e6f]'
+                          title='Avisaron que no vienen: recuperan otro día'
+                        >
+                          −{c.away} no viene
                         </span>
                       )}
                       <span className='inline-flex items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 py-1'>

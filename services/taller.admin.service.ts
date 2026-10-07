@@ -28,6 +28,8 @@ export interface Group {
   sortOrder?: number;
   /** ¿Sus alumnos llevan pieza del mes? (la Escuelita no). */
   hasMonthlyPiece?: boolean;
+  /** Experiencias que se reservan para venir a este grupo (la Escuelita). */
+  experienceIds?: string[];
   createdAt: string;
 }
 
@@ -39,6 +41,8 @@ export interface CreateGroupInput {
   studentIds?: string[];
   /** Clientes a sumar: el backend los da de alta como alumnos vinculados. */
   clientIds?: string[];
+  /** Quien reserva estas experiencias queda como alumno del grupo. */
+  experienceIds?: string[];
   notes?: string;
   isActive?: boolean;
   hasMonthlyPiece?: boolean;
@@ -320,6 +324,37 @@ export interface TrialClass {
   enrolled: boolean;
 }
 
+/**
+ * Recuperación agendada: falta a una clase de su grupo (from) y la recupera en
+ * la de otro grupo (to). SCHEDULED = todavía no se tomó asistencia ese día;
+ * DONE = vino; MISSED = no vino y la clase original sigue pendiente.
+ */
+export interface MakeupClass {
+  _id: string;
+  student: { _id: string; name: string };
+  fromGroupId: string;
+  fromGroupName: string;
+  fromStart?: string;
+  fromDate: string;
+  toGroupId: string;
+  toGroupName: string;
+  toStart?: string;
+  toDate: string;
+  notes?: string;
+  createdByName?: string;
+  status: 'SCHEDULED' | 'DONE' | 'MISSED';
+}
+
+export interface ScheduleMakeupInput {
+  studentId: string;
+  fromGroupId: string;
+  fromDate: string;
+  toGroupId: string;
+  toDate: string;
+  notes?: string;
+  doneBy?: string;
+}
+
 export interface ScheduleTrialInput {
   groupId: string;
   date: string;
@@ -475,6 +510,17 @@ export const tallerAdmin = {
       .data,
   cancelTrial: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/students/trials/${id}`)).data,
+  // Recuperaciones: con grupo + día, las que llegan a esa clase y las que salen.
+  listMakeups: async (params: { groupId?: string; date?: string; studentId?: string }) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => !!v) as [string, string][],
+    ).toString();
+    return (await apiService.get<MakeupClass[]>(`/makeups?${q}`)).data;
+  },
+  scheduleMakeup: async (input: ScheduleMakeupInput) =>
+    (await apiService.post<MakeupClass>('/makeups', input as unknown as Json)).data,
+  cancelMakeup: async (id: string) =>
+    (await apiService.delete<{ success: boolean }>(`/makeups/${id}`)).data,
   enrollTrial: async (id: string, input: EnrollTrialInput) =>
     (
       await apiService.post<{ success: boolean; groupName: string }>(
@@ -643,6 +689,12 @@ export interface GroupDayClass {
   end: string;
   /** Cuántos vienen ese día a una clase de prueba. */
   trials?: number;
+  /** Alumnos de otros grupos que vienen a recuperar. */
+  makeups?: number;
+  /** Alumnos del grupo que avisaron que no vienen (recuperan otro día). */
+  away?: number;
+  /** Experiencias cuyas reservas son de este grupo (no van como turno aparte). */
+  experienceIds?: string[];
   students: number;
 }
 

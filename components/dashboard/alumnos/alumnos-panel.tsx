@@ -52,6 +52,14 @@ const PAYMENT_METHODS = [
   { value: 'MERCADOPAGO', label: 'Mercado Pago' },
 ];
 
+// Para mostrar el historial: los canónicos en español, más 'SALE' (adicional
+// de pieza que ya se cobró en una venta). Los viejos guardados en texto se
+// muestran tal cual.
+const METHOD_LABEL: Record<string, string> = {
+  ...Object.fromEntries(PAYMENT_METHODS.map((m) => [m.value, m.label])),
+  SALE: 'En una venta',
+};
+
 function fmtDate(d?: string) {
   if (!d) return '—';
   // 'YYYY-MM-DD' (fecha de clase) se interpreta como día local: new Date()
@@ -927,7 +935,7 @@ function StudentDetailDialog({
                             />
                           )}
                           {p.method && (
-                            <span className='text-[#7a6e6f]'>· {p.method}</span>
+                            <span className='text-[#7a6e6f]'>· {METHOD_LABEL[p.method] ?? p.method}</span>
                           )}
                           {p.status === 'PENDING' && (
                             <button

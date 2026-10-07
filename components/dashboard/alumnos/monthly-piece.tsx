@@ -560,6 +560,8 @@ const METODOS = [
   { value: 'TRANSFER', label: 'Transferencia' },
   { value: 'CARD', label: 'Tarjeta' },
   { value: 'MERCADOPAGO', label: 'Mercado Pago' },
+  // Ya se cobró en el ticket: sólo lo marca, la plata ya entró por la venta.
+  { value: 'SALE', label: 'Ya cobrado en una venta' },
 ];
 
 /** Confirmación del cobro del adicional: crea el pago del alumno. */
@@ -577,6 +579,7 @@ function CobroDialog({
   onConfirm: (method: string) => void | Promise<void>;
 }) {
   const [method, setMethod] = useState(METODOS[0].value);
+  const inSale = method === 'SALE';
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className='sm:max-w-md'>
@@ -588,10 +591,17 @@ function CobroDialog({
             deshacer durante 24 hs.
           </DialogDescription>
         </DialogHeader>
-        <p className='rounded-lg border border-[#e8b84b] bg-[#fdf6e3] px-3 py-2 text-xs text-[#5b512f]'>
-          Queda en el historial de pagos del alumno. <b>No pasa por caja</b>: si lo cobrás en efectivo,
-          no aparece en el arqueo.
-        </p>
+        {inSale ? (
+          <p className='rounded-lg border border-[#b9d3c6] bg-[#E7F0EC] px-3 py-2 text-xs text-[#455a54]'>
+            La plata <b>ya entró por la venta</b> (y está en caja). Esto sólo marca el adicional como
+            cobrado.
+          </p>
+        ) : (
+          <p className='rounded-lg border border-[#e8b84b] bg-[#fdf6e3] px-3 py-2 text-xs text-[#5b512f]'>
+            Queda en el historial de pagos del alumno. <b>No pasa por caja</b>: si lo cobrás en efectivo,
+            no aparece en el arqueo.
+          </p>
+        )}
         <div className='flex flex-col gap-1.5'>
           <span className='text-[13px] font-medium text-[#455a54]'>Cómo se cobró</span>
           <div className='grid grid-cols-2 gap-2'>
@@ -603,6 +613,7 @@ function CobroDialog({
                 aria-pressed={method === m.value}
                 className={cn(
                   'rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  m.value === 'SALE' && 'col-span-2',
                   method === m.value
                     ? 'border-[#455a54] bg-[#455a54] text-white'
                     : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
@@ -618,7 +629,7 @@ function CobroDialog({
             Cancelar
           </Button>
           <Button type='button' variant='verde' onClick={() => void onConfirm(method)}>
-            Registrar cobro
+            {inSale ? 'Marcar como cobrado' : 'Registrar cobro'}
           </Button>
         </DialogFooter>
       </DialogContent>

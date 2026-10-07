@@ -329,8 +329,8 @@ export function SlotPicker({
           {selectedSlot && !freeTime && (
             <p className='text-[12px] font-medium text-[#455a54]'>
               {selectedSlot.startTime}–
-              {fromMin(toMin(selectedSlot.startTime) + duration)} · entran hasta{' '}
-              {selectedSlot.maxPartySize} personas
+              {fromMin(toMin(selectedSlot.startTime) + duration)} · con las mesas
+              libres entran {selectedSlot.maxPartySize}
             </p>
           )}
           {check.status === 'checking' && (
@@ -338,8 +338,8 @@ export function SlotPicker({
           )}
           {check.status === 'ok' && freeTime && (
             <p className='text-[12px] font-medium text-[#455a54]'>
-              ¡Hay lugar! {freeTime}–{fromMin(toMin(freeTime) + duration)} ·
-              entran hasta {check.maxPartySize} personas
+              ¡Hay lugar! {freeTime}–{fromMin(toMin(freeTime) + duration)} · con
+              las mesas libres entran {check.maxPartySize}
             </p>
           )}
           {check.status === 'no' && (

@@ -28,6 +28,8 @@ export interface ReservationItem {
   experienceName: string;
   startAt: string;
   quantity: number;
+  /** De esas personas, cuántas van bonificadas (entran pero no se cobran). */
+  freeSpots?: number;
   // Datos personales e importes: NO llegan a las cuentas que sólo tienen
   // alguna pestaña de Reservas (p. ej. cocina), el backend los recorta.
   unitPrice?: number;
@@ -197,6 +199,8 @@ export interface AdminCreateReservationInput {
   /** Hora local de inicio, 'HH:mm'. */
   startTime?: string;
   quantity: number;
+  /** De esas personas, cuántas van bonificadas (entran pero no se cobran). */
+  freeSpots?: number;
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -369,8 +373,17 @@ export const reservationsAdmin = {
       dietaryNotes?: string;
       isBirthday?: boolean;
       kitchenNotes?: string;
+      /** Sumar o descontar personas (ajusta total, saldo y mesas). */
+      quantity?: number;
+      freeSpots?: number;
     },
-  ) => (await apiService.patch<ReservationItem>(`/admin/reservations/${id}`, input)).data,
+  ) =>
+    (
+      await apiService.patch<ReservationItem & { creditDue?: number }>(
+        `/admin/reservations/${id}`,
+        input,
+      )
+    ).data,
   /** Torta para cocina; con precio también suma como adicional al total. */
   addCake: async (
     id: string,

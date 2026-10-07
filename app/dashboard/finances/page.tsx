@@ -235,7 +235,12 @@ export default function FinancesPage() {
         onOpenChange={(open) => { if (!open) setSessionToResolve(null); }}
         onResolved={load}
       />
-      <MonthlyCloseDialog open={showMonthlyClose} onOpenChange={setShowMonthlyClose} />
+      <MonthlyCloseDialog
+        open={showMonthlyClose}
+        onOpenChange={setShowMonthlyClose}
+        title="Cierre de mes"
+        description="Un solo PDF con ingresos, egresos por categoría, caja y top de productos."
+      />
       <MonthlyCloseDialog
         open={showEgressReport}
         onOpenChange={setShowEgressReport}

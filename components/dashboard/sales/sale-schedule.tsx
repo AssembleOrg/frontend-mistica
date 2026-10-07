@@ -53,9 +53,6 @@ export function useSaleSchedule() {
     if (!picker.day || !picker.time) return 'Elegí día y horario para agendar';
     if (picker.check.status === 'no' || picker.check.status === 'checking')
       return 'Elegí un horario con lugar para agendar';
-    const quantity = Math.max(1, Number(qty) || 1);
-    if (picker.maxParty != null && quantity > picker.maxParty)
-      return `A esa hora entran hasta ${picker.maxParty} personas`;
     return null;
   }
 
@@ -144,13 +141,12 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
           />
           <div className='space-y-1.5'>
             <Label className='text-[13px] font-medium text-[#455a54]'>
-              Personas{picker.maxParty != null ? ` (hasta ${picker.maxParty})` : ''}
+              Personas
             </Label>
             <Input
               type='number'
               inputMode='numeric'
               min={1}
-              max={picker.maxParty ?? undefined}
               value={qty}
               onChange={(e) => setQty(e.target.value)}
               className={`w-28 ${fieldCls}`}

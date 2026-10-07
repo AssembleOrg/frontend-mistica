@@ -5,6 +5,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { Printer, X } from 'lucide-react';
 import { financeService, type FinanceSummary } from '@/services/finance.service';
 import { MonthlyReportViewer } from '@/components/dashboard/finances/monthly-report-viewer';
+import { useEgressBreakdown } from '@/hooks/useEgressBreakdown';
 import { showToast } from '@/lib/toast';
 
 function MonthlyReportContent() {
@@ -14,6 +15,7 @@ function MonthlyReportContent() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [reportLabel, setReportLabel] = useState('');
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
 
   useEffect(() => {
     const from = searchParams.get('from');
@@ -27,6 +29,7 @@ function MonthlyReportContent() {
     }
 
     setReportLabel(label ?? `${from} – ${to}`);
+    setRange({ from, to });
 
     const load = async () => {
       try {
@@ -45,15 +48,22 @@ function MonthlyReportContent() {
     load();
   }, [searchParams, router]);
 
+  // El cierre incluye el detalle de egresos por categoría: un solo documento.
+  const egresses = useEgressBreakdown({
+    from: range?.from,
+    to: range?.to,
+    enabled: range !== null,
+  });
+
   useEffect(() => {
-    if (!summary || isLoading) return;
+    if (!summary || isLoading || egresses.loading) return;
     const timer = setTimeout(() => {
       window.print();
     }, 800);
     return () => clearTimeout(timer);
-  }, [summary, isLoading]);
+  }, [summary, isLoading, egresses.loading]);
 
-  if (isLoading) {
+  if (isLoading || egresses.loading) {
     return (
       <div className="fixed inset-0 bg-white flex items-center justify-center">
         <div className="text-center">
@@ -134,7 +144,7 @@ function MonthlyReportContent() {
       {/* Espaciado para compensar la barra fija */}
       <div className="print:hidden" style={{ height: 52 }} />
 
-      <MonthlyReportViewer summary={summary} monthLabel={reportLabel} />
+      <MonthlyReportViewer summary={summary} monthLabel={reportLabel} egresses={egresses} />
     </>
   );
 }

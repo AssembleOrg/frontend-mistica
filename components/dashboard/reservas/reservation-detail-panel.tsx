@@ -82,6 +82,7 @@ export function ReservationDetailPanel({
 }) {
   const [loadPieces, setLoadPieces] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
+  const [editingPeople, setEditingPeople] = useState(false);
   // Cambios hechos desde la ficha (cocina, tortas, comprobantes): se ven al
   // instante, sin esperar a que el listado se recargue.
   const [patch, setPatch] = useState<ReservationPatch>({});
@@ -107,6 +108,7 @@ export function ReservationDetailPanel({
   useEffect(() => {
     setLoadPieces(false);
     setEditingClient(false);
+    setEditingPeople(false);
     setPatch({});
   }, [reservation?._id]);
 
@@ -211,10 +213,41 @@ export function ReservationDetailPanel({
             )}
           </Section>
 
-          <Section title='EXPERIENCIA'>
+          <Section
+            title='EXPERIENCIA'
+            action={
+              canManage && canEdit && r.status === 'CONFIRMED' && !editingPeople ? (
+                <button
+                  type='button'
+                  onClick={() => setEditingPeople(true)}
+                  className='inline-flex items-center gap-1 text-xs font-semibold text-[#9d684e] hover:underline'
+                >
+                  <Pencil className='h-3 w-3' /> Personas
+                </button>
+              ) : undefined
+            }
+          >
             <KV k='Servicio' v={r.experienceName} />
             <KV k='Fecha' v={fmtDateTime(r.startAt)} />
-            <KV k='Personas' v={String(r.quantity)} />
+            {editingPeople ? (
+              <PeopleEditor
+                reservation={r}
+                onCancel={() => setEditingPeople(false)}
+                onSaved={(p) => {
+                  setEditingPeople(false);
+                  applyPatch(p);
+                }}
+              />
+            ) : (
+              <KV
+                k='Personas'
+                v={
+                  (r.freeSpots ?? 0) > 0
+                    ? `${r.quantity} (${r.freeSpots} bonificada${r.freeSpots === 1 ? '' : 's'})`
+                    : String(r.quantity)
+                }
+              />
+            )}
             <KV k='Origen' v={r.source === 'ADMIN' ? 'Panel admin' : 'Landing pública'} />
             {(r.tableCodes?.length ?? 0) > 0 && (
               <KV
@@ -429,6 +462,94 @@ function ClientEditor({
           Cancelar
         </Button>
         <Button type='button' variant='verde' size='sm' onClick={save} disabled={saving} className='flex-1'>
+          {saving ? 'Guardando…' : 'Guardar'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Sumar o descontar personas (y bonificadas): el total y el saldo se ajustan
+// solos; si ya pagaron de más, se avisa.
+function PeopleEditor({
+  reservation,
+  onCancel,
+  onSaved,
+}: {
+  reservation: ReservationItem;
+  onCancel: () => void;
+  onSaved: (patch: ReservationPatch) => void;
+}) {
+  const [qty, setQty] = useState(String(reservation.quantity));
+  const [free, setFree] = useState(String(reservation.freeSpots ?? 0));
+  const [saving, setSaving] = useState(false);
+  const quantity = Math.max(1, Math.floor(Number(qty) || 0));
+  const freeSpots = Math.min(quantity, Math.max(0, Math.floor(Number(free) || 0)));
+  const billable = (q: number, f: number) => Math.max(0, q - Math.min(q, f));
+  const courtesy = reservation.paymentMethod === 'COURTESY';
+  const diff = courtesy
+    ? 0
+    : (reservation.unitPrice ?? 0) *
+      (billable(quantity, freeSpots) -
+        billable(reservation.quantity, reservation.freeSpots ?? 0));
+  const changed =
+    quantity !== reservation.quantity || freeSpots !== (reservation.freeSpots ?? 0);
+  const field =
+    'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await reservationsAdmin.updateReservation(reservation._id, {
+        quantity,
+        freeSpots,
+      });
+      showToast.success(`Ahora son ${res.quantity} personas`);
+      if ((res.creditDue ?? 0) > 0) {
+        showToast.info(`Ya habían pagado ${fmtPrice(res.creditDue!)} de más: queda a favor del cliente.`);
+      }
+      onSaved({
+        quantity: res.quantity,
+        freeSpots: res.freeSpots ?? 0,
+        totalAmount: res.totalAmount,
+        balanceDue: res.balanceDue,
+        ...(res.tableCodes ? { tableCodes: res.tableCodes } : {}),
+      });
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-white p-3'>
+      <div className='grid grid-cols-2 gap-2'>
+        <label className='flex flex-col gap-1 text-[12px] text-[#7a6e6f]'>
+          Personas
+          <Input type='number' min={1} value={qty} onChange={(e) => setQty(e.target.value)} className={field} />
+        </label>
+        <label className='flex flex-col gap-1 text-[12px] text-[#7a6e6f]'>
+          Bonificadas
+          <Input type='number' min={0} max={quantity} value={free} onChange={(e) => setFree(e.target.value)} className={field} />
+        </label>
+      </div>
+      {changed && diff !== 0 && (
+        <p className='text-[12px] text-[#455a54]'>
+          {diff > 0 ? `Suma ${fmtPrice(diff)} al total y al saldo.` : `Descuenta ${fmtPrice(-diff)} del total.`}
+        </p>
+      )}
+      <div className='flex gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={onCancel}
+          className='flex-1 border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+        >
+          Cancelar
+        </Button>
+        <Button type='button' variant='verde' size='sm' onClick={save} disabled={saving || !changed} className='flex-1'>
           {saving ? 'Guardando…' : 'Guardar'}
         </Button>
       </div>

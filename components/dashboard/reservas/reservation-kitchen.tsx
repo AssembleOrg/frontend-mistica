@@ -17,7 +17,7 @@ import {
   reservationsAdmin,
   type ReservationItem,
 } from '@/services/reservations.admin.service';
-import { DIETARY_OPTIONS, DietaryTags } from './dietary-badge';
+import { DietaryPicker, DietaryTags } from './dietary-badge';
 
 const field =
   'h-9 border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -268,8 +268,6 @@ function KitchenEditor({
   const [isBirthday, setIsBirthday] = useState(!!r.isBirthday);
   const [kitchenNotes, setKitchenNotes] = useState(r.kitchenNotes ?? '');
   const [saving, setSaving] = useState(false);
-  // Las que trajo el bot y no están entre las rápidas también se pueden sacar.
-  const options = [...new Set([...DIETARY_OPTIONS, ...(r.dietaryTags ?? [])])];
 
   async function save() {
     setSaving(true);
@@ -291,33 +289,11 @@ function KitchenEditor({
 
   return (
     <div className='flex flex-col gap-2.5 rounded-xl border border-[#e6dbcd] bg-white p-3'>
-      <div className='flex flex-wrap gap-1.5'>
-        {options.map((t) => {
-          const on = tags.includes(t);
-          return (
-            <button
-              key={t}
-              type='button'
-              onClick={() => setTags(on ? tags.filter((x) => x !== t) : [...tags, t])}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs font-semibold transition',
-                on
-                  ? 'border-[#9d684e] bg-[#9d684e] text-white'
-                  : 'border-[#e0c9a8] bg-[#f4ead9] text-[#9d684e] hover:bg-[#efe0c8]',
-              )}
-            >
-              {on ? '✓ ' : ''}
-              {t}
-            </button>
-          );
-        })}
-      </div>
-      <Input
-        value={dietNotes}
-        onChange={(e) => setDietNotes(e.target.value)}
-        placeholder='Alergias u otra restricción (detalle)'
-        maxLength={500}
-        className={field}
+      <DietaryPicker
+        tags={tags}
+        onTagsChange={setTags}
+        notes={dietNotes}
+        onNotesChange={setDietNotes}
       />
       <label className='flex items-center gap-2 text-[13px] text-[#455a54]'>
         <input

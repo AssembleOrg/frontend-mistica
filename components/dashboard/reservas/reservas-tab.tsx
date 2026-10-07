@@ -360,7 +360,7 @@ export function ReservasTab() {
                 type='button'
                 onClick={() => setMode(m)}
                 className={cn(
-                  'rounded-lg px-4 py-2 text-[13px] font-medium transition-colors',
+                  'rounded-lg px-3 py-2 text-[13px] font-medium transition-colors sm:px-4',
                   mode === m ? 'bg-[#455a54] text-white' : 'text-[#7a6e6f] hover:text-[#455a54]',
                 )}
               >
@@ -374,9 +374,11 @@ export function ReservasTab() {
               variant='verde'
               className='shrink-0 gap-2'
               onClick={() => setNewOpen(true)}
+              aria-label='Nueva reserva'
             >
               <Plus className='h-4 w-4' />
-              Nueva reserva
+              {/* En mobile sólo el +: con el texto no entra junto al selector. */}
+              <span className='hidden sm:inline'>Nueva reserva</span>
             </Button>
           )}
         </div>

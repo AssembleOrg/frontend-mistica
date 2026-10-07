@@ -16,6 +16,7 @@ import {
   useSlotPicker,
 } from '@/components/dashboard/reservas/slot-picker';
 import type { Product } from '@/lib/types';
+import { DietaryPicker } from '@/components/dashboard/reservas/dietary-badge';
 
 /**
  * "Agendar" de una venta del local: una experiencia o servicio vendido en el
@@ -27,6 +28,9 @@ export function useSaleSchedule() {
   const [on, setOn] = useState(false);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
   const [qty, setQty] = useState('1');
+  const [diet, setDiet] = useState<string[]>([]);
+  const [dietNotes, setDietNotes] = useState('');
+  const [kitchenNotes, setKitchenNotes] = useState('');
   const picker = useSlotPicker(experiences);
 
   useEffect(() => {
@@ -64,6 +68,9 @@ export function useSaleSchedule() {
         date: picker.day,
         startTime: picker.time,
         quantity: Math.max(1, Number(qty) || 1),
+        ...(diet.length ? { dietaryTags: diet } : {}),
+        ...(dietNotes.trim() ? { dietaryNotes: dietNotes.trim() } : {}),
+        ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
       });
       showToast.success(`Agendada: ${fmtDateTime(r.startAt)}`);
     } catch (e) {
@@ -85,16 +92,37 @@ export function useSaleSchedule() {
   function reset() {
     setOn(false);
     setQty('1');
+    setDiet([]);
+    setDietNotes('');
+    setKitchenNotes('');
     picker.setExpId('');
   }
 
-  return { on, setOn, experiences, picker, qty, setQty, suggestFrom, validate, schedule, reset };
+  return {
+    on,
+    setOn,
+    experiences,
+    picker,
+    qty,
+    setQty,
+    diet,
+    setDiet,
+    dietNotes,
+    setDietNotes,
+    kitchenNotes,
+    setKitchenNotes,
+    suggestFrom,
+    validate,
+    schedule,
+    reset,
+  };
 }
 
 export type SaleScheduleState = ReturnType<typeof useSaleSchedule>;
 
 export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
   const { on, setOn, experiences, picker, qty, setQty } = state;
+  const fieldCls = 'border-[#e6dbcd] bg-white text-[#455a54]';
   return (
     <div className='space-y-3 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-3'>
       <label className='flex cursor-pointer items-center justify-between gap-3'>
@@ -112,7 +140,7 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
           <SlotPicker
             picker={picker}
             experiences={experiences}
-            experienceLabel='1 · Actividad'
+            experienceLabel='Actividad'
           />
           <div className='space-y-1.5'>
             <Label className='text-[13px] font-medium text-[#455a54]'>
@@ -125,7 +153,24 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
               max={picker.maxParty ?? undefined}
               value={qty}
               onChange={(e) => setQty(e.target.value)}
-              className='w-28 border-[#e6dbcd] bg-white text-[#455a54]'
+              className={`w-28 ${fieldCls}`}
+            />
+          </div>
+          <div className='space-y-2 border-t border-t-terracota/40 pt-3'>
+            <p className='text-sm font-semibold text-terracota'>Para cocina</p>
+            <DietaryPicker
+              tags={state.diet}
+              onTagsChange={state.setDiet}
+              notes={state.dietNotes}
+              onNotesChange={state.setDietNotes}
+            />
+            <Input
+              value={state.kitchenNotes}
+              onChange={(e) => state.setKitchenNotes(e.target.value)}
+              placeholder='Nota para cocina (cumpleañero, torta, horario…)'
+              aria-label='Nota para cocina'
+              maxLength={500}
+              className={fieldCls}
             />
           </div>
           <p className='text-[12px] text-[#7a6e6f]'>

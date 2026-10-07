@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
 import { ImageUploadButton } from '@/components/ui/image-upload-button';
+import { FormField, FormSection } from '@/components/ui/form-section';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fmtPrice } from '@/lib/reservas-format';
 import { experienceHasBuffet } from '@/lib/kitchen';
 import {
@@ -81,6 +83,7 @@ function fmtDuration(min: number): string {
 }
 
 type ExpFilter = 'all' | 'online' | 'coordinada';
+type ExpTab = 'basico' | 'precio' | 'horario' | 'mas';
 
 export function ExperienciasTab() {
   const confirm = useConfirm();
@@ -89,6 +92,7 @@ export function ExperienciasTab() {
   const [editing, setEditing] = useState<AdminExperience | null>(null);
   const [form, setForm] = useState<CreateExperienceInput | null>(null);
   const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<ExpTab>('basico');
   // Filtro de presentación sobre la lista ya cargada (no toca el fetch).
   const [filter, setFilter] = useState<ExpFilter>('all');
 
@@ -109,10 +113,12 @@ export function ExperienciasTab() {
 
   function openNew() {
     setEditing(null);
+    setTab('basico');
     setForm({ ...EMPTY });
   }
   function openEdit(e: AdminExperience) {
     setEditing(e);
+    setTab('basico');
     setForm({
       name: e.name,
       description: e.description ?? '',
@@ -136,14 +142,17 @@ export function ExperienciasTab() {
   async function save() {
     if (!form) return;
     if (!form.name.trim()) {
+      setTab('basico');
       showToast.error('El nombre es obligatorio');
       return;
     }
     if (!HEX_COLOR_RE.test(form.color)) {
+      setTab('basico');
       showToast.error('Elegí un color para la agenda');
       return;
     }
     if ((form.ownSchedule ?? []).some((slot) => slot.date === '')) {
+      setTab('horario');
       showToast.error('Elegí la fecha de cada horario de fecha única');
       return;
     }
@@ -355,235 +364,219 @@ export function ExperienciasTab() {
 
       <Dialog open={form !== null} onOpenChange={(o) => !o && setForm(null)}>
         {form && (
-          <DialogContent className='sm:max-w-lg'>
+          <DialogContent className='sm:max-w-2xl'>
             <DialogHeader className='text-left'>
               <DialogTitle className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
                 {editing ? 'Editar experiencia' : 'Nueva experiencia'}
               </DialogTitle>
             </DialogHeader>
 
-            <div className='flex flex-col gap-3'>
-              <Field label='Nombre'>
-                <Input
-                  value={form.name}
-                  onChange={(ev) => setForm({ ...form, name: ev.target.value })}
-                  className={fieldCls}
-                />
-              </Field>
-              <Field label='Descripción'>
-                <Textarea
-                  value={form.description}
-                  onChange={(ev) =>
-                    setForm({ ...form, description: ev.target.value })
-                  }
-                  rows={2}
-                  className={fieldCls}
-                />
-              </Field>
-              <Field label='Apodos'>
-                <AliasEditor
-                  value={form.aliases ?? []}
-                  onChange={(aliases) => setForm({ ...form, aliases })}
-                />
-              </Field>
-              <div className='grid grid-cols-3 gap-3'>
-                <Field label='Duración (min)'>
-                  <Input
-                    type='number'
-                    value={form.durationMinutes}
-                    onChange={(ev) =>
-                      setForm({
-                        ...form,
-                        durationMinutes: Number(ev.target.value),
-                      })
-                    }
-                    className={fieldCls}
-                  />
-                </Field>
-                <Field label='Precio p/p'>
-                  <Input
-                    type='number'
-                    value={form.basePrice}
-                    onChange={(ev) =>
-                      setForm({ ...form, basePrice: Number(ev.target.value) })
-                    }
-                    className={fieldCls}
-                  />
-                </Field>
-                <Field label='Cupo por turno'>
-                  <Input
-                    type='number'
-                    min={1}
-                    value={form.defaultCapacity}
-                    onChange={(ev) =>
-                      setForm({
-                        ...form,
-                        defaultCapacity: Number(ev.target.value),
-                      })
-                    }
-                    title='Máximo de personas por turno de esta experiencia'
-                    className={fieldCls}
-                  />
-                </Field>
-              </div>
-              <Field label='Seña % (lo que se cobra al reservar)'>
-                <Input
-                  type='number'
-                  min={0}
-                  max={100}
-                  value={form.depositPct ?? 50}
-                  onChange={(ev) =>
-                    setForm({ ...form, depositPct: Number(ev.target.value) })
-                  }
-                  className={fieldCls}
-                />
-              </Field>
-              <VariantsEditor
-                variants={form.priceVariants ?? []}
-                basePrice={form.basePrice}
-                onChange={(priceVariants) => setForm({ ...form, priceVariants })}
-              />
-              <p className='-mt-1 text-xs text-[#455a54]/60'>
-                Cupo por turno: máximo de personas en un mismo turno de esta
-                experiencia. En los turnos generales además lo limitan las mesas
-                libres; con horario propio o fecha única, es el único límite.
-              </p>
-              <Field label='Lugares fijos en el salón (asientos, no mesas)'>
-                <Input
-                  type='number'
-                  min={0}
-                  value={form.venueSeats ?? 0}
-                  onChange={(ev) =>
-                    setForm({ ...form, venueSeats: Number(ev.target.value) })
-                  }
-                  className={fieldCls}
-                />
-                <p className='mt-1 text-xs text-[#455a54]/60'>
-                  Casi siempre 0. Son asientos que un turno abierto ocupa sí o sí
-                  aunque haya menos anotados (ej. la mesa grande del taller = 10
-                  lugares). Con 0 cuentan sólo los anotados.
-                </p>
-              </Field>
-              {(form.bookableOnline ?? true) && !form.isBirthday && (
-                <Field label='Horario propio'>
-                  <OwnScheduleEditor
-                    value={form.ownSchedule ?? []}
-                    onChange={(ownSchedule) => setForm({ ...form, ownSchedule })}
-                  />
-                </Field>
-              )}
-              <Field label='Imágenes (URLs)'>
-                <ImagesEditor
-                  value={form.images ?? []}
-                  onChange={(images) => setForm({ ...form, images })}
-                />
-              </Field>
-              <Field label='Color en la agenda'>
-                <div className='flex flex-wrap items-center gap-2'>
-                  {EXPERIENCE_COLOR_PALETTE.map((c) => (
-                    <button
-                      key={c.hex}
-                      type='button'
-                      title={c.label}
-                      onClick={() => setForm({ ...form, color: c.hex })}
-                      className={`h-7 w-7 rounded-full border-2 transition ${
-                        form.color.toLowerCase() === c.hex
-                          ? 'scale-110 border-[#455a54]'
-                          : 'border-transparent hover:scale-105'
-                      }`}
-                      style={{ backgroundColor: c.hex }}
+            <Tabs value={tab} onValueChange={(v) => setTab(v as ExpTab)}>
+              <TabsList className='h-10 w-full bg-arena-2 [&>button]:px-1.5 [&>button]:text-xs sm:[&>button]:text-sm'>
+                <TabsTrigger value='basico'>Básico</TabsTrigger>
+                <TabsTrigger value='precio'>Precio y cupo</TabsTrigger>
+                <TabsTrigger value='horario'>Horario</TabsTrigger>
+                <TabsTrigger value='mas'>Más</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value='basico' className='flex flex-col gap-3 pt-2'>
+                <FormSection title='Qué es'>
+                  <FormField label='Nombre' htmlFor='exp-name'>
+                    <Input
+                      id='exp-name'
+                      value={form.name}
+                      onChange={(ev) => setForm({ ...form, name: ev.target.value })}
+                      className={fieldCls}
                     />
-                  ))}
-                  {/* Cualquier otro color, con el picker nativo */}
-                  <label className='relative ml-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 font-mono text-[11px] text-[#455a54]'>
-                    <span
-                      className='h-3.5 w-3.5 rounded-full border border-[#e6dbcd]'
-                      style={{ backgroundColor: form.color }}
-                    />
-                    {form.color.toUpperCase()}
-                    <input
-                      type='color'
-                      value={form.color}
+                  </FormField>
+                  <FormField
+                    label='Descripción'
+                    htmlFor='exp-description'
+                    hint='Se muestra en la web.'
+                  >
+                    <Textarea
+                      id='exp-description'
+                      value={form.description}
                       onChange={(ev) =>
-                        setForm({ ...form, color: ev.target.value })
+                        setForm({ ...form, description: ev.target.value })
                       }
-                      className='absolute inset-0 h-full w-full cursor-pointer opacity-0'
+                      rows={3}
+                      className={fieldCls}
                     />
-                  </label>
-                </div>
-              </Field>
-              <div className='flex flex-col gap-1'>
-                <div className='flex items-center gap-2.5'>
-                  <Switch
+                  </FormField>
+                </FormSection>
+                <FormSection title='Color en la agenda'>
+                  <ColorPicker
+                    value={form.color}
+                    onChange={(color) => setForm({ ...form, color })}
+                  />
+                </FormSection>
+                <FormSection title='Estado'>
+                  <SwitchRow
+                    id='exp-active'
+                    label='Activa'
+                    hint='Si la apagás, deja de verse en la web y en el bot.'
+                    checked={form.isActive ?? false}
+                    onChange={(isActive) => setForm({ ...form, isActive })}
+                  />
+                </FormSection>
+              </TabsContent>
+
+              <TabsContent value='precio' className='flex flex-col gap-3 pt-2'>
+                <FormSection title='Precio y duración'>
+                  <div className='grid gap-3 sm:grid-cols-2'>
+                    <FormField
+                      label='Precio por persona'
+                      htmlFor='exp-price'
+                      hint={fmtPrice(form.basePrice)}
+                    >
+                      <Input
+                        id='exp-price'
+                        type='number'
+                        min={0}
+                        value={form.basePrice}
+                        onChange={(ev) =>
+                          setForm({ ...form, basePrice: Number(ev.target.value) })
+                        }
+                        className={fieldCls}
+                      />
+                    </FormField>
+                    <FormField
+                      label='Duración (minutos)'
+                      htmlFor='exp-duration'
+                      hint={`Dura ${fmtDuration(form.durationMinutes)}`}
+                    >
+                      <Input
+                        id='exp-duration'
+                        type='number'
+                        min={0}
+                        value={form.durationMinutes}
+                        onChange={(ev) =>
+                          setForm({
+                            ...form,
+                            durationMinutes: Number(ev.target.value),
+                          })
+                        }
+                        className={fieldCls}
+                      />
+                    </FormField>
+                    <FormField
+                      label='Cupo por turno'
+                      htmlFor='exp-capacity'
+                      hint='Máximo de personas en un mismo turno. En los turnos del salón también lo limitan las mesas libres.'
+                    >
+                      <Input
+                        id='exp-capacity'
+                        type='number'
+                        min={1}
+                        value={form.defaultCapacity}
+                        onChange={(ev) =>
+                          setForm({
+                            ...form,
+                            defaultCapacity: Number(ev.target.value),
+                          })
+                        }
+                        className={fieldCls}
+                      />
+                    </FormField>
+                    <FormField
+                      label='Seña al reservar (%)'
+                      htmlFor='exp-deposit'
+                      hint={`Se cobran ${fmtPrice(
+                        Math.round(
+                          (form.basePrice * (form.depositPct ?? 50)) / 100,
+                        ),
+                      )} por persona al reservar.`}
+                    >
+                      <Input
+                        id='exp-deposit'
+                        type='number'
+                        min={0}
+                        max={100}
+                        value={form.depositPct ?? 50}
+                        onChange={(ev) =>
+                          setForm({ ...form, depositPct: Number(ev.target.value) })
+                        }
+                        className={fieldCls}
+                      />
+                    </FormField>
+                  </div>
+                </FormSection>
+                {/* "Lugares fijos en el salón" (venueSeats) queda oculto a
+                    propósito: ningún cálculo de capacidad del backend lo lee
+                    (y availability.service lo fuerza a 0 en los turnos que crea
+                    solo). El lugar del Taller se aparta con el bloqueo semanal
+                    de mesas. El valor guardado se sigue enviando sin cambios. */}
+                <VariantsEditor
+                  variants={form.priceVariants ?? []}
+                  basePrice={form.basePrice}
+                  onChange={(priceVariants) => setForm({ ...form, priceVariants })}
+                />
+              </TabsContent>
+
+              <TabsContent value='horario' className='flex flex-col gap-3 pt-2'>
+                <FormSection title='Cómo se reserva'>
+                  <SwitchRow
                     id='exp-bookable'
+                    label='Se reserva online'
+                    hint='Genera turnos y cobra seña. Si lo apagás, es un servicio coordinado: el bot solo informa y toma la consulta.'
                     checked={form.bookableOnline ?? true}
-                    onCheckedChange={(checked) =>
-                      setForm({ ...form, bookableOnline: checked })
+                    onChange={(bookableOnline) =>
+                      setForm({ ...form, bookableOnline })
                     }
-                    className='data-[state=checked]:bg-[#455a54]'
                   />
-                  <Label
-                    htmlFor='exp-bookable'
-                    className='text-sm text-[#455a54]'
-                  >
-                    Se reserva online (genera turnos y seña)
-                  </Label>
-                </div>
-                <p className='pl-12 text-xs text-[#455a54]/60'>
-                  Si lo apagás, es un servicio coordinado: el bot solo informa y
-                  toma la consulta (sin turnos ni pago online).
-                </p>
-              </div>
-              <div className='flex flex-col gap-1'>
-                <div className='flex items-center gap-2.5'>
-                  <Switch
+                </FormSection>
+                {form.isBirthday ? (
+                  <p className='px-1 text-sm text-texto-suave'>
+                    El cumpleaños usa los horarios de la experiencia que elija
+                    el cliente.
+                  </p>
+                ) : (form.bookableOnline ?? true) ? (
+                  <FormSection title='Cuándo se puede reservar'>
+                    <OwnScheduleEditor
+                      value={form.ownSchedule ?? []}
+                      onChange={(ownSchedule) => setForm({ ...form, ownSchedule })}
+                    />
+                  </FormSection>
+                ) : (
+                  <p className='px-1 text-sm text-texto-suave'>
+                    Al ser coordinada no tiene turnos: el día y la hora se
+                    arreglan con el equipo.
+                  </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value='mas' className='flex flex-col gap-3 pt-2'>
+                <FormSection title='Apodos'>
+                  <AliasEditor
+                    value={form.aliases ?? []}
+                    onChange={(aliases) => setForm({ ...form, aliases })}
+                  />
+                </FormSection>
+                <FormSection title='Imágenes' description='Se muestran en la web.'>
+                  <ImagesEditor
+                    value={form.images ?? []}
+                    onChange={(images) => setForm({ ...form, images })}
+                  />
+                </FormSection>
+                <FormSection title='Opciones'>
+                  <SwitchRow
                     id='exp-buffet'
+                    label='Incluye buffet o merienda'
+                    hint='La vista de Cocina cuenta a sus personas para preparar el buffet.'
                     checked={form.hasBuffet ?? experienceHasBuffet(form)}
-                    onCheckedChange={(checked) =>
-                      setForm({ ...form, hasBuffet: checked })
-                    }
-                    className='data-[state=checked]:bg-[#455a54]'
+                    onChange={(hasBuffet) => setForm({ ...form, hasBuffet })}
                   />
-                  <Label
-                    htmlFor='exp-buffet'
-                    className='text-sm text-[#455a54]'
-                  >
-                    Incluye buffet o merienda
-                  </Label>
-                </div>
-                <p className='pl-12 text-xs text-[#455a54]/60'>
-                  La vista de Cocina cuenta a sus personas para preparar el
-                  buffet.
-                </p>
-              </div>
-              <div className='flex items-center gap-2.5'>
-                <Switch
-                  id='exp-birthday'
-                  checked={form.isBirthday ?? false}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, isBirthday: checked })
-                  }
-                  className='data-[state=checked]:bg-[#9d684e]'
-                />
-                <Label htmlFor='exp-birthday' className='text-sm text-[#455a54]'>
-                  Es cumpleaños 🎉 (hereda precio y duración de la experiencia
-                  elegida)
-                </Label>
-              </div>
-              <div className='flex items-center gap-2.5'>
-                <Switch
-                  id='exp-active'
-                  checked={form.isActive}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, isActive: checked })
-                  }
-                  className='data-[state=checked]:bg-[#455a54]'
-                />
-                <Label htmlFor='exp-active' className='text-sm text-[#455a54]'>
-                  Activa (visible al público)
-                </Label>
-              </div>
-            </div>
+                  <SwitchRow
+                    id='exp-birthday'
+                    label='Es cumpleaños 🎉'
+                    hint='Hereda precio, duración y horario de la experiencia elegida; aporta los beneficios del festejo.'
+                    checked={form.isBirthday ?? false}
+                    onChange={(isBirthday) => setForm({ ...form, isBirthday })}
+                  />
+                </FormSection>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter>
               <Button
@@ -594,12 +587,7 @@ export function ExperienciasTab() {
               >
                 Cancelar
               </Button>
-              <Button
-                type='button'
-                variant='terracota'
-                onClick={save}
-                disabled={saving}
-              >
+              <Button type='button' variant='verde' onClick={save} disabled={saving}>
                 {saving ? 'Guardando…' : 'Guardar'}
               </Button>
             </DialogFooter>
@@ -610,19 +598,73 @@ export function ExperienciasTab() {
   );
 }
 
-function Field({
+/** Switch con su label al lado y la ayuda debajo, alineada al texto. */
+function SwitchRow({
+  id,
   label,
-  children,
-}: {
+  hint,
+  checked,
+  onChange,
+}: Readonly<{
+  id: string;
   label: string;
-  children: React.ReactNode;
-}) {
+  hint?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}>) {
   return (
-    <div className='flex flex-col gap-1.5'>
-      <span className='font-mono text-xs tracking-wider text-[#455a54]/60'>
-        {label.toUpperCase()}
-      </span>
-      {children}
+    <div className='flex items-start gap-3'>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onChange}
+        className='mt-0.5 data-[state=checked]:bg-[#455a54]'
+      />
+      <div className='flex flex-col gap-0.5'>
+        <Label htmlFor={id} className='text-sm font-medium text-[#3d3338]'>
+          {label}
+        </Label>
+        {hint && <p className='text-xs leading-snug text-texto-suave'>{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Paleta de colores de la agenda + cualquier otro con el picker nativo. */
+function ColorPicker({
+  value,
+  onChange,
+}: Readonly<{ value: string; onChange: (hex: string) => void }>) {
+  return (
+    <div className='flex flex-wrap items-center gap-2'>
+      {EXPERIENCE_COLOR_PALETTE.map((c) => (
+        <button
+          key={c.hex}
+          type='button'
+          title={c.label}
+          aria-label={c.label}
+          onClick={() => onChange(c.hex)}
+          className={`h-7 w-7 rounded-full border-2 transition ${
+            value.toLowerCase() === c.hex
+              ? 'scale-110 border-[#455a54]'
+              : 'border-transparent hover:scale-105'
+          }`}
+          style={{ backgroundColor: c.hex }}
+        />
+      ))}
+      <label className='relative ml-1 flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-[#e6dbcd] bg-[#fbf5ef] px-2.5 font-mono text-[11px] text-[#455a54]'>
+        <span
+          className='h-3.5 w-3.5 rounded-full border border-[#e6dbcd]'
+          style={{ backgroundColor: value }}
+        />
+        {value.toUpperCase()}
+        <input
+          type='color'
+          value={value}
+          onChange={(ev) => onChange(ev.target.value)}
+          className='absolute inset-0 h-full w-full cursor-pointer opacity-0'
+        />
+      </label>
     </div>
   );
 }
@@ -1156,7 +1198,7 @@ function VariantForm({
       </div>
 
       <div className='grid grid-cols-2 gap-2'>
-        <Field label='Nombre'>
+        <FormField label='Nombre'>
           <Input
             value={v.name}
             onChange={(ev) => onPatch({ name: ev.target.value })}
@@ -1165,8 +1207,8 @@ function VariantForm({
             }
             className={`${fieldCls} h-9 text-sm`}
           />
-        </Field>
-        <Field label={v.unit === 'FLAT' ? 'Precio total' : 'Precio por persona'}>
+        </FormField>
+        <FormField label={v.unit === 'FLAT' ? 'Precio total' : 'Precio por persona'}>
           <div className='flex items-center gap-2'>
             <span className='text-sm text-[#7a6e6f]'>$</span>
             <Input
@@ -1188,12 +1230,12 @@ function VariantForm({
               (regalo, lugares bonificados).
             </p>
           )}
-        </Field>
+        </FormField>
       </div>
 
       {/* Condición según el tipo */}
       {kind === 'qty' && (
-        <Field label='Cantidad de personas'>
+        <FormField label='Cantidad de personas'>
           <div className='flex items-center gap-2 text-sm text-[#455a54]'>
             de
             <Input
@@ -1227,11 +1269,11 @@ function VariantForm({
             Dejá &ldquo;a&rdquo; vacío para &ldquo;5 o más&rdquo;. Si hay dos
             promos que aplican, gana la de más personas.
           </p>
-        </Field>
+        </FormField>
       )}
 
       {kind === 'weekday' && (
-        <Field label='Qué días'>
+        <FormField label='Qué días'>
           <div className='flex flex-wrap gap-1.5'>
             {WEEKDAYS.map((w) => {
               const on = v.days?.includes(w.iso) ?? false;
@@ -1254,11 +1296,11 @@ function VariantForm({
           <p className='mt-1 text-[11px] text-[#455a54]/60'>
             Rige esos días todas las semanas, hasta que la apagues.
           </p>
-        </Field>
+        </FormField>
       )}
 
       {kind === 'date' && (
-        <Field label='Qué fechas'>
+        <FormField label='Qué fechas'>
           <div className='flex flex-wrap items-center gap-2'>
             <DatePicker
               value={v.dateFrom}
@@ -1283,11 +1325,11 @@ function VariantForm({
           <p className='mt-1 text-[11px] text-[#455a54]/60'>
             Misma fecha en los dos = promo de un solo día.
           </p>
-        </Field>
+        </FormField>
       )}
 
       {kind === 'modality' && (
-        <Field label='Cómo se cobra'>
+        <FormField label='Cómo se cobra'>
           <div className='flex gap-1.5'>
             {(
               [
@@ -1314,11 +1356,11 @@ function VariantForm({
             precios (ej. escuelita &ldquo;Mensual&rdquo; $80) y el pago se
             coordina.
           </p>
-        </Field>
+        </FormField>
       )}
 
       {kind !== 'modality' && (
-        <Field label='Lugares bonificados (opcional)'>
+        <FormField label='Lugares bonificados (opcional)'>
           <div className='flex items-center gap-2 text-sm text-[#455a54]'>
             <Input
               type='number'
@@ -1338,17 +1380,17 @@ function VariantForm({
               lugares gratis: entran todos, se cobran esa cantidad menos
             </span>
           </div>
-        </Field>
+        </FormField>
       )}
 
-      <Field label='Qué incluye (opcional)'>
+      <FormField label='Qué incluye (opcional)'>
         <Input
           value={v.description ?? ''}
           onChange={(ev) => onPatch({ description: ev.target.value })}
           placeholder='velas de cumpleaños, torta + pieza de regalo…'
           className={`${fieldCls} h-9 text-sm`}
         />
-      </Field>
+      </FormField>
 
       {/* Vista previa: la misma frase que va a ver el equipo en la lista */}
       <div className='rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-xs text-[#455a54]'>
@@ -1406,12 +1448,43 @@ const DAY_LABEL = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'S�
 /** Día ISO (1=lunes … 7=domingo) de una fecha 'YYYY-MM-DD'. */
 const isoWeekday = (ymd: string) => new Date(`${ymd}T12:00:00Z`).getUTCDay() || 7;
 
+type ScheduleMode = 'general' | 'weekly' | 'once';
+
+const NEW_WEEKLY: OwnSlot = { weekday: 3, start: '18:00' };
+const NEW_ONCE: OwnSlot = { weekday: 6, start: '15:00', date: '' };
+
+const SCHEDULE_MODES: Array<{
+  mode: ScheduleMode;
+  title: string;
+  subtitle: string;
+  help: string;
+}> = [
+  {
+    mode: 'general',
+    title: 'Turnos del salón',
+    subtitle: 'Cualquier día, en los horarios generales',
+    help: 'Se ofrece en los turnos generales; el lugar lo limitan el cupo y las mesas libres.',
+  },
+  {
+    mode: 'weekly',
+    title: 'Todas las semanas',
+    subtitle: 'Días y horas fijos (ej. miércoles 18:00)',
+    help: 'Se ofrece SÓLO en estos días y horas. El límite es el cupo; el espacio se aparta con un bloqueo de mesas.',
+  },
+  {
+    mode: 'once',
+    title: 'Fecha única',
+    subtitle: 'Un evento (ej. Día de la Madre)',
+    help: 'La web, el bot y la agenda la ofrecen sólo en esa fecha y a esa hora.',
+  },
+];
+
 /**
- * Horario propio de la experiencia (ej. Escuelita: miércoles 18:00), o fechas
- * únicas para un evento (ej. Día de la Madre: sábado 17/10 a las 15:00). Si
- * tiene alguno, se ofrece SÓLO en esos días y horas y no en los turnos
- * generales; ahí el lugar es el cupo de la experiencia (el espacio lo aparta
- * un bloqueo de mesas).
+ * Cuándo se reserva la experiencia: en los turnos generales (sin horario
+ * propio), en días y horas fijos cada semana (ej. Escuelita: miércoles 18:00)
+ * o en fechas únicas para un evento (ej. Día de la Madre: sábado 17/10 15:00).
+ * Con horario propio se ofrece SÓLO ahí y el lugar es el cupo de la
+ * experiencia (el espacio lo aparta un bloqueo de mesas).
  */
 function OwnScheduleEditor({
   value,
@@ -1420,27 +1493,76 @@ function OwnScheduleEditor({
   value: OwnSlot[];
   onChange: (v: OwnSlot[]) => void;
 }) {
+  // El modo sale de los horarios cargados; una lista mezclada (semanal +
+  // fecha única, de antes) se muestra como semanal con todas sus filas.
+  const mode: ScheduleMode =
+    value.length === 0
+      ? 'general'
+      : value.every((s) => s.date !== undefined)
+        ? 'once'
+        : 'weekly';
+
   const update = (i: number, patch: Partial<OwnSlot>) =>
     onChange(value.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+
+  // Cambiar de modo conserva las filas que ya son de ese tipo.
+  function pick(next: ScheduleMode) {
+    if (next === mode) return;
+    if (next === 'general') return onChange([]);
+    const once = next === 'once';
+    const kept = value.filter((s) => (s.date !== undefined) === once);
+    onChange(kept.length > 0 ? kept : [once ? NEW_ONCE : NEW_WEEKLY]);
+  }
+
   return (
-    <div className='flex flex-col gap-2'>
+    <div className='flex flex-col gap-3'>
+      <div
+        role='radiogroup'
+        aria-label='Cuándo se puede reservar'
+        className='grid gap-2 sm:grid-cols-3'
+      >
+        {SCHEDULE_MODES.map((m) => {
+          const active = m.mode === mode;
+          return (
+            <button
+              key={m.mode}
+              type='button'
+              role='radio'
+              aria-checked={active}
+              onClick={() => pick(m.mode)}
+              className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2.5 text-left transition ${
+                active
+                  ? 'border-[#455a54] bg-[#455a54] text-white'
+                  : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#3d3338] hover:border-[#455a54]/50'
+              }`}
+            >
+              <span className='text-sm font-semibold'>{m.title}</span>
+              <span
+                className={`text-xs leading-snug ${active ? 'text-white/80' : 'text-texto-suave'}`}
+              >
+                {m.subtitle}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className='text-xs leading-snug text-texto-suave'>
+        {SCHEDULE_MODES.find((m) => m.mode === mode)?.help}
+      </p>
+
       {value.map((slot, i) => (
         <div key={i} className='flex flex-wrap items-center gap-2'>
           {slot.date !== undefined ? (
-            <>
-              <DatePicker
-                value={slot.date}
-                onChange={(date) =>
-                  update(i, { date, ...(date ? { weekday: isoWeekday(date) } : {}) })
-                }
-                disablePast
-                placeholder='Fecha del evento'
-                className='w-44'
-              />
-              <span className='rounded-full bg-[#f4ead9] px-2 py-0.5 text-[11px] font-semibold text-[#9d684e]'>
-                fecha única
-              </span>
-            </>
+            <DatePicker
+              value={slot.date}
+              onChange={(date) =>
+                update(i, { date, ...(date ? { weekday: isoWeekday(date) } : {}) })
+              }
+              disablePast
+              placeholder='Fecha del evento'
+              className='w-44'
+            />
           ) : (
             <Select
               value={String(slot.weekday)}
@@ -1472,33 +1594,19 @@ function OwnScheduleEditor({
           />
         </div>
       ))}
-      <div className='flex flex-wrap gap-2'>
+
+      {mode !== 'general' && (
         <Button
           type='button'
           variant='outline'
           size='sm'
           className='w-fit border-[#e6dbcd] text-[#455a54]'
-          onClick={() => onChange([...value, { weekday: 3, start: '18:00' }])}
+          onClick={() => onChange([...value, mode === 'once' ? NEW_ONCE : NEW_WEEKLY])}
         >
-          <Plus className='mr-1 h-4 w-4' /> Todas las semanas
+          <Plus className='mr-1 h-4 w-4' />
+          {mode === 'once' ? 'Otra fecha' : 'Otro día'}
         </Button>
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          className='w-fit border-[#e6dbcd] text-[#455a54]'
-          onClick={() => onChange([...value, { weekday: 6, start: '15:00', date: '' }])}
-        >
-          <Plus className='mr-1 h-4 w-4' /> Fecha única (evento)
-        </Button>
-      </div>
-      <p className='text-xs text-[#455a54]/60'>
-        Vacío = se reserva en los turnos generales del salón. Si cargás algún
-        horario, la experiencia se ofrece SÓLO en esos días y horas (ej.
-        Escuelita: miércoles 18:00) y el lugar es su cupo, no las mesas. Para un
-        evento de un solo día (ej. Día de la Madre), usá &quot;Fecha única&quot;: la web,
-        el bot y la agenda la ofrecen sólo ese día y a esa hora.
-      </p>
+      )}
     </div>
   );
 }

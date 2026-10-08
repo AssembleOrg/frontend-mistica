@@ -27,6 +27,7 @@ import {
   piecesAdmin,
   PIECE_STATUS_LABEL,
   PIECE_STATUS_ORDER,
+  type PieceExtraItem,
   type PieceItem,
   type PieceStatusConfig,
 } from '@/services/pieces.admin.service';
@@ -805,9 +806,11 @@ type ReservationEntry = {
   extraId: string;
   /** 2x1: la segunda pieza (las dos van en esta ficha, una sola paleta). */
   pieceType2: string;
+  /** Pieza sumada además de la incluida en la entrada (se cobra entera). */
+  additional: boolean;
 };
 
-const emptyReservationEntry = (personName = ''): ReservationEntry => ({
+const emptyReservationEntry = (personName = '', additional = false): ReservationEntry => ({
   personName,
   signature: '',
   pieceType: '',
@@ -815,6 +818,7 @@ const emptyReservationEntry = (personName = ''): ReservationEntry => ({
   hasExtra: false,
   extraId: '',
   pieceType2: '',
+  additional,
 });
 
 export function NewPieceModal({
@@ -863,32 +867,53 @@ export function NewPieceModal({
   const isPair = (entry: ReservationEntry) =>
     entry.hasExtra && !!extrasCatalog.find((x) => x.id === entry.extraId)?.pair;
 
+  // Lo que se cobra por la pieza: el upgrade sobre la incluida o, si se suma
+  // además de la incluida, el precio de pieza adicional de su categoría.
+  const priceOf = (category: PieceExtraItem, additional: boolean) =>
+    additional ? (category.addAmount ?? category.amount) : category.amount;
+  const chargeOf = (entry: ReservationEntry) => {
+    const category = entry.hasExtra
+      ? extrasCatalog.find((x) => x.id === entry.extraId)
+      : undefined;
+    return category ? priceOf(category, entry.additional) : 0;
+  };
+  // Tela, bastidor, yeso…: se los llevan en el día (sin firma ni colores).
+  const materialOf = (entry: ReservationEntry) =>
+    (entry.hasExtra ? extrasCatalog.find((x) => x.id === entry.extraId)?.material : undefined) ??
+    categoryOf(entry.pieceType).category?.material;
+
   // Elegir la pieza propone su categoría: con monto, el adicional queda
-  // marcado (se puede cambiar); "Incluida" o sin categoría, sin adicional.
-  function pickPiece(index: number, name: string) {
+  // marcado (se puede cambiar); incluida sin upgrade, sin adicional.
+  function withCategory(entry: ReservationEntry, name: string, additional: boolean): ReservationEntry {
     const { category } = categoryOf(name);
+    if (!category) return { ...entry, pieceType: name, additional };
+    const charged = priceOf(category, additional) > 0 || !!category.pair;
+    return {
+      ...entry,
+      pieceType: name,
+      additional,
+      hasExtra: charged,
+      extraId: charged ? category.id : '',
+      pieceType2: category.pair ? entry.pieceType2 : '',
+    };
+  }
+  function pickPiece(index: number, name: string) {
     setEntries((current) =>
-      current.map((entry, i) => {
-        if (i !== index) return entry;
-        if (!category) return { ...entry, pieceType: name };
-        const charged = category.amount > 0 || !!category.pair;
-        return {
-          ...entry,
-          pieceType: name,
-          hasExtra: charged,
-          extraId: charged ? category.id : '',
-          pieceType2: category.pair ? entry.pieceType2 : '',
-        };
-      }),
+      current.map((entry, i) => (i === index ? withCategory(entry, name, entry.additional) : entry)),
     );
   }
-  const extrasTotal = entries.reduce(
-    (sum, e) =>
-      e.hasExtra && e.extraId
-        ? sum + (extrasCatalog.find((x) => x.id === e.extraId)?.amount ?? 0)
-        : sum,
-    0,
-  );
+  function setAdditional(index: number, additional: boolean) {
+    setEntries((current) =>
+      current.map((entry, i) =>
+        i !== index
+          ? entry
+          : entry.pieceType
+            ? withCategory(entry, entry.pieceType, additional)
+            : { ...entry, additional },
+      ),
+    );
+  }
+  const extrasTotal = entries.reduce((sum, e) => sum + chargeOf(e), 0);
 
   useEffect(() => {
     // Con reserva fija o con las del turno no hace falta buscar.
@@ -935,14 +960,15 @@ export function NewPieceModal({
 
   async function submit() {
     if (!reservation) return showToast.error('Seleccioná una reserva del día');
+    if (entries.some((entry) => !entry.personName.trim() || !entry.pieceType.trim())) {
+      return showToast.error('Completá el nombre y la pieza de cada ficha');
+    }
     if (
-      entries.some((entry) =>
-        [entry.personName, entry.signature, entry.pieceType, entry.colorsUsed].some(
-          (value) => !value.trim(),
-        ),
+      entries.some(
+        (entry) => !materialOf(entry) && (!entry.signature.trim() || !entry.colorsUsed.trim()),
       )
     ) {
-      return showToast.error('Completá nombre, firma, pieza y colores de cada ficha');
+      return showToast.error('Completá la firma y los colores de cada pieza de cerámica');
     }
     if (entries.some((entry) => entry.hasExtra && !entry.extraId)) {
       return showToast.error('Elegí el adicional de cada pieza que lo tiene');
@@ -961,6 +987,7 @@ export function NewPieceModal({
           colorsUsed: entry.colorsUsed.trim(),
           extraId: entry.hasExtra ? entry.extraId : undefined,
           ...(isPair(entry) && { pieceType2: entry.pieceType2.trim() }),
+          ...(entry.additional && { additional: true }),
         })),
         responsable.value.trim() || undefined,
       );
@@ -1048,8 +1075,28 @@ export function NewPieceModal({
               <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>
                 {entries.map((entry, index) => (
                   <div key={index} className='rounded-xl border border-[#e6dbcd] bg-white p-3'>
-                    <div className='mb-2 flex items-center justify-between'>
-                      <span className='text-sm font-semibold text-[#455a54]'>Ficha {index + 1}</span>
+                    <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
+                      <span className='flex items-center gap-2'>
+                        <span className='text-sm font-semibold text-[#455a54]'>Ficha {index + 1}</span>
+                        {/* Incluida en la entrada o sumada aparte (cambia el precio) */}
+                        <span className='inline-flex rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-0.5'>
+                          {([false, true] as const).map((add) => (
+                            <button
+                              key={String(add)}
+                              type='button'
+                              onClick={() => setAdditional(index, add)}
+                              className={cn(
+                                'rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                entry.additional === add
+                                  ? 'bg-[#455a54] text-white'
+                                  : 'text-[#7a6e6f] hover:text-[#455a54]',
+                              )}
+                            >
+                              {add ? 'Pieza adicional' : 'Incluida en la entrada'}
+                            </button>
+                          ))}
+                        </span>
+                      </span>
                       {entries.length > 1 && (
                         <button type='button' onClick={() => setEntries((current) => current.filter((_, i) => i !== index))} className='text-xs text-[#a33] hover:underline'>Quitar</button>
                       )}
@@ -1058,8 +1105,8 @@ export function NewPieceModal({
                       <Field label='Nombre y apellido'>
                         <Input value={entry.personName} onChange={(event) => updateEntry(index, 'personName', event.target.value)} className={fieldCls} />
                       </Field>
-                      <Field label='Firma colocada en la pieza'>
-                        <Input value={entry.signature} onChange={(event) => updateEntry(index, 'signature', event.target.value)} placeholder='Ej. CH, estrella, iniciales…' className={fieldCls} />
+                      <Field label={materialOf(entry) ? 'Firma (no hace falta)' : 'Firma colocada en la pieza'}>
+                        <Input value={entry.signature} onChange={(event) => updateEntry(index, 'signature', event.target.value)} placeholder={materialOf(entry) ? `${materialOf(entry)}: se lo llevan en el día` : 'Ej. CH, estrella, iniciales…'} className={fieldCls} />
                       </Field>
                       <div className='flex flex-col gap-2'>
                         <Field label='Pieza elegida'>
@@ -1076,6 +1123,11 @@ export function NewPieceModal({
                         {entry.hasExtra && (
                           <PieceExtraSelect value={entry.extraId} onChange={(id) => updateEntry(index, 'extraId', id)} />
                         )}
+                        {chargeOf(entry) > 0 && (
+                          <span className='text-[12px] font-medium text-[#9d684e]'>
+                            {entry.additional ? 'Pieza adicional' : 'Upgrade'}: +{fmtPrice(chargeOf(entry))}
+                          </span>
+                        )}
                         {isPair(entry) && (
                           <Field label='Segunda pieza (2x1)'>
                             <PieceTypeSelect
@@ -1091,7 +1143,7 @@ export function NewPieceModal({
                           </Field>
                         )}
                       </div>
-                      <Field label='Colores utilizados'>
+                      <Field label={materialOf(entry) ? 'Colores (no hace falta)' : 'Colores utilizados'}>
                         <ColorsSelect value={entry.colorsUsed} onChange={(v) => updateEntry(index, 'colorsUsed', v)} />
                       </Field>
                     </div>
@@ -1102,7 +1154,8 @@ export function NewPieceModal({
                 type='button'
                 variant='outline'
                 size='sm'
-                onClick={() => setEntries((current) => [...current, emptyReservationEntry()])}
+                // Más fichas que personas: es una pieza que se suma aparte.
+                onClick={() => setEntries((current) => [...current, emptyReservationEntry('', true)])}
                 className='w-fit gap-1 border-[#e6dbcd] text-[#455a54]'
               >
                 <Plus className='h-3.5 w-3.5' /> Agregar otra ficha

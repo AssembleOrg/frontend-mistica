@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, ListPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,12 @@ import { usePieceTypesStore } from '@/stores/piece-types.store';
 import { usePieceExtrasStore } from '@/stores/piece-extras.store';
 import { useAuth } from '@/hooks/useAuth';
 import { canManageRole } from '@/lib/views';
-import type { PieceExtraItem, PieceTypeItem } from '@/services/pieces.admin.service';
+import {
+  piecesAdmin,
+  type PieceExtraItem,
+  type PieceTypeItem,
+} from '@/services/pieces.admin.service';
+import { PIECE_CATEGORIES, PIECE_TYPES } from '@/lib/piece-catalog';
 import {
   CatalogCombobox,
   catalogFieldCls as fieldCls,
@@ -133,7 +138,9 @@ function PieceTypesManager({
   onRenamed: (prev: string, next: string) => void;
 }) {
   const { items, create, update, remove } = usePieceTypesStore();
+  const reloadTypes = usePieceTypesStore((st) => st.load);
   const extras = usePieceExtrasStore((st) => st.items);
+  const reloadExtras = usePieceExtrasStore((st) => st.load);
   const { user } = useAuth();
   // La categoría define el adicional que se cobra: la pone admin/encargado.
   const canManage = canManageRole(user?.role);
@@ -185,6 +192,29 @@ function PieceTypesManager({
     }
   }
 
+  // Carga el listado completo de la clienta (categorías con precios y piezas
+  // con su categoría): crea o actualiza por nombre, no borra nada.
+  async function importAll() {
+    const ok = await confirm({
+      title: 'Cargar catálogo completo',
+      description: `Crea o actualiza ${PIECE_CATEGORIES.length} categorías (con sus precios) y ${PIECE_TYPES.length} piezas. Lo que ya existe con el mismo nombre se actualiza; no se borra nada y las fichas cargadas no cambian.`,
+      confirmLabel: 'Cargar',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const r = await piecesAdmin.importCatalog({ categories: PIECE_CATEGORIES, types: PIECE_TYPES });
+      await Promise.all([reloadTypes(true), reloadExtras(true)]);
+      showToast.success(
+        `Catálogo cargado: ${r.categoriesCreated} categorías nuevas, ${r.categoriesUpdated} actualizadas · ${r.typesCreated} piezas nuevas, ${r.typesUpdated} actualizadas`,
+      );
+    } catch (e) {
+      showToast.error(errMsg(e, 'No se pudo cargar el catálogo'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function del(t: PieceTypeItem) {
     const ok = await confirm({
       title: 'Borrar pieza del catálogo',
@@ -215,6 +245,20 @@ function PieceTypesManager({
             la pieza del mes de los alumnos. La categoría define el adicional.
           </DialogDescription>
         </DialogHeader>
+
+        {canManage && (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            disabled={busy}
+            onClick={() => void importAll()}
+            className='w-fit gap-1.5 border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+          >
+            <ListPlus className='h-4 w-4' />
+            Cargar catálogo completo ({PIECE_TYPES.length} piezas)
+          </Button>
+        )}
 
         <form
           className='flex gap-2'

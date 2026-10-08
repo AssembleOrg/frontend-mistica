@@ -82,6 +82,24 @@ export function PopoverPortal({
     return () => document.removeEventListener('mousedown', onDown);
   }, [open, onClose, anchorRef]);
 
+  // Un Dialog modal de Radix bloquea la rueda y el arrastre táctil en todo lo
+  // que queda fuera de su contenido (react-remove-scroll escucha en
+  // `document`). Este panel vive en <body>, así que su lista no scrolleaba
+  // (colores, catálogo de piezas…). Cortamos la propagación en el panel: el
+  // scroll queda adentro y el bloqueo del fondo no se entera.
+  const mounted = open && !!pos;
+  React.useEffect(() => {
+    const el = panelRef.current;
+    if (!mounted || !el) return;
+    const keep = (e: Event) => e.stopPropagation();
+    el.addEventListener('wheel', keep, { passive: true });
+    el.addEventListener('touchmove', keep, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', keep);
+      el.removeEventListener('touchmove', keep);
+    };
+  }, [mounted]);
+
   if (!open || !pos || typeof document === 'undefined') return null;
 
   return createPortal(
@@ -102,6 +120,7 @@ export function PopoverPortal({
         // ahí y lo heredaría: el click atraviesa el calendario, cae en el overlay
         // y cierra el modal. Forzamos auto para que el click quede en el panel.
         pointerEvents: 'auto',
+        overscrollBehavior: 'contain',
       }}
       className={className}
     >

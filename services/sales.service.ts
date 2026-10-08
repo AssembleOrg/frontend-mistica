@@ -367,7 +367,10 @@ export class SalesService {
 
   async studentFeeOfClient(clientId: string): Promise<StudentFeeInfo | null> {
     const res = await apiService.get<StudentFeeInfo | null>(`/sales/student-fee/${clientId}`);
-    return res.data ?? null;
+    // No alumno → backend manda `data: null` y handleResponse (`data.data || data`)
+    // devuelve el body entero. Sin `pending` no es una ficha de alumno.
+    const info = res.data as StudentFeeInfo | null;
+    return info && Array.isArray(info.pending) ? info : null;
   }
 
   // Update existing sale

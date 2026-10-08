@@ -111,6 +111,8 @@ export interface ReservationPieceEntryInput {
   extraId?: string;
   /** 2x1: la segunda pieza, que va en la misma ficha (una sola paleta). */
   pieceType2?: string;
+  /** Pieza sumada además de la incluida: se cobra el precio de pieza adicional. */
+  additional?: boolean;
 }
 
 /** Adicional de pieza (Incluida, Especial, Premium, 2x1…) con su monto. */
@@ -120,6 +122,19 @@ export interface PieceExtraItem {
   amount: number;
   /** 2x1: se eligen dos piezas de esta categoría para una sola ficha. */
   pair?: boolean;
+  /** Precio si la pieza se suma además de la incluida (sin valor: el monto). */
+  addAmount?: number;
+  /** Material que no es cerámica (Tela, Bastidor…): sin firma ni colores. */
+  material?: string;
+}
+
+export interface PieceExtraInput {
+  name: string;
+  amount: number;
+  pair?: boolean;
+  addAmount?: number;
+  /** '' = cerámica. */
+  material?: string;
 }
 
 /** Ítem del catálogo de piezas (taza, bowl, plato…). */
@@ -254,13 +269,23 @@ export const piecesAdmin = {
   /** Adicionales de pieza (su monto se suma a la reserva). */
   listExtras: async () =>
     (await apiService.get<PieceExtraItem[]>('/pieces/extras')).data,
-  createExtra: async (input: { name: string; amount: number; pair?: boolean }) =>
-    (await apiService.post<PieceExtraItem>('/pieces/extras', input)).data,
-  updateExtra: async (
-    id: string,
-    input: { name: string; amount: number; pair?: boolean },
-  ) =>
-    (await apiService.patch<PieceExtraItem>(`/pieces/extras/${id}`, input)).data,
+  createExtra: async (input: PieceExtraInput) =>
+    (await apiService.post<PieceExtraItem>('/pieces/extras', input as unknown as Record<string, unknown>)).data,
+  updateExtra: async (id: string, input: PieceExtraInput) =>
+    (await apiService.patch<PieceExtraItem>(`/pieces/extras/${id}`, input as unknown as Record<string, unknown>)).data,
+  /** Carga el catálogo completo (crea o actualiza por nombre, no borra). */
+  importCatalog: async (input: {
+    categories: Array<{ name: string; amount: number; addAmount?: number; pair?: boolean; material?: string }>;
+    types: Array<{ name: string; category: string }>;
+  }) =>
+    (
+      await apiService.post<{
+        categoriesCreated: number;
+        categoriesUpdated: number;
+        typesCreated: number;
+        typesUpdated: number;
+      }>('/pieces/catalog/import', input as unknown as Record<string, unknown>)
+    ).data,
   removeExtra: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/extras/${id}`)).data,
   notifyReady: async (id: string) =>

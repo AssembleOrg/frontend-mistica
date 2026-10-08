@@ -38,6 +38,7 @@ export type ReservationPatch = Partial<
     | 'quantity'
     | 'freeSpots'
     | 'tableCodes'
+    | 'extraMinutes'
   >
 >;
 

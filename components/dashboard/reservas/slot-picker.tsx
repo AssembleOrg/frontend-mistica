@@ -3,18 +3,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { AdminExperience } from '@/services/reservations.admin.service';
+import {
+  reservationsAdmin,
+  type AdminExperience,
+} from '@/services/reservations.admin.service';
 import {
   reservationsPublic,
   type AvailableShift,
 } from '@/services/reservations.public.service';
 import { useBusinessHours } from '@/hooks/useBusinessHours';
 
-const toMin = (hhmm: string) => {
+export const toMin = (hhmm: string) => {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 };
-const fromMin = (min: number) =>
+export const fromMin = (min: number) =>
   `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
 const fmtDayChip = (dateKey: string) => {
@@ -45,6 +48,8 @@ type Check = {
 export function useSlotPicker(
   experiences: AdminExperience[],
   initialExpId = '',
+  /** Hora extra en minutos: alarga la reserva (y el último inicio posible). */
+  extraMinutes = 0,
 ) {
   const [expId, setExpId] = useState(initialExpId);
   const [slots, setSlots] = useState<AvailableShift[]>([]);
@@ -58,7 +63,9 @@ export function useSlotPicker(
   // Horario del salón (configurable en Mesas; el backend es el que valida).
   const hours = useBusinessHours();
   const exp = experiences.find((e) => e._id === expId) ?? null;
-  const duration = exp?.durationMinutes ?? 120;
+  const baseDuration = exp?.durationMinutes ?? 120;
+  // Con hora extra, la reserva dura más y tiene que empezar antes.
+  const duration = baseDuration + extraMinutes;
   const latestStart = fromMin(toMin(hours.close) - duration);
 
   // Días y horarios sugeridos con lugar, agrupados por día.
@@ -123,12 +130,15 @@ export function useSlotPicker(
     let alive = true;
     setCheck({ status: 'checking' });
     const t = setTimeout(() => {
-      reservationsPublic
+      // Verificación del panel: la reserva puede cruzar de un turno al otro
+      // (de 17 a 20) y sumar hora extra.
+      reservationsAdmin
         .previewTables({
           experienceId: expId,
           date: day,
           startTime: freeTime,
           quantity: 1,
+          ...(extraMinutes > 0 && { extraMinutes }),
         })
         .then((res) => {
           if (!alive) return;
@@ -142,11 +152,15 @@ export function useSlotPicker(
             });
           }
         })
-        .catch(() => {
+        .catch((e) => {
+          // El motivo real (no entra en el horario, horario propio…), no uno genérico.
           if (alive)
             setCheck({
               status: 'no',
-              message: 'No se pudo verificar ese horario.',
+              message:
+                e instanceof Error && e.message
+                  ? e.message
+                  : 'No se pudo verificar ese horario.',
             });
         });
     }, 350);
@@ -154,7 +168,7 @@ export function useSlotPicker(
       alive = false;
       clearTimeout(t);
     };
-  }, [freeTime, expId, day, duration, latestStart, hours.open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [freeTime, expId, day, duration, latestStart, hours.open, extraMinutes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxParty = selectedSlot
     ? selectedSlot.maxPartySize

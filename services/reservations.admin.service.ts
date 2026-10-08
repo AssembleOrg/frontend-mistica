@@ -5,6 +5,7 @@
 import { apiService } from '@/services/api.service';
 import type { CreateSaleRequest, Sale } from '@/services/sales.service';
 import type {
+  PreviewTablesResult,
   PublicExperience,
   PublicSession,
 } from '@/services/reservations.public.service';
@@ -30,6 +31,8 @@ export interface ReservationItem {
   quantity: number;
   /** De esas personas, cuántas van bonificadas (entran pero no se cobran). */
   freeSpots?: number;
+  /** Hora extra: minutos que se suman a la duración de la experiencia. */
+  extraMinutes?: number;
   // Datos personales e importes: NO llegan a las cuentas que sólo tienen
   // alguna pestaña de Reservas (p. ej. cocina), el backend los recorta.
   unitPrice?: number;
@@ -201,6 +204,9 @@ export interface AdminCreateReservationInput {
   quantity: number;
   /** De esas personas, cuántas van bonificadas (entran pero no se cobran). */
   freeSpots?: number;
+  /** Hora extra (minutos) y su precio, que se suma como adicional. */
+  extraMinutes?: number;
+  extraAmount?: number;
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -306,6 +312,23 @@ export const reservationsAdmin = {
         input as unknown as Record<string, unknown>,
       )
     ).data,
+  /**
+   * Verificación del panel: como la pública, pero la reserva puede cruzar de
+   * un turno al otro y sumar hora extra. Devuelve el motivo si no entra.
+   */
+  previewTables: async (input: {
+    experienceId: string;
+    date: string;
+    startTime: string;
+    quantity: number;
+    extraMinutes?: number;
+  }) =>
+    (
+      await apiService.post<PreviewTablesResult>(
+        '/admin/reservations/preview',
+        input as unknown as Record<string, unknown>,
+      )
+    ).data,
   createReservation: async (input: AdminCreateReservationInput) =>
     (
       await apiService.post<ReservationItem>(
@@ -376,6 +399,9 @@ export const reservationsAdmin = {
       /** Sumar o descontar personas (ajusta total, saldo y mesas). */
       quantity?: number;
       freeSpots?: number;
+      /** Hora extra en minutos (0 la quita) y lo que se cobra por sumarla. */
+      extraMinutes?: number;
+      extraAmount?: number;
     },
   ) =>
     (

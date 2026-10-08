@@ -46,7 +46,7 @@ import { NewPieceModal } from './piezas-tab';
 import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs } from '@/lib/views';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
-import { SlotPicker, useSlotPicker } from './slot-picker';
+import { SlotPicker, fromMin, toMin, useSlotPicker } from './slot-picker';
 import { DietaryPicker } from './dietary-badge';
 import { FormField, FormSection } from '@/components/ui/form-section';
 
@@ -623,7 +623,11 @@ export function NewReservationModal({
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
-  const picker = useSlotPicker(experiences);
+  // Hora extra (p. ej. un cumple de 17 a 20 con una experiencia de 2 h):
+  // alarga la reserva y su precio va como adicional.
+  const [extraMin, setExtraMin] = useState(0);
+  const [extraPrice, setExtraPrice] = useState('');
+  const picker = useSlotPicker(experiences, '', extraMin);
   const { expId, day, time, maxParty, unit } = picker;
 
   const [qty, setQty] = useState('1');
@@ -652,7 +656,11 @@ export function NewReservationModal({
   const quantity = Math.max(1, Number(qty) || 1);
   const freeSpots = Math.min(quantity, Math.max(0, Math.floor(Number(free) || 0)));
   const billable = quantity - freeSpots;
-  const total = unit * billable;
+  const extraAmount = extraMin > 0 ? Math.max(0, Number(extraPrice) || 0) : 0;
+  const total = unit * billable + extraAmount;
+  // A qué hora termina, con la hora extra incluida.
+  const endsAt = time ? fromMin(toMin(time) + picker.duration) : null;
+  const endsAfterClose = !!time && toMin(time) + picker.duration > toMin(picker.hours.close);
   // Más de lo que entra con las mesas libres: se puede (el admin acomoda el
   // salón), sólo se avisa.
   const overMax = maxParty != null && quantity > maxParty;
@@ -662,6 +670,11 @@ export function NewReservationModal({
     if (!day || !time) return showToast.error('Elegí día y horario');
     if (!client && name.trim().length < 2)
       return showToast.error('Elegí un cliente o ingresá el nombre');
+    if (endsAfterClose) {
+      return showToast.error(
+        `Con la hora extra termina a las ${endsAt}: el salón cierra a las ${picker.hours.close}. Elegí un horario más temprano.`,
+      );
+    }
     const charge = partialAmount(chargeMode, chargeAmount, total);
     if (charge.error) return showToast.error(charge.error);
     setSaving(true);
@@ -672,6 +685,9 @@ export function NewReservationModal({
         startTime: time,
         quantity,
         ...(freeSpots > 0 ? { freeSpots } : {}),
+        ...(extraMin > 0
+          ? { extraMinutes: extraMin, ...(extraAmount > 0 ? { extraAmount } : {}) }
+          : {}),
         ...(client
           ? {
               clientId: clientIdOf(client),
@@ -739,6 +755,47 @@ export function NewReservationModal({
                 />
               </FormField>
             </div>
+            <div className='flex flex-wrap items-end gap-3'>
+              <FormField label='Hora extra' htmlFor='res-extra'>
+                <select
+                  id='res-extra'
+                  value={extraMin}
+                  onChange={(e) => setExtraMin(Number(e.target.value))}
+                  className={cn('h-10 w-40 rounded-md border px-3 text-sm sm:h-9', field)}
+                >
+                  <option value={0}>Sin hora extra</option>
+                  <option value={30}>+30 min</option>
+                  <option value={60}>+1 h</option>
+                  <option value={90}>+1 h 30</option>
+                  <option value={120}>+2 h</option>
+                </select>
+              </FormField>
+              {extraMin > 0 && (
+                <FormField label='Precio de la hora extra (total)' htmlFor='res-extra-price'>
+                  <Input
+                    id='res-extra-price'
+                    type='number'
+                    min={0}
+                    value={extraPrice}
+                    onChange={(e) => setExtraPrice(e.target.value)}
+                    placeholder='0'
+                    className={cn('w-40', field)}
+                  />
+                </FormField>
+              )}
+            </div>
+            {time && extraMin > 0 && (
+              <p
+                className={cn(
+                  'text-[12px] font-medium',
+                  endsAfterClose ? 'text-[#a33]' : 'text-[#455a54]',
+                )}
+              >
+                {endsAfterClose
+                  ? `Con la hora extra termina a las ${endsAt} y el salón cierra a las ${picker.hours.close}: elegí un horario más temprano.`
+                  : `De ${time} a ${endsAt} (${picker.duration} min). Las mesas quedan ocupadas hasta las ${endsAt}.`}
+              </p>
+            )}
             {overMax ? (
               <p className='text-[12px] font-medium text-[#cc844a]'>
                 Con las mesas libres entran {maxParty}: con {quantity} se toman todas
@@ -894,7 +951,8 @@ export function NewReservationModal({
                 Total <strong className='text-base'>{fmtPrice(total)}</strong>{' '}
                 <span className='text-texto-suave'>
                   ({billable} × {fmtPrice(unit)}
-                  {freeSpots > 0 ? ` · ${freeSpots} bonificada${freeSpots === 1 ? '' : 's'}` : ''})
+                  {freeSpots > 0 ? ` · ${freeSpots} bonificada${freeSpots === 1 ? '' : 's'}` : ''}
+                  {extraAmount > 0 ? ` + hora extra ${fmtPrice(extraAmount)}` : ''})
                 </span>
               </span>
               {isBday && (

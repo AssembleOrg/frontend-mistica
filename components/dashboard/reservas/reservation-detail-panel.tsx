@@ -18,6 +18,7 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  Clock,
   CreditCard,
   Flame,
   Landmark,
@@ -83,6 +84,7 @@ export function ReservationDetailPanel({
   const [loadPieces, setLoadPieces] = useState(false);
   const [editingClient, setEditingClient] = useState(false);
   const [editingPeople, setEditingPeople] = useState(false);
+  const [editingExtra, setEditingExtra] = useState(false);
   // Cambios hechos desde la ficha (cocina, tortas, comprobantes): se ven al
   // instante, sin esperar a que el listado se recargue.
   const [patch, setPatch] = useState<ReservationPatch>({});
@@ -109,6 +111,7 @@ export function ReservationDetailPanel({
     setLoadPieces(false);
     setEditingClient(false);
     setEditingPeople(false);
+    setEditingExtra(false);
     setPatch({});
   }, [reservation?._id]);
 
@@ -216,14 +219,23 @@ export function ReservationDetailPanel({
           <Section
             title='EXPERIENCIA'
             action={
-              canManage && canEdit && r.status === 'CONFIRMED' && !editingPeople ? (
-                <button
-                  type='button'
-                  onClick={() => setEditingPeople(true)}
-                  className='inline-flex items-center gap-1 text-xs font-semibold text-[#9d684e] hover:underline'
-                >
-                  <Pencil className='h-3 w-3' /> Personas
-                </button>
+              canManage && canEdit && r.status === 'CONFIRMED' && !editingPeople && !editingExtra ? (
+                <span className='flex items-center gap-3'>
+                  <button
+                    type='button'
+                    onClick={() => setEditingPeople(true)}
+                    className='inline-flex items-center gap-1 text-xs font-semibold text-[#9d684e] hover:underline'
+                  >
+                    <Pencil className='h-3 w-3' /> Personas
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setEditingExtra(true)}
+                    className='inline-flex items-center gap-1 text-xs font-semibold text-[#9d684e] hover:underline'
+                  >
+                    <Clock className='h-3 w-3' /> Hora extra
+                  </button>
+                </span>
               ) : undefined
             }
           >
@@ -247,6 +259,20 @@ export function ReservationDetailPanel({
                     : String(r.quantity)
                 }
               />
+            )}
+            {editingExtra ? (
+              <ExtraTimeEditor
+                reservation={r}
+                onCancel={() => setEditingExtra(false)}
+                onSaved={(p) => {
+                  setEditingExtra(false);
+                  applyPatch(p);
+                }}
+              />
+            ) : (
+              (r.extraMinutes ?? 0) > 0 && (
+                <KV k='Hora extra' v={`+${extraLabel(r.extraMinutes!)}`} />
+              )
             )}
             <KV k='Origen' v={r.source === 'ADMIN' ? 'Panel admin' : 'Landing pública'} />
             {(r.tableCodes?.length ?? 0) > 0 && (
@@ -539,6 +565,100 @@ function PeopleEditor({
           {diff > 0 ? `Suma ${fmtPrice(diff)} al total y al saldo.` : `Descuenta ${fmtPrice(-diff)} del total.`}
         </p>
       )}
+      <div className='flex gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={onCancel}
+          className='flex-1 border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+        >
+          Cancelar
+        </Button>
+        <Button type='button' variant='verde' size='sm' onClick={save} disabled={saving || !changed} className='flex-1'>
+          {saving ? 'Guardando…' : 'Guardar'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** "1 h", "1 h 30", "30 min". */
+function extraLabel(minutes: number) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m}` : `${h} h`;
+}
+
+// Sumar, cambiar o quitar la hora extra: alarga la reserva (las mesas quedan
+// ocupadas hasta el final) y, si se cobra, va como adicional al saldo.
+function ExtraTimeEditor({
+  reservation,
+  onCancel,
+  onSaved,
+}: {
+  reservation: ReservationItem;
+  onCancel: () => void;
+  onSaved: (patch: ReservationPatch) => void;
+}) {
+  const [minutes, setMinutes] = useState(reservation.extraMinutes ?? 0);
+  const [price, setPrice] = useState('');
+  const [saving, setSaving] = useState(false);
+  const changed = minutes !== (reservation.extraMinutes ?? 0);
+  const field =
+    'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
+
+  async function save() {
+    setSaving(true);
+    try {
+      const amount = Math.max(0, Number(price) || 0);
+      const res = await reservationsAdmin.updateReservation(reservation._id, {
+        extraMinutes: minutes,
+        ...(minutes > 0 && amount > 0 ? { extraAmount: amount } : {}),
+      });
+      showToast.success(minutes > 0 ? `Hora extra: +${extraLabel(minutes)}` : 'Hora extra quitada');
+      onSaved({
+        extraMinutes: res.extraMinutes ?? 0,
+        totalAmount: res.totalAmount,
+        balanceDue: res.balanceDue,
+        ...(res.extras ? { extras: res.extras } : {}),
+        ...(res.tableCodes ? { tableCodes: res.tableCodes } : {}),
+      });
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-white p-3'>
+      <div className='grid grid-cols-2 gap-2'>
+        <label className='flex flex-col gap-1 text-[12px] text-[#7a6e6f]'>
+          Hora extra
+          <select
+            value={minutes}
+            onChange={(e) => setMinutes(Number(e.target.value))}
+            className={cn('h-9 rounded-md border px-2 text-sm', field)}
+          >
+            <option value={0}>Sin hora extra</option>
+            <option value={30}>+30 min</option>
+            <option value={60}>+1 h</option>
+            <option value={90}>+1 h 30</option>
+            <option value={120}>+2 h</option>
+          </select>
+        </label>
+        {minutes > 0 && (
+          <label className='flex flex-col gap-1 text-[12px] text-[#7a6e6f]'>
+            Cobrar (opcional)
+            <Input type='number' min={0} value={price} onChange={(e) => setPrice(e.target.value)} placeholder='0' className={field} />
+          </label>
+        )}
+      </div>
+      <p className='text-[11px] text-[#7a6e6f]'>
+        Alarga la reserva y deja las mesas ocupadas hasta el final. Lo que cobres se suma al saldo.
+      </p>
       <div className='flex gap-2'>
         <Button
           type='button'

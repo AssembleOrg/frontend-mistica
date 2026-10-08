@@ -176,13 +176,15 @@ export function ReservasTab() {
     if (mode === 'list' || mode === 'month') return;
     setLoading(true);
     try {
-      const list = await reservationsAdmin.listSessions({
+      const all = await reservationsAdmin.listSessions({
         // Límites del día AR como instante UTC, derivados de la zona IANA
         // (mismo mecanismo que el resto de la app, sin offset hardcodeado).
         from: arDayStartISO(from),
         to: arDayEndISO(to),
         includePast: true,
       });
+      // Un turno sin nadie anotado (se canceló todo) no se muestra.
+      const list = all.filter((s) => s.seatsTaken > 0 || (s.confirmedSeats ?? 0) > 0);
       setSessions(list);
       // En vista día, traemos los anotados de cada turno para mostrar nombres y
       // el saldo por cobrar. Son pocos turnos por día, así que es liviano.

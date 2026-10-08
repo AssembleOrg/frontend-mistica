@@ -38,6 +38,7 @@ import {
   WEEKDAY_SHORT,
   type AttendanceStatus,
   type CreateGroupInput,
+  type ExtraClass,
   type Group,
   type MakeupClass,
   type Student,
@@ -936,6 +937,8 @@ function AttendanceDialog({
       recoveredInDate?: string;
       recoveredAt?: string;
       trial?: boolean;
+      /** Clase extra (doble turno): sólo para la vista, no se guarda así. */
+      extra?: boolean;
     }>
   >(group.studentIds.map((id) => ({ studentId: id, status: null })));
   const canManage = useAuthStore((s) => canManageRole(s.user?.role));
@@ -957,6 +960,10 @@ function AttendanceDialog({
   // Recuperaciones de esta clase: las que salen (alumnos del grupo que faltan y
   // recuperan otro día) y las que llegan (alumnos de otros grupos).
   const [makeups, setMakeups] = useState<MakeupClass[]>([]);
+  // Alumnos de otros grupos que suman esta clase como extra (doble turno).
+  const [extras, setExtras] = useState<ExtraClass[]>([]);
+  const [extraStudent, setExtraStudent] = useState('');
+  const [addingExtra, setAddingExtra] = useState(false);
   const [pickingFor, setPickingFor] = useState<string | null>(null);
   const [busyMakeup, setBusyMakeup] = useState(false);
   const outgoing = new Map(
@@ -990,10 +997,15 @@ function AttendanceDialog({
       tallerAdmin
         .listMakeups({ groupId: group._id, date })
         .catch(() => [] as MakeupClass[]),
+      tallerAdmin
+        .listExtraClasses({ groupId: group._id, date })
+        .catch(() => [] as ExtraClass[]),
     ])
-      .then(([docs, dayTrials, dayMakeups]) => {
+      .then(([docs, dayTrials, dayMakeups, dayExtras]) => {
         if (!alive) return;
         setMakeups(dayMakeups);
+        setExtras(dayExtras);
+        const extraIds = new Set(dayExtras.map((x) => x.student._id));
         setPickingFor(null);
         const away = new Set(
           dayMakeups.filter((m) => m.fromGroupId === group._id && m.fromDate === date).map((m) => m.student._id),
@@ -1002,7 +1014,10 @@ function AttendanceDialog({
         // Pruebas y recuperaciones agendadas para ese día aparecen sumadas; quien
         // avisó que recupera otro día arranca ausente.
         const withTrials = <T extends { studentId: string; status: AttendanceStatus | null }>(rows: T[]) => [
-          ...rows.map((r) => (r.status === null && away.has(r.studentId) ? { ...r, status: 'ABSENT' as const } : r)),
+          ...rows.map((r) => {
+            const base = r.status === null && away.has(r.studentId) ? { ...r, status: 'ABSENT' as const } : r;
+            return extraIds.has(r.studentId) ? { ...base, extra: true } : base;
+          }),
           ...dayTrials
             .filter((t) => !t.enrolled && !rows.some((r) => r.studentId === t.student._id))
             .map((t) => ({ studentId: t.student._id, status: null, trial: true })),
@@ -1014,12 +1029,16 @@ function AttendanceDialog({
               makeupForGroupId: m.fromGroupId,
               makeupForDate: m.fromDate,
             })),
+          ...dayExtras
+            .filter((x) => !rows.some((r) => r.studentId === x.student._id))
+            .map((x) => ({ studentId: x.student._id, status: null, extra: true })),
         ];
-        if (dayTrials.length || arriving.length) {
+        if (dayTrials.length || arriving.length || dayExtras.length) {
           setNewNames((m) => {
             const next = new Map(m);
             for (const t of dayTrials) next.set(t.student._id, t.student.name);
             for (const a of arriving) next.set(a.student._id, a.student.name);
+            for (const x of dayExtras) next.set(x.student._id, x.student.name);
             return next;
           });
         }
@@ -1033,7 +1052,8 @@ function AttendanceDialog({
           (id) =>
             !studentName.has(id) &&
             !dayTrials.some((t) => t.student._id === id) &&
-            !arriving.some((m) => m.student._id === id),
+            !arriving.some((m) => m.student._id === id) &&
+            !extraIds.has(id),
         );
         if (unknown.length) {
           tallerAdmin
@@ -1279,6 +1299,29 @@ function AttendanceDialog({
     }
   }
 
+  // Clase extra (doble turno): queda agendada en el momento, también en una
+  // clase que todavía no pasó, y la profe la ve en la lista.
+  async function addExtraClass() {
+    if (!extraStudent) return;
+    setAddingExtra(true);
+    try {
+      const x = await tallerAdmin.scheduleExtraClass({
+        studentId: extraStudent,
+        groupId: group._id,
+        date,
+      });
+      setExtras((xs) => [...xs.filter((e) => e._id !== x._id), x]);
+      setNewNames((m) => new Map(m).set(x.student._id, x.student.name));
+      setRecords((rs) => [...rs, { studentId: x.student._id, status: null, extra: true }]);
+      setExtraStudent('');
+      showToast.success(`${x.student.name} suma esta clase como extra`);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar la clase extra');
+    } finally {
+      setAddingExtra(false);
+    }
+  }
+
   // Alumno de otro grupo que viene a recuperar: queda agendado (también en una
   // clase que todavía no pasó) y la clase que falta lo muestra.
   async function addRecoveringGuest() {
@@ -1377,6 +1420,11 @@ function AttendanceDialog({
                         Clase de prueba · gratis
                       </span>
                     )}
+                    {r.extra && (
+                      <span className='ml-1.5 rounded-full bg-[#efe9f2] px-2 py-0.5 text-[11px] font-medium text-[#6d5a78]'>
+                        Clase extra
+                      </span>
+                    )}
                     {r.recoveredInDate && (
                       <span className='ml-1.5 text-[11px] font-normal text-[#6d5a78]'>
                         · recuperada el {displayClassDate(r.recoveredInDate)}
@@ -1415,12 +1463,27 @@ function AttendanceDialog({
                       {o.label}
                     </button>
                   ))}
-                  {(isRecoveringGuest(r) || r.trial) && (
+                  {(isRecoveringGuest(r) || r.trial || r.extra) && (
                     <button
                       type='button'
                       aria-label='Quitar de esta asistencia'
                       onClick={() => {
                         const trialId = scheduled.get(r.studentId);
+                        // Una clase extra se quita (si no, vuelve a aparecer).
+                        const extraClass = r.extra ? extras.find((x) => x.student._id === r.studentId) : undefined;
+                        if (extraClass) {
+                          tallerAdmin
+                            .cancelExtraClass(extraClass._id)
+                            .then(() => {
+                              setExtras((xs) => xs.filter((x) => x._id !== extraClass._id));
+                              setRecords((rs) => rs.filter((x) => x.studentId !== r.studentId));
+                              showToast.success('Clase extra quitada');
+                            })
+                            .catch((e) =>
+                              showToast.error(e instanceof Error ? e.message : 'No se pudo quitar'),
+                            );
+                          return;
+                        }
                         // Una recuperación agendada se cancela (si no, vuelve a aparecer).
                         const makeup = isRecoveringGuest(r) ? incomingOf(r) : undefined;
                         if (makeup) {
@@ -1600,6 +1663,32 @@ function AttendanceDialog({
             </Button>
           </div>
 
+          {/* Clase extra: alumno de otro grupo que suma esta clase (doble turno) */}
+          <div className='flex flex-col gap-2 rounded-xl border border-[#6d5a78]/25 bg-[#efe9f2]/40 p-2.5'>
+            <select
+              value={extraStudent}
+              onChange={(e) => setExtraStudent(e.target.value)}
+              className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
+            >
+              <option value=''>Sumar alumno a esta clase como extra (doble turno)…</option>
+              {outsiders.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={!extraStudent || addingExtra}
+              onClick={() => void addExtraClass()}
+              className='border-[#e6dbcd] text-[#455a54]'
+            >
+              {addingExtra ? 'Sumando…' : 'Sumar clase extra'}
+            </Button>
+          </div>
+
           {/* Recuperando de otro grupo */}
           <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef]/40 p-2.5'>
             <select
@@ -1664,9 +1753,9 @@ function AttendanceDialog({
         </div>
         {isFuture && (
           <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
-            Esta clase todavía no pasó: la asistencia se toma ese día. Las pruebas
-            y recuperaciones que sumes quedan agendadas y aparecen solas en la
-            asistencia.
+            Esta clase todavía no pasó: la asistencia se toma ese día. Las pruebas,
+            recuperaciones y clases extra que sumes quedan agendadas y aparecen
+            solas en la asistencia.
           </p>
         )}
         <DialogFooter>

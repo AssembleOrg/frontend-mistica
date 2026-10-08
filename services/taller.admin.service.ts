@@ -345,6 +345,18 @@ export interface MakeupClass {
   status: 'SCHEDULED' | 'DONE' | 'MISSED';
 }
 
+/** Clase extra: un alumno suma una clase de otro grupo (doble turno). */
+export interface ExtraClass {
+  _id: string;
+  student: { _id: string; name: string };
+  groupId: string;
+  groupName: string;
+  start?: string;
+  date: string;
+  notes?: string;
+  createdByName?: string;
+}
+
 export interface ScheduleMakeupInput {
   studentId: string;
   fromGroupId: string;
@@ -511,6 +523,17 @@ export const tallerAdmin = {
   cancelTrial: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/students/trials/${id}`)).data,
   // Recuperaciones: con grupo + día, las que llegan a esa clase y las que salen.
+  // Clases extra (doble turno): aparecen en la lista de esa clase.
+  listExtraClasses: async (params: { groupId?: string; date?: string; studentId?: string }) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => !!v) as [string, string][],
+    ).toString();
+    return (await apiService.get<ExtraClass[]>(`/extra-classes?${q}`)).data;
+  },
+  scheduleExtraClass: async (input: { studentId: string; groupId: string; date: string; notes?: string }) =>
+    (await apiService.post<ExtraClass>('/extra-classes', input as unknown as Json)).data,
+  cancelExtraClass: async (id: string) =>
+    (await apiService.delete<{ success: boolean }>(`/extra-classes/${id}`)).data,
   listMakeups: async (params: { groupId?: string; date?: string; studentId?: string }) => {
     const q = new URLSearchParams(
       Object.entries(params).filter(([, v]) => !!v) as [string, string][],
@@ -693,6 +716,8 @@ export interface GroupDayClass {
   makeups?: number;
   /** Alumnos del grupo que avisaron que no vienen (recuperan otro día). */
   away?: number;
+  /** Alumnos de otros grupos que suman esta clase como extra (doble turno). */
+  extras?: number;
   /** Experiencias cuyas reservas son de este grupo (no van como turno aparte). */
   experienceIds?: string[];
   students: number;

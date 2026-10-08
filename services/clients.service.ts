@@ -66,6 +66,17 @@ interface PaginatedResponse<T> {
   };
 }
 
+export interface DuplicateClient {
+  id: string;
+  fullName: string;
+  phone?: string;
+  email?: string;
+  createdAt: string;
+  salesCount: number;
+  reservationsCount: number;
+  isStudent: boolean;
+}
+
 export class ClientsService {
   // Get all clients with pagination and filters
   async getClients(page: number = 1, limit: number = 10, filters?: {
@@ -164,6 +175,17 @@ export class ClientsService {
     const response = await apiService.delete<{ message: string }>(`/clients/${id}`);
     console.log('👥 CLIENTS SERVICE: Cliente eliminado');
     return response;
+  }
+
+  // Clientes repetidos (mismo teléfono y nombre de pila), agrupados.
+  async getDuplicates(): Promise<DuplicateClient[][]> {
+    const res = await apiService.get<DuplicateClient[][]>('/clients/duplicates');
+    return Array.isArray(res.data) ? res.data : [];
+  }
+
+  // Fusiona `fromId` en `keepId` (el repetido se borra).
+  async mergeClients(keepId: string, fromId: string) {
+    return apiService.post<{ keepId: string }>(`/clients/${keepId}/merge`, { fromId });
   }
 
   // Get client prepaids

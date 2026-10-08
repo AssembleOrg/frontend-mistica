@@ -6,6 +6,7 @@ import { useClientsAPI } from '@/hooks/useClientsAPI';
 import { ClientsTable } from '@/components/dashboard/clients/clients-table';
 import { ClientForm } from '@/components/dashboard/clients/client-form';
 import { ClientLabelsManager } from '@/components/dashboard/clients/client-labels-manager';
+import { DuplicateClientsDialog } from '@/components/dashboard/clients/duplicate-clients-dialog';
 import { Client, CreateClientRequest, UpdateClientRequest, clientsService } from '@/services/clients.service';
 import { ClientLabel, clientLabelsService } from '@/services/client-labels.service';
 import { formatCurrency } from '@/lib/sales-calculations';
@@ -18,7 +19,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
 export default function ClientsPage() {
-  const { canEdit, canDelete } = usePermissions();
+  const { canEdit, canDelete, isAdmin } = usePermissions();
   const confirm = useConfirm();
   const {
     isLoading,
@@ -191,6 +192,9 @@ export default function ClientsPage() {
         actions={
           <div className='flex flex-col sm:flex-row gap-2 w-full sm:w-auto'>
             <ClientLabelsManager labels={allLabels} onLabelsChange={setAllLabels} />
+            {isAdmin && (
+              <DuplicateClientsDialog onMerged={() => loadClientsWithFilters(currentPage)} />
+            )}
             <Button
               onClick={handleCreateClient}
               className='bg-[#9d684e] hover:bg-[#8a5a45] text-white font-winter-solid w-full sm:w-auto'

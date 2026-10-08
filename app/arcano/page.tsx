@@ -197,6 +197,42 @@ function ArcanoContent() {
       {/* Main */}
       <main className='relative z-10 flex-1 container mx-auto px-4 py-10'>
         <div className='max-w-4xl mx-auto'>
+          {/* Arriba de todo: reseña, Instagram y volver a reservar; abajo, el mensaje */}
+          <div className='mb-8 rounded-2xl border border-[#efcbb9]/15 bg-black/25 p-6 text-center backdrop-blur-md sm:p-8'>
+            <p className='font-tan-nimbus text-xl text-[#efcbb9] sm:text-2xl'>
+              ¿Te gustó tu visita?
+            </p>
+            <p className='mt-1 text-sm text-[#efcbb9]/70 font-winter-solid'>
+              Tu reseña nos ayuda a que más personas nos encuentren.
+            </p>
+            <div className='mt-5 grid gap-3 sm:grid-cols-3'>
+              <a
+                href={GOOGLE_REVIEW_URL}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#efcbb9] px-4 py-3 text-[15px] font-semibold text-[#2d2426] transition hover:bg-[#f5dccf]'
+              >
+                <Star className='h-4 w-4 fill-current' />
+                Calificanos en Google
+              </a>
+              <a
+                href={INSTAGRAM_URL}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#efcbb9]/40 px-4 py-3 text-[15px] font-semibold text-[#efcbb9] transition hover:bg-[#efcbb9]/10'
+              >
+                <AtSign className='h-4 w-4' />
+                Seguinos en Instagram
+              </a>
+              <Link
+                href='/'
+                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#efcbb9]/40 px-4 py-3 text-[15px] font-semibold text-[#efcbb9] transition hover:bg-[#efcbb9]/10'
+              >
+                <CalendarHeart className='h-4 w-4' />
+                Reservá tu próxima visita
+              </Link>
+            </div>
+          </div>
           <div className='rounded-2xl border border-[#efcbb9]/15 bg-black/30 backdrop-blur-md shadow-2xl overflow-hidden'>
             <div className='p-6 sm:p-10'>
               <div className='text-center mb-8'>
@@ -235,42 +271,6 @@ function ArcanoContent() {
             </div>
           </div>
 
-          {/* Después del mensaje: reseña, Instagram y volver a reservar */}
-          <div className='mt-8 rounded-2xl border border-[#efcbb9]/15 bg-black/25 p-6 text-center backdrop-blur-md sm:p-8'>
-            <p className='font-tan-nimbus text-xl text-[#efcbb9] sm:text-2xl'>
-              ¿Te gustó tu visita?
-            </p>
-            <p className='mt-1 text-sm text-[#efcbb9]/70 font-winter-solid'>
-              Tu reseña nos ayuda a que más personas nos encuentren.
-            </p>
-            <div className='mt-5 grid gap-3 sm:grid-cols-3'>
-              <a
-                href={GOOGLE_REVIEW_URL}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#efcbb9] px-4 py-3 text-[15px] font-semibold text-[#2d2426] transition hover:bg-[#f5dccf]'
-              >
-                <Star className='h-4 w-4 fill-current' />
-                Calificanos en Google
-              </a>
-              <a
-                href={INSTAGRAM_URL}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#efcbb9]/40 px-4 py-3 text-[15px] font-semibold text-[#efcbb9] transition hover:bg-[#efcbb9]/10'
-              >
-                <AtSign className='h-4 w-4' />
-                Seguinos en Instagram
-              </a>
-              <Link
-                href='/'
-                className='inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#efcbb9]/40 px-4 py-3 text-[15px] font-semibold text-[#efcbb9] transition hover:bg-[#efcbb9]/10'
-              >
-                <CalendarHeart className='h-4 w-4' />
-                Reservá tu próxima visita
-              </Link>
-            </div>
-          </div>
         </div>
       </main>
 

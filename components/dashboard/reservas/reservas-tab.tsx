@@ -512,6 +512,14 @@ export function ReservasTab() {
                           +{c.makeups} recupera
                         </span>
                       )}
+                      {(c.extras ?? 0) > 0 && (
+                        <span
+                          className='rounded-full border border-dashed border-[#6d5a78]/40 bg-[#efe9f2] px-2 py-0.5 text-[11px] font-semibold text-[#6d5a78]'
+                          title='Alumnos de otros grupos que suman esta clase (doble turno)'
+                        >
+                          +{c.extras} extra
+                        </span>
+                      )}
                       {(c.away ?? 0) > 0 && (
                         <span
                           className='rounded-full border border-[#e6dbcd] bg-white px-2 py-0.5 text-[11px] font-semibold text-[#7a6e6f]'

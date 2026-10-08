@@ -85,6 +85,7 @@ export function AlumnosPanel() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [alerts, setAlerts] = useState<PaymentAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onlyInGroup, setOnlyInGroup] = useState(true);
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [form, setForm] = useState<CreateStudentInput | null>(null);
@@ -147,10 +148,6 @@ export function AlumnosPanel() {
     }
   }
 
-  const visible = students.filter((s) =>
-    s.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
-
   // Mapa alumno → grupos (cruzando group.studentIds) para mostrar en la card.
   const groupsByStudent = new Map<string, Group[]>();
   for (const g of groups) {
@@ -160,6 +157,13 @@ export function AlumnosPanel() {
       else groupsByStudent.set(sid, [g]);
     }
   }
+
+  // Todo cliente es también alumno: por defecto se ven solo los que cursan.
+  const visible = students.filter(
+    (s) =>
+      (!onlyInGroup || groupsByStudent.has(s._id)) &&
+      s.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
 
   return (
     <div className='flex flex-col gap-4'>
@@ -203,6 +207,25 @@ export function AlumnosPanel() {
             placeholder='Buscar alumno…'
             className={`${fieldCls} h-9 w-56`}
           />
+          <div className='flex rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-0.5 text-sm'>
+            {([
+              [true, 'En grupo'],
+              [false, 'Todos'],
+            ] as const).map(([v, label]) => (
+              <button
+                key={label}
+                type='button'
+                onClick={() => setOnlyInGroup(v)}
+                className={`rounded-md px-3 py-1 ${
+                  onlyInGroup === v
+                    ? 'bg-[#455a54] text-white'
+                    : 'text-[#7a6e6f] hover:text-[#455a54]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {/* Filtro "Ver inactivos" oculto: hoy la baja borra (soft-delete) y no
               se generan inactivos-no-eliminados, así que el toggle no aporta.
           <label className='flex items-center gap-2 text-sm text-[#7a6e6f]'>

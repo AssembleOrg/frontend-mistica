@@ -70,7 +70,9 @@ export function AnotadosModal({
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [qty, setQty] = useState(1);
-  const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  // Sin medio preseleccionado: con Efectivo por defecto se cargaban señas
+  // por transferencia como efectivo y la caja no cerraba.
+  const [method, setMethod] = useState<ReservationPaymentMethod | null>(null);
   // Cobrar todo o una parte (seña); el resto queda como saldo.
   const [chargeMode, setChargeMode] = useState<ChargeMode>('total');
   const [chargeAmount, setChargeAmount] = useState('');
@@ -106,6 +108,10 @@ export function AnotadosModal({
     if (!session) return;
     if (!client && name.trim().length < 2) {
       showToast.error('Elegí un cliente o ingresá el nombre');
+      return;
+    }
+    if (!method) {
+      showToast.error('Elegí cómo pagó (efectivo, transferencia…)');
       return;
     }
     const charge = isCourtesy ? {} : partialAmount(chargeMode, chargeAmount, total);

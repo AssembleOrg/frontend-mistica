@@ -639,7 +639,9 @@ export function NewReservationModal({
   const [manual, setManual] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  // Sin medio preseleccionado: con Efectivo por defecto se cargaban señas
+  // por transferencia como efectivo y la caja no cerraba.
+  const [method, setMethod] = useState<ReservationPaymentMethod | null>(null);
   // Cobrar todo o una parte (seña); el resto queda como saldo.
   const [chargeMode, setChargeMode] = useState<ChargeMode>('total');
   const [chargeAmount, setChargeAmount] = useState('');
@@ -675,6 +677,7 @@ export function NewReservationModal({
         `Con la hora extra termina a las ${endsAt}: el salón cierra a las ${picker.hours.close}. Elegí un horario más temprano.`,
       );
     }
+    if (!method) return showToast.error('Elegí cómo pagó (efectivo, transferencia…)');
     const charge = partialAmount(chargeMode, chargeAmount, total);
     if (charge.error) return showToast.error(charge.error);
     setSaving(true);
@@ -1173,7 +1176,9 @@ export function CollectBalanceModal({
   onDone: () => void | Promise<void>;
 }) {
   const balance = reservation.balanceDue ?? 0;
-  const [method, setMethod] = useState<ReservationPaymentMethod>('CASH');
+  // Sin medio preseleccionado: con Efectivo por defecto se cargaban señas
+  // por transferencia como efectivo y la caja no cerraba.
+  const [method, setMethod] = useState<ReservationPaymentMethod | null>(null);
   const [amount, setAmount] = useState<string>(String(balance));
   const [saving, setSaving] = useState(false);
   const value = Number(amount) || 0;
@@ -1182,6 +1187,10 @@ export function CollectBalanceModal({
   async function submit() {
     if (!value || value <= 0) {
       showToast.error('Ingresá un monto válido');
+      return;
+    }
+    if (!method) {
+      showToast.error('Elegí cómo pagó (efectivo, transferencia…)');
       return;
     }
     if (value > balance) {

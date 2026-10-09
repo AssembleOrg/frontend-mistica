@@ -40,7 +40,7 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { AnotadosModal } from './anotados-modal';
-import { NewReservationModal, ReservasListado } from './reservas-list';
+import { CollectBalanceModal, NewReservationModal, ReservasListado } from './reservas-list';
 import { ReservasCalendar } from './reservas-calendar';
 import { ReservationManager } from './reservation-manager';
 import { DietaryTags } from './dietary-badge';
@@ -140,12 +140,15 @@ export function ReservasTab() {
   // varias, se elige entre las del turno.
   const [piecesOf, setPiecesOf] = useState<ReservationItem[] | null>(null);
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
-  // Cobrar: lleva a Ventas → Nueva venta con la reserva cargada. Con varias
-  // reservas con saldo en el turno, se elige cuál.
+  // Cobrar: registra el cobro en la reserva (no pasa por Ventas ni por caja).
+  // Con varias reservas con saldo en el turno, se elige cuál.
   const canCobrar = canManageRole(user?.role);
   const [cobrarOf, setCobrarOf] = useState<ReservationItem[] | null>(null);
-  const cobrar = (r: ReservationItem) =>
-    router.push(`/dashboard/sales?reserva=${r._id}`);
+  const [cobrando, setCobrando] = useState<ReservationItem | null>(null);
+  const cobrar = (r: ReservationItem) => {
+    setCobrarOf(null);
+    setCobrando(r);
+  };
   const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -558,6 +561,17 @@ export function ReservasTab() {
           onClose={() => setPiecesOf(null)}
           onDone={() => {
             setPiecesOf(null);
+            setTick((t) => t + 1);
+          }}
+        />
+      )}
+
+      {cobrando && (
+        <CollectBalanceModal
+          reservation={cobrando}
+          onClose={() => setCobrando(null)}
+          onDone={() => {
+            setCobrando(null);
             setTick((t) => t + 1);
           }}
         />

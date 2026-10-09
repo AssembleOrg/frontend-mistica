@@ -16,12 +16,6 @@ import {
   Banknote,
   Armchair,
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,6 +24,8 @@ import {
   arDayEndISO,
   arDayStartISO,
   fmtPrice,
+  prettyCode,
+  RESERVATION_STATUS_LABEL,
   SESSION_STATUS_LABEL,
 } from '@/lib/reservas-format';
 import { DEFAULT_EXPERIENCE_COLOR } from '@/lib/experience-colors';
@@ -115,7 +111,7 @@ function addMonths(ymd: string, delta: number): string {
 
 /**
  * Pestaña Reservas: una sola vista para todo. Día y Semana son la agenda
- * (turnos, cupos, anotados y acciones sobre cada reserva); Lista es el
+ * (una card por reserva, con sus acciones); Lista es el
  * listado completo con buscador, filtros e historial. "Nueva reserva" está
  * siempre a mano.
  */
@@ -136,19 +132,12 @@ export function ReservasTab() {
   const [attendees, setAttendees] = useState<Record<string, ReservationItem[]>>({});
   const [loading, setLoading] = useState(true);
   const [anotados, setAnotados] = useState<string | null>(null);
-  // Cargar piezas desde la tarjeta del turno: una reserva va directo; con
-  // varias, se elige entre las del turno.
-  const [piecesOf, setPiecesOf] = useState<ReservationItem[] | null>(null);
+  // Cargar piezas desde la tarjeta de la reserva.
+  const [piecesOf, setPiecesOf] = useState<ReservationItem | null>(null);
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
   // Cobrar: registra el cobro en la reserva (no pasa por Ventas ni por caja).
-  // Con varias reservas con saldo en el turno, se elige cuál.
   const canCobrar = canManageRole(user?.role);
-  const [cobrarOf, setCobrarOf] = useState<ReservationItem[] | null>(null);
   const [cobrando, setCobrando] = useState<ReservationItem | null>(null);
-  const cobrar = (r: ReservationItem) => {
-    setCobrarOf(null);
-    setCobrando(r);
-  };
   const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -304,6 +293,47 @@ export function ReservasTab() {
     return mesas.filter((t) => !ocupada(t)).length;
   }, [mesas, now]);
 
+  // Una card por reserva (no por turno): así "Cobrar" es siempre de ESA
+  // reserva. Las que ya terminaron o se cancelaron van abajo, en gris, para
+  // que quien llega vea qué pasó antes en el día.
+  const { activas, pasadas } = useMemo(() => {
+    const rows = dayTurnos
+      .flatMap((s) =>
+        (attendees[s.id] ?? [])
+          .filter(
+            (r) =>
+              !tallerExperiences.has(s.experienceId) ||
+              r.status === 'PENDING' ||
+              r.status === 'NEEDS_REVIEW',
+          )
+          .map((r) => ({ r, s, phase: reservaPhase(r, s, anchor, now) })),
+      )
+      .sort((a, b) => a.s.startAt.localeCompare(b.s.startAt));
+    const terminada = (p: Phase) => p === 'done' || p === 'cancelled';
+    return {
+      activas: rows.filter((x) => !terminada(x.phase)),
+      // Lo último que pasó, primero.
+      pasadas: rows.filter((x) => terminada(x.phase)).reverse(),
+    };
+  }, [dayTurnos, attendees, tallerExperiences, anchor, now]);
+
+  const renderReserva = ({ r, s, phase }: (typeof activas)[number]) => (
+    <ReservaCard
+      key={r._id}
+      reservation={r}
+      session={s}
+      phase={phase}
+      verDetalle={verDetalle}
+      onOpen={() => (verDetalle ? setDetail(r) : setAnotados(s.id))}
+      onPieces={canPieces && r.status === 'CONFIRMED' ? () => setPiecesOf(r) : undefined}
+      onCobrar={
+        canCobrar && r.status === 'CONFIRMED' && (r.balanceDue ?? 0) > 0
+          ? () => setCobrando(r)
+          : undefined
+      }
+    />
+  );
+
   function move(delta: number) {
     if (mode === 'month') return setAnchor(addMonths(anchor, delta));
     setAnchor(mode === 'day' ? addDays(anchor, delta) : addDays(mondayOf(anchor), delta * 7));
@@ -430,42 +460,31 @@ export function ReservasTab() {
             )}
           </div>
 
-          {/* Turnos del día */}
-          {dayTurnos.length === 0 ? (
+          {/* Reservas del día: una card por reserva */}
+          {activas.length === 0 && pasadas.length === 0 ? (
             <div className='rounded-2xl border border-[#e6dbcd] bg-white p-8 text-center text-sm text-[#7a6e6f]'>
-              No hay turnos este día.
+              No hay reservas este día.
             </div>
           ) : (
-            <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3'>
-              {dayTurnos.map((s) => (
-                <TurnoCard
-                  key={s.id}
-                  session={s}
-                  reservations={attendees[s.id] ?? []}
-                  verDetalle={verDetalle}
-                  onVer={() => setAnotados(s.id)}
-                  onPieces={
-                    canPieces
-                      ? () =>
-                          setPiecesOf(
-                            (attendees[s.id] ?? []).filter((r) => r.status === 'CONFIRMED'),
-                          )
-                      : undefined
-                  }
-                  onCobrar={
-                    canCobrar
-                      ? () => {
-                          const conSaldo = (attendees[s.id] ?? []).filter(
-                            (r) => r.status === 'CONFIRMED' && (r.balanceDue ?? 0) > 0,
-                          );
-                          if (conSaldo.length === 1) cobrar(conSaldo[0]);
-                          else setCobrarOf(conSaldo);
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
+            <>
+              {activas.length > 0 && (
+                <div className='grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3'>
+                  {activas.map(renderReserva)}
+                </div>
+              )}
+              {pasadas.length > 0 && (
+                <div className='flex flex-col gap-2.5'>
+                  {activas.length > 0 && (
+                    <h3 className='text-[13px] font-semibold uppercase tracking-wide text-[#9a9a9a]'>
+                      Ya pasaron hoy · {pasadas.length}
+                    </h3>
+                  )}
+                  <div className='grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3'>
+                    {pasadas.map(renderReserva)}
+                  </div>
+                </div>
+              )}
+            </>
           )}
           {clases.length > 0 && (
             <div className='flex flex-col gap-2.5'>
@@ -556,8 +575,7 @@ export function ReservasTab() {
 
       {piecesOf && (
         <NewPieceModal
-          reservation={piecesOf.length === 1 ? piecesOf[0] : undefined}
-          choices={piecesOf.length === 1 ? undefined : piecesOf}
+          reservation={piecesOf}
           onClose={() => setPiecesOf(null)}
           onDone={() => {
             setPiecesOf(null);
@@ -575,40 +593,6 @@ export function ReservasTab() {
             setTick((t) => t + 1);
           }}
         />
-      )}
-
-      {cobrarOf && (
-        <Dialog open onOpenChange={(o) => !o && setCobrarOf(null)}>
-          <DialogContent className='sm:max-w-md'>
-            <DialogHeader className='text-left'>
-              <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
-                ¿Qué reserva cobrás?
-              </DialogTitle>
-            </DialogHeader>
-            <div className='overflow-hidden rounded-xl border border-[#e6dbcd]'>
-              {cobrarOf.map((r) => (
-                <button
-                  key={r._id}
-                  type='button'
-                  onClick={() => cobrar(r)}
-                  className='flex w-full items-center justify-between gap-3 border-b border-[#e6dbcd] px-4 py-3 text-left last:border-0 hover:bg-[#fbf5ef]'
-                >
-                  <span>
-                    <span className='block text-sm font-semibold text-[#3d3338]'>
-                      {r.customerName ?? '—'}
-                    </span>
-                    <span className='block text-xs text-[#7a6e6f]'>
-                      {r.quantity} persona(s) · {r.code}
-                    </span>
-                  </span>
-                  <span className='text-sm font-semibold text-[#9d684e]'>
-                    {fmtPrice(r.balanceDue ?? 0)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
       )}
 
       {anotados && (
@@ -666,189 +650,195 @@ function Stat({
   );
 }
 
-function TurnoCard({
+// ─────────────────────────── Card de UNA reserva ───────────────────────────
+
+type Phase = 'pending' | 'upcoming' | 'live' | 'done' | 'cancelled';
+
+/** En qué momento está la reserva respecto del día que se mira y la hora. */
+/** Fin real de la reserva: el del turno más la hora extra, si tiene. */
+function reservaEnd(r: ReservationItem, s: AdminSession): number {
+  return Date.parse(s.endAt) + (r.extraMinutes ?? 0) * 60_000;
+}
+
+function reservaPhase(
+  r: ReservationItem,
+  s: AdminSession,
+  dayYmd: string,
+  now: number,
+): Phase {
+  if (r.status === 'CANCELLED' || r.status === 'EXPIRED') return 'cancelled';
+  const end = reservaEnd(r, s);
+  const today = todayYmd();
+  if (dayYmd < today || (dayYmd === today && end <= now)) return 'done';
+  if (r.status !== 'CONFIRMED') return 'pending';
+  return dayYmd === today && Date.parse(s.startAt) <= now ? 'live' : 'upcoming';
+}
+
+/** Barra de estado: mismos colores que los pedidos de shop-antony. */
+const PHASE_UI: Record<Phase, { label: string; bg: string; fg: string }> = {
+  pending: { label: 'Sin confirmar', bg: '#fdf0dc', fg: '#b45309' },
+  upcoming: { label: 'Confirmada', bg: '#e6effd', fg: '#1d4ed8' },
+  live: { label: 'En el salón ahora', bg: '#e4f4ea', fg: '#15803d' },
+  done: { label: 'Ya pasó', bg: '#eeeff1', fg: '#4b5563' },
+  cancelled: { label: 'Cancelada', bg: '#fbe6e6', fg: '#b91c1c' },
+};
+
+function ReservaCard({
+  reservation: r,
   session: s,
-  reservations,
+  phase,
   verDetalle,
-  onVer,
+  onOpen,
   onPieces,
   onCobrar,
 }: {
+  reservation: ReservationItem;
   session: AdminSession;
-  reservations: ReservationItem[];
+  phase: Phase;
   verDetalle: boolean;
-  onVer: () => void;
-  /** Cargar piezas de las reservas del turno (si la cuenta tiene Piezas). */
+  onOpen: () => void;
+  /** Cargar piezas de esta reserva (si la cuenta tiene Piezas). */
   onPieces?: () => void;
-  /** Cobrar una reserva del turno en Ventas (sólo admin). */
+  /** Cobrar el saldo de esta reserva (sólo admin). */
   onCobrar?: () => void;
 }) {
-  // La Agenda es la fuente de verdad del negocio: el conteo y el cupo cuentan
-  // sólo lo confirmado. Las pendientes (holds del bot/landing) se muestran
-  // aparte, señaladas, para que el equipo sepa que hay gente esperando cerrar.
-  const confirmadas = reservations.filter((r) => r.status === 'CONFIRMED');
-  const pendientes = reservations.filter(
-    (r) => r.status === 'PENDING' || r.status === 'NEEDS_REVIEW',
-  );
-  const pendPersonas = pendientes.reduce((n, r) => n + r.quantity, 0);
-  const seats = s.confirmedSeats ?? s.seatsTaken;
-  const names = confirmadas.map((r) => ({
-    name: r.customerName,
-    saldo: (r.balanceDue ?? 0) > 0,
-  }));
-  const shown = names.slice(0, 3);
-  const extra = Math.max(0, seats - shown.length);
-  const porCobrar = confirmadas.reduce((n, r) => n + (r.balanceDue ?? 0), 0);
-  // Para cocina: sólo cuántas personas y qué restricciones traen.
-  const dietas = confirmadas
-    .filter((r) => (r.dietaryTags?.length ?? 0) > 0 || !!r.dietaryNotes)
-    .map((r) => ({ quantity: r.quantity, tags: r.dietaryTags, notes: r.dietaryNotes }));
-
+  const ui = PHASE_UI[phase];
+  const label =
+    phase === 'cancelled'
+      ? (RESERVATION_STATUS_LABEL[r.status] ?? ui.label)
+      : phase === 'done' && r.status !== 'CONFIRMED'
+        ? 'No se confirmó'
+        : ui.label;
+  const apagada = phase === 'done' || phase === 'cancelled';
   const color = s.experienceColor ?? DEFAULT_EXPERIENCE_COLOR;
-  const full = seats >= s.capacity;
+  const saldo = r.balanceDue ?? 0;
+  const total = r.totalAmount ?? r.amount;
 
   return (
-    // div (no <button>): adentro va el botón de piezas y no se anidan botones.
+    // div (no <button>): adentro van los botones de cobrar / piezas.
     <div
       role='button'
       tabIndex={0}
-      onClick={onVer}
+      onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onVer();
+          onOpen();
         }
       }}
-      className='group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-[#e6dbcd] bg-white text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]'
+      className={cn(
+        'flex cursor-pointer flex-col overflow-hidden rounded-2xl border text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]',
+        apagada ? 'border-[#e5e5e5] bg-[#f7f7f7] opacity-75' : 'border-[#e6dbcd] bg-white',
+      )}
     >
-      {/* Cabecera: hora + ocupación. Acento de color de la experiencia como
-          punto sutil, no como barra lateral. */}
-      <div className='flex items-center justify-between gap-2 border-b border-[#f1ede6] bg-[#fbf5ef] px-4 py-2.5'>
-        <span className='inline-flex items-baseline gap-1.5'>
-          <span className='font-tan-nimbus text-lg font-semibold text-[#455a54]'>
-            {hourAR(s.startAt)}
-          </span>
-          <span className='text-xs text-[#7a6e6f]'>a {hourAR(s.endAt)}</span>
+      {/* Barra de ESTADO: color + texto, y el horario a la derecha. */}
+      <span
+        className='flex items-center justify-between gap-2 px-4 py-1.5 text-xs font-extrabold'
+        style={{ backgroundColor: ui.bg, color: ui.fg }}
+      >
+        {label}
+        <span className='shrink-0 font-mono font-semibold'>
+          {hourAR(s.startAt)} – {hourAR(new Date(reservaEnd(r, s)).toISOString())}
         </span>
+      </span>
+
+      <div className='flex flex-1 flex-col gap-2.5 px-4 pb-3 pt-3'>
+        <span className='break-words font-tan-nimbus text-[19px] font-semibold leading-tight text-[#3d3338]'>
+          {verDetalle ? (r.customerName ?? prettyCode(r.code)) : `${r.quantity} persona(s)`}
+        </span>
+
+        {/* Cinta de EXPERIENCIA: sale del borde izquierdo y termina en punta. */}
         <span
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-xs font-semibold',
-            full
-              ? 'border-[#455a54]/30 bg-[#E7F0EC] text-[#455a54]'
-              : 'border-[#e6dbcd] bg-white text-[#3d3338]',
+            '-ml-4 flex w-fit max-w-[calc(100%+1rem)] items-center gap-1.5 bg-[#fbf5ef] py-1 pl-4 pr-3.5 text-xs font-bold text-[#3d3338]',
+            apagada && 'bg-[#ececec]',
           )}
-          title={full ? 'Turno completo' : 'Lugares ocupados'}
+          style={{
+            clipPath:
+              'polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%)',
+          }}
         >
-          <Users className='h-3.5 w-3.5' />
-          {seats}/{s.capacity}
-        </span>
-      </div>
-
-      <div className='flex min-w-0 flex-1 flex-col gap-2 p-4'>
-        <span className='flex min-w-0 items-center gap-2'>
           <span
             className='h-2.5 w-2.5 shrink-0 rounded-full'
             style={{ backgroundColor: color }}
           />
-          <span className='truncate font-tan-nimbus text-[15px] font-semibold text-[#3d3338]'>
-            {s.experienceName}
-          </span>
+          <span className='truncate'>{s.experienceName}</span>
         </span>
 
-        {shown.length > 0 && (
-          <div className='flex flex-wrap items-center gap-1.5'>
-            {shown.map((a, i) => (
-              <span
-                key={i}
-                className='inline-flex items-center gap-1.5 rounded-full bg-[#fbf5ef] px-2 py-0.5 text-xs font-medium text-[#3d3338]'
-              >
-                {verDetalle && a.saldo && (
-                  <span className='h-1.5 w-1.5 rounded-full bg-[#9d684e]' />
-                )}
-                {a.name ?? '—'}
-              </span>
-            ))}
-            {extra > 0 && (
-              <span className='text-xs font-medium text-[#7a6e6f]'>+{extra} más</span>
-            )}
-          </div>
-        )}
-        {pendientes.length > 0 && (
-          <span className='inline-flex w-fit items-center gap-1.5 rounded-full border border-dashed border-[#cc844a]/50 bg-[#F6E9DC] px-2 py-0.5 text-xs font-medium text-[#cc844a]'>
-            <span className='h-1.5 w-1.5 rounded-full bg-[#cc844a]' />
-            {pendPersonas} sin confirmar
-          </span>
-        )}
-        {!verDetalle && dietas.length > 0 && (
-          <div className='flex flex-col gap-1'>
-            {dietas.map((d, i) => (
-              <div key={i} className='flex items-center gap-2'>
-                <span className='shrink-0 font-mono text-xs text-[#7a6e6f]'>
-                  {d.quantity} pers.
-                </span>
-                <DietaryTags tags={d.tags} notes={d.notes} compact />
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className='mt-auto flex items-center justify-between gap-2 pt-1'>
-          {!verDetalle ? (
-            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#455a54]'>
-              <Users className='h-[14px] w-[14px]' />
-              {seats} anotada(s)
-            </span>
-          ) : porCobrar > 0 ? (
-            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#9d684e]'>
-              <Wallet className='h-[14px] w-[14px]' />
-              Por cobrar {fmtPrice(porCobrar)}
-            </span>
-          ) : (
-            <span className='inline-flex items-center gap-1.5 text-xs font-medium text-[#455a54]'>
-              <CalendarCheck className='h-[14px] w-[14px]' />
-              Todo cobrado
+        <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#3d3338]'>
+          {verDetalle && (
+            <span className='inline-flex items-center gap-1.5'>
+              <Users className='h-3.5 w-3.5 text-[#455a54]' />
+              {r.quantity} pers.
             </span>
           )}
-          <span className='inline-flex items-center gap-2'>
-            {onPieces && confirmadas.length > 0 && (
-              <button
-                type='button'
-                title='Cargar piezas de este turno'
-                aria-label='Cargar piezas de este turno'
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPieces();
-                }}
-                onKeyDown={(e) => e.stopPropagation()}
-                className='inline-flex h-8 items-center gap-1 rounded-lg border border-[#e6dbcd] bg-white px-2 text-xs font-medium text-[#9d684e] transition-colors hover:bg-[#fbf5ef]'
-              >
-                <Flame className='h-3.5 w-3.5' />
-                Piezas
-              </button>
-            )}
-            {onCobrar && porCobrar > 0 && (
-              <button
-                type='button'
-                title='Cobrar en Ventas'
-                aria-label='Cobrar en Ventas'
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCobrar();
-                }}
-                onKeyDown={(e) => e.stopPropagation()}
-                className='inline-flex h-8 items-center gap-1 rounded-lg border border-[#455a54]/30 bg-[#E7F0EC] px-2 text-xs font-medium text-[#455a54] transition-colors hover:bg-[#d9e8e1]'
-              >
-                <Banknote className='h-3.5 w-3.5' />
-                Cobrar
-              </button>
-            )}
-            <span className='inline-flex items-center gap-1 text-xs font-medium text-[#7a6e6f] group-hover:text-[#455a54]'>
-              Ver turno
-              <ArrowRight className='h-3.5 w-3.5' />
+          {(r.tableCodes?.length ?? 0) > 0 && (
+            <span className='inline-flex items-center gap-1.5'>
+              <Armchair className='h-3.5 w-3.5 text-[#455a54]' />
+              {r.tableCodes!.join(', ')}
             </span>
-          </span>
+          )}
+          {r.isBirthday && <span>🎂 Cumple</span>}
         </div>
+
+        <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />
+
+        {verDetalle && total != null && (
+          <div className='mt-auto flex items-center justify-between gap-2 pt-1'>
+            <span className='font-tan-nimbus text-lg font-semibold text-[#3d3338]'>
+              {fmtPrice(total)}
+            </span>
+            {phase === 'cancelled' ? null : saldo > 0 ? (
+              <span className='inline-flex items-center gap-1 rounded-full bg-[#fbe2d8] px-2.5 py-1 text-[11px] font-bold text-[#c2410c]'>
+                <Wallet className='h-3 w-3' />
+                Debe {fmtPrice(saldo)}
+              </span>
+            ) : (
+              <span className='inline-flex items-center gap-1 rounded-full bg-[#e4f4ea] px-2.5 py-1 text-[11px] font-bold text-[#15803d]'>
+                <CalendarCheck className='h-3 w-3' />
+                Pagado
+              </span>
+            )}
+          </div>
+        )}
       </div>
+
+      {(onCobrar || onPieces) && (
+        <div className='flex gap-2 px-3 pb-3'>
+          {onCobrar && (
+            <button
+              type='button'
+              onClick={(e) => {
+                e.stopPropagation();
+                onCobrar();
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+              className='flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#455a54] text-sm font-bold text-white transition-colors hover:bg-[#455a54]/90'
+            >
+              <Banknote className='h-4 w-4' />
+              Cobrar {fmtPrice(saldo)}
+            </button>
+          )}
+          {onPieces && (
+            <button
+              type='button'
+              title='Cargar piezas de esta reserva'
+              onClick={(e) => {
+                e.stopPropagation();
+                onPieces();
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+              className={cn(
+                'flex h-11 items-center justify-center gap-1.5 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3 text-sm font-semibold text-[#9d684e] transition-colors hover:bg-[#f3e9de]',
+                !onCobrar && 'flex-1',
+              )}
+            >
+              <Flame className='h-4 w-4' />
+              Piezas
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -975,7 +965,7 @@ function WeekTurnoChip({
         {s.experienceName}
       </p>
       <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
-        <span>{s.confirmedSeats ?? s.seatsTaken}/{s.capacity} pers.</span>
+        <span>{s.confirmedSeats ?? s.seatsTaken} pers.</span>
         <span className='font-mono uppercase tracking-wide'>
           {SESSION_STATUS_LABEL[s.status] ?? s.status}
         </span>

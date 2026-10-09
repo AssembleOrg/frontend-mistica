@@ -304,6 +304,10 @@ export const reservationsAdmin = {
       dietaryTags?: string[];
       dietaryNotes?: string;
       kitchenNotes?: string;
+      /** Personas bonificadas (entran pero no se cobran). */
+      freeSpots?: number;
+      /** Tortas de la venta para cocina: no suman, ya están en la venta. */
+      cakes?: { label: string; qty: number; amount: number; notes?: string }[];
     },
   ) =>
     (

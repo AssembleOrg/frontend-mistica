@@ -22,10 +22,10 @@ export default function DashboardLayout({
       <ViewGuard />
       <AutoClosureNotifier />
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className='min-w-0'>
         <header className='flex h-16 shrink-0 items-center gap-2 px-4 border-b border-[#9d684e]/10'>
           <SidebarTrigger className='-ml-1 touch-target shrink-0' />
-          <div className='flex flex-col justify-center gap-0.5'>
+          <div className='flex min-w-0 flex-col justify-center gap-0.5 overflow-hidden'>
             <span className='text-xs text-[#455a54] font-winter-solid whitespace-nowrap leading-none'>
               Dashboard / Panel Principal
             </span>

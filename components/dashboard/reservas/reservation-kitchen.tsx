@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { fmtDateTime, fmtPrice } from '@/lib/reservas-format';
-import { FREE_CAKE_MIN_PEOPLE, SYMBOLIC_CAKE_LABEL } from '@/lib/kitchen';
+import { FREE_CAKE_MIN_PEOPLE, SYMBOLIC_CAKE_LABEL, cakeProductOf } from '@/lib/kitchen';
 import { productsService } from '@/services/products.service';
 import {
   reservationsAdmin,
@@ -360,7 +360,11 @@ function CakeForm({
           symbolic,
           ...list
             .filter((p) => p.name.trim().toLowerCase() !== SYMBOLIC_CAKE_LABEL.toLowerCase())
-            .map((p) => ({ key: p.id, label: p.name, amount: p.price ?? 0 })),
+            .map((p) => ({
+              key: p.id,
+              label: cakeProductOf(p.barcode)?.kitchenLabel ?? p.name,
+              amount: p.price ?? 0,
+            })),
         ]);
       })
       .catch(() => {});
@@ -455,7 +459,7 @@ function CakeForm({
         <Input
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder='Detalle (sabor, nombre…)'
+          placeholder='Detalle (cobertura, sabor, nombre…)'
           maxLength={200}
           className={field}
         />

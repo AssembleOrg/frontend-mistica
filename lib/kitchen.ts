@@ -18,3 +18,18 @@ export function experienceHasBuffet(exp: ExperienceLike): boolean {
 export const FREE_CAKE_MIN_PEOPLE = 10;
 
 export const SYMBOLIC_CAKE_LABEL = 'Torta simbólica';
+
+/**
+ * Tortas del catálogo (productos, por código de barras): cómo las ve cocina y
+ * si llevan color de cobertura y sabor. El precio es el del producto.
+ */
+export const CAKE_PRODUCTS = [
+  { barcode: 'MST8285257705', kitchenLabel: SYMBOLIC_CAKE_LABEL, withFlavor: false },
+  { barcode: 'MST9103971513', kitchenLabel: 'Torta 12 cm', withFlavor: true },
+  { barcode: 'MST8710137672', kitchenLabel: 'Torta 12 cm (upgrade)', withFlavor: true },
+] as const;
+
+export type CakeProduct = (typeof CAKE_PRODUCTS)[number];
+
+export const cakeProductOf = (barcode?: string): CakeProduct | undefined =>
+  CAKE_PRODUCTS.find((c) => c.barcode === barcode);

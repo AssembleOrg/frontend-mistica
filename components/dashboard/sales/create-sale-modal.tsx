@@ -148,7 +148,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
   const { getPrepaidsByClient, getPrepaidById } = usePrepaidsAPI();
   const { canManageProducts, canEdit: isAdmin } = usePermissions();
   // Agendar la venta (experiencia/servicio con día y hora) en Reservas.
-  const schedule = useSaleSchedule();
+  const schedule = useSaleSchedule(cartItems, setCartItems);
   // Productos de cuota de alumno ("mes cerámica") que pasaron por el carrito.
   const [feeProductIds, setFeeProductIds] = useState<Set<string>>(new Set());
   // Cuota de alumno: si el cliente es alumno, qué línea paga su cuota.

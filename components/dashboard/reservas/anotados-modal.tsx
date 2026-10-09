@@ -456,7 +456,7 @@ export function AnotadosModal({
             </div>
             {!isCourtesy && (
               <p className='text-[11px] text-[#455a54]/60'>
-                Impacta caja (requiere caja abierta).
+                Queda registrado en la reserva (no pasa por caja).
               </p>
             )}
             <Button

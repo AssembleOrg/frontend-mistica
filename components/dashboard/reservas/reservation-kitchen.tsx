@@ -477,7 +477,7 @@ function CakeForm({
 /**
  * Comprobantes que mandó el cliente por WhatsApp para esta reserva (reservó en
  * el local y pagó después). Se miran y, si están bien, se cobra con ellos el
- * saldo por transferencia (con la caja abierta).
+ * saldo por transferencia (queda en la reserva, no pasa por caja).
  */
 export function ReceiptsSection({
   reservation: r,

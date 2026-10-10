@@ -14,7 +14,7 @@ import {
   type StaffTask,
   type TaskStatus,
 } from '@/services/taller.admin.service';
-import { usersAdmin, type Account } from '@/services/users.admin.service';
+import { usersAdmin, type TeamPerson } from '@/services/users.admin.service';
 import { StatusBadge } from '../reservas/_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ResponsableField, useResponsable } from '../responsable-field';
@@ -65,7 +65,7 @@ export function EquipoPanel() {
 
 function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
   const [tasks, setTasks] = useState<StaffTask[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<TeamPerson[]>([]);
   const [loading, setLoading] = useState(true);
   // Completadas: se ven las últimas; el resto, a pedido.
   const [showAllDone, setShowAllDone] = useState(false);
@@ -83,7 +83,9 @@ function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
     try {
       const [ts, accs] = await Promise.all([
         tallerAdmin.listTasks(),
-        canManage ? usersAdmin.list() : Promise.resolve([] as Account[]),
+        // team() y no list(): /users/all es sólo para admin y al Encargado
+        // le hacía fallar toda la carga de Tareas.
+        canManage ? usersAdmin.team() : Promise.resolve([] as TeamPerson[]),
       ]);
       setTasks(ts);
       setAccounts(accs);
@@ -221,7 +223,7 @@ function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
                 const selected = assigneeIds.includes(a.id);
                 return <button key={a.id} type='button' onClick={() => setAssigneeIds((ids) => selected ? ids.filter((id) => id !== a.id) : [...ids, a.id])}
                   className={`rounded px-2 py-1 text-xs transition ${selected ? 'bg-[#455a54] text-white' : 'bg-white text-[#455a54] hover:bg-[#f3e9df]'}`}>
-                  {a.name || a.email}
+                  {a.name}
                 </button>;
               })}
             </div>

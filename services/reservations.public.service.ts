@@ -56,6 +56,43 @@ export interface PublicExperience {
     description?: string;
     active?: boolean;
   }>;
+  /** Ediciones especiales por fecha (Halloween, Navidad…). Ver SpecialEdition. */
+  specials?: SpecialEdition[];
+}
+
+/** PROXIMA: todavía no abrió reservas. VIGENTE: se reserva. FINALIZADA: ya pasó. */
+export type SpecialStatus = 'PROXIMA' | 'VIGENTE' | 'FINALIZADA';
+
+/**
+ * Edición especial de una experiencia (Halloween, Navidad…): entre dateFrom y
+ * dateTo la experiencia ES esta edición — texto, precio, bonos, extras y
+ * horarios propios — y la versión habitual no se ofrece esos días.
+ */
+export interface SpecialEdition {
+  _id?: string;
+  name: string;
+  /** Activadores del bot: cómo la piden los clientes ('halloween'). */
+  aliases?: string[];
+  /** Texto de la edición (reemplaza la descripción de la experiencia). */
+  description?: string;
+  /** Primer y último día en que se hace ('YYYY-MM-DD'; iguales = un día). */
+  dateFrom: string;
+  dateTo: string;
+  /** Desde cuándo se ofrece y se reserva. Sin valor, apenas se carga. */
+  announceFrom?: string;
+  /** Precio por persona de la edición. Sin valor, el de la experiencia. */
+  price?: number;
+  /** Bonos de la edición: reemplazan a las promos habituales en sus fechas. */
+  priceVariants?: NonNullable<PublicExperience['priceVariants']>;
+  /** Lo que incluye sin costo. */
+  included?: string[];
+  /** Extras opcionales con precio (los suma el equipo a la reserva). */
+  extras?: Array<{ name: string; price: number; description?: string }>;
+  /** Horarios especiales; sin `date`, todos los días de la edición. */
+  schedule?: Array<{ start: string; date?: string }>;
+  active?: boolean;
+  /** Estado de hoy (sólo viene en el catálogo público). */
+  status?: SpecialStatus;
 }
 
 export interface PublicSession {
@@ -65,7 +102,10 @@ export interface PublicSession {
   // Color actual de la experiencia (join dinámico del backend).
   experienceColor?: string;
   durationMinutes: number;
+  /** En un día de edición especial, el precio de la edición. */
   price: number;
+  /** Edición especial que rige ese día (Halloween…), si hay. */
+  specialName?: string;
   depositPct: number;
   startAt: string;
   endAt: string;
@@ -183,8 +223,11 @@ export interface AvailableShift {
   endAt: string;
   /** Grupo más grande que todavía entra. */
   maxPartySize: number;
+  /** En un día de edición especial ya es el precio de la edición. */
   price: number;
   depositPct: number;
+  /** Edición especial que rige ese día (Halloween…), si hay. */
+  special?: { id?: string; name: string };
 }
 
 /** Respuesta del preview de mesas para un (día, hora, grupo). */

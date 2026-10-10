@@ -8,10 +8,12 @@ import type {
   PreviewTablesResult,
   PublicExperience,
   PublicSession,
+  SpecialEdition,
 } from '@/services/reservations.public.service';
 
 export type AdminExperience = PublicExperience;
 export type AdminSession = PublicSession;
+export type { SpecialEdition, SpecialStatus } from '@/services/reservations.public.service';
 
 export type ReservationPaymentMethod =
   | 'MERCADOPAGO'
@@ -27,6 +29,9 @@ export interface ReservationItem {
   source: string;
   paymentMethod: string;
   experienceName: string;
+  /** Edición especial que regía ese día (Halloween…), si la había. */
+  specialId?: string;
+  specialName?: string;
   startAt: string;
   quantity: number;
   /** De esas personas, cuántas van bonificadas (entran pero no se cobran). */
@@ -158,6 +163,11 @@ export interface CreateExperienceInput {
    * Vacío = turnos generales.
    */
   ownSchedule?: OwnSlot[];
+  /**
+   * EDICIONES ESPECIALES por fecha (Halloween, Navidad…): entre sus fechas la
+   * experiencia es esa edición (texto, precio, bonos, extras y horarios).
+   */
+  specials?: SpecialEdition[];
   durationMinutes: number;
   basePrice: number;
   defaultCapacity: number;
@@ -422,6 +432,17 @@ export const reservationsAdmin = {
     (
       await apiService.post<ReservationItem>(
         `/admin/reservations/${id}/cakes`,
+        input as unknown as Record<string, unknown>,
+      )
+    ).data,
+  /** Suma un adicional con precio (p. ej. un extra de la edición especial). */
+  addExtra: async (
+    id: string,
+    input: { label: string; amount: number; qty?: number },
+  ) =>
+    (
+      await apiService.post<ReservationItem>(
+        `/admin/reservations/${id}/extras`,
         input as unknown as Record<string, unknown>,
       )
     ).data,

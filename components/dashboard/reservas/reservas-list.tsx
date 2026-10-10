@@ -414,6 +414,12 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                   <div className='min-w-0'>
                     <p className='truncate text-sm text-[#3d3338]'>
                       {r.experienceName}
+                      {r.specialName && (
+                        <span className='text-[#9d684e]' title='Edición especial'>
+                          {' '}
+                          · ✨ {r.specialName}
+                        </span>
+                      )}
                       {r.isBirthday && (
                         <span title='Cumpleaños: beneficios aplicados'>
                           {' '}
@@ -505,6 +511,9 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                 </p>
                 <p className='mt-1.5 text-sm text-[#3d3338]'>
                   {r.experienceName}
+                  {r.specialName && (
+                    <span className='text-[#9d684e]'> · ✨ {r.specialName}</span>
+                  )}
                   {r.isBirthday && (
                     <span title='Cumpleaños: beneficios aplicados'> 🎉</span>
                   )}

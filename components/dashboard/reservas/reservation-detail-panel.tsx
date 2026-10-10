@@ -40,8 +40,11 @@ import {
 import { StatusBadge } from './_shared';
 import {
   reservationsAdmin,
+  type AdminExperience,
   type ReservationItem,
+  type SpecialEdition,
 } from '@/services/reservations.admin.service';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NewPieceModal } from './piezas-tab';
 import { canManageRole } from '@/lib/views';
 
@@ -240,6 +243,7 @@ export function ReservationDetailPanel({
             }
           >
             <KV k='Servicio' v={r.experienceName} />
+            {r.specialName && <KV k='Edición especial' v={`✨ ${r.specialName}`} />}
             <KV k='Fecha' v={fmtDateTime(r.startAt)} />
             {editingPeople ? (
               <PeopleEditor
@@ -286,6 +290,10 @@ export function ReservationDetailPanel({
           <KitchenSection reservation={r} canEdit={canManage} onChanged={applyPatch} />
 
           {canManage && <ReceiptsSection reservation={r} onChanged={applyPatch} />}
+
+          {canManage && r.specialName && (
+            <SpecialExtrasSection reservation={r} onChanged={applyPatch} />
+          )}
 
           <Section title='PAGO'>
             <div className='flex flex-col gap-2.5 rounded-xl bg-[#fbf5ef] p-4'>
@@ -674,6 +682,112 @@ function ExtraTimeEditor({
         </Button>
       </div>
     </div>
+  );
+}
+
+// Catálogo de experiencias para ubicar la edición de una reserva. Se pide una
+// vez por sesión de la pantalla: cambia poco y lo usan todas las fichas.
+let experiencesOnce: Promise<AdminExperience[]> | null = null;
+function loadExperiences(): Promise<AdminExperience[]> {
+  if (!experiencesOnce) {
+    experiencesOnce = reservationsAdmin.listExperiences(true).catch((e) => {
+      experiencesOnce = null;
+      throw e;
+    });
+  }
+  return experiencesOnce;
+}
+
+/**
+ * Extras opcionales de la edición especial de la reserva (Halloween…): se
+ * suman de un toque. Suben el total y el saldo; no tocan lo ya cobrado.
+ */
+function SpecialExtrasSection({
+  reservation: r,
+  onChanged,
+}: {
+  reservation: ReservationItem;
+  onChanged: (p: ReservationPatch) => void;
+}) {
+  const confirm = useConfirm();
+  const [special, setSpecial] = useState<SpecialEdition | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setSpecial(null);
+    loadExperiences()
+      .then((list) => {
+        if (!alive) return;
+        const exp = list.find((e) => e._id === r.experienceId);
+        const found = (exp?.specials ?? []).find(
+          (s) => (r.specialId && s._id === r.specialId) || s.name === r.specialName,
+        );
+        setSpecial(found ?? null);
+      })
+      .catch(() => alive && setSpecial(null));
+    return () => {
+      alive = false;
+    };
+  }, [r.experienceId, r.specialId, r.specialName]);
+
+  const extras = (special?.extras ?? []).filter((x) => x.name && x.price > 0);
+  const included = special?.included ?? [];
+  if (extras.length === 0 && included.length === 0) return null;
+  const closed = r.status === 'CANCELLED' || r.status === 'EXPIRED';
+
+  async function add(x: { name: string; price: number }) {
+    const ok = await confirm({
+      title: 'Sumar extra',
+      description: `¿Sumar "${x.name}" por ${fmtPrice(x.price)} a la reserva? Sube el total y el saldo a cobrar.`,
+      confirmLabel: 'Sumar',
+      variant: 'normal',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await reservationsAdmin.addExtra(r._id, { label: x.name, amount: x.price });
+      onChanged({
+        extras: res.extras,
+        totalAmount: res.totalAmount,
+        balanceDue: res.balanceDue,
+      });
+      showToast.success(`${x.name} sumado a la reserva`);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title={`EDICIÓN · ${(r.specialName ?? '').toUpperCase()}`}>
+      {included.length > 0 && (
+        <p className='text-[13px] text-[#3d3338]'>
+          <span className='text-[#7a6e6f]'>Incluye: </span>
+          {included.join(' · ')}
+        </p>
+      )}
+      {extras.length > 0 && (
+        <div className='flex flex-col gap-1.5'>
+          <span className='text-[13px] text-[#7a6e6f]'>Extras opcionales</span>
+          <div className='flex flex-wrap gap-2'>
+            {extras.map((x) => (
+              <button
+                key={x.name}
+                type='button'
+                disabled={busy || closed}
+                onClick={() => void add(x)}
+                title={x.description}
+                className='rounded-lg border border-[#e6dbcd] bg-white px-3 py-1.5 text-[13px] font-medium text-[#455a54] hover:bg-[#fbf5ef] disabled:opacity-50'
+              >
+                + {x.name} · {fmtPrice(x.price)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }
 

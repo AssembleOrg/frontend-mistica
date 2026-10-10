@@ -51,6 +51,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { FilterChip, IconBtn, StatusBadge } from './_shared';
+import { SpecialsEditor } from './specials-editor';
+import {
+  SPECIAL_STATUS_LABEL,
+  specialDatesLabel,
+  specialProblem,
+  specialStatus,
+} from '@/lib/specials';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const EMPTY: CreateExperienceInput = {
@@ -60,6 +67,7 @@ const EMPTY: CreateExperienceInput = {
   images: [],
   priceVariants: [],
   ownSchedule: [],
+  specials: [],
   durationMinutes: 120,
   basePrice: 0,
   defaultCapacity: 8,
@@ -83,7 +91,7 @@ function fmtDuration(min: number): string {
 }
 
 type ExpFilter = 'all' | 'online' | 'coordinada';
-type ExpTab = 'basico' | 'precio' | 'horario' | 'mas';
+type ExpTab = 'basico' | 'precio' | 'horario' | 'especiales' | 'mas';
 
 export function ExperienciasTab() {
   const confirm = useConfirm();
@@ -126,6 +134,7 @@ export function ExperienciasTab() {
       images: e.images ?? [],
       priceVariants: e.priceVariants ?? [],
       ownSchedule: e.ownSchedule ?? [],
+      specials: e.specials ?? [],
       durationMinutes: e.durationMinutes,
       basePrice: e.basePrice,
       defaultCapacity: e.defaultCapacity,
@@ -154,6 +163,12 @@ export function ExperienciasTab() {
     if ((form.ownSchedule ?? []).some((slot) => slot.date === '')) {
       setTab('horario');
       showToast.error('Elegí la fecha de cada horario de fecha única');
+      return;
+    }
+    const specialError = (form.specials ?? []).map(specialProblem).find(Boolean);
+    if (specialError) {
+      setTab('especiales');
+      showToast.error(specialError);
       return;
     }
     setSaving(true);
@@ -305,6 +320,19 @@ export function ExperienciasTab() {
                   </div>
                 )}
 
+                {/* Fechas especiales que rigen o están por venir. */}
+                {(e.specials ?? [])
+                  .filter((s) => ['VIGENTE', 'PROXIMA'].includes(specialStatus(s)))
+                  .map((s) => (
+                    <span
+                      key={s._id ?? s.name}
+                      className='inline-flex w-fit items-center gap-1 rounded-full bg-[#F6E9DC] px-2.5 py-1 text-xs font-medium text-[#9d684e]'
+                      title={`${SPECIAL_STATUS_LABEL[specialStatus(s)]} · se hace ${specialDatesLabel(s)}`}
+                    >
+                      ✨ {s.name} · {specialDatesLabel(s)}
+                    </span>
+                  ))}
+
                 <div className='h-px w-full bg-[#e6dbcd]' />
 
                 {/* Precio + duración. La ocasión Cumpleaños no tiene propios:
@@ -376,6 +404,7 @@ export function ExperienciasTab() {
                 <TabsTrigger value='basico'>Básico</TabsTrigger>
                 <TabsTrigger value='precio'>Precio y cupo</TabsTrigger>
                 <TabsTrigger value='horario'>Horario</TabsTrigger>
+                <TabsTrigger value='especiales'>Fechas especiales</TabsTrigger>
                 <TabsTrigger value='mas'>Más</TabsTrigger>
               </TabsList>
 
@@ -543,6 +572,29 @@ export function ExperienciasTab() {
                     Al ser coordinada no tiene turnos: el día y la hora se
                     arreglan con el equipo.
                   </p>
+                )}
+              </TabsContent>
+
+              <TabsContent value='especiales' className='flex flex-col gap-3 pt-2'>
+                {form.isBirthday || form.bookableOnline === false ? (
+                  <p className='px-1 text-sm text-texto-suave'>
+                    Las fechas especiales son para las experiencias que se reservan
+                    online.
+                  </p>
+                ) : (
+                  <SpecialsEditor
+                    value={form.specials ?? []}
+                    basePrice={form.basePrice}
+                    experienceName={form.name}
+                    onChange={(specials) => setForm({ ...form, specials })}
+                    renderVariants={(variants, basePrice, onChange) => (
+                      <VariantsEditor
+                        variants={variants}
+                        basePrice={basePrice}
+                        onChange={onChange}
+                      />
+                    )}
+                  />
                 )}
               </TabsContent>
 

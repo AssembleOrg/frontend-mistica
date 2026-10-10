@@ -764,6 +764,11 @@ function ReservaCard({
           />
           <span className='truncate'>{s.experienceName}</span>
         </span>
+        {s.specialName && (
+          <span className='inline-flex w-fit items-center rounded-full bg-[#F6E9DC] px-2.5 py-0.5 text-xs font-semibold text-[#9d684e]'>
+            ✨ {s.specialName}
+          </span>
+        )}
 
         <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#3d3338]'>
           {verDetalle && (
@@ -964,6 +969,11 @@ function WeekTurnoChip({
       <p className='mt-1 truncate text-xs font-medium text-[#3d3338]' title={s.experienceName}>
         {s.experienceName}
       </p>
+      {s.specialName && (
+        <p className='truncate text-[11px] font-semibold text-[#9d684e]' title={s.specialName}>
+          ✨ {s.specialName}
+        </p>
+      )}
       <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
         <span>{s.confirmedSeats ?? s.seatsTaken} pers.</span>
         <span className='font-mono uppercase tracking-wide'>

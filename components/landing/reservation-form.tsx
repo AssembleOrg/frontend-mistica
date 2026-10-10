@@ -20,6 +20,7 @@ import {
 } from '@/services/reservations.public.service';
 import { SectionLabel } from '@/components/landing/primitives';
 import { useBusinessHours } from '@/hooks/useBusinessHours';
+import { specialOn } from '@/lib/specials';
 
 function toMin(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -290,11 +291,15 @@ export function ReservationForm({
           startAt: isoAR(customDay, customTime),
           endAt: isoAR(customDay, fromMin(toMin(customTime) + duration)),
           maxPartySize: customCheck.maxPartySize ?? 12,
-          price: exp.basePrice,
+          // En una fecha especial vale el precio de la edición.
+          price: specialOn(exp.specials, customDay)?.price ?? exp.basePrice,
           depositPct: exp.depositPct ?? 50,
         }
       : null;
   const selected = suggested ?? custom;
+  // Edición especial que rige el día elegido (Halloween…): ese día la
+  // experiencia es la edición, con su texto y lo que incluye.
+  const special = selected ? specialOn(exp?.specials, selected.dateKey) : undefined;
   const maxQty = selected ? Math.max(1, selected.maxPartySize) : 12;
   const localTotal = selected ? selected.price * qty : 0;
   const depositPct = selected?.depositPct ?? 50;
@@ -674,7 +679,27 @@ export function ReservationForm({
           <p className='mt-1.5 font-playfair text-[26px] font-medium text-arena'>
             {expName}
           </p>
+          {special && (
+            <p className='mt-1 text-sm font-medium text-arena/90'>✨ {special.name}</p>
+          )}
         </div>
+        {special && (special.description || (special.included?.length ?? 0) > 0) && (
+          <div className='border-b border-linea bg-arena px-6 py-3.5'>
+            <p className='text-sm font-medium text-terracota'>
+              Ese día es {special.name}
+            </p>
+            {special.description && (
+              <p className='mt-0.5 text-[13px] leading-snug text-piedra'>
+                {special.description}
+              </p>
+            )}
+            {(special.included?.length ?? 0) > 0 && (
+              <p className='mt-1 text-[13px] leading-snug text-piedra'>
+                Incluye: {special.included!.join(' · ')}
+              </p>
+            )}
+          </div>
+        )}
         <div className='flex flex-col px-6 py-1.5'>
           {[
             ['Fecha', selected ? fmtDate(selected.startAt) : '—'],

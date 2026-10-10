@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Printer, Download, X } from 'lucide-react';
+import QRCode from 'qrcode';
 import { hasAfipData } from '@/lib/receipt-utils';
 import { parseNotesAndSeller } from '@/lib/sales-seller';
 
@@ -45,9 +46,24 @@ export function ReceiptViewer({ sale, onClose, type = 'a4', autoPrint = false }:
     window.localStorage.setItem(FEED_KEY, String(mm));
   }
 
-  // "Imprimir ticket": imprime solo (con las fuentes ya cargadas) y cierra.
+  // QR del Mensaje del Tarot (A4 y térmico). URL fija: la carta se sortea en
+  // cada escaneo, así una mesa entera saca cartas distintas con un solo ticket.
+  // Alta resolución + quiet zone (margin 2) para que escanee bien en térmica 203 DPI.
+  // null = generando, '' = falló (el ticket sale igual, sin QR).
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!autoPrint) return;
+    QRCode.toDataURL(`${window.location.origin}/arcano/random`, {
+      width: 320,
+      margin: 2,
+      color: { dark: '#000000', light: '#FFFFFF' },
+    })
+      .then(setQrCodeUrl)
+      .catch(() => setQrCodeUrl(''));
+  }, []);
+
+  // "Imprimir ticket": imprime solo (con las fuentes y el QR ya cargados) y cierra.
+  useEffect(() => {
+    if (!autoPrint || qrCodeUrl === null) return;
     const close = () => window.close();
     window.addEventListener('afterprint', close);
     let timer: number | undefined;
@@ -58,7 +74,7 @@ export function ReceiptViewer({ sale, onClose, type = 'a4', autoPrint = false }:
       window.removeEventListener('afterprint', close);
       if (timer) window.clearTimeout(timer);
     };
-  }, [autoPrint]);
+  }, [autoPrint, qrCodeUrl]);
 
   const formatDate = (date: Date) => {
     return format(date, "dd/MM/yyyy HH:mm", { locale: es });
@@ -225,6 +241,20 @@ export function ReceiptViewer({ sale, onClose, type = 'a4', autoPrint = false }:
           </div>
         ))}
       </div>
+
+      {/* QR Mensaje del Tarot */}
+      {qrCodeUrl && (
+        <div className="qr-thermal border-b border-dashed border-black pb-2 mb-2" style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '10px' }}>🔮 Tu mensaje del Tarot</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={qrCodeUrl}
+            alt="QR Tarot"
+            style={{ width: '28mm', height: '28mm', margin: '4px auto', display: 'block' }}
+          />
+          <div style={{ fontSize: '9px' }}>Escaneá para tu mensaje personalizado</div>
+        </div>
+      )}
 
       {/* Footer */}
       <div>
@@ -430,7 +460,25 @@ export function ReceiptViewer({ sale, onClose, type = 'a4', autoPrint = false }:
               Impreso el {formatDate(new Date())}
             </div>
           </div>
-          
+
+          {/* Right side - QR Code */}
+          {qrCodeUrl && (
+            <div className="flex-shrink-0 text-center ml-8">
+              <div className="text-sm font-medium text-[#455a54] mb-2">
+                🔮 Tu Mensaje del Tarot
+              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={qrCodeUrl}
+                alt="QR Mensaje del Tarot"
+                className="mx-auto border border-gray-300 rounded-lg"
+                style={{ width: 120, height: 120 }}
+              />
+              <div className="text-xs text-gray-500 mt-2">
+                Escanea para recibir<br />tu mensaje personalizado
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

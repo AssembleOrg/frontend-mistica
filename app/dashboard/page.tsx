@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { ROLE_LABEL, canAccessView } from '@/lib/views';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList } from 'lucide-react';
+import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -40,6 +40,8 @@ export default function Dashboard() {
     // Card de Señas ocultada a pedido del cliente (la ruta /dashboard/prepaids queda).
     // { name: 'Señas',   description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70', view: 'prepaids' },
     { name: 'Actividad',  description: 'Historial',        href: '/dashboard/activity',  icon: Activity,    iconBg: 'bg-[#455a54]/50', view: 'activity' },
+    // Sin vista propia: lo ve quien puede vender (es el QR que va en el ticket).
+    { name: 'QR del Tarot', description: 'Descargar e imprimir', href: '/arcano/tarjetas',    icon: QrCode,      iconBg: 'bg-[#9d684e]/50', view: 'sales'    },
   ].filter(m => canView(m.view));
 
   if (!isAuthenticated) {

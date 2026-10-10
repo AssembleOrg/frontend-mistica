@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import QRCode from 'qrcode';
-import { Printer } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
 
 /** Tarjetas por hoja A4: 2 columnas × 5 filas de 85 × 55 mm (tamaño tarjeta). */
 const CARDS_PER_SHEET = 10;
@@ -21,7 +21,8 @@ export default function TarjetasTarotPage() {
   useEffect(() => {
     const target = `${window.location.origin}/arcano/random`;
     setUrl(target);
-    QRCode.toDataURL(target, { width: 600, margin: 1, color: { dark: '#2d2426', light: '#ffffff' } })
+    // 1024 px + quiet zone 2: el mismo PNG sirve impreso y para bajarlo y usarlo en redes.
+    QRCode.toDataURL(target, { width: 1024, margin: 2, color: { dark: '#2d2426', light: '#ffffff' } })
       .then(setQr)
       .catch(() => setQr(''));
   }, []);
@@ -50,15 +51,27 @@ export default function TarjetasTarotPage() {
             márgenes &quot;Ninguno&quot; y escala 100%. El QR lleva a {url || '…'}
           </p>
         </div>
-        <button
-          type='button'
-          onClick={() => window.print()}
-          disabled={!qr}
-          className='inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#455a54] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3b4e49] disabled:opacity-50'
-        >
-          <Printer className='h-4 w-4' />
-          Imprimir hoja
-        </button>
+        <div className='flex shrink-0 gap-2'>
+          {qr && (
+            <a
+              href={qr}
+              download='qr-mensaje-tarot.png'
+              className='inline-flex items-center gap-2 rounded-lg border border-[#455a54]/30 px-4 py-2 text-sm font-semibold text-[#455a54] hover:bg-[#455a54]/5'
+            >
+              <Download className='h-4 w-4' />
+              Descargar QR
+            </a>
+          )}
+          <button
+            type='button'
+            onClick={() => window.print()}
+            disabled={!qr}
+            className='inline-flex items-center gap-2 rounded-lg bg-[#455a54] px-4 py-2 text-sm font-semibold text-white hover:bg-[#3b4e49] disabled:opacity-50'
+          >
+            <Printer className='h-4 w-4' />
+            Imprimir hoja
+          </button>
+        </div>
       </div>
 
       <div

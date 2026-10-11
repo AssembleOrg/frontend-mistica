@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
+import { errorText } from '@/lib/api-error-messages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -79,6 +80,22 @@ const EMPTY: CreateExperienceInput = {
   isActive: true,
 };
 
+// Campos tal como los nombra el backend → cómo se llaman en el formulario.
+const FIELD_LABELS: Record<string, string> = {
+  name: 'Nombre',
+  description: 'Descripción',
+  color: 'Color en la agenda',
+  basePrice: 'Precio por persona',
+  durationMinutes: 'Duración (minutos)',
+  defaultCapacity: 'Cupo por turno',
+  depositPct: 'Seña al reservar (%)',
+  priceVariants: 'Variantes de precio',
+  ownSchedule: 'Horario',
+  specials: 'Fechas especiales',
+  aliases: 'Apodos',
+  images: 'Imágenes',
+};
+
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
@@ -109,7 +126,7 @@ export function ExperienciasTab() {
     try {
       setItems(await reservationsAdmin.listExperiences(true));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -165,6 +182,27 @@ export function ExperienciasTab() {
       showToast.error('Elegí la fecha de cada horario de fecha única');
       return;
     }
+    // Lo que el backend rechazaría con un mensaje técnico se frena acá, en la
+    // pestaña donde está el dato.
+    const precioError =
+      !(form.basePrice >= 0)
+        ? 'Ingresá un precio válido'
+        : !Number.isInteger(form.durationMinutes) || form.durationMinutes < 1
+          ? 'Indicá cuántos minutos dura la experiencia (sin decimales)'
+          : !Number.isInteger(form.defaultCapacity) || form.defaultCapacity < 1
+            ? 'El cupo por turno tiene que ser de al menos 1 persona'
+            : !Number.isInteger(form.depositPct ?? 50) ||
+                (form.depositPct ?? 50) < 0 ||
+                (form.depositPct ?? 50) > 100
+              ? 'La seña tiene que ser un porcentaje entero entre 0 y 100'
+              : (form.priceVariants ?? []).some((v) => !v.name?.trim())
+                ? 'Ponele nombre a cada variante de precio (o quitá la que quedó vacía)'
+                : null;
+    if (precioError) {
+      setTab('precio');
+      showToast.error(precioError);
+      return;
+    }
     const specialError = (form.specials ?? []).map(specialProblem).find(Boolean);
     if (specialError) {
       setTab('especiales');
@@ -184,7 +222,7 @@ export function ExperienciasTab() {
       setEditing(null);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+      showToast.error(errorText(e, 'Error al guardar', FIELD_LABELS));
     } finally {
       setSaving(false);
     }
@@ -202,7 +240,7 @@ export function ExperienciasTab() {
       showToast.success('Experiencia dada de baja');
       await load();
     } catch (err) {
-      showToast.error(err instanceof Error ? err.message : 'Error al eliminar');
+      showToast.error(errorText(err, 'Error al eliminar'));
     }
   }
 

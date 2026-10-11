@@ -108,5 +108,6 @@ export function specialProblem(s: SpecialEdition): string | null {
   if ((s.schedule ?? []).some((x) => !x.start)) return `Completá la hora de los horarios de "${s.name}"`;
   if ((s.schedule ?? []).some((x) => x.date === '')) return `Elegí la fecha de cada horario puntual de "${s.name}"`;
   if ((s.extras ?? []).some((x) => !x.name.trim())) return `Ponele nombre a cada extra de "${s.name}"`;
+  if ((s.priceVariants ?? []).some((v) => !v.name?.trim())) return `Ponele nombre a cada bono de "${s.name}"`;
   return null;
 }

@@ -67,3 +67,58 @@ export function translateApiError(
 
   return fallback;
 }
+
+// Mensajes de class-validator: en inglés y con el nombre técnico del campo
+// ("priceVariants.0.name should not be empty").
+const VALIDATOR_RE =
+  /\b(must be|should not be|must match|must not be|must contain|is not a valid|should not exist|must be (longer|shorter))\b/i;
+// Textos por defecto de NestJS / del cliente HTTP: no dicen nada a la persona.
+const GENERIC_RE =
+  /^(bad request|unauthorized|forbidden( resource)?|not found|internal server error|http error|request (timeout|blocked)|network error)/i;
+
+/**
+ * Texto para mostrar de un error atrapado en un `catch`.
+ *
+ * Los errores del apiService son objetos `{ message, status }`, NO instancias
+ * de Error: con `e instanceof Error ? e.message : fallback` el motivo que manda
+ * el backend ("El apodo ya lo usa…") nunca llegaba a pantalla.
+ *
+ * - 4xx con un mensaje del backend escrito para la persona → ese mensaje.
+ * - Mensaje técnico de validación → aviso en español; con `labels` (campo del
+ *   backend → cómo se llama en el formulario) dice además en qué parte está.
+ * - Sin conexión, timeout o 5xx → texto genérico según el status, o `fallback`.
+ */
+export function errorText(
+  e: unknown,
+  fallback: string,
+  labels: Record<string, string> = {},
+): string {
+  const obj = (typeof e === 'object' && e !== null ? e : {}) as {
+    message?: unknown;
+    status?: unknown;
+  };
+  const raw = (
+    Array.isArray(obj.message)
+      ? obj.message.join('. ')
+      : typeof obj.message === 'string'
+        ? obj.message
+        : ''
+  ).trim();
+  const status = typeof obj.status === 'number' ? obj.status : undefined;
+
+  // Errores propios del front (`throw new Error('…')`): ya vienen en criollo.
+  if (status === undefined) return e instanceof Error && raw ? raw : fallback;
+
+  if (status >= 400 && status < 500 && raw) {
+    if (VALIDATOR_RE.test(raw)) {
+      const label = labels[raw.split(/[.\s]/)[0]];
+      return label
+        ? `Revisá "${label}": hay un dato incompleto o inválido.`
+        : 'Revisá los datos del formulario: hay un campo incompleto o inválido.';
+    }
+    if (status !== 401 && status !== 403 && status !== 429 && !GENERIC_RE.test(raw)) {
+      return raw;
+    }
+  }
+  return STATUS_FALLBACKS[status] ?? fallback;
+}

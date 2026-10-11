@@ -170,7 +170,8 @@ export interface CreateExperienceInput {
   specials?: SpecialEdition[];
   durationMinutes: number;
   basePrice: number;
-  defaultCapacity: number;
+  /** Cupo por turno. No es obligatorio: vacío (null) = 40. */
+  defaultCapacity?: number | null;
   depositPct?: number;
   // Color hex (#RRGGBB) para la agenda. Obligatorio.
   color: string;

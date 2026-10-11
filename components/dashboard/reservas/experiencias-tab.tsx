@@ -71,7 +71,8 @@ const EMPTY: CreateExperienceInput = {
   specials: [],
   durationMinutes: 120,
   basePrice: 0,
-  defaultCapacity: 8,
+  // Sin cupo cargado: el backend usa el cupo por defecto (40).
+  defaultCapacity: null,
   depositPct: 50,
   color: DEFAULT_EXPERIENCE_COLOR,
   bookableOnline: true,
@@ -189,8 +190,9 @@ export function ExperienciasTab() {
         ? 'Ingresá un precio válido'
         : !Number.isInteger(form.durationMinutes) || form.durationMinutes < 1
           ? 'Indicá cuántos minutos dura la experiencia (sin decimales)'
-          : !Number.isInteger(form.defaultCapacity) || form.defaultCapacity < 1
-            ? 'El cupo por turno tiene que ser de al menos 1 persona'
+          : form.defaultCapacity != null &&
+              (!Number.isInteger(form.defaultCapacity) || form.defaultCapacity < 0)
+            ? 'El cupo por turno tiene que ser un número entero (o dejalo vacío: 40)'
             : !Number.isInteger(form.depositPct ?? 50) ||
                 (form.depositPct ?? 50) < 0 ||
                 (form.depositPct ?? 50) > 100
@@ -530,17 +532,19 @@ export function ExperienciasTab() {
                     <FormField
                       label='Cupo por turno'
                       htmlFor='exp-capacity'
-                      hint='Máximo de personas en un mismo turno. En los turnos del salón también lo limitan las mesas libres.'
+                      hint='Máximo de personas en un mismo turno. Si lo dejás vacío, el cupo es de 40. En los turnos del salón también lo limitan las mesas libres.'
                     >
                       <Input
                         id='exp-capacity'
                         type='number'
                         min={1}
-                        value={form.defaultCapacity}
+                        placeholder='40'
+                        value={form.defaultCapacity || ''}
                         onChange={(ev) =>
                           setForm({
                             ...form,
-                            defaultCapacity: Number(ev.target.value),
+                            defaultCapacity:
+                              ev.target.value === '' ? null : Number(ev.target.value),
                           })
                         }
                         className={fieldCls}

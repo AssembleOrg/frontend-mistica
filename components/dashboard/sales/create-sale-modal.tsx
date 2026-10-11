@@ -603,8 +603,22 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
 
   // Saldo de ventas anteriores que se cobra dentro de esta venta. Se toma el
   // balanceDue de cada venta marcada (de recentSales). Suma al total (sin stock).
-  const settledAmount = settleSel?.amount || 0;
+  // Al EDITAR, en cambio, es el saldo que esta venta ya cobró cuando se creó
+  // (sus settledLines): sigue siendo parte del total y no se quita desde acá,
+  // porque la venta anterior ya quedó saldada. Antes no se cargaba y el total
+  // bajaba a sólo los productos.
+  const lockedSettledLines = editingSale?.settledLines ?? [];
+  const lockedSettledAmount = Number(
+    lockedSettledLines.reduce((acc, l) => acc + (l.amount || 0), 0).toFixed(2),
+  );
+  const settledAmount = editingSale ? lockedSettledAmount : settleSel?.amount || 0;
   const settledSaleLabel = (() => {
+    if (editingSale) {
+      return (
+        lockedSettledLines.map((l) => l.saleName?.trim() || l.saleNumber).join(' + ') ||
+        undefined
+      );
+    }
     if (!settleSel) return undefined;
     const s = recentSales.find((x) => x.id === settleSel.saleId);
     if (!s && checkoutPlan?.settle?.saleId === settleSel.saleId) {
@@ -872,7 +886,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         // Abono a cuenta de la venta anterior seleccionada (sólo venta no
         // parcial, monto > 0). Va como array de 1 elemento.
         settlements:
-          !isPartial && !onAccount && settleSel && settleSel.amount > 0
+          !editingSale && !isPartial && !onAccount && settleSel && settleSel.amount > 0
             ? [{ saleId: settleSel.saleId, amount: settleSel.amount }]
             : undefined,
       } as const;
@@ -1100,11 +1114,26 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
               </div>
               */}
 
+              {editingSale && lockedSettledAmount > 0 && (
+                <div className="rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] p-3 text-xs text-[#8a5638]">
+                  <p className="font-semibold">
+                    Esta venta incluye un cobro de saldo: {formatCurrency(lockedSettledAmount)}
+                  </p>
+                  <p className="mt-0.5">
+                    {settledSaleLabel ? `Saldo pendiente de «${settledSaleLabel}». ` : ''}
+                    Ya está sumado al total y se mantiene al guardar: no hace falta
+                    agregarlo como ítem.
+                  </p>
+                </div>
+              )}
+
               {selectedClient && recentSales.length > 0 && (
                 <div className="rounded-lg border border-[#9d684e]/20 p-3 bg-white space-y-2 shadow-sm">
                   <h4 className="text-xs font-semibold text-[#455a54] uppercase tracking-wider">Últimas transacciones</h4>
                   <p className="text-[10px] text-[#455a54]/50 font-winter-solid -mt-1">
-                    "Cobrar saldo" suma el faltante a esta venta · ícono ↺ repite los ítems · tildá para relacionar.
+                    {editingSale
+                      ? 'Ícono ↺ repite los ítems · tildá para relacionar. Un saldo se cobra desde una venta nueva.'
+                      : '"Cobrar saldo" suma el faltante a esta venta · ícono ↺ repite los ítems · tildá para relacionar.'}
                   </p>
                   <ul className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                     {recentSales
@@ -1113,7 +1142,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         const isLinked = relatedSaleIds.includes(sale.id);
                         const saldo = sale.balanceDue || 0;
                         const hasSaldo = saldo > 0;
-                        const canSettle = hasSaldo && !isPartial;
+                        const canSettle = hasSaldo && !isPartial && !editingSale;
                         const isSel = settleSel?.saleId === sale.id;
                         // Al seleccionar una venta con saldo, se carga su faltante
                         // automáticamente a cobrar. Click de nuevo deselecciona.
@@ -1202,7 +1231,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
                         );
                       })}
                   </ul>
-                  {settledAmount > 0 && (
+                  {settledAmount > 0 && !editingSale && (
                     <p className="text-[10px] text-[#9d684e] font-winter-solid pt-1 border-t border-[#9d684e]/10">
                       Se cobra {formatCurrency(settledAmount)} del faltante de la venta seleccionada en esta venta. El saldo restante (si lo hubiera) queda pendiente en la venta original.
                     </p>

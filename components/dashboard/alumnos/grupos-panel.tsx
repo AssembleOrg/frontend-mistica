@@ -1161,6 +1161,12 @@ function AttendanceDialog({
     !!s.trialDate && !(s.trialGroupId === group._id && s.trialDate === date);
   // La prueba es para quien todavía no se anotó en ningún grupo.
   const isEnrolled = (s: Student) => allGroups.some((g) => g.studentIds.includes(s._id));
+  // Quien recupera una clase o suma una extra ya cursa en OTRO grupo. Como todo
+  // cliente tiene ficha de alumno, sin este filtro el desplegable traía a todos
+  // los clientes del sistema y no se encontraba a nadie.
+  const fromOtherGroups = outsiders
+    .filter(isEnrolled)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
   const trialBlockedReason = (s: Student) =>
     isEnrolled(s)
       ? ' · ya está inscripto'
@@ -1437,7 +1443,14 @@ function AttendanceDialog({
                     )}
                   </span>
                   <div className='flex gap-1'>
-                  {(r.trial ? TRIAL_OPTIONS : isRecoveringGuest(r) ? GUEST_OPTIONS : ATT_OPTIONS).map((o) => (
+                  {(isFuture
+                    ? []
+                    : r.trial
+                      ? TRIAL_OPTIONS
+                      : isRecoveringGuest(r)
+                        ? GUEST_OPTIONS
+                        : ATT_OPTIONS
+                  ).map((o) => (
                     <button
                       key={o.key}
                       type='button'
@@ -1531,7 +1544,11 @@ function AttendanceDialog({
                 {isRecoveringGuest(r) && (
                   <p className='text-[11px] text-[#6d5a78]'>
                     Recupera {allGroups.find((candidate) => candidate._id === r.makeupForGroupId)?.name ?? 'otra clase'} del {displayClassDate(r.makeupForDate!)}
-                    {r.status === 'ABSENT' ? ' · no vino: la clase original sigue pendiente' : ' · al guardarlo presente, la clase original queda recuperada'}
+                    {isFuture
+                      ? ' · ya quedó agendada: ese día se le toma asistencia'
+                      : r.status === 'ABSENT'
+                        ? ' · no vino: la clase original sigue pendiente'
+                        : ' · al guardarlo presente, la clase original queda recuperada'}
                   </p>
                 )}
                 {r.status === 'MAKEUP' && !isRecoveringGuest(r) && r.makeupForDate && (
@@ -1671,7 +1688,7 @@ function AttendanceDialog({
               className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
             >
               <option value=''>Sumar alumno a esta clase como extra (doble turno)…</option>
-              {outsiders.map((s) => (
+              {fromOtherGroups.map((s) => (
                 <option key={s._id} value={s._id}>
                   {s.name}
                 </option>
@@ -1703,7 +1720,7 @@ function AttendanceDialog({
               className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
             >
               <option value=''>Sumar alumno que recupera clase…</option>
-              {outsiders.map((s) => (
+              {fromOtherGroups.map((s) => (
                 <option key={s._id} value={s._id}>
                   {s.name}
                 </option>
@@ -1754,22 +1771,31 @@ function AttendanceDialog({
         {isFuture && (
           <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>
             Esta clase todavía no pasó: la asistencia se toma ese día. Las pruebas,
-            recuperaciones y clases extra que sumes quedan agendadas y aparecen
-            solas en la asistencia.
+            recuperaciones y clases extra que sumes{' '}
+            <strong className='font-semibold'>se guardan al momento</strong> (no hace
+            falta guardar nada más) y aparecen solas en la asistencia.
           </p>
         )}
         <DialogFooter>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={onClose}
-            className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
-          >
-            {isFuture ? 'Cerrar' : 'Cancelar'}
-          </Button>
-          <Button type='button' variant='verde' onClick={save} disabled={saving || isFuture}>
-            {saving ? 'Guardando…' : 'Guardar asistencia'}
-          </Button>
+          {isFuture ? (
+            <Button type='button' variant='verde' onClick={onClose}>
+              Listo
+            </Button>
+          ) : (
+            <>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={onClose}
+                className='border-[#e6dbcd] text-[#455a54] hover:bg-[#fbf5ef]'
+              >
+                Cancelar
+              </Button>
+              <Button type='button' variant='verde' onClick={save} disabled={saving}>
+                {saving ? 'Guardando…' : 'Guardar asistencia'}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

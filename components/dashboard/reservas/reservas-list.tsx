@@ -1145,11 +1145,7 @@ export function RescheduleModal({
                     {fmtDateTime(s.startAt)}
                   </span>
                   <span className='text-xs text-[#7a6e6f]'>
-                    {noSeats
-                      ? 'sin cupo'
-                      : otherPrice
-                        ? 'otro precio'
-                        : `${s.seatsAvailable} lugares`}
+                    {noSeats ? 'sin cupo' : otherPrice ? 'otro precio' : ''}
                   </span>
                 </button>
               );

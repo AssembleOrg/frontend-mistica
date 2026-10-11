@@ -314,7 +314,7 @@ export function SlotPicker({
                   setCheck({ status: 'idle' });
                 }}
                 className={chip(time === sl.startTime && !freeTime)}
-                title={`${sl.shiftName ?? 'Horario sugerido'} · hasta ${sl.maxPartySize} personas`}
+                title={sl.shiftName ?? 'Horario sugerido'}
               >
                 {sl.startTime}
                 <span className='ml-1.5 text-xs font-normal opacity-70'>

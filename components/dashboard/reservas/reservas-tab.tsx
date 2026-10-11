@@ -771,12 +771,6 @@ function ReservaCard({
         )}
 
         <div className='flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#3d3338]'>
-          {verDetalle && (
-            <span className='inline-flex items-center gap-1.5'>
-              <Users className='h-3.5 w-3.5 text-[#455a54]' />
-              {r.quantity} pers.
-            </span>
-          )}
           {(r.tableCodes?.length ?? 0) > 0 && (
             <span className='inline-flex items-center gap-1.5'>
               <Armchair className='h-3.5 w-3.5 text-[#455a54]' />
@@ -974,8 +968,7 @@ function WeekTurnoChip({
           ✨ {s.specialName}
         </p>
       )}
-      <p className='mt-0.5 flex items-center justify-between text-xs text-[#455a54]/70'>
-        <span>{s.confirmedSeats ?? s.seatsTaken} pers.</span>
+      <p className='mt-0.5 text-xs text-[#455a54]/70'>
         <span className='font-mono uppercase tracking-wide'>
           {SESSION_STATUS_LABEL[s.status] ?? s.status}
         </span>

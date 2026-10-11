@@ -456,9 +456,6 @@ export function ReservationForm({
                     {day.slots.map((s) => {
                       const id = slotKey(s);
                       const on = id === slotId;
-                      // "Quedan pocos" sólo cuando de verdad queda poco: el
-                      // número es el grupo más grande que todavía entra.
-                      const low = s.maxPartySize <= 4;
                       return (
                         <button
                           key={id}
@@ -481,13 +478,6 @@ export function ReservationForm({
                           >
                             {s.shiftName ?? 'Horario sugerido'}
                           </span>
-                          {low && (
-                            <span
-                              className={`text-[11px] ${on ? 'text-arena/70' : 'font-medium text-terracota'}`}
-                            >
-                              hasta {s.maxPartySize}
-                            </span>
-                          )}
                         </button>
                       );
                     })}
@@ -548,10 +538,7 @@ export function ReservationForm({
               )}
               {customCheck.status === 'ok' && (
                 <span className='text-[13px] font-medium text-verde-profundo'>
-                  ¡Hay lugar!{' '}
-                  {customCheck.maxPartySize
-                    ? `Hasta ${customCheck.maxPartySize} personas a las ${customTime}.`
-                    : ''}
+                  ¡Hay lugar a las {customTime}!
                 </span>
               )}
               {customCheck.status === 'no' && customCheck.message && (

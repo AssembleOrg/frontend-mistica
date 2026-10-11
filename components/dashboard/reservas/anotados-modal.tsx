@@ -403,9 +403,6 @@ export function AnotadosModal({
                   <Plus className='h-4 w-4' />
                 </Button>
               </div>
-              <span className='text-xs text-[#455a54]/60'>
-                {session ? `${session.seatsAvailable} disp.` : ''}
-              </span>
             </div>
             <div className='space-y-2'>
               <p className='text-[13px] font-medium text-terracota'>

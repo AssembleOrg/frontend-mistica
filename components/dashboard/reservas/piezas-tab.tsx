@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { Camera, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,7 @@ import {
 } from '@/services/taller.admin.service';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PieceTypeSelect, usePieceCategories } from './piece-type-select';
 import { PieceExtraSelect } from './piece-extra-select';
 import { ColorsSelect } from './colors-select';
@@ -61,7 +62,24 @@ import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 import { ResponsableField, useResponsable } from '../responsable-field';
 import { canManageRole } from '@/lib/views';
 
-const LIMIT = 20;
+const LIMIT = 50;
+/** Tope al seleccionar un día entero (una tanda de horno no llega ni cerca). */
+const DAY_LIMIT = 500;
+
+// Día de trabajo de la pieza: el de la experiencia o, en las viejas sin ese
+// dato, el día en que se cargó.
+function dayOf(p: PieceItem): string {
+  return p.workDate || p.createdAt.slice(0, 10);
+}
+
+// "lunes 22 de septiembre". Mediodía para que ninguna zona horaria lo corra.
+function dayLabel(day: string): string {
+  return new Date(`${day}T12:00:00`).toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
 
 // Los estados del proceso son CONFIGURABLES por el taller (el backend los
 // sirve en /pieces/statuses). Mientras cargan, se usan los históricos.
@@ -95,7 +113,7 @@ function statusColors(
 }
 
 const COLS =
-  'grid grid-cols-[10rem_8rem_1fr_8rem_9rem_7rem_14rem] items-center gap-3';
+  'grid grid-cols-[1.25rem_10rem_8rem_1fr_8rem_9rem_7rem_14rem] items-center gap-3';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
@@ -164,6 +182,9 @@ export function PiezasTab() {
   const [statusCfg, setStatusCfg] = useState<PieceStatusConfig[]>(FALLBACK_CFG);
   const [photosOf, setPhotosOf] = useState<PieceItem | null>(null);
   const [editing, setEditing] = useState<PieceItem | null>(null);
+  // Piezas tildadas para marcarlas de una (la tanda que salió del horno).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const loadCfg = useCallback(() => {
     piecesAdmin
@@ -256,6 +277,101 @@ export function PiezasTab() {
     } finally {
       setBusy(null);
     }
+  }
+
+  // La selección vale para el filtro en pantalla: al cambiarlo, se limpia.
+  useEffect(() => {
+    setSelected(new Set());
+  }, [status, search, professorId]);
+
+  function toggle(id: string) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const dayFullySelected = (day: string) =>
+    items.some((p) => dayOf(p) === day) &&
+    items.filter((p) => dayOf(p) === day).every((p) => selected.has(p._id));
+
+  // Tilda TODAS las piezas del día (también las que quedaron en otra página),
+  // respetando el filtro en pantalla. Si ya estaban, las destilda.
+  async function toggleDay(day: string) {
+    setBulkBusy(true);
+    try {
+      const res = await piecesAdmin.list({
+        status: status || undefined,
+        search: search || undefined,
+        professorId: professorId || undefined,
+        workDate: day,
+        limit: DAY_LIMIT,
+      });
+      // Piezas viejas sin día guardado: se toman las que están a la vista.
+      const ids = res.items.length
+        ? res.items.map((p) => p._id)
+        : items.filter((p) => dayOf(p) === day).map((p) => p._id);
+      const clear = dayFullySelected(day);
+      setSelected((current) => {
+        const next = new Set(current);
+        for (const id of ids) {
+          if (clear) next.delete(id);
+          else next.add(id);
+        }
+        return next;
+      });
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo seleccionar el día');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  const readyKey = statusCfg.find((c) => c.isReady)?.key ?? 'LISTA';
+
+  async function markSelectedReady() {
+    setBulkBusy(true);
+    try {
+      const { updated } = await piecesAdmin.bulkStatus([...selected], readyKey);
+      showToast.success(
+        updated === 1
+          ? '1 pieza marcada como lista para retirar'
+          : `${updated} piezas marcadas como listas para retirar`,
+      );
+      setSelected(new Set());
+      await load();
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function dayHeader(day: string) {
+    const all = dayFullySelected(day);
+    return (
+      <div className='flex items-center gap-3 border-b border-[#e6dbcd] bg-[#f6efe6] px-4 py-2 md:px-5'>
+        <Checkbox
+          checked={all}
+          disabled={bulkBusy}
+          onCheckedChange={() => toggleDay(day)}
+          aria-label={`Seleccionar las piezas del ${dayLabel(day)}`}
+        />
+        <span className='text-sm font-semibold capitalize text-[#455a54]'>
+          {dayLabel(day)}
+        </span>
+        <button
+          type='button'
+          disabled={bulkBusy}
+          onClick={() => toggleDay(day)}
+          className='ml-auto text-xs font-semibold text-[#9d684e] hover:underline disabled:opacity-50'
+        >
+          {all ? 'Quitar selección' : 'Seleccionar todo el día'}
+        </button>
+      </div>
+    );
   }
 
   async function sendReadyNotice(p: PieceItem) {
@@ -418,6 +534,7 @@ export function PiezasTab() {
           <div
             className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}
           >
+            <span />
             <span>PERSONA</span>
             <span>RESERVA</span>
             <span>FICHA DE PIEZA</span>
@@ -433,16 +550,24 @@ export function PiezasTab() {
               {search ? `Sin resultados para “${search}”.` : 'Sin piezas cargadas.'}
             </div>
           ) : (
-            items.map((p) => {
+            items.map((p, i) => {
               const { bg, fg } = statusColors(p.status, statusCfg);
+              const newDay = i === 0 || dayOf(items[i - 1]) !== dayOf(p);
               return (
+                <Fragment key={p._id}>
+                {newDay && dayHeader(dayOf(p))}
                 <div
-                  key={p._id}
                   className={cn(
                     `${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`,
+                    selected.has(p._id) && 'bg-[#E7F0EC]/60',
                     !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                   )}
                 >
+                  <Checkbox
+                    checked={selected.has(p._id)}
+                    onCheckedChange={() => toggle(p._id)}
+                    aria-label='Seleccionar pieza'
+                  />
                   <div className='min-w-0'>
                     <p className='line-clamp-2 text-sm font-medium leading-tight text-[#3d3338]'>
                       {p.personName || p.customerName || '—'}
@@ -519,6 +644,7 @@ export function PiezasTab() {
                     )}
                   </div>
                 </div>
+                </Fragment>
               );
             })
           )}
@@ -536,18 +662,31 @@ export function PiezasTab() {
             {search ? `Sin resultados para “${search}”.` : 'Sin piezas cargadas.'}
           </div>
         ) : (
-          items.map((p) => {
+          items.map((p, i) => {
             const { bg, fg } = statusColors(p.status, statusCfg);
+            const newDay = i === 0 || dayOf(items[i - 1]) !== dayOf(p);
             return (
+              <Fragment key={p._id}>
+              {newDay && (
+                <div className='overflow-hidden rounded-xl border border-[#e6dbcd] [&>div]:border-0'>
+                  {dayHeader(dayOf(p))}
+                </div>
+              )}
               <div
-                key={p._id}
                 className={cn(
                   'rounded-2xl border border-[#e6dbcd] bg-white p-4',
+                  selected.has(p._id) && 'border-[#455a54]/50 bg-[#E7F0EC]/60',
                   !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                 )}
               >
                 <div className='flex items-start justify-between gap-2'>
-                  <div className='min-w-0'>
+                  <Checkbox
+                    checked={selected.has(p._id)}
+                    onCheckedChange={() => toggle(p._id)}
+                    aria-label='Seleccionar pieza'
+                    className='mt-0.5 size-5'
+                  />
+                  <div className='min-w-0 flex-1'>
                     <p className='line-clamp-2 text-sm font-medium leading-tight text-[#3d3338]'>
                       {p.personName || p.customerName || p.customerPhone}
                     </p>
@@ -622,10 +761,42 @@ export function PiezasTab() {
                   )}
                 </div>
               </div>
+              </Fragment>
             );
           })
         )}
       </div>
+
+      {selected.size > 0 && (
+        <div className='sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-[#455a54]/30 bg-white px-4 py-3 shadow-lg'>
+          <span className='text-sm font-semibold text-[#455a54]'>
+            {selected.size === 1
+              ? '1 pieza seleccionada'
+              : `${selected.size} piezas seleccionadas`}
+          </span>
+          <div className='ml-auto flex items-center gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={bulkBusy}
+              onClick={() => setSelected(new Set())}
+              className='border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]'
+            >
+              Limpiar
+            </Button>
+            <Button
+              type='button'
+              variant='verde'
+              size='sm'
+              disabled={bulkBusy}
+              onClick={markSelectedReady}
+            >
+              Marcar listas para retirar
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Pager
         page={page}
@@ -1072,7 +1243,7 @@ export function NewPieceModal({
                 )}
               </div>
 
-              <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>
+              <div className='flex flex-col gap-3'>
                 {entries.map((entry, index) => (
                   <div key={index} className='rounded-xl border border-[#e6dbcd] bg-white p-3'>
                     <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
@@ -1516,7 +1687,7 @@ function GroupPieceModal({
                   desde Alumnos.
                 </p>
               ) : (
-                <div className='flex max-h-[55vh] flex-col gap-3 overflow-y-auto pr-1'>
+                <div className='flex flex-col gap-3'>
                   {entries.map((entry, index) => {
                     const mp = monthly.get(entry.studentId);
                     return (

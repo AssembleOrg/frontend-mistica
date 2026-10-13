@@ -70,6 +70,8 @@ export interface PieceItem {
   readyAt?: string;
   notifiedReadyAt?: string;
   pickedUpAt?: string;
+  /** Día de trabajo (YYYY-MM-DD): el de la experiencia o el de la carga. */
+  workDate?: string;
   createdAt: string;
 }
 
@@ -177,6 +179,7 @@ export const piecesAdmin = {
     professorId?: string;
     studentId?: string;
     reservationId?: string;
+    workDate?: string;
     page?: number;
     limit?: number;
   }) => {
@@ -186,6 +189,7 @@ export const piecesAdmin = {
     if (params?.professorId) q.set('professorId', params.professorId);
     if (params?.studentId) q.set('studentId', params.studentId);
     if (params?.reservationId) q.set('reservationId', params.reservationId);
+    if (params?.workDate) q.set('workDate', params.workDate);
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));
     return (await apiService.get<PieceListResponse>(`/pieces?${q.toString()}`))
@@ -243,6 +247,14 @@ export const piecesAdmin = {
         `/pieces/${id}`,
         input as unknown as Record<string, unknown>,
       )
+    ).data,
+  /** Cambia el estado de varias piezas a la vez (la tanda de un día). */
+  bulkStatus: async (ids: string[], status: string) =>
+    (
+      await apiService.patch<{ updated: number }>('/pieces/bulk-status', {
+        ids,
+        status,
+      })
     ).data,
   remove: async (id: string) =>
     (await apiService.delete<{ success: boolean }>(`/pieces/${id}`)).data,

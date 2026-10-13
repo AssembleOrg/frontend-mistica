@@ -50,6 +50,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PieceTypeSelect, usePieceCategories } from './piece-type-select';
+import { PiezasAssembly } from './piezas-assembly';
 import { PieceExtraSelect } from './piece-extra-select';
 import { ColorsSelect } from './colors-select';
 import { usePieceExtrasStore } from '@/stores/piece-extras.store';
@@ -185,6 +186,8 @@ export function PiezasTab() {
   // Piezas tildadas para marcarlas de una (la tanda que salió del horno).
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  // 'assembly': armado de pedidos con lo que salió del horno.
+  const [view, setView] = useState<'list' | 'assembly'>('list');
 
   const loadCfg = useCallback(() => {
     piecesAdmin
@@ -331,14 +334,17 @@ export function PiezasTab() {
 
   const readyKey = statusCfg.find((c) => c.isReady)?.key ?? 'LISTA';
 
-  async function markSelectedReady() {
+  async function markSelected(next: string) {
     setBulkBusy(true);
     try {
-      const { updated } = await piecesAdmin.bulkStatus([...selected], readyKey);
+      const { updated } = await piecesAdmin.bulkStatus([...selected], next);
+      const label = labelOf(next, statusCfg).toLowerCase();
       showToast.success(
-        updated === 1
-          ? '1 pieza marcada como lista para retirar'
-          : `${updated} piezas marcadas como listas para retirar`,
+        updated === 0
+          ? `Esas piezas ya estaban como "${label}"`
+          : updated === 1
+            ? `1 pieza pasó a "${label}"`
+            : `${updated} piezas pasaron a "${label}"`,
       );
       setSelected(new Set());
       await load();
@@ -406,15 +412,9 @@ export function PiezasTab() {
   }
 
   function statusSelect(p: PieceItem) {
-    if (!canManage) {
-      if (cfgOf(p.status, statusCfg)?.isReady || cfgOf(p.status, statusCfg)?.isFinal) {
-        return <StatusBadge label={labelOf(p.status, statusCfg)} bg='#dcebe1' fg='#2f4a40' />;
-      }
-      return (
-        <Button type='button' variant='verde' size='sm' onClick={() => changeStatus(p, 'LISTA')} disabled={busy === p._id} className='h-8 w-full text-xs'>
-          Marcar lista
-        </Button>
-      );
+    // Sin rol de gestión: todo menos el retiro (y una retirada no se toca).
+    if (!canManage && cfgOf(p.status, statusCfg)?.isFinal) {
+      return <StatusBadge label={labelOf(p.status, statusCfg)} bg='#eae4db' fg='#5c5148' />;
     }
     return (
       <Select
@@ -426,11 +426,13 @@ export function PiezasTab() {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {statusCfg.map((c) => (
-            <SelectItem key={c.key} value={c.key}>
-              {c.label}
-            </SelectItem>
-          ))}
+          {statusCfg
+            .filter((c) => canManage || !c.isFinal)
+            .map((c) => (
+              <SelectItem key={c.key} value={c.key}>
+                {c.label}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
     );
@@ -452,6 +454,36 @@ export function PiezasTab() {
 
   return (
     <div className='flex flex-col gap-5'>
+      {/* Lista completa o armado de pedidos (lo que salió del horno). */}
+      <div className='inline-flex w-fit rounded-xl border border-[#e6dbcd] bg-white p-1'>
+        {(
+          [
+            ['list', 'Todas las piezas'],
+            ['assembly', 'Armar pedidos'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type='button'
+            onClick={() => setView(key)}
+            className={cn(
+              'rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors',
+              view === key
+                ? 'bg-[#455a54] text-white'
+                : 'text-[#7a6e6f] hover:text-[#455a54]',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'assembly' && (
+        <PiezasAssembly statusCfg={statusCfg} canManage={canManage} />
+      )}
+
+      {view === 'list' && (
+      <>
       {/* Filtros de estado + búsqueda + nueva pieza */}
       <div className='flex flex-col gap-2.5'>
         <div className='-mx-4 flex items-center gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0'>
@@ -768,13 +800,13 @@ export function PiezasTab() {
       </div>
 
       {selected.size > 0 && (
-        <div className='sticky bottom-3 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-[#455a54]/30 bg-white px-4 py-3 shadow-lg'>
+        <div className='sticky bottom-16 z-10 flex flex-wrap items-center gap-3 rounded-2xl border border-[#455a54]/30 bg-white px-4 py-3 shadow-lg'>
           <span className='text-sm font-semibold text-[#455a54]'>
             {selected.size === 1
               ? '1 pieza seleccionada'
               : `${selected.size} piezas seleccionadas`}
           </span>
-          <div className='ml-auto flex items-center gap-2'>
+          <div className='ml-auto flex flex-wrap items-center gap-2'>
             <Button
               type='button'
               variant='outline'
@@ -785,14 +817,25 @@ export function PiezasTab() {
             >
               Limpiar
             </Button>
+            {/* La profe: "estimo que mandé esto". Recepción lo verifica después. */}
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={bulkBusy}
+              onClick={() => markSelected('HORNEADA')}
+              className='border-[#9d684e]/40 bg-[#f3e2d0] text-[#8a5638] hover:bg-[#ecd5bd]'
+            >
+              Mandé al horno
+            </Button>
             <Button
               type='button'
               variant='verde'
               size='sm'
               disabled={bulkBusy}
-              onClick={markSelectedReady}
+              onClick={() => markSelected(readyKey)}
             >
-              Marcar listas para retirar
+              Listas para retirar
             </Button>
           </div>
         </div>
@@ -806,6 +849,8 @@ export function PiezasTab() {
         to={to}
         onPage={setPage}
       />
+      </>
+      )}
 
       {creating && (
         <NewPieceModal

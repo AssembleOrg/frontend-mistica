@@ -10,11 +10,13 @@ export type PieceStatus =
   | 'PRIMERA_HORNEADA'
   | 'ESMALTADO'
   | 'SEGUNDA_HORNEADA'
+  | 'HORNEADA'
   | 'LISTA'
   | 'RETIRADA';
 
 export const PIECE_STATUS_ORDER: PieceStatus[] = [
   'PENDIENTE',
+  'HORNEADA',
   'LISTA',
   'RETIRADA',
 ];
@@ -25,6 +27,7 @@ export const PIECE_STATUS_LABEL: Record<PieceStatus, string> = {
   PRIMERA_HORNEADA: 'Primera horneada',
   ESMALTADO: 'Esmaltado',
   SEGUNDA_HORNEADA: 'Segunda horneada',
+  HORNEADA: 'Horneada, a verificar',
   LISTA: 'Lista para retirar',
   RETIRADA: 'Retirada',
 };
@@ -81,6 +84,21 @@ export interface PieceListResponse {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+/** Un pedido a armar: todas las piezas de una reserva (o de un alumno). */
+export interface PieceAssemblyGroup {
+  key: string;
+  name: string;
+  reservationCode?: string;
+  experienceName?: string;
+  workDate?: string;
+  total: number;
+  /** Piezas ya verificadas (listas o retiradas). */
+  ready: number;
+  complete: boolean;
+  notified: boolean;
+  items: PieceItem[];
 }
 
 export interface PieceCountsResponse {
@@ -248,6 +266,9 @@ export const piecesAdmin = {
         input as unknown as Record<string, unknown>,
       )
     ).data,
+  /** Pedidos con piezas horneadas o listas, para armarlos al salir del horno. */
+  assembly: async () =>
+    (await apiService.get<PieceAssemblyGroup[]>('/pieces/assembly')).data,
   /** Cambia el estado de varias piezas a la vez (la tanda de un día). */
   bulkStatus: async (ids: string[], status: string) =>
     (

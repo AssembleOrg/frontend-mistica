@@ -68,16 +68,19 @@ function mondayOf(ymd: string): string {
   return addDays(ymd, dow === 0 ? -6 : 1 - dow);
 }
 // Franjas de la vista Día: ordenan las reservas en el tiempo (no son turnos).
-const TARDE_DESDE = 15;
+// Cortes en minutos desde la medianoche: 15:00 y 17:30.
 const FRANJAS = [
-  { key: 'manana', label: 'Mañana', hint: `hasta las ${TARDE_DESDE} hs` },
-  { key: 'tarde', label: 'Tarde', hint: `desde las ${TARDE_DESDE} hs` },
+  { key: 'manana', label: 'Mañana', hint: 'hasta las 15 hs', desde: 0 },
+  { key: 'tarde', label: 'Tarde', hint: 'de 15 a 17:30 hs', desde: 15 * 60 },
+  { key: 'tarde2', label: 'Última tarde', hint: 'desde las 17:30 hs', desde: 17 * 60 + 30 },
 ] as const;
 function franjaOf(iso: string): (typeof FRANJAS)[number]['key'] {
-  const hour = Number(
-    new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', hour12: false, timeZone: AR_TZ }).slice(0, 2),
-  );
-  return hour < TARDE_DESDE ? 'manana' : 'tarde';
+  const [h, m] = new Date(iso)
+    .toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: AR_TZ })
+    .split(':')
+    .map(Number);
+  const minutes = h * 60 + m;
+  return [...FRANJAS].reverse().find((f) => minutes >= f.desde)!.key;
 }
 function hourAR(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-AR', {

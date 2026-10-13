@@ -181,6 +181,8 @@ export interface CreateExperienceInput {
   bookableOnline?: boolean;
   // Lugares fijos del salón que ocupa un turno abierto (mesa de taller = 10).
   venueSeats?: number;
+  /** Mesa compartida: mesas donde se hace, apartadas en sus horarios propios. */
+  sharedTableCodes?: string[];
   /** ¿Incluye buffet/merienda? Cocina cuenta a sus personas. */
   hasBuffet?: boolean;
   // true = marca esta experiencia como el doc "Cumpleaños": hereda precio y

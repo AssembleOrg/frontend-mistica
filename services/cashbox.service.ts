@@ -245,6 +245,14 @@ class CashboxService {
    * backend). Los movimientos se crean con createdAt = closedAt de la sesión,
    * así el arqueo recalcula correctamente. Backend exige al menos uno.
    */
+  /** Corrige el efectivo contado de una caja cerrada (arqueo mal cargado). */
+  async correctCount(
+    id: string,
+    body: { countedClosingCash: number; reason: string },
+  ): Promise<ApiResponse<CashSession>> {
+    return apiService.patch<CashSession>(`/cashbox/${id}/count`, body);
+  }
+
   async editSession(
     id: string,
     body: { addEgresses?: RetroactiveEgressInput[]; addIncomes?: RetroactiveIncomeInput[] },

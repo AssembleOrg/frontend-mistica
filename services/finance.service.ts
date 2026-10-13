@@ -18,7 +18,9 @@ export interface FinanceSummary {
   totalRevenue: number;
   averageTicket: number;
 
-  byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
+/** Saldo que todavía se debe de las ventas del rango: vendido − cobrado. */
+  pendingBalance?: { count: number; total: number };
+    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
 
   byStatus: { PENDING: number; COMPLETED: number; CANCELLED: number };
 

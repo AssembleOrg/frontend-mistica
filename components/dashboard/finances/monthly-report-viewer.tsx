@@ -30,6 +30,8 @@ interface Props {
  */
 export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
   const incomeTotal = summary.totalRevenue + summary.prepaids.total + summary.incomes.total;
+  const withdrawals = summary.cashSessions.filter((c) => (c.withdrawnAmount ?? 0) > 0);
+  const withdrawalsTotal = withdrawals.reduce((sum, c) => sum + (c.withdrawnAmount ?? 0), 0);
   const paymentTotal = summary.byPaymentMethod.CASH + summary.byPaymentMethod.CARD + summary.byPaymentMethod.TRANSFER + (summary.byPaymentMethod.MERCADOPAGO ?? 0);
   const pct = (n: number) => paymentTotal > 0 ? Math.round((n / paymentTotal) * 100) : 0;
 
@@ -124,6 +126,7 @@ export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
                 <th style={{ ...thBase, textAlign: 'right', width: 96 }}>Apertura</th>
                 <th style={{ ...thBase, textAlign: 'right', width: 96 }}>Esperado</th>
                 <th style={{ ...thBase, textAlign: 'right', width: 96 }}>Contado</th>
+                <th style={{ ...thBase, textAlign: 'right', width: 96 }}>Retiro</th>
                 <th style={{ ...thBase, textAlign: 'right', width: 100 }}>Diferencia</th>
               </tr>
             </thead>
@@ -155,6 +158,9 @@ export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
                     <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.tinta }}>
                       {s.countedClosingCash !== null ? formatCurrency(s.countedClosingCash) : '—'}
                     </td>
+                    <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.tinta }}>
+                      {s.withdrawnAmount ? formatCurrency(s.withdrawnAmount) : '—'}
+                    </td>
                     <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: diffColor }}>
                       {diff === null ? '—'
                         : diff === 0 ? '✓'
@@ -163,8 +169,19 @@ export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
                   </tr>
                 );
               })}
+              {/* Efectivo que se llevaron al cerrar cada caja, para cotejar con lo
+                  que juntaron fuera del local. */}
               <tr>
                 <td colSpan={4} style={totalCell}>
+                  Retiros de efectivo del período ({withdrawals.length})
+                </td>
+                <td className="tabular-nums" style={{ ...totalCell, textAlign: 'right', fontWeight: 800, fontSize: 11 }}>
+                  {formatCurrency(withdrawalsTotal)}
+                </td>
+                <td style={totalCell} />
+              </tr>
+              <tr>
+                <td colSpan={5} style={totalCell}>
                   Diferencia neta del período
                 </td>
                 <td
@@ -210,12 +227,25 @@ export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
                 </tr>
               ))}
               <tr>
-                <td style={totalCell}>Total</td>
+                <td style={totalCell}>Total cobrado</td>
                 <td className="tabular-nums" style={{ ...totalCell, textAlign: 'right', fontWeight: 800, fontSize: 11 }}>
                   {formatCurrency(paymentTotal)}
                 </td>
                 <td style={totalCell} />
               </tr>
+              {/* Lo vendido que todavía no entró: explica por qué este total es
+                  menor que "Ventas". */}
+              {(summary.pendingBalance?.total ?? 0) > 0 && (
+                <tr>
+                  <td style={{ ...cellBase, color: C.gris }}>
+                    Falta cobrar ({summary.pendingBalance!.count} ventas con saldo)
+                  </td>
+                  <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.tinta }}>
+                    {formatCurrency(summary.pendingBalance!.total)}
+                  </td>
+                  <td style={cellBase} />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -16,6 +16,7 @@ import {
   Banknote,
   Armchair,
 } from 'lucide-react';
+import { FREE_CAKE_MIN_PEOPLE, SYMBOLIC_CAKE_LABEL } from '@/lib/kitchen';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -65,6 +66,18 @@ function addDays(ymd: string, days: number): string {
 function mondayOf(ymd: string): string {
   const dow = atNoonUTC(ymd).getUTCDay();
   return addDays(ymd, dow === 0 ? -6 : 1 - dow);
+}
+// Franjas de la vista Día: ordenan las reservas en el tiempo (no son turnos).
+const TARDE_DESDE = 15;
+const FRANJAS = [
+  { key: 'manana', label: 'Mañana', hint: `hasta las ${TARDE_DESDE} hs` },
+  { key: 'tarde', label: 'Tarde', hint: `desde las ${TARDE_DESDE} hs` },
+] as const;
+function franjaOf(iso: string): (typeof FRANJAS)[number]['key'] {
+  const hour = Number(
+    new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', hour12: false, timeZone: AR_TZ }).slice(0, 2),
+  );
+  return hour < TARDE_DESDE ? 'manana' : 'tarde';
 }
 function hourAR(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-AR', {
@@ -317,6 +330,17 @@ export function ReservasTab() {
     };
   }, [dayTurnos, attendees, tallerExperiences, anchor, now]);
 
+  // Cumple de 10 o más sin torta: se suma la simbólica desde la tarjeta.
+  async function addSymbolicCake(r: ReservationItem) {
+    try {
+      await reservationsAdmin.addCake(r._id, { label: SYMBOLIC_CAKE_LABEL, qty: 1, amount: 0 });
+      showToast.success('Torta simbólica sumada para cocina');
+      setTick((t) => t + 1);
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar la torta');
+    }
+  }
+
   const renderReserva = ({ r, s, phase }: (typeof activas)[number]) => (
     <ReservaCard
       key={r._id}
@@ -326,6 +350,15 @@ export function ReservasTab() {
       verDetalle={verDetalle}
       onOpen={() => (verDetalle ? setDetail(r) : setAnotados(s.id))}
       onPieces={canPieces && r.status === 'CONFIRMED' ? () => setPiecesOf(r) : undefined}
+      onAddCake={
+        canCobrar &&
+        r.status === 'CONFIRMED' &&
+        !!r.isBirthday &&
+        r.quantity >= FREE_CAKE_MIN_PEOPLE &&
+        (r.cakes?.length ?? 0) === 0
+          ? () => addSymbolicCake(r)
+          : undefined
+      }
       onCobrar={
         canCobrar && r.status === 'CONFIRMED' && (r.balanceDue ?? 0) > 0
           ? () => setCobrando(r)
@@ -467,11 +500,26 @@ export function ReservasTab() {
             </div>
           ) : (
             <>
-              {activas.length > 0 && (
-                <div className='grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3'>
-                  {activas.map(renderReserva)}
-                </div>
-              )}
+              {/* Por franja: primero la mañana, un corte, y después la tarde. */}
+              {FRANJAS.map((franja) => {
+                const rows = activas.filter((x) => franjaOf(x.s.startAt) === franja.key);
+                if (rows.length === 0) return null;
+                const personas = rows.reduce((n, x) => n + x.r.quantity, 0);
+                return (
+                  <div key={franja.key} className='flex flex-col gap-2.5'>
+                    <h3 className='flex items-baseline gap-2 border-b border-[#e6dbcd] pb-1.5 text-[13px] font-semibold uppercase tracking-wide text-[#455a54]'>
+                      {franja.label}
+                      <span className='font-normal normal-case tracking-normal text-[#7a6e6f]'>
+                        {franja.hint} · {rows.length} {rows.length === 1 ? 'reserva' : 'reservas'}
+                        {verDetalle && ` · ${personas} pers.`}
+                      </span>
+                    </h3>
+                    <div className='grid grid-cols-[repeat(auto-fill,minmax(270px,1fr))] gap-3'>
+                      {rows.map(renderReserva)}
+                    </div>
+                  </div>
+                );
+              })}
               {pasadas.length > 0 && (
                 <div className='flex flex-col gap-2.5'>
                   {activas.length > 0 && (
@@ -691,6 +739,7 @@ function ReservaCard({
   onOpen,
   onPieces,
   onCobrar,
+  onAddCake,
 }: {
   reservation: ReservationItem;
   session: AdminSession;
@@ -701,7 +750,10 @@ function ReservaCard({
   onPieces?: () => void;
   /** Cobrar el saldo de esta reserva (sólo admin). */
   onCobrar?: () => void;
+  /** Sumar la torta simbólica de regalo (cumple de 10 o más sin torta). */
+  onAddCake?: () => Promise<void>;
 }) {
+  const [addingCake, setAddingCake] = useState(false);
   const ui = PHASE_UI[phase];
   const label =
     phase === 'cancelled'
@@ -728,7 +780,11 @@ function ReservaCard({
       }}
       className={cn(
         'flex cursor-pointer flex-col overflow-hidden rounded-2xl border text-left transition-shadow hover:shadow-[0_2px_12px_rgba(69,90,84,0.08)]',
-        apagada ? 'border-[#e5e5e5] bg-[#f7f7f7] opacity-75' : 'border-[#e6dbcd] bg-white',
+        apagada
+          ? 'border-[#e5e5e5] bg-[#f7f7f7] opacity-75'
+          : r.isBirthday
+            ? 'border-[#e8b4c8] bg-[#fdf3f7]'
+            : 'border-[#e6dbcd] bg-white',
       )}
     >
       {/* Barra de ESTADO: color + texto, y el horario a la derecha. */}
@@ -741,6 +797,17 @@ function ReservaCard({
           {hourAR(s.startAt)} – {hourAR(new Date(reservaEnd(r, s)).toISOString())}
         </span>
       </span>
+      {/* Banda de CUMPLEAÑOS: se reconoce de un vistazo entre las demás. */}
+      {r.isBirthday && (
+        <span
+          className={cn(
+            'px-4 py-1 text-xs font-extrabold tracking-wide',
+            apagada ? 'bg-[#ececec] text-[#7a6e6f]' : 'bg-[#d6467e] text-white',
+          )}
+        >
+          🎂 Cumpleaños
+        </span>
+      )}
 
       <div className='flex flex-1 flex-col gap-2.5 px-4 pb-3 pt-3'>
         <span className='break-words font-tan-nimbus text-[19px] font-semibold leading-tight text-[#3d3338]'>
@@ -777,10 +844,32 @@ function ReservaCard({
               {r.tableCodes!.join(', ')}
             </span>
           )}
-          {r.isBirthday && <span>🎂 Cumple</span>}
+          {verDetalle && (
+            <span className='inline-flex items-center gap-1.5'>
+              <Users className='h-3.5 w-3.5 text-[#455a54]' />
+              {r.quantity} pers.
+            </span>
+          )}
         </div>
 
         <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />
+
+        {onAddCake && (
+          <button
+            type='button'
+            disabled={addingCake}
+            title={`Cumple de ${FREE_CAKE_MIN_PEOPLE} o más: le corresponde la torta simbólica de regalo`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setAddingCake(true);
+              void onAddCake().finally(() => setAddingCake(false));
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+            className='flex w-fit items-center gap-1.5 rounded-lg border border-[#e8b84b] bg-[#fdf6e3] px-2.5 py-1.5 text-xs font-bold text-[#5b512f] transition-colors hover:bg-[#f9ecc6] disabled:opacity-60'
+          >
+            🎂 {addingCake ? 'Sumando…' : 'Sumar torta de regalo'}
+          </button>
+        )}
 
         {verDetalle && total != null && (
           <div className='mt-auto flex items-center justify-between gap-2 pt-1'>

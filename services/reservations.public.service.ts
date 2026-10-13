@@ -27,6 +27,7 @@ export interface PublicExperience {
   // 0/ausente = el control del salón usa los anotados.
   venueSeats?: number;
   /** ¿Incluye buffet/merienda? Cocina cuenta a sus personas. */
+  sharedTableCodes?: string[];
   hasBuffet?: boolean;
   /**
    * Es la ocasión "Cumpleaños": no se reserva directo, envuelve a la

@@ -1,5 +1,6 @@
 'use client';
 
+import { localDateKey } from '@/lib/date-key';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
@@ -29,8 +30,8 @@ export default function ActivityPage() {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const from = dateRange?.from ? dateRange.from.toISOString().slice(0, 10) : undefined;
-      const to = dateRange?.to ? dateRange.to.toISOString().slice(0, 10) : undefined;
+      const from = dateRange?.from ? localDateKey(dateRange.from) : undefined;
+      const to = dateRange?.to ? localDateKey(dateRange.to) : undefined;
       const res = await auditService.getAuditLogs(1, 200, { from, to });
       setLogs(Array.isArray(res.data) ? res.data : []);
     } catch {

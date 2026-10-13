@@ -1,5 +1,6 @@
 'use client';
 
+import { localDateKey } from '@/lib/date-key';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
@@ -35,9 +36,7 @@ import { MonthlyCloseDialog } from '@/components/dashboard/finances/monthly-clos
 import { EgressBreakdownCard } from '@/components/dashboard/finances/egress-breakdown';
 import { useEgressBreakdown } from '@/hooks/useEgressBreakdown';
 
-function isoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
+const isoDate = localDateKey;
 
 function startOfMonth() {
   const d = new Date();

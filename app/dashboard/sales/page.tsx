@@ -1,5 +1,6 @@
 'use client';
 
+import { localDateKey } from '@/lib/date-key';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { DateRange } from 'react-day-picker';
@@ -85,8 +86,8 @@ export default function SalesPage() {
     const filters: { search?: string; status?: string; from?: string; to?: string; paymentMethod?: string } = {};
     if (searchValue.trim()) filters.search = searchValue.trim();
     if (statusFilter && statusFilter !== 'all') filters.status = statusFilter;
-    if (dateRange?.from) filters.from = dateRange.from.toISOString().split('T')[0];
-    if (dateRange?.to) filters.to = dateRange.to.toISOString().split('T')[0];
+    if (dateRange?.from) filters.from = localDateKey(dateRange.from);
+    if (dateRange?.to) filters.to = localDateKey(dateRange.to);
     if (paymentMethodFilter && paymentMethodFilter !== 'all') filters.paymentMethod = paymentMethodFilter;
 
     try {

@@ -32,6 +32,7 @@ import { FormField, FormSection } from '@/components/ui/form-section';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fmtPrice } from '@/lib/reservas-format';
 import { experienceHasBuffet } from '@/lib/kitchen';
+import { tablesAdmin, type AdminTable } from '@/services/tables.admin.service';
 import {
   DEFAULT_EXPERIENCE_COLOR,
   EXPERIENCE_COLOR_PALETTE,
@@ -77,6 +78,7 @@ const EMPTY: CreateExperienceInput = {
   color: DEFAULT_EXPERIENCE_COLOR,
   bookableOnline: true,
   venueSeats: 0,
+  sharedTableCodes: [],
   isBirthday: false,
   isActive: true,
 };
@@ -133,6 +135,12 @@ export function ExperienciasTab() {
     }
   }, []);
 
+  // Mesas del salón, para elegir la mesa compartida de una experiencia.
+  const [tables, setTables] = useState<AdminTable[]>([]);
+  useEffect(() => {
+    tablesAdmin.list().then(setTables).catch(() => setTables([]));
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -160,6 +168,7 @@ export function ExperienciasTab() {
       color: e.color ?? DEFAULT_EXPERIENCE_COLOR,
       bookableOnline: e.bookableOnline ?? true,
       venueSeats: e.venueSeats ?? 0,
+      sharedTableCodes: e.sharedTableCodes ?? [],
       hasBuffet: experienceHasBuffet(e),
       isBirthday: e.isBirthday ?? false,
       isActive: e.isActive,
@@ -607,6 +616,12 @@ export function ExperienciasTab() {
                     <OwnScheduleEditor
                       value={form.ownSchedule ?? []}
                       onChange={(ownSchedule) => setForm({ ...form, ownSchedule })}
+                    />
+                    <SharedTablePicker
+                      tables={tables}
+                      hasOwnSchedule={(form.ownSchedule ?? []).length > 0}
+                      value={form.sharedTableCodes ?? []}
+                      onChange={(sharedTableCodes) => setForm({ ...form, sharedTableCodes })}
                     />
                   </FormSection>
                 ) : (
@@ -1713,6 +1728,62 @@ function OwnScheduleEditor({
           <Plus className='mr-1 h-4 w-4' />
           {mode === 'once' ? 'Otra fecha' : 'Otro día'}
         </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Mesa compartida: las mesas donde se hace la experiencia. En sus horarios
+ * propios quedan apartadas para ella y todas sus reservas se sientan ahí.
+ */
+function SharedTablePicker({
+  tables,
+  hasOwnSchedule,
+  value,
+  onChange,
+}: {
+  tables: AdminTable[];
+  hasOwnSchedule: boolean;
+  value: string[];
+  onChange: (codes: string[]) => void;
+}) {
+  const toggle = (code: string) =>
+    onChange(value.includes(code) ? value.filter((c) => c !== code) : [...value, code]);
+  return (
+    <div className='mt-3 flex flex-col gap-2 border-t border-[#e6dbcd] pt-3'>
+      <Label className='text-[#455a54]'>Mesa compartida</Label>
+      <p className='text-xs text-texto-suave'>
+        Elegí la mesa donde se hace (por ejemplo, la mesa grande del taller). En
+        los horarios de arriba queda apartada para esta experiencia y todas sus
+        reservas se sientan ahí juntas, en vez de en mesas individuales. Sin
+        elegir ninguna, no se le asigna mesa.
+      </p>
+      <div className='flex flex-wrap gap-2'>
+        {tables.map((t) => {
+          const on = value.includes(t.code);
+          return (
+            <button
+              key={t.code}
+              type='button'
+              disabled={!hasOwnSchedule}
+              onClick={() => toggle(t.code)}
+              className={
+                'rounded-full border px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ' +
+                (on
+                  ? 'border-[#455a54] bg-[#455a54] text-white'
+                  : 'border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]')
+              }
+            >
+              {t.code} · {t.seats} lugares
+            </button>
+          );
+        })}
+      </div>
+      {!hasOwnSchedule && (
+        <p className='text-xs text-[#9d684e]'>
+          Cargá primero un día y horario propio: la mesa compartida rige en esos horarios.
+        </p>
       )}
     </div>
   );

@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   cashboxService,
   type CashSessionEditEntry,
@@ -64,6 +66,12 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
   const [transactions, setTransactions] = useState<SessionTransaction[]>([]);
   const [loadingTx, setLoadingTx] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  // Corregir el arqueo de una caja cerrada (sólo admin): contado + motivo.
+  const { isAdmin } = usePermissions();
+  const [fixingCount, setFixingCount] = useState(false);
+  const [fixAmount, setFixAmount] = useState('');
+  const [fixReason, setFixReason] = useState('');
+  const [savingFix, setSavingFix] = useState(false);
   const [methodFilter, setMethodFilter] = useState<MethodFilter>('all');
   // editHistory + label + valores frescos vienen de un fetch a /cashbox/:id.
   // El headline (apertura/esperado/contado/faltante) los lee de ACÁ y no del
@@ -118,6 +126,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       .catch(() => {
         setEditHistory([]);
         setSessionLabel(undefined);
+      setFixingCount(false);
         setFresh(null);
       });
   }, [session]);
@@ -127,6 +136,7 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
       setTransactions([]);
       setEditHistory([]);
       setSessionLabel(undefined);
+      setFixingCount(false);
       setFresh(null);
       setSourceFilter('all');
       setMethodFilter('all');
@@ -291,6 +301,83 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
             );
           })()}
         </div>
+
+        {isAdmin && session?.status === 'CLOSED' && !fixingCount && (
+          <button
+            type="button"
+            onClick={() => {
+              setFixAmount(String(fresh?.countedClosingCash ?? session.countedClosingCash ?? ''));
+              setFixReason('');
+              setFixingCount(true);
+            }}
+            className="self-start text-xs font-semibold text-[#9d684e] underline underline-offset-2"
+          >
+            Corregir efectivo contado
+          </button>
+        )}
+        {isAdmin && session?.status === 'CLOSED' && fixingCount && (
+          <div className="flex flex-col gap-2 rounded-lg border border-[#9d684e]/30 bg-[#fbf5ef] p-3">
+            <p className="text-xs text-[#455a54]">
+              Para un arqueo mal cargado (por ejemplo, la caja se cerró en $0 por error).
+              Sólo cambia el contado y la diferencia; no toca ventas ni egresos.
+            </p>
+            <Input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={fixAmount}
+              onChange={(e) => setFixAmount(e.target.value)}
+              placeholder="Efectivo que realmente había"
+              disabled={savingFix}
+            />
+            <Input
+              value={fixReason}
+              onChange={(e) => setFixReason(e.target.value)}
+              placeholder="Motivo de la corrección"
+              maxLength={300}
+              disabled={savingFix}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={savingFix}
+                onClick={() => setFixingCount(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={savingFix || fixAmount === '' || Number(fixAmount) < 0 || fixReason.trim().length < 3}
+                className="bg-[#9d684e] hover:bg-[#9d684e]/90 text-white"
+                onClick={async () => {
+                  if (!session) return;
+                  setSavingFix(true);
+                  try {
+                    await cashboxService.correctCount(session.id, {
+                      countedClosingCash: Number(fixAmount),
+                      reason: fixReason.trim(),
+                    });
+                    showToast.success('Arqueo corregido');
+                    setFixingCount(false);
+                    loadAll();
+                    onChanged?.();
+                  } catch (e) {
+                    showToast.error(
+                      (e as { message?: string })?.message ?? 'No se pudo corregir el arqueo',
+                    );
+                  } finally {
+                    setSavingFix(false);
+                  }
+                }}
+              >
+                {savingFix ? 'Guardando…' : 'Guardar corrección'}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {canEdit && (
           <Button

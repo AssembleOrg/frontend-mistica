@@ -59,6 +59,7 @@ import {
 } from '@/components/ui/quick-create-select';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
 import { canManageRole } from '@/lib/views';
+import { StudentPicker } from '../student-picker';
 import {
   EnrollTrialDialog,
   GroupTrials,
@@ -1632,20 +1633,14 @@ function AttendanceDialog({
 
           {/* Clase de prueba gratuita (una sola por alumno) */}
           <div className='flex flex-col gap-2 rounded-xl border border-[#455a54]/25 bg-[#E7F0EC]/40 p-2.5'>
-            <select
+            <StudentPicker
+              students={outsiders}
               value={trialStudent}
-              onChange={(e) => setTrialStudent(e.target.value)}
-              className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
-            >
-              <option value=''>Sumar clase de prueba (gratis)…</option>
-              {(canManage || isFuture) && <option value='new'>+ Persona nueva</option>}
-              {outsiders.map((s) => (
-                <option key={s._id} value={s._id} disabled={!!trialBlockedReason(s)}>
-                  {s.name}
-                  {trialBlockedReason(s)}
-                </option>
-              ))}
-            </select>
+              onChange={setTrialStudent}
+              placeholder='Sumar clase de prueba (gratis)…'
+              blockedReason={trialBlockedReason}
+              newOption={canManage || isFuture ? { value: 'new', label: 'Persona nueva' } : undefined}
+            />
             {trialStudent === 'new' && (
               <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
                 <Input
@@ -1682,18 +1677,12 @@ function AttendanceDialog({
 
           {/* Clase extra: alumno de otro grupo que suma esta clase (doble turno) */}
           <div className='flex flex-col gap-2 rounded-xl border border-[#6d5a78]/25 bg-[#efe9f2]/40 p-2.5'>
-            <select
+            <StudentPicker
+              students={fromOtherGroups}
               value={extraStudent}
-              onChange={(e) => setExtraStudent(e.target.value)}
-              className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
-            >
-              <option value=''>Sumar alumno a esta clase como extra (doble turno)…</option>
-              {fromOtherGroups.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              onChange={setExtraStudent}
+              placeholder='Sumar alumno a esta clase como extra (doble turno)…'
+            />
             <Button
               type='button'
               variant='outline'
@@ -1708,24 +1697,18 @@ function AttendanceDialog({
 
           {/* Recuperando de otro grupo */}
           <div className='flex flex-col gap-2 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef]/40 p-2.5'>
-            <select
+            <StudentPicker
+              students={fromOtherGroups}
               value={extra}
-              onChange={(e) => {
-                setExtra(e.target.value);
+              onChange={(id) => {
+                setExtra(id);
                 // Con un solo grupo habitual, ya queda elegido.
-                const usual = e.target.value ? sourceGroupsFor(e.target.value) : [];
+                const usual = id ? sourceGroupsFor(id) : [];
                 setExtraSourceGroup(usual.length === 1 ? usual[0]._id : '');
                 setExtraSourceDate('');
               }}
-              className={`${fieldCls} h-9 rounded-md border px-2 text-sm`}
-            >
-              <option value=''>Sumar alumno que recupera clase…</option>
-              {fromOtherGroups.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              placeholder='Sumar alumno que recupera clase…'
+            />
             {extra && (
               <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
                 <select

@@ -28,6 +28,7 @@ import {
   type TrialClass,
 } from '@/services/taller.admin.service';
 import { ResponsableField, useResponsable } from '@/components/dashboard/responsable-field';
+import { StudentPicker } from '@/components/dashboard/student-picker';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -273,18 +274,12 @@ export function ScheduleTrialDialog({
               />
             </div>
           ) : (
-            <select
+            <StudentPicker
+              students={candidates}
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              className={cn(fieldCls, 'h-10 rounded-md border px-2 text-sm')}
-            >
-              <option value=''>Elegí quién viene…</option>
-              {candidates.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              onChange={setStudentId}
+              placeholder='Buscá quién viene…'
+            />
           )}
 
           <Input

@@ -28,6 +28,10 @@ export function BotTryPanel() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  // Id de esta charla de prueba: el bot guarda la sesión con él, así recuerda
+  // lo que ofreció en los mensajes anteriores igual que en WhatsApp.
+  const newSession = () => Math.random().toString(36).slice(2, 12) + Date.now().toString(36);
+  const sessionRef = useRef(newSession());
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -42,7 +46,7 @@ export function BotTryPanel() {
     setTurns((prev) => [...prev, { role: 'user', content: message }]);
     setBusy(true);
     try {
-      const res = await botAdmin.try(message, history);
+      const res = await botAdmin.try(message, history, sessionRef.current);
       setTurns((prev) => [
         ...prev,
         { role: 'assistant', content: res.reply || '(sin respuesta)', tools: res.tools, ms: res.ms },
@@ -58,10 +62,13 @@ export function BotTryPanel() {
   return (
     <Section
       title='Probador'
-      help='Escribí como un cliente y mirá qué contesta el bot con la configuración actual. Es una prueba en seco: no manda WhatsApp ni crea reservas.'
+      help='Escribí como un cliente y mirá qué contesta el bot con la configuración actual. La charla tiene memoria como en WhatsApp; "Limpiar" empieza una nueva. Es una prueba en seco: no manda WhatsApp ni crea reservas.'
       action={
         turns.length > 0 ? (
-          <Button type='button' variant='outline' className='gap-2 border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54]' onClick={() => setTurns([])}>
+          <Button type='button' variant='outline' className='gap-2 border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54]' onClick={() => {
+            sessionRef.current = newSession();
+            setTurns([]);
+          }}>
             <Eraser className='h-4 w-4' /> Limpiar
           </Button>
         ) : undefined

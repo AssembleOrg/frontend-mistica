@@ -108,11 +108,12 @@ export const botAdmin = {
     (await apiService.delete<{ ok: boolean }>(`/admin/bot/faq/${id}`)).data,
 
   /** Probador: "¿qué respondería el bot a…?" (en seco, no manda nada). */
-  try: async (message: string, history: BotTryTurn[]) =>
+  try: async (message: string, history: BotTryTurn[], session?: string) =>
     (
       await apiService.post<BotTryResult>('/admin/bot/try', {
         message,
         history,
+        session,
       })
     ).data,
 };

@@ -292,14 +292,16 @@ export function ReservationForm({
           endAt: isoAR(customDay, fromMin(toMin(customTime) + duration)),
           maxPartySize: customCheck.maxPartySize ?? 12,
           // En una fecha especial vale el precio de la edición.
-          price: specialOn(exp.specials, customDay)?.price ?? exp.basePrice,
+          price: specialOn(exp.specials, customDay, customTime)?.price ?? exp.basePrice,
           depositPct: exp.depositPct ?? 50,
         }
       : null;
   const selected = suggested ?? custom;
   // Edición especial que rige el día elegido (Halloween…): ese día la
   // experiencia es la edición, con su texto y lo que incluye.
-  const special = selected ? specialOn(exp?.specials, selected.dateKey) : undefined;
+  const special = selected
+    ? specialOn(exp?.specials, selected.dateKey, selected.startTime)
+    : undefined;
   const maxQty = selected ? Math.max(1, selected.maxPartySize) : 12;
   const localTotal = selected ? selected.price * qty : 0;
   const depositPct = selected?.depositPct ?? 50;

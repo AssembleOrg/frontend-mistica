@@ -273,7 +273,7 @@ export function SpecialsEditor({
 
                 <FormField
                   label='Horarios especiales'
-                  hint='Vacío = los horarios de siempre de la experiencia. Si cargás alguno, esos días se ofrece sólo a esas horas (por cupo, sin mesas).'
+                  hint='Vacío = los horarios de siempre de la experiencia. Si cargás alguno, esos días se ofrece sólo a esas horas (por cupo, sin mesas). Dos ediciones pueden hacerse el mismo día si cada una tiene su horario, a horas distintas.'
                 >
                   <div className='flex flex-col gap-2'>
                     {(s.schedule ?? []).map((slot, j) => {

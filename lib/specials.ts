@@ -58,13 +58,26 @@ export function specialDatesLabel(s: Pick<SpecialEdition, 'dateFrom' | 'dateTo'>
     : `del ${fmtSpecialDay(s.dateFrom)} al ${fmtSpecialDay(s.dateTo)}`;
 }
 
-/** Edición que rige ese día ('YYYY-MM-DD'), si hay. */
+/**
+ * Edición que rige ese día ('YYYY-MM-DD'), si hay. Un día puede tener dos
+ * ediciones de la misma experiencia si se hacen a distinta hora: ahí decide
+ * la hora de inicio `startTime` ('HH:mm').
+ */
 export function specialOn(
   specials: SpecialEdition[] | undefined,
   dateKey: string,
+  startTime?: string,
 ): SpecialEdition | undefined {
-  return (specials ?? []).find(
+  const covering = (specials ?? []).filter(
     (s) => s.active !== false && s.dateFrom <= dateKey && dateKey <= s.dateTo,
+  );
+  if (covering.length <= 1 || !startTime) return covering[0];
+  return (
+    covering.find((s) =>
+      (s.schedule ?? []).some(
+        (slot) => (!slot.date || slot.date === dateKey) && slot.start === startTime,
+      ),
+    ) ?? covering[0]
   );
 }
 

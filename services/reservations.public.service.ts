@@ -266,9 +266,10 @@ export const reservationsPublic = {
     ),
 
   /** Días y horarios sugeridos donde se puede reservar una experiencia. */
-  availability: (experienceId: string, days = 45) =>
+  /** `includeStarted` (panel): también los turnos de hoy que ya empezaron. */
+  availability: (experienceId: string, days = 45, includeStarted = false) =>
     req<AvailableShift[]>(
-      `/reservations/availability?experienceId=${experienceId}&days=${days}`,
+      `/reservations/availability?experienceId=${experienceId}&days=${days}${includeStarted ? '&includeStarted=true' : ''}`,
     ),
 
   /**

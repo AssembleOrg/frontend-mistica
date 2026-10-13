@@ -78,7 +78,9 @@ export function useSlotPicker(
     let alive = true;
     setSlotsLoading(true);
     reservationsPublic
-      .availability(expId, daysUntilEndOfNextMonth())
+      // Con los turnos de hoy que ya empezaron: gente que llega sin reserva y
+      // se carga igual (para registrar sus piezas).
+      .availability(expId, daysUntilEndOfNextMonth(), true)
       .then((rows) => {
         if (!alive) return;
         setSlots(rows);

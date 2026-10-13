@@ -451,7 +451,7 @@ export function ExperienciasTab() {
             <Tabs value={tab} onValueChange={(v) => setTab(v as ExpTab)}>
               <TabsList className='h-10 w-full bg-arena-2 [&>button]:px-1.5 [&>button]:text-xs sm:[&>button]:text-sm'>
                 <TabsTrigger value='basico'>Básico</TabsTrigger>
-                <TabsTrigger value='precio'>Precio y cupo</TabsTrigger>
+                <TabsTrigger value='precio'>Precio</TabsTrigger>
                 <TabsTrigger value='horario'>Horario</TabsTrigger>
                 <TabsTrigger value='especiales'>Fechas especiales</TabsTrigger>
                 <TabsTrigger value='mas'>Más</TabsTrigger>
@@ -533,27 +533,6 @@ export function ExperienciasTab() {
                           setForm({
                             ...form,
                             durationMinutes: Number(ev.target.value),
-                          })
-                        }
-                        className={fieldCls}
-                      />
-                    </FormField>
-                    <FormField
-                      label='Cupo por turno'
-                      htmlFor='exp-capacity'
-                      hint='Máximo de personas en un mismo turno. Si lo dejás vacío, el cupo es de 40. En los turnos del salón también lo limitan las mesas libres.'
-                    >
-                      <Input
-                        id='exp-capacity'
-                        type='number'
-                        min={1}
-                        placeholder='40'
-                        value={form.defaultCapacity || ''}
-                        onChange={(ev) =>
-                          setForm({
-                            ...form,
-                            defaultCapacity:
-                              ev.target.value === '' ? null : Number(ev.target.value),
                           })
                         }
                         className={fieldCls}
@@ -1585,13 +1564,13 @@ const SCHEDULE_MODES: Array<{
     mode: 'general',
     title: 'Turnos del salón',
     subtitle: 'Cualquier día, en los horarios generales',
-    help: 'Se ofrece en los turnos generales; el lugar lo limitan el cupo y las mesas libres.',
+    help: 'Se ofrece en los turnos generales; el lugar lo limitan las mesas libres (40 personas en el local).',
   },
   {
     mode: 'weekly',
     title: 'Todas las semanas',
     subtitle: 'Días y horas fijos (ej. miércoles 18:00)',
-    help: 'Se ofrece SÓLO en estos días y horas. El límite es el cupo; el espacio se aparta con un bloqueo de mesas.',
+    help: 'Se ofrece SÓLO en estos días y horas. Si va en una mesa fija, elegila abajo en Mesa compartida: sus lugares son el límite.',
   },
   {
     mode: 'once',
@@ -1756,8 +1735,9 @@ function SharedTablePicker({
       <p className='text-xs text-texto-suave'>
         Elegí la mesa donde se hace (por ejemplo, la mesa grande del taller). En
         los horarios de arriba queda apartada para esta experiencia y todas sus
-        reservas se sientan ahí juntas, en vez de en mesas individuales. Sin
-        elegir ninguna, no se le asigna mesa.
+        reservas se sientan ahí juntas, en vez de en mesas individuales. El
+        límite de personas son los lugares de esa mesa. Sin elegir ninguna, no
+        se le asigna mesa y el límite es el del local (40).
       </p>
       <div className='flex flex-wrap gap-2'>
         {tables.map((t) => {

@@ -45,7 +45,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs, canManageRole, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
-import { tablesAdmin, type TableStatus } from '@/services/tables.admin.service';
+import { tablesAdmin, type ShiftRoom, type TableStatus } from '@/services/tables.admin.service';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -296,6 +296,21 @@ export function ReservasTab() {
       alive = false;
     };
   }, [mode, anchor, isToday, tick, cincoMin]);
+  // Lugar que queda por turno del día elegido: para responder "¿hay lugar?"
+  // sin tener que cargar la reserva para ver si entra.
+  const [room, setRoom] = useState<ShiftRoom[] | null>(null);
+  useEffect(() => {
+    if (mode !== 'day') return setRoom(null);
+    let alive = true;
+    tablesAdmin
+      .room(anchor)
+      .then((r) => alive && setRoom(r))
+      .catch(() => alive && setRoom(null));
+    return () => {
+      alive = false;
+    };
+  }, [mode, anchor, tick, cincoMin]);
+
   const mesasLibres = useMemo(() => {
     if (!mesas?.length) return null;
     const ocupada = (t: TableStatus) =>
@@ -495,6 +510,51 @@ export function ReservasTab() {
               />
             )}
           </div>
+
+          {room && room.length > 0 && (
+            <div className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-3.5'>
+              <p className='text-[13px] font-semibold text-[#455a54]'>
+                Lugar para seguir reservando
+              </p>
+              <div className='grid gap-2 sm:grid-cols-[repeat(auto-fill,minmax(230px,1fr))]'>
+                {room.map((t) => {
+                  const lleno = t.maxPartySize === 0;
+                  const mesas = [
+                    t.freeSmall > 0 && `${t.freeSmall} ${t.freeSmall === 1 ? 'mesa chica' : 'mesas chicas'}`,
+                    t.freeLarge > 0 && `${t.freeLarge} ${t.freeLarge === 1 ? 'grande' : 'grandes'}`,
+                  ].filter(Boolean);
+                  return (
+                    <div
+                      key={t.key}
+                      className={cn(
+                        'rounded-xl px-3 py-2',
+                        lleno ? 'bg-[#f6e3df]' : 'bg-[#E7F0EC]',
+                      )}
+                    >
+                      <p className='text-xs text-[#7a6e6f]'>
+                        {t.name} · {t.start}–{t.end}
+                      </p>
+                      <p
+                        className={cn(
+                          'text-sm font-semibold',
+                          lleno ? 'text-[#a33]' : 'text-[#2f4a40]',
+                        )}
+                      >
+                        {lleno
+                          ? 'No entra nadie más'
+                          : `Entra un grupo de hasta ${t.maxPartySize}`}
+                      </p>
+                      <p className='text-xs text-[#7a6e6f]'>
+                        {mesas.length ? `Libres: ${mesas.join(' y ')}` : 'Sin mesas libres'}
+                        {t.sharedSeatsLeft > 0 &&
+                          ` · ${t.sharedSeatsLeft} ${t.sharedSeatsLeft === 1 ? 'lugar' : 'lugares'} en mesa compartida`}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Reservas del día: una card por reserva */}
           {activas.length === 0 && pasadas.length === 0 ? (

@@ -1716,6 +1716,15 @@ function OwnScheduleEditor({
  * Mesa compartida: las mesas donde se hace la experiencia. En sus horarios
  * propios quedan apartadas para ella y todas sus reservas se sientan ahí.
  */
+// Lugares de las mesas elegidas, con la misma regla que el backend: una mesa
+// grande con otra unida pierde la punta (G + M = 11).
+function sharedSeats(tables: AdminTable[], codes: string[]): number {
+  const chosen = tables.filter((t) => codes.includes(t.code));
+  const seats = chosen.reduce((sum, t) => sum + t.seats, 0);
+  const joined = chosen.length > 1 ? chosen.filter((t) => t.kind === 'LARGE').length : 0;
+  return seats - joined;
+}
+
 function SharedTablePicker({
   tables,
   hasOwnSchedule,
@@ -1760,6 +1769,14 @@ function SharedTablePicker({
           );
         })}
       </div>
+      {value.length > 0 && (
+        <p className='text-xs font-medium text-[#455a54]'>
+          Límite: {sharedSeats(tables, value)} personas
+          {value.length > 1 &&
+            tables.some((t) => value.includes(t.code) && t.kind === 'LARGE') &&
+            ' (la mesa grande con otra unida pierde la punta)'}
+        </p>
+      )}
       {!hasOwnSchedule && (
         <p className='text-xs text-[#9d684e]'>
           Cargá primero un día y horario propio: la mesa compartida rige en esos horarios.

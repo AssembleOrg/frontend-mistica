@@ -101,6 +101,14 @@ export interface PieceAssemblyGroup {
   items: PieceItem[];
 }
 
+export interface PieceTally {
+  period: 'week' | 'month';
+  from: string;
+  to: string;
+  total: number;
+  items: Array<{ name: string; count: number }>;
+}
+
 export interface PieceCountsResponse {
   total: number;
   byStatus: Record<string, number>;
@@ -264,6 +272,13 @@ export const piecesAdmin = {
       await apiService.patch<PieceItem>(
         `/pieces/${id}`,
         input as unknown as Record<string, unknown>,
+      )
+    ).data,
+  /** Piezas elegidas por tipo en la semana o el mes (para que producción reponga). */
+  productionTally: async (period: 'week' | 'month', date?: string) =>
+    (
+      await apiService.get<PieceTally>(
+        `/pieces/production-tally?period=${period}${date ? `&date=${date}` : ''}`,
       )
     ).data,
   /** Pedidos con piezas horneadas o listas, para armarlos al salir del horno. */

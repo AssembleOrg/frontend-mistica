@@ -11,6 +11,19 @@ import { apiService } from '@/services/api.service';
 
 export type TableKind = 'SMALL' | 'LARGE';
 
+/** Lugar libre de un turno: el grupo más grande que entra y las mesas libres. */
+export interface ShiftRoom {
+  key: string;
+  name: string;
+  start: string;
+  end: string;
+  maxPartySize: number;
+  freeSmall: number;
+  freeLarge: number;
+  /** Lugares vacíos en mesas grandes que se comparten. */
+  sharedSeatsLeft: number;
+}
+
 export interface AdminTable {
   code: string;
   kind: TableKind;
@@ -115,6 +128,10 @@ export const tablesAdmin = {
   shifts: async () => (await apiService.get<Shift[]>('/tables/shifts')).data,
 
   /** Agenda de un día. `date` en formato YYYY-MM-DD (hora de Argentina). */
+  /** Lugar que queda en cada turno del día (sin cargar una reserva de prueba). */
+  room: async (date: string) =>
+    (await apiService.get<ShiftRoom[]>(`/tables/room?date=${date}`)).data,
+
   agenda: async (date: string) =>
     (await apiService.get<DayAgenda>(`/tables/agenda?date=${date}`)).data,
 

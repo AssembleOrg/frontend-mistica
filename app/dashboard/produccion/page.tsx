@@ -1,6 +1,8 @@
 'use client';
 
 import { ProduccionPanel } from '@/components/dashboard/produccion/produccion-panel';
+import { HornosPanel } from '@/components/dashboard/hornos/hornos-panel';
+import { PiezasElegidas } from '@/components/dashboard/produccion/piezas-elegidas';
 
 export default function ProduccionPage() {
   return (
@@ -15,6 +17,20 @@ export default function ProduccionPage() {
         </p>
       </div>
       <ProduccionPanel />
+      <div className='mt-4 flex flex-col gap-3'>
+        <h2 className='font-tan-nimbus text-xl font-bold text-[#455a54]'>
+          Piezas que eligen los clientes
+        </h2>
+        <p className='-mt-2 text-sm text-[#455a54]/60'>
+          Lo que se carga en Piezas, por tipo: para saber qué se consume más y
+          qué reponer.
+        </p>
+        <PiezasElegidas />
+      </div>
+      <div className='mt-4 flex flex-col gap-3'>
+        <h2 className='font-tan-nimbus text-xl font-bold text-[#455a54]'>Hornos</h2>
+        <HornosPanel />
+      </div>
     </div>
   );
 }

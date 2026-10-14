@@ -19,6 +19,7 @@ import { SalesMobileView } from '@/components/dashboard/sales-mobile-view';
 import { SalesStatsCards } from '@/components/dashboard/sales/sales-stats-cards';
 // import { SalesTransactionsTab } from '@/components/dashboard/sales/sales-transactions-tab';
 import { SaleDetailPanel } from '@/components/dashboard/sales/sale-detail-panel';
+import { CajaDeHoyButton } from '@/components/dashboard/sales/caja-de-hoy-button';
 import { KbdShortcuts } from '@/components/dashboard/sales/kbd-shortcuts';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -277,6 +278,7 @@ export default function SalesPage() {
             </TabsTrigger> */}
           </TabsList>
           <div className="flex items-center gap-2 shrink-0">
+            <CajaDeHoyButton />
             <Button
               onClick={() => setShowCashEgressModal(true)}
               aria-label="Egreso de efectivo de la caja"

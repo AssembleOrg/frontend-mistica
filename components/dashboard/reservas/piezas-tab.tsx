@@ -51,6 +51,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PieceTypeSelect, usePieceCategories } from './piece-type-select';
 import { PiezasAssembly } from './piezas-assembly';
+import { HornosPanel } from '@/components/dashboard/hornos/hornos-panel';
 import { PieceExtraSelect } from './piece-extra-select';
 import { ColorsSelect } from './colors-select';
 import { usePieceExtrasStore } from '@/stores/piece-extras.store';
@@ -187,7 +188,7 @@ export function PiezasTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   // 'assembly': armado de pedidos con lo que salió del horno.
-  const [view, setView] = useState<'list' | 'assembly'>('list');
+  const [view, setView] = useState<'list' | 'assembly' | 'kilns'>('list');
 
   const loadCfg = useCallback(() => {
     piecesAdmin
@@ -460,6 +461,7 @@ export function PiezasTab() {
           [
             ['list', 'Todas las piezas'],
             ['assembly', 'Armar pedidos'],
+            ['kilns', 'Hornos'],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -477,6 +479,8 @@ export function PiezasTab() {
           </button>
         ))}
       </div>
+
+      {view === 'kilns' && <HornosPanel />}
 
       {view === 'assembly' && (
         <PiezasAssembly statusCfg={statusCfg} canManage={canManage} />

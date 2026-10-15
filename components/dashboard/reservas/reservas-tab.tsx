@@ -37,7 +37,8 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { AnotadosModal } from './anotados-modal';
-import { CollectBalanceModal, NewReservationModal, ReservasListado } from './reservas-list';
+import { NewReservationModal, ReservasListado } from './reservas-list';
+import { useCobrarEnVentas } from './use-cobrar';
 import { ReservasCalendar } from './reservas-calendar';
 import { ReservationManager } from './reservation-manager';
 import { DietaryTags } from './dietary-badge';
@@ -151,9 +152,9 @@ export function ReservasTab() {
   // Cargar piezas desde la tarjeta de la reserva.
   const [piecesOf, setPiecesOf] = useState<ReservationItem | null>(null);
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
-  // Cobrar: registra el cobro en la reserva (no pasa por Ventas ni por caja).
+  // Cobrar: lleva a Ventas → Nueva venta con la reserva cargada (entra a caja).
   const canCobrar = canManageRole(user?.role);
-  const [cobrando, setCobrando] = useState<ReservationItem | null>(null);
+  const cobrarEnVentas = useCobrarEnVentas();
   const [clases, setClases] = useState<GroupDayClass[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -379,7 +380,7 @@ export function ReservasTab() {
       }
       onCobrar={
         canCobrar && r.status === 'CONFIRMED' && (r.balanceDue ?? 0) > 0
-          ? () => setCobrando(r)
+          ? () => cobrarEnVentas(r._id)
           : undefined
       }
     />
@@ -695,16 +696,6 @@ export function ReservasTab() {
         />
       )}
 
-      {cobrando && (
-        <CollectBalanceModal
-          reservation={cobrando}
-          onClose={() => setCobrando(null)}
-          onDone={() => {
-            setCobrando(null);
-            setTick((t) => t + 1);
-          }}
-        />
-      )}
 
       {anotados && (
         <AnotadosModal

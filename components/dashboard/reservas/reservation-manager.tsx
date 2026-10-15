@@ -13,7 +13,8 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { ReservationDetailPanel } from './reservation-detail-panel';
-import { CollectBalanceModal, RescheduleModal } from './reservas-list';
+import { RescheduleModal } from './reservas-list';
+import { useCobrarEnVentas } from './use-cobrar';
 
 export function ReservationManager({
   reservation,
@@ -26,7 +27,7 @@ export function ReservationManager({
   onChanged: () => void | Promise<void>;
 }) {
   const confirm = useConfirm();
-  const [collect, setCollect] = useState<ReservationItem | null>(null);
+  const cobrarEnVentas = useCobrarEnVentas();
   const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -73,7 +74,7 @@ export function ReservationManager({
         onClose={onClose}
         onCollect={(r) => {
           onClose();
-          setCollect(r);
+          cobrarEnVentas(r._id);
         }}
         onReschedule={(r) => {
           onClose();
@@ -84,16 +85,6 @@ export function ReservationManager({
         onUpdated={() => void onChanged()}
       />
 
-      {collect && (
-        <CollectBalanceModal
-          reservation={collect}
-          onClose={() => setCollect(null)}
-          onDone={async () => {
-            setCollect(null);
-            await onChanged();
-          }}
-        />
-      )}
 
       {reschedule && (
         <RescheduleModal

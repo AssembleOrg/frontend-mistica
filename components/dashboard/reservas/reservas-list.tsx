@@ -49,6 +49,7 @@ import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
 import { SlotPicker, fromMin, toMin, useSlotPicker } from './slot-picker';
 import { DietaryPicker } from './dietary-badge';
 import { FormField, FormSection } from '@/components/ui/form-section';
+import { useCobrarEnVentas } from './use-cobrar';
 
 const LIMIT = 20;
 
@@ -99,7 +100,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
-  const [collect, setCollect] = useState<ReservationItem | null>(null);
+  const cobrarEnVentas = useCobrarEnVentas();
   // Cargar piezas directo desde la reserva (sin pasar por la pestaña Piezas).
   const [piecesFor, setPiecesFor] = useState<ReservationItem | null>(null);
   const { user } = useAuth();
@@ -265,7 +266,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
             title='Cobrar saldo'
             tone='terracota'
             disabled={busy === r._id}
-            onClick={() => setCollect(r)}
+            onClick={() => cobrarEnVentas(r._id)}
           />
         )}
         {canCancel && (
@@ -570,7 +571,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
         onClose={() => setDetail(null)}
         onCollect={(r) => {
           setDetail(null);
-          setCollect(r);
+          cobrarEnVentas(r._id);
         }}
         onReschedule={(r) => {
           setDetail(null);
@@ -596,16 +597,6 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
         />
       )}
 
-      {collect && (
-        <CollectBalanceModal
-          reservation={collect}
-          onClose={() => setCollect(null)}
-          onDone={() => {
-            setCollect(null);
-            refresh();
-          }}
-        />
-      )}
 
       {reschedule && (
         <RescheduleModal
@@ -1169,127 +1160,3 @@ export function RescheduleModal({
   );
 }
 
-// ─────────────────────────── Cobrar saldo (todo o una parte) ───────────────────────────
-
-export function CollectBalanceModal({
-  reservation,
-  onClose,
-  onDone,
-}: {
-  reservation: ReservationItem;
-  onClose: () => void;
-  onDone: () => void | Promise<void>;
-}) {
-  const balance = reservation.balanceDue ?? 0;
-  // Sin medio preseleccionado: con Efectivo por defecto se cargaban señas
-  // por transferencia como efectivo y la caja no cerraba.
-  const [method, setMethod] = useState<ReservationPaymentMethod | null>(null);
-  const [amount, setAmount] = useState<string>(String(balance));
-  const [saving, setSaving] = useState(false);
-  const value = Number(amount) || 0;
-  const remaining = Math.max(0, balance - value);
-
-  async function submit() {
-    if (!value || value <= 0) {
-      showToast.error('Ingresá un monto válido');
-      return;
-    }
-    if (!method) {
-      showToast.error('Elegí cómo pagó (efectivo, transferencia…)');
-      return;
-    }
-    if (value > balance) {
-      showToast.error(`El saldo es ${fmtPrice(balance)}`);
-      return;
-    }
-    setSaving(true);
-    try {
-      await reservationsAdmin.collectBalance(reservation._id, [
-        { method, amount: value },
-      ]);
-      showToast.success(
-        remaining > 0
-          ? `Cobro registrado · queda ${fmtPrice(remaining)}`
-          : 'Saldo cobrado',
-      );
-      await onDone();
-    } catch (e) {
-      showToast.error(
-        e instanceof Error ? e.message : 'No se pudo cobrar el saldo',
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className='sm:max-w-sm'>
-        <DialogHeader>
-          <DialogTitle>Cobrar saldo</DialogTitle>
-          <DialogDescription>
-            {reservation.experienceName} · {prettyCode(reservation.code)} ·
-            saldo {fmtPrice(balance)}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className='space-y-3'>
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>
-              Medio de pago
-            </label>
-            <div className='grid grid-cols-3 gap-2'>
-              {PAY_METHODS.map((m) => {
-                const on = m.key === method;
-                return (
-                  <Button
-                    key={m.key}
-                    type='button'
-                    variant={on ? 'terracota' : 'outline'}
-                    size='sm'
-                    onClick={() => setMethod(m.key)}
-                    className={cn(
-                      !on &&
-                        'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] hover:bg-[#f3e9df]',
-                    )}
-                  >
-                    {m.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-          <div className='space-y-1.5'>
-            <label className='text-[13px] font-medium text-[#455a54]'>
-              Monto a cobrar
-            </label>
-            <Input
-              type='number'
-              inputMode='decimal'
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30'
-            />
-            <p className='text-[12px] text-[#7a6e6f]'>
-              {remaining > 0 && value > 0
-                ? `Cobro parcial: queda ${fmtPrice(remaining)} de saldo para después.`
-                : 'Podés cobrar una parte; el resto queda como saldo.'}
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button
-            type='button'
-            variant='terracota'
-            onClick={submit}
-            disabled={saving}
-            className='w-full'
-          >
-            {saving ? 'COBRANDO…' : 'CONFIRMAR COBRO'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}

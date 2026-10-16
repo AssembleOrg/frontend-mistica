@@ -45,6 +45,8 @@ import { DietaryTags } from './dietary-badge';
 import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs, canManageRole, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
+import { usePieceDraftsPending } from './use-piece-drafts';
+import { birthdayWho } from './reservation-kitchen';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
 import { tablesAdmin, type ShiftRoom, type TableStatus } from '@/services/tables.admin.service';
 
@@ -360,6 +362,14 @@ export function ReservasTab() {
     }
   }
 
+  // Fichas de piezas a medio cargar: la tarjeta lo marca en rojo.
+  const [draftsTick, setDraftsTick] = useState(0);
+  const draftsPending = usePieceDraftsPending(
+    [...activas, ...pasadas].map(({ r }) => r._id),
+    canPieces,
+    `${tick}-${draftsTick}`,
+  );
+
   const renderReserva = ({ r, s, phase }: (typeof activas)[number]) => (
     <ReservaCard
       key={r._id}
@@ -369,6 +379,7 @@ export function ReservasTab() {
       verDetalle={verDetalle}
       onOpen={() => (verDetalle ? setDetail(r) : setAnotados(s.id))}
       onPieces={canPieces && r.status === 'CONFIRMED' ? () => setPiecesOf(r) : undefined}
+      piecesPending={draftsPending.get(r._id) ?? 0}
       onAddCake={
         canCobrar &&
         r.status === 'CONFIRMED' &&
@@ -688,7 +699,10 @@ export function ReservasTab() {
       {piecesOf && (
         <NewPieceModal
           reservation={piecesOf}
-          onClose={() => setPiecesOf(null)}
+          onClose={() => {
+            setPiecesOf(null);
+            setDraftsTick((t) => t + 1);
+          }}
           onDone={() => {
             setPiecesOf(null);
             setTick((t) => t + 1);
@@ -792,6 +806,7 @@ function ReservaCard({
   verDetalle,
   onOpen,
   onPieces,
+  piecesPending = 0,
   onCobrar,
   onAddCake,
 }: {
@@ -802,6 +817,8 @@ function ReservaCard({
   onOpen: () => void;
   /** Cargar piezas de esta reserva (si la cuenta tiene Piezas). */
   onPieces?: () => void;
+  /** Fichas de piezas sin terminar (se marca en rojo). */
+  piecesPending?: number;
   /** Cobrar el saldo de esta reserva (sólo admin). */
   onCobrar?: () => void;
   /** Sumar la torta simbólica de regalo (cumple de 10 o más sin torta). */
@@ -859,7 +876,7 @@ function ReservaCard({
             apagada ? 'bg-[#ececec] text-[#7a6e6f]' : 'bg-[#d6467e] text-white',
           )}
         >
-          🎂 Cumpleaños
+          🎂 Cumpleaños{birthdayWho(r)}
         </span>
       )}
 
@@ -964,19 +981,31 @@ function ReservaCard({
           {onPieces && (
             <button
               type='button'
-              title='Cargar piezas de esta reserva'
+              title={
+                piecesPending > 0
+                  ? `${piecesPending} ficha(s) sin terminar`
+                  : 'Cargar piezas de esta reserva'
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 onPieces();
               }}
               onKeyDown={(e) => e.stopPropagation()}
               className={cn(
-                'flex h-11 items-center justify-center gap-1.5 rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3 text-sm font-semibold text-[#9d684e] transition-colors hover:bg-[#f3e9de]',
+                'flex h-11 items-center justify-center gap-1.5 rounded-xl border px-3 text-sm font-semibold transition-colors',
+                piecesPending > 0
+                  ? 'border-[#d9534f] bg-[#fdf3f2] text-[#b83a35] hover:bg-[#fbe4e2]'
+                  : 'border-[#e6dbcd] bg-[#fbf5ef] text-[#9d684e] hover:bg-[#f3e9de]',
                 !onCobrar && 'flex-1',
               )}
             >
               <Flame className='h-4 w-4' />
               Piezas
+              {piecesPending > 0 && (
+                <span className='rounded-md bg-[#d9534f] px-1.5 py-0.5 text-[11px] text-white'>
+                  {piecesPending} sin terminar
+                </span>
+              )}
             </button>
           )}
         </div>

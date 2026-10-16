@@ -67,6 +67,9 @@ export interface ReservationItem {
   notes?: string;
   /** Lo que cocina tiene que saber (cumpleañero, sabor, horario de la torta). */
   kitchenNotes?: string;
+  /** Cumpleaños: quién cumple y cuántos años. */
+  birthdayName?: string;
+  birthdayAge?: number | null;
   /** Tortas a preparar (la simbólica de regalo o las que se venden aparte). */
   cakes?: ReservationCake[];
   /** Comprobantes que mandó el cliente por WhatsApp, para verificar. */
@@ -232,6 +235,9 @@ export interface AdminCreateReservationInput {
   dietaryTags?: string[];
   dietaryNotes?: string;
   kitchenNotes?: string;
+  /** Cumpleaños: quién cumple y cuántos años. */
+  birthdayName?: string;
+  birthdayAge?: number | null;
 }
 
 export const reservationsAdmin = {
@@ -317,6 +323,9 @@ export const reservationsAdmin = {
       dietaryTags?: string[];
       dietaryNotes?: string;
       kitchenNotes?: string;
+      /** Cumpleaños: quién cumple y cuántos años. */
+      birthdayName?: string;
+      birthdayAge?: number | null;
       /** Personas bonificadas (entran pero no se cobran). */
       freeSpots?: number;
       /** Tortas de la venta para cocina: no suman, ya están en la venta. */
@@ -413,6 +422,9 @@ export const reservationsAdmin = {
       dietaryNotes?: string;
       isBirthday?: boolean;
       kitchenNotes?: string;
+      /** Cumpleaños: quién cumple y cuántos años. */
+      birthdayName?: string;
+      birthdayAge?: number | null;
       /** Sumar o descontar personas (ajusta total, saldo y mesas). */
       quantity?: number;
       freeSpots?: number;

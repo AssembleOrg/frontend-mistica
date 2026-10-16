@@ -30,6 +30,8 @@ export type ReservationPatch = Partial<
     | 'dietaryNotes'
     | 'isBirthday'
     | 'kitchenNotes'
+    | 'birthdayName'
+    | 'birthdayAge'
     | 'cakes'
     | 'transferReceipts'
     | 'balanceDue'
@@ -48,12 +50,24 @@ function patchOf(r: ReservationPatch): ReservationPatch {
     dietaryNotes: r.dietaryNotes,
     isBirthday: r.isBirthday,
     kitchenNotes: r.kitchenNotes,
+    birthdayName: r.birthdayName,
+    birthdayAge: r.birthdayAge,
     cakes: r.cakes,
     transferReceipts: r.transferReceipts,
     balanceDue: r.balanceDue,
     totalAmount: r.totalAmount,
     extras: r.extras,
   };
+}
+
+/** " · Juana cumple 8" */
+export function birthdayWho(r: { birthdayName?: string; birthdayAge?: number | null }) {
+  const name = r.birthdayName?.trim();
+  const age = r.birthdayAge != null ? String(r.birthdayAge) : '';
+  if (name && age) return ` · ${name} cumple ${age}`;
+  if (name) return ` · cumple ${name}`;
+  if (age) return ` · cumple ${age}`;
+  return '';
 }
 
 const errMsg = (e: unknown, fallback: string) =>
@@ -166,7 +180,7 @@ export function KitchenSection({
         <div className='flex flex-col gap-2 text-sm text-[#3d3338]'>
           {r.isBirthday && (
             <span className='inline-flex w-fit items-center gap-1.5 rounded-full bg-[#f4ead9] px-2.5 py-1 text-xs font-semibold text-[#9d684e]'>
-              🎂 Cumpleaños
+              🎂 Cumpleaños{birthdayWho(r)}
             </span>
           )}
           <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} />
@@ -271,6 +285,8 @@ function KitchenEditor({
   const [dietNotes, setDietNotes] = useState(r.dietaryNotes ?? '');
   const [isBirthday, setIsBirthday] = useState(!!r.isBirthday);
   const [kitchenNotes, setKitchenNotes] = useState(r.kitchenNotes ?? '');
+  const [birthdayName, setBirthdayName] = useState(r.birthdayName ?? '');
+  const [birthdayAge, setBirthdayAge] = useState(r.birthdayAge != null ? String(r.birthdayAge) : '');
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -281,6 +297,10 @@ function KitchenEditor({
         dietaryNotes: dietNotes.trim(),
         isBirthday,
         kitchenNotes: kitchenNotes.trim(),
+        ...(isBirthday && {
+          birthdayName: birthdayName.trim(),
+          birthdayAge: birthdayAge.trim() ? Number(birthdayAge) : null,
+        }),
       });
       onSaved(patchOf(res));
       showToast.success('Datos para cocina guardados');
@@ -308,10 +328,28 @@ function KitchenEditor({
         />
         Es un cumpleaños
       </label>
+      {isBirthday && (
+        <div className='grid grid-cols-[1fr_6rem] gap-2'>
+          <Input
+            value={birthdayName}
+            onChange={(e) => setBirthdayName(e.target.value)}
+            placeholder='¿Quién cumple?'
+            maxLength={120}
+            className={field}
+          />
+          <Input
+            value={birthdayAge}
+            onChange={(e) => setBirthdayAge(e.target.value.replace(/\D/g, '').slice(0, 3))}
+            placeholder='Años'
+            inputMode='numeric'
+            className={field}
+          />
+        </div>
+      )}
       <Input
         value={kitchenNotes}
         onChange={(e) => setKitchenNotes(e.target.value)}
-        placeholder='Nota para cocina (cumpleañero, edad, sabor de la torta…)'
+        placeholder='Nota para cocina (sabor de la torta, horario…)'
         maxLength={500}
         className={field}
       />

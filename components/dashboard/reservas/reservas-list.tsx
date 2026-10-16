@@ -43,6 +43,7 @@ import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import type { Client } from '@/services/clients.service';
 import { ReservationDetailPanel } from './reservation-detail-panel';
 import { NewPieceModal } from './piezas-tab';
+import { usePieceDraftsPending } from './use-piece-drafts';
 import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs } from '@/lib/views';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
@@ -103,8 +104,14 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
   const cobrarEnVentas = useCobrarEnVentas();
   // Cargar piezas directo desde la reserva (sin pasar por la pestaña Piezas).
   const [piecesFor, setPiecesFor] = useState<ReservationItem | null>(null);
+  const [draftsTick, setDraftsTick] = useState(0);
   const { user } = useAuth();
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
+  const draftsPending = usePieceDraftsPending(
+    items.filter((r) => r.status === 'CONFIRMED').map((r) => r._id),
+    canPieces,
+    draftsTick,
+  );
   const [reschedule, setReschedule] = useState<ReservationItem | null>(null);
   const [detail, setDetail] = useState<ReservationItem | null>(null);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
@@ -237,12 +244,23 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
     return (
       <div className='flex items-center justify-end gap-1.5'>
         {canLoadPieces && (
-          <IconBtn
-            icon={Flame}
-            title='Cargar piezas de esta reserva'
-            tone='terracota'
-            onClick={() => setPiecesFor(r)}
-          />
+          <span className='relative inline-flex'>
+            <IconBtn
+              icon={Flame}
+              title={
+                draftsPending.get(r._id)
+                  ? `${draftsPending.get(r._id)} ficha(s) sin terminar`
+                  : 'Cargar piezas de esta reserva'
+              }
+              tone={draftsPending.get(r._id) ? 'rojo' : 'terracota'}
+              onClick={() => setPiecesFor(r)}
+            />
+            {!!draftsPending.get(r._id) && (
+              <span className='pointer-events-none absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-[#d9534f] text-[10px] font-bold text-white'>
+                {draftsPending.get(r._id)}
+              </span>
+            )}
+          </span>
         )}
         {canReschedule && (
           <IconBtn
@@ -589,9 +607,13 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
       {piecesFor && (
         <NewPieceModal
           reservation={piecesFor}
-          onClose={() => setPiecesFor(null)}
+          onClose={() => {
+            setPiecesFor(null);
+            setDraftsTick((t) => t + 1);
+          }}
           onDone={() => {
             setPiecesFor(null);
+            setDraftsTick((t) => t + 1);
             refresh();
           }}
         />

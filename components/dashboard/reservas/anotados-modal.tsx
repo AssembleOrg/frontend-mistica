@@ -18,6 +18,7 @@ import type { Client } from '@/services/clients.service';
 import { useAuth } from '@/hooks/useAuth';
 import { allowedReservasTabs, canManageRole, canSeeReservationDetails } from '@/lib/views';
 import { NewPieceModal } from './piezas-tab';
+import { usePieceDraftsPending } from './use-piece-drafts';
 import { ReservationManager } from './reservation-manager';
 import { ChargeNow, partialAmount, type ChargeMode } from './charge-now';
 import {
@@ -61,7 +62,14 @@ export function AnotadosModal({
   const [detail, setDetail] = useState<ReservationItem | null>(null);
   // Cargar las piezas de una reserva del turno, directo desde la Agenda.
   const [piecesFor, setPiecesFor] = useState<ReservationItem | null>(null);
+  const [draftsTick, setDraftsTick] = useState(0);
   const canPieces = allowedReservasTabs(user?.role, user?.allowedViews).includes('piezas');
+  // Fichas a medio cargar: el botón de piezas se marca en rojo.
+  const draftsPending = usePieceDraftsPending(
+    reservations.filter((r) => r.status === 'CONFIRMED').map((r) => r._id),
+    canPieces,
+    draftsTick,
+  );
 
   // Cliente: se busca entre los existentes; "nuevo" (nombre + contacto a
   // mano) sólo si no está en el sistema.
@@ -281,15 +289,29 @@ export function AnotadosModal({
                   {canPieces && r.status === 'CONFIRMED' ? (
                     <button
                       type='button'
-                      title='Cargar piezas de esta reserva'
+                      title={
+                        draftsPending.get(r._id)
+                          ? `${draftsPending.get(r._id)} ficha(s) sin terminar`
+                          : 'Cargar piezas de esta reserva'
+                      }
                       aria-label='Cargar piezas de esta reserva'
                       onClick={(e) => {
                         e.stopPropagation();
                         setPiecesFor(r);
                       }}
                       onKeyDown={(e) => e.stopPropagation()}
-                      className='inline-flex size-9 items-center justify-center rounded-[9px] border border-[#e6dbcd] bg-white text-[#9d684e] transition-colors hover:bg-[#fbf5ef]'
+                      className={cn(
+                        'relative inline-flex size-9 items-center justify-center rounded-[9px] border transition-colors',
+                        draftsPending.get(r._id)
+                          ? 'border-[#d9534f] bg-[#fdf3f2] text-[#b83a35]'
+                          : 'border-[#e6dbcd] bg-white text-[#9d684e] hover:bg-[#fbf5ef]',
+                      )}
                     >
+                      {!!draftsPending.get(r._id) && (
+                        <span className='absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-[#d9534f] text-[10px] font-bold text-white'>
+                          {draftsPending.get(r._id)}
+                        </span>
+                      )}
                       <Flame className='h-4 w-4' />
                     </button>
                   ) : (
@@ -473,8 +495,12 @@ export function AnotadosModal({
       {piecesFor && (
         <NewPieceModal
           reservation={piecesFor}
-          onClose={() => setPiecesFor(null)}
+          onClose={() => {
+            setPiecesFor(null);
+            setDraftsTick((t) => t + 1);
+          }}
           onDone={async () => {
+            setDraftsTick((t) => t + 1);
             setPiecesFor(null);
             await afterChange();
           }}

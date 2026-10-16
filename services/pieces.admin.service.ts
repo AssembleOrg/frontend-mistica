@@ -198,7 +198,66 @@ export interface UpdatePieceInput {
   photos?: string[];
 }
 
+/** Ficha a medio cargar, guardada en el servidor mientras se escribe. */
+export interface PieceDraftEntry {
+  key: string;
+  personName: string;
+  signature: string;
+  pieceType: string;
+  colorsUsed: string;
+  hasExtra: boolean;
+  extraId: string;
+  pieceType2: string;
+  additional: boolean;
+  order: number;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface PieceDraft {
+  entries: PieceDraftEntry[];
+  /** Fichas ya registradas de la reserva (incluidas = sin las adicionales). */
+  registered: number;
+  registeredIncluded: number;
+}
+
+export interface PieceColor {
+  name: string;
+  hex: string;
+}
+
 export const piecesAdmin = {
+  draft: async (reservationId: string) =>
+    (await apiService.get<PieceDraft>(`/pieces/drafts/${reservationId}`)).data,
+  saveDraftEntry: async (reservationId: string, entry: PieceDraftEntry) => {
+    const { key, updatedAt: _u, ...body } = entry;
+    void _u;
+    return (
+      await apiService.put<PieceDraftEntry>(
+        `/pieces/drafts/${reservationId}/${key}`,
+        body as unknown as Record<string, unknown>,
+      )
+    ).data;
+  },
+  removeDraftEntry: async (reservationId: string, key: string) =>
+    (await apiService.delete<{ success: boolean }>(`/pieces/drafts/${reservationId}/${key}`)).data,
+  /** Reservas con fichas sin terminar (sólo las que tienen). */
+  draftsPending: async (reservationIds: string[]) =>
+    reservationIds.length
+      ? (
+          await apiService.get<Array<{ reservationId: string; pending: number }>>(
+            `/pieces/drafts?reservationIds=${reservationIds.join(',')}`,
+          )
+        ).data
+      : [],
+  colors: async () => (await apiService.get<PieceColor[][]>('/pieces/colors')).data,
+  setColors: async (groups: PieceColor[][]) =>
+    (
+      await apiService.put<PieceColor[][]>('/pieces/colors', {
+        colors: groups.flatMap((g, group) => g.map((c) => ({ ...c, group }))),
+      } as unknown as Record<string, unknown>)
+    ).data,
+
   list: async (params?: {
     status?: string;
     search?: string;
@@ -241,6 +300,7 @@ export const piecesAdmin = {
     reservationId: string,
     entries: ReservationPieceEntryInput[],
     registeredBy?: string,
+    draftKeys?: string[],
   ) =>
     (
       await apiService.post<PieceItem[]>(
@@ -249,6 +309,7 @@ export const piecesAdmin = {
           reservationId,
           entries,
           ...(registeredBy ? { registeredBy } : {}),
+          ...(draftKeys?.length ? { draftKeys } : {}),
         } as unknown as Record<string, unknown>,
       )
     ).data,

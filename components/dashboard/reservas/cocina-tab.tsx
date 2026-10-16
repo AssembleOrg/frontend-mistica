@@ -21,6 +21,7 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { DietaryTags } from './dietary-badge';
+import { birthdayWho } from './reservation-kitchen';
 
 const ymdInAR = (d: Date | string) =>
   new Date(d).toLocaleDateString('en-CA', { timeZone: AR_TZ });
@@ -227,7 +228,7 @@ export function CocinaTab() {
                         {' · '}
                         {r.experienceName} · <strong>{r.quantity}</strong> pers.
                         {!buffetOf(r) && <span className='text-[#7a6e6f]'> · sin buffet</span>}
-                        {r.isBirthday && <span> · 🎂 cumple</span>}
+                        {r.isBirthday && <span> · 🎂{birthdayWho(r) || ' cumple'}</span>}
                         {r.customerName && <span className='text-[#7a6e6f]'> · {r.customerName}</span>}
                       </p>
                       <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />

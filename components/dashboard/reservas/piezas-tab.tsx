@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Pencil, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -1017,6 +1017,8 @@ function EditPieceModal({
 }
 
 type ReservationEntry = {
+  /** Clave de la ficha en el borrador del servidor. */
+  key: string;
   personName: string;
   signature: string;
   pieceType: string;
@@ -1030,7 +1032,19 @@ type ReservationEntry = {
   additional: boolean;
 };
 
-const emptyReservationEntry = (personName = '', additional = false): ReservationEntry => ({
+/** Ficha con algo escrito (las vacías son de alguien que no vino). */
+const hasContent = (e: ReservationEntry) =>
+  [e.personName, e.signature, e.pieceType, e.colorsUsed].some((v) => !!v?.trim());
+
+const randomKey = () =>
+  `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+
+const emptyReservationEntry = (
+  personName = '',
+  additional = false,
+  key = randomKey(),
+): ReservationEntry => ({
+  key,
   personName,
   signature: '',
   pieceType: '',
@@ -1068,19 +1082,21 @@ export function NewPieceModal({
   const locked = !!fixedReservation;
   // Cuentas compartidas (tablets): quién carga las fichas.
   const responsable = useResponsable();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [entries, setEntries] = useState<ReservationEntry[]>(
-    fixedReservation
-      ? Array.from({ length: Math.max(1, fixedReservation.quantity) }, (_, index) =>
-          emptyReservationEntry(
-            (fixedReservation.quantity === 1 || index === 0
-              ? fixedReservation.customerName
-              : '') ?? '',
-          ),
-        )
-      : [],
-  );
+  const [entries, setEntries] = useState<ReservationEntry[]>([]);
+  // Borrador en el servidor: cada ficha se guarda sola mientras se escribe,
+  // así cerrar el formulario (o cambiar de tablet) no pierde nada.
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [registeredCount, setRegisteredCount] = useState(0);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const dirty = useRef(new Set<string>());
+  const timers = useRef(new Map<string, number>());
+  const entriesRef = useRef<ReservationEntry[]>([]);
+  entriesRef.current = entries;
+  const reservationRef = useRef<ReservationItem | null>(null);
+  reservationRef.current = reservation;
   // Adicionales elegidos: su suma va al total y al saldo de la reserva.
   const extrasCatalog = usePieceExtrasStore((st) => st.items);
   const categoryOf = usePieceCategories();
@@ -1121,6 +1137,11 @@ export function NewPieceModal({
     setEntries((current) =>
       current.map((entry, i) => (i === index ? withCategory(entry, name, entry.additional) : entry)),
     );
+    touch(index);
+  }
+  function touch(index: number) {
+    const entry = entriesRef.current[index];
+    if (entry) markDirty([entry.key]);
   }
   function setAdditional(index: number, additional: boolean) {
     setEntries((current) =>
@@ -1132,6 +1153,7 @@ export function NewPieceModal({
             : { ...entry, additional },
       ),
     );
+    touch(index);
   }
   const extrasTotal = entries.reduce((sum, e) => sum + chargeOf(e), 0);
 
@@ -1159,15 +1181,120 @@ export function NewPieceModal({
     };
   }, [classDate, search, locked, choices]);
 
+  // Guarda en el servidor las fichas tocadas. Si falla, quedan pendientes y
+  // se reintenta en el próximo cambio o al cerrar.
+  const flush = useCallback(async (): Promise<boolean> => {
+    const r = reservationRef.current;
+    if (!r || dirty.current.size === 0) return true;
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current.clear();
+    const keys = [...dirty.current];
+    dirty.current.clear();
+    setSaveState('saving');
+    const results = await Promise.allSettled(
+      keys.map((key) => {
+        const index = entriesRef.current.findIndex((e) => e.key === key);
+        if (index < 0) return Promise.resolve();
+        const entry = entriesRef.current[index];
+        return piecesAdmin.saveDraftEntry(r._id, {
+          ...entry,
+          order: index,
+          updatedBy: responsable.value.trim() || undefined,
+        });
+      }),
+    );
+    const failed = keys.filter((_, i) => results[i].status === 'rejected');
+    failed.forEach((k) => dirty.current.add(k));
+    setSaveState(failed.length ? 'error' : 'saved');
+    return failed.length === 0;
+  }, [responsable.value]);
+
+  function markDirty(keys: string[]) {
+    for (const key of keys) {
+      dirty.current.add(key);
+      window.clearTimeout(timers.current.get(key));
+      timers.current.set(key, window.setTimeout(() => void flush(), 600));
+    }
+    setSaveState('saving');
+  }
+
+  // Abre el borrador de la reserva: lo que ya se venía cargando o, si no hay,
+  // una ficha por cada persona que todavía no tiene la suya.
+  async function loadDraft(item: ReservationItem) {
+    setDraftLoading(true);
+    setEntries([]);
+    try {
+      const draft = await piecesAdmin.draft(item._id);
+      setRegisteredCount(draft.registered);
+      if (draft.entries.length > 0) {
+        setEntries(
+          draft.entries.map((e) => ({
+            ...emptyReservationEntry('', false, e.key),
+            ...e,
+          })),
+        );
+        return;
+      }
+      const missing = Math.max(0, item.quantity - draft.registeredIncluded);
+      const fresh = Array.from({ length: missing }, (_, index) =>
+        emptyReservationEntry(
+          draft.registered === 0 && (item.quantity === 1 || index === 0)
+            ? (item.customerName ?? '')
+            : '',
+          false,
+          // Clave fija por lugar: dos tablets abriendo la misma reserva
+          // arman las mismas fichas en vez de duplicarlas.
+          `s${item._id}x${draft.registeredIncluded + index}`,
+        ),
+      );
+      setEntries(fresh);
+      entriesRef.current = fresh;
+      markDirty(fresh.map((e) => e.key));
+    } catch (e) {
+      showToast.error(
+        e instanceof Error ? `No se pudo abrir lo cargado: ${e.message}` : 'No se pudo abrir lo cargado',
+      );
+      setReservation(locked ? reservationRef.current : null);
+    } finally {
+      setDraftLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (fixedReservation) void loadDraft(fixedReservation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Al salir de la página con algo sin guardar, se intenta guardar igual.
+  useEffect(() => {
+    const t = timers.current;
+    return () => {
+      t.forEach((id) => window.clearTimeout(id));
+      void flush();
+    };
+  }, [flush]);
+
+  async function close() {
+    if (!(await flush())) {
+      showToast.error('No se pudo guardar lo último que escribiste. Revisá la conexión y probá de nuevo.');
+      return;
+    }
+    onClose();
+  }
+
+  async function backToSearch() {
+    if (!(await flush())) {
+      showToast.error('No se pudo guardar lo último que escribiste. Revisá la conexión y probá de nuevo.');
+      return;
+    }
+    setReservation(null);
+    setEntries([]);
+  }
+
   function selectReservation(item: ReservationItem) {
     setReservation(item);
-    setEntries(
-      Array.from({ length: Math.max(1, item.quantity) }, (_, index) =>
-        emptyReservationEntry(
-          (item.quantity === 1 || index === 0 ? item.customerName : '') ?? '',
-        ),
-      ),
-    );
+    reservationRef.current = item;
+    void loadDraft(item);
   }
 
   function updateEntry<K extends keyof ReservationEntry>(
@@ -1176,31 +1303,74 @@ export function NewPieceModal({
     value: ReservationEntry[K],
   ) {
     setEntries((current) => current.map((entry, i) => i === index ? { ...entry, [key]: value } : entry));
+    const entry = entriesRef.current[index];
+    if (entry) markDirty([entry.key]);
+  }
+
+  function addEntry() {
+    const entry = emptyReservationEntry('', true);
+    setEntries((current) => [...current, entry]);
+    entriesRef.current = [...entriesRef.current, entry];
+    markDirty([entry.key]);
+  }
+
+  async function removeEntry(index: number) {
+    const entry = entriesRef.current[index];
+    if (!entry || !reservation) return;
+    if (hasContent(entry)) {
+      const ok = await confirm({
+        title: 'Quitar ficha',
+        description: `Se borra lo cargado en la ficha ${index + 1}${entry.personName.trim() ? ` (${entry.personName.trim()})` : ''}.`,
+        confirmLabel: 'Quitar',
+      });
+      if (!ok) return;
+    }
+    dirty.current.delete(entry.key);
+    window.clearTimeout(timers.current.get(entry.key));
+    try {
+      await piecesAdmin.removeDraftEntry(reservation._id, entry.key);
+      setEntries((current) => current.filter((e) => e.key !== entry.key));
+    } catch (e) {
+      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar la ficha');
+    }
+  }
+
+  // Qué le falta a una ficha para poder registrarla.
+  function missingOf(entry: ReservationEntry): string[] {
+    const missing: string[] = [];
+    if (!entry.personName.trim()) missing.push('nombre');
+    if (!entry.pieceType.trim()) missing.push('pieza');
+    if (!materialOf(entry)) {
+      if (!entry.signature.trim()) missing.push('firma');
+      if (!entry.colorsUsed.trim()) missing.push('colores');
+    }
+    if (entry.hasExtra && !entry.extraId) missing.push('adicional');
+    if (isPair(entry) && !entry.pieceType2.trim()) missing.push('segunda pieza');
+    return missing;
   }
 
   async function submit() {
     if (!reservation) return showToast.error('Seleccioná una reserva del día');
-    if (entries.some((entry) => !entry.personName.trim() || !entry.pieceType.trim())) {
-      return showToast.error('Completá el nombre y la pieza de cada ficha');
+    // Se registran las completas; las vacías (alguien que no vino) se
+    // descartan y las que están a medias quedan guardadas para seguir.
+    const ready = entries.filter((e) => hasContent(e) && missingOf(e).length === 0);
+    const empty = entries.filter((e) => !hasContent(e));
+    const partial = entries.filter((e) => hasContent(e) && missingOf(e).length > 0);
+    if (ready.length === 0) {
+      return showToast.error(
+        partial.length
+          ? 'Ninguna ficha está completa todavía. Lo cargado queda guardado.'
+          : 'No hay fichas cargadas para registrar',
+      );
     }
-    if (
-      entries.some(
-        (entry) => !materialOf(entry) && (!entry.signature.trim() || !entry.colorsUsed.trim()),
-      )
-    ) {
-      return showToast.error('Completá la firma y los colores de cada pieza de cerámica');
-    }
-    if (entries.some((entry) => entry.hasExtra && !entry.extraId)) {
-      return showToast.error('Elegí el adicional de cada pieza que lo tiene');
-    }
-    if (entries.some((entry) => isPair(entry) && !entry.pieceType2.trim())) {
-      return showToast.error('En el 2x1 van dos piezas: elegí la segunda');
+    if (!(await flush())) {
+      return showToast.error('No se pudo guardar lo último que escribiste. Revisá la conexión y probá de nuevo.');
     }
     setSaving(true);
     try {
       await piecesAdmin.createReservationBatch(
         reservation._id,
-        entries.map((entry) => ({
+        ready.map((entry) => ({
           personName: entry.personName.trim(),
           signature: entry.signature.trim(),
           pieceType: entry.pieceType.trim(),
@@ -1210,11 +1380,16 @@ export function NewPieceModal({
           ...(entry.additional && { additional: true }),
         })),
         responsable.value.trim() || undefined,
+        [...ready, ...empty].map((e) => e.key),
       );
+      const readyTotal = ready.reduce((sum, e) => sum + chargeOf(e), 0);
+      const rest = partial.length
+        ? ` · ${partial.length} sin terminar quedan guardadas`
+        : '';
       showToast.success(
-        extrasTotal > 0
-          ? `${entries.length} ficha(s) anexadas · ${fmtPrice(extrasTotal)} de adicionales sumados al saldo`
-          : `${entries.length} ficha(s) anexadas a la reserva`,
+        readyTotal > 0
+          ? `${ready.length} ficha(s) anexadas · ${fmtPrice(readyTotal)} de adicionales sumados al saldo${rest}`
+          : `${ready.length} ficha(s) anexadas a la reserva${rest}`,
       );
       await onDone();
     } catch (e) {
@@ -1225,12 +1400,26 @@ export function NewPieceModal({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open) => !open && void close()}>
       <DialogContent className='sm:max-w-3xl'>
         <DialogHeader className='text-left'>
           <DialogTitle className='font-tan-nimbus text-xl text-[#455a54]'>
             Registrar piezas de una reserva
           </DialogTitle>
+          {reservation && (
+            <p
+              className={cn(
+                'text-xs',
+                saveState === 'error' ? 'font-semibold text-[#a33]' : 'text-[#7a6e6f]',
+              )}
+            >
+              {saveState === 'saving'
+                ? 'Guardando…'
+                : saveState === 'error'
+                  ? 'Sin conexión: lo último no se guardó todavía, se reintenta solo.'
+                  : 'Todo lo que escribís se guarda solo. Podés cerrar y seguir después, desde esta u otra tablet.'}
+            </p>
+          )}
         </DialogHeader>
 
         <div className='flex flex-col gap-4'>
@@ -1288,16 +1477,36 @@ export function NewPieceModal({
                   <p className='text-xs text-[#7a6e6f]'>{reservation.experienceName} · {fmtDate(reservation.startAt)}</p>
                 </div>
                 {!locked && (
-                  <button type='button' onClick={() => setReservation(null)} className='text-xs font-semibold text-[#9d684e] hover:underline'>Cambiar reserva</button>
+                  <button type='button' onClick={() => void backToSearch()} className='text-xs font-semibold text-[#9d684e] hover:underline'>Cambiar reserva</button>
                 )}
               </div>
 
+              {registeredCount > 0 && (
+                <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>
+                  Ya tiene <strong>{registeredCount}</strong> ficha(s) registrada(s).
+                  {entries.length === 0 && ' Si falta alguna, agregala abajo.'}
+                </p>
+              )}
+              {draftLoading && <p className='text-sm text-[#7a6e6f]'>Abriendo lo cargado…</p>}
               <div className='flex flex-col gap-3'>
-                {entries.map((entry, index) => (
-                  <div key={index} className='rounded-xl border border-[#e6dbcd] bg-white p-3'>
+                {entries.map((entry, index) => {
+                  const missing = hasContent(entry) ? missingOf(entry) : [];
+                  return (
+                  <div
+                    key={entry.key}
+                    className={cn(
+                      'rounded-xl border bg-white p-3',
+                      missing.length ? 'border-[#d9534f] bg-[#fdf3f2]' : 'border-[#e6dbcd]',
+                    )}
+                  >
                     <div className='mb-2 flex flex-wrap items-center justify-between gap-2'>
-                      <span className='flex items-center gap-2'>
+                      <span className='flex flex-wrap items-center gap-2'>
                         <span className='text-sm font-semibold text-[#455a54]'>Ficha {index + 1}</span>
+                        {missing.length > 0 && (
+                          <span className='rounded-md bg-[#d9534f] px-1.5 py-0.5 text-[11px] font-semibold text-white'>
+                            Incompleta: falta {missing.join(', ')}
+                          </span>
+                        )}
                         {/* Incluida en la entrada o sumada aparte (cambia el precio) */}
                         <span className='inline-flex rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-0.5'>
                           {([false, true] as const).map((add) => (
@@ -1317,9 +1526,7 @@ export function NewPieceModal({
                           ))}
                         </span>
                       </span>
-                      {entries.length > 1 && (
-                        <button type='button' onClick={() => setEntries((current) => current.filter((_, i) => i !== index))} className='text-xs text-[#a33] hover:underline'>Quitar</button>
-                      )}
+                      <button type='button' onClick={() => void removeEntry(index)} className='text-xs text-[#a33] hover:underline'>Quitar</button>
                     </div>
                     <div className='grid gap-2 sm:grid-cols-2'>
                       <Field label='Nombre y apellido'>
@@ -1368,14 +1575,15 @@ export function NewPieceModal({
                       </Field>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <Button
                 type='button'
                 variant='outline'
                 size='sm'
                 // Más fichas que personas: es una pieza que se suma aparte.
-                onClick={() => setEntries((current) => [...current, emptyReservationEntry('', true)])}
+                onClick={addEntry}
                 className='w-fit gap-1 border-[#e6dbcd] text-[#455a54]'
               >
                 <Plus className='h-3.5 w-3.5' /> Agregar otra ficha
@@ -1398,9 +1606,11 @@ export function NewPieceModal({
         </div>
 
         <DialogFooter>
-          <Button type='button' variant='outline' onClick={onClose} className='border-[#e6dbcd] text-[#455a54]'>Cancelar</Button>
+          <Button type='button' variant='outline' onClick={() => void close()} className='border-[#e6dbcd] text-[#455a54]'>
+            {reservation ? 'Cerrar (queda guardado)' : 'Cancelar'}
+          </Button>
           {reservation && (
-            <Button type='button' variant='terracota' onClick={submit} disabled={saving}>
+            <Button type='button' variant='terracota' onClick={submit} disabled={saving || draftLoading}>
               {saving ? 'Guardando…' : 'Registrar fichas'}
             </Button>
           )}

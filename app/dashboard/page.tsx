@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAuthStore } from '@/stores/auth.store';
 import { ROLE_LABEL, canAccessView } from '@/lib/views';
 import { Card, CardContent } from '@/components/ui/card';
-import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList, QrCode } from 'lucide-react';
+import { ShoppingCart, Package, Landmark, Boxes, UserCircle2, Activity, Ticket, GraduationCap, ClipboardList, QrCode, Flame } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { format } from 'date-fns';
@@ -36,6 +36,7 @@ export default function Dashboard() {
     { name: 'Clientes',   description: 'Base de clientes', href: '/dashboard/clients',   icon: UserCircle2, iconBg: 'bg-[#9d684e]/70', view: 'clients'  },
     { name: 'Reservas',   description: 'Agenda y turnos',  href: '/dashboard/reservas',  icon: Ticket,      iconBg: 'bg-[#9d684e]/60', view: 'reservas' },
     { name: 'Alumnos y grupos', description: 'Taller',     href: '/dashboard/alumnos',   icon: GraduationCap, iconBg: 'bg-[#455a54]/60', view: 'alumnos' },
+    { name: 'Producción', description: 'Piezas y hornos', href: '/dashboard/produccion', icon: Flame,   iconBg: 'bg-[#cc844a]/70', view: 'produccion' },
     { name: 'Equipo',     description: 'Tareas y compras', href: '/dashboard/equipo',    icon: ClipboardList, iconBg: 'bg-[#455a54]/40', view: 'equipo'  },
     // Card de Señas ocultada a pedido del cliente (la ruta /dashboard/prepaids queda).
     // { name: 'Señas',   description: 'Adelantos',        href: '/dashboard/prepaids',  icon: Receipt,     iconBg: 'bg-[#455a54]/70', view: 'prepaids' },

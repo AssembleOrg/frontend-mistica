@@ -109,6 +109,8 @@ export interface CreateStudentPaymentInput {
   dueDate?: string;
   method?: string;
   notes?: string;
+  /** Mes al que aplica ('YYYY-MM'). */
+  period?: string;
 }
 
 export interface StudentAdminProfile {

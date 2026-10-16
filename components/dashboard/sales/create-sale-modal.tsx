@@ -880,7 +880,13 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         prepaidId: !isPartial && usePrepaid && clientPrepaid ? clientPrepaid.id : undefined,
         consumedPrepaid: !isPartial && usePrepaid,
         // Con el cliente elegido, lo marcado manda (aunque no sea ninguna).
-        studentFeeProductIds: studentFee.active ? studentFee.selectedIds : undefined,
+        studentFeeProductIds: studentFee.payload
+          ? []
+          : studentFee.active
+            ? studentFee.selectedIds
+            : undefined,
+        // Alumno: qué paga, de qué mes y cuánto (vale para ítems a mano).
+        studentFee: studentFee.payload,
         isPartial: isPartial || undefined,
         onAccount: onAccount || undefined,
         // Abono a cuenta de la venta anterior seleccionada (sólo venta no

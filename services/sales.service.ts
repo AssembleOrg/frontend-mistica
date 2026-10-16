@@ -62,6 +62,8 @@ export interface CreateSaleRequest {
   consumedPrepaid?: boolean;
   /** Productos del carrito que son la cuota del alumno (el cliente). */
   studentFeeProductIds?: string[];
+  /** Cobro de alumno con el mes elegido en caja. */
+  studentFee?: { kind: 'MONTH' | 'PARTIAL' | 'CLASSES'; period: string; amount: number };
   discount?: number;
   seller: string;
   /** Marca la venta como PARTIAL (seña/pago parcial). Σ payments puede ser

@@ -12,6 +12,8 @@ import { DateInput } from '@/components/ui/date-input';
 import { ClientsService, type Client } from '@/services/clients.service';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import { MonthlyPieceSection } from './monthly-piece-section';
+import { PaymentsByMonth, monthOptions } from './student-payments';
+import { currentMonth, monthLabel } from './monthly-piece';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Dialog,
@@ -721,6 +723,7 @@ function StudentDetailDialog({
     dueDate?: string;
     paidAt?: string;
     method?: string;
+    period?: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -746,11 +749,18 @@ function StudentDetailDialog({
 
   async function savePayment() {
     if (!payForm) return;
-    if (!payForm.concept.trim() || payForm.amount <= 0)
-      return showToast.error('Concepto y monto son obligatorios');
+    if (payForm.amount <= 0) return showToast.error('Cargá el monto');
     setSaving(true);
     try {
-      await tallerAdmin.addPayment(student._id, payForm);
+      await tallerAdmin.addPayment(student._id, {
+        ...payForm,
+        // Sin concepto: la cuota del mes elegido.
+        concept:
+          payForm.concept.trim() ||
+          (payForm.period ? `Cuota ${monthLabel(payForm.period).toLowerCase()}` : 'Pago'),
+        ...(payForm.paidAt && { paidAt: `${payForm.paidAt}T12:00:00-03:00` }),
+        ...(payForm.dueDate && { dueDate: `${payForm.dueDate}T23:59:00-03:00` }),
+      });
       setPayForm(null);
       await loadAdmin();
       showToast.success('Registrado');
@@ -909,14 +919,14 @@ function StudentDetailDialog({
                 {/* Historial de pagos */}
                 <div className='flex items-center justify-between'>
                   <span className='text-sm font-semibold text-[#455a54]'>
-                    Historial de pagos
+                    Pagos por mes
                   </span>
                   <Button
                     type='button'
                     variant='outline'
                     size='sm'
                     onClick={() =>
-                      setPayForm({ concept: '', amount: 0, status: 'PAID' })
+                      setPayForm({ concept: '', amount: 0, status: 'PAID', period: currentMonth() })
                     }
                     className='h-7 gap-1 border-[#e6dbcd] bg-white px-2 text-[12px] text-[#455a54] hover:bg-[#fbf5ef]'
                   >
@@ -924,56 +934,13 @@ function StudentDetailDialog({
                     Registrar
                   </Button>
                 </div>
-                {adminData.payments.length === 0 ? (
-                  <p className='text-xs text-[#7a6e6f]'>Sin pagos registrados.</p>
-                ) : (
-                  <div className='flex flex-col gap-1.5'>
-                    {adminData.payments.map((p) => {
-                      const overdue =
-                        p.status === 'PENDING' &&
-                        p.dueDate &&
-                        new Date(p.dueDate) < new Date();
-                      return (
-                        <div
-                          key={p._id}
-                          className='flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbcd] px-3 py-2 text-[13px] text-[#3d3338]'
-                        >
-                          <span className='font-medium'>{p.concept}</span>
-                          {p.amount > 0 && <span>{fmtPrice(p.amount)}</span>}
-                          {p.status === 'PAID' ? (
-                            <StatusBadge
-                              label={`Pagada ${fmtDate(p.paidAt)}`}
-                              bg='#E7F0EC'
-                              fg='#455a54'
-                            />
-                          ) : (
-                            <StatusBadge
-                              label={
-                                overdue
-                                  ? `VENCIDA ${fmtDate(p.dueDate)}`
-                                  : `Vence ${fmtDate(p.dueDate)}`
-                              }
-                              bg={overdue ? '#fbe4e4' : '#fdf6e3'}
-                              fg={overdue ? '#a33' : '#8a6d1a'}
-                            />
-                          )}
-                          {p.method && (
-                            <span className='text-[#7a6e6f]'>· {METHOD_LABEL[p.method] ?? p.method}</span>
-                          )}
-                          {p.status === 'PENDING' && (
-                            <button
-                              type='button'
-                              onClick={() => setPaying(p)}
-                              className='ml-auto text-[12px] font-medium text-[#455a54] underline hover:opacity-70'
-                            >
-                              Cobrar
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <PaymentsByMonth
+                  payments={adminData.payments}
+                  joinedAt={adminData.student.joinedAt}
+                  methodLabel={(m) => METHOD_LABEL[m] ?? m}
+                  onCollect={setPaying}
+                  onChanged={loadAdmin}
+                />
 
                 {paying && (
                   <MarkPaidDialog
@@ -988,12 +955,31 @@ function StudentDetailDialog({
 
                 {payForm && (
                   <div className='flex flex-col gap-2 rounded-xl border-2 border-[#9d684e]/40 bg-[#fbf5ef]/60 p-3'>
+                    <label className='flex items-center gap-2 text-[13px] text-[#455a54]'>
+                      <span className='shrink-0'>Mes que paga</span>
+                      <select
+                        value={payForm.period ?? ''}
+                        onChange={(e) => setPayForm({ ...payForm, period: e.target.value || undefined })}
+                        className={`${fieldCls} h-9 flex-1 rounded-md border px-2 text-sm`}
+                      >
+                        <option value=''>Sin mes (otro concepto)</option>
+                        {monthOptions().map((m) => (
+                          <option key={m} value={m}>
+                            {monthLabel(m)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <Input
                       value={payForm.concept}
                       onChange={(e) =>
                         setPayForm({ ...payForm, concept: e.target.value })
                       }
-                      placeholder="Concepto ('Cuota agosto 2026')"
+                      placeholder={
+                        payForm.period
+                          ? `Concepto (si lo dejás vacío: Cuota ${monthLabel(payForm.period).toLowerCase()})`
+                          : "Concepto (p. ej. 'Materiales')"
+                      }
                       className={`${fieldCls} h-9`}
                     />
                     <div className='flex flex-wrap items-center gap-2'>

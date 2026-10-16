@@ -1090,6 +1090,10 @@ export function NewPieceModal({
   // así cerrar el formulario (o cambiar de tablet) no pierde nada.
   const [draftLoading, setDraftLoading] = useState(false);
   const [registeredCount, setRegisteredCount] = useState(0);
+  // Fichas ya registradas de la reserva: se ven y se corrigen desde acá.
+  const [registered, setRegistered] = useState<PieceItem[]>([]);
+  const [editingPiece, setEditingPiece] = useState<PieceItem | null>(null);
+  const [professorsList, setProfessorsList] = useState<Professor[] | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const dirty = useRef(new Set<string>());
   const timers = useRef(new Map<string, number>());
@@ -1220,9 +1224,27 @@ export function NewPieceModal({
 
   // Abre el borrador de la reserva: lo que ya se venía cargando o, si no hay,
   // una ficha por cada persona que todavía no tiene la suya.
+  async function loadRegistered(item: ReservationItem) {
+    try {
+      const res = await piecesAdmin.list({ reservationId: item._id, limit: 100 });
+      setRegistered(res.items);
+    } catch {
+      setRegistered([]);
+    }
+  }
+
+  async function openPieceEditor(piece: PieceItem) {
+    if (!professorsList) {
+      setProfessorsList(await professorsAdmin.list().catch(() => []));
+    }
+    setEditingPiece(piece);
+  }
+
   async function loadDraft(item: ReservationItem) {
     setDraftLoading(true);
     setEntries([]);
+    setRegistered([]);
+    void loadRegistered(item);
     try {
       const draft = await piecesAdmin.draft(item._id);
       setRegisteredCount(draft.registered);
@@ -1481,11 +1503,45 @@ export function NewPieceModal({
                 )}
               </div>
 
-              {registeredCount > 0 && (
-                <p className='rounded-xl border border-[#e6dbcd] bg-[#fbf5ef] px-3.5 py-2.5 text-sm text-[#455a54]'>
-                  Ya tiene <strong>{registeredCount}</strong> ficha(s) registrada(s).
-                  {entries.length === 0 && ' Si falta alguna, agregala abajo.'}
-                </p>
+              {(registered.length > 0 || registeredCount > 0) && (
+                <div className='flex flex-col gap-1.5 rounded-xl border border-[#455a54]/25 bg-[#f4f8f6] p-3'>
+                  <p className='text-sm font-semibold text-[#455a54]'>
+                    Fichas ya registradas ({registered.length || registeredCount})
+                    <span className='ml-1.5 text-xs font-normal text-[#7a6e6f]'>
+                      · tocá una para corregirla (un color, la firma…)
+                    </span>
+                  </p>
+                  {registered.map((p) => (
+                    <button
+                      key={p._id}
+                      type='button'
+                      onClick={() => void openPieceEditor(p)}
+                      className='flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-left text-[13px] text-[#3d3338] hover:bg-[#fbf5ef]'
+                    >
+                      <span className='font-semibold'>{p.personName || '—'}</span>
+                      <span>· {p.pieceType || 'sin pieza'}</span>
+                      {p.signature && <span className='text-[#7a6e6f]'>· firma {p.signature}</span>}
+                      {p.colorsUsed && <span className='text-[#7a6e6f]'>· {p.colorsUsed}</span>}
+                      <span className='ml-auto flex items-center gap-1 text-xs font-semibold text-[#9d684e]'>
+                        <Pencil className='h-3.5 w-3.5' /> Editar
+                      </span>
+                    </button>
+                  ))}
+                  {entries.length === 0 && (
+                    <p className='text-xs text-[#7a6e6f]'>Si falta alguna, agregala abajo con «Agregar otra ficha».</p>
+                  )}
+                </div>
+              )}
+              {editingPiece && (
+                <EditPieceModal
+                  piece={editingPiece}
+                  professors={professorsList ?? []}
+                  onClose={() => setEditingPiece(null)}
+                  onDone={async () => {
+                    setEditingPiece(null);
+                    if (reservation) await loadRegistered(reservation);
+                  }}
+                />
               )}
               {draftLoading && <p className='text-sm text-[#7a6e6f]'>Abriendo lo cargado…</p>}
               <div className='flex flex-col gap-3'>

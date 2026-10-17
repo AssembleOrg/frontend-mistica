@@ -137,9 +137,9 @@ function addMonths(ymd: string, delta: number): string {
 export function ReservasTab() {
   const { user } = useAuth();
   const router = useRouter();
-  // Cocina y cuentas con pestañas sueltas: cuántas personas y qué restricciones,
-  // sin nombres de clientes ni importes (el backend tampoco los manda). Tampoco
-  // ven el listado completo ni cargan reservas.
+  // Cocina y cuentas con pestañas sueltas: nombre, cuántas personas y qué
+  // restricciones, sin contacto ni importes (el backend tampoco los manda).
+  // Tampoco ven el listado completo ni cargan reservas.
   const verDetalle = canSeeReservationDetails(user?.role, user?.allowedViews);
   const [mode, setMode] = useState<Mode>('day');
   const [newOpen, setNewOpen] = useState(false);
@@ -882,7 +882,8 @@ function ReservaCard({
 
       <div className='flex flex-1 flex-col gap-2.5 px-4 pb-3 pt-3'>
         <span className='break-words font-tan-nimbus text-[19px] font-semibold leading-tight text-[#3d3338]'>
-          {verDetalle ? (r.customerName ?? prettyCode(r.code)) : `${r.quantity} persona(s)`}
+          {/* Cocina/taller recibe el nombre pero no el código de gestión. */}
+          {r.customerName ?? (verDetalle ? prettyCode(r.code) : `${r.quantity} persona(s)`)}
         </span>
 
         {/* Cinta de EXPERIENCIA: sale del borde izquierdo y termina en punta. */}
@@ -915,12 +916,10 @@ function ReservaCard({
               {r.tableCodes!.join(', ')}
             </span>
           )}
-          {verDetalle && (
-            <span className='inline-flex items-center gap-1.5'>
-              <Users className='h-3.5 w-3.5 text-[#455a54]' />
-              {r.quantity} pers.
-            </span>
-          )}
+          <span className='inline-flex items-center gap-1.5'>
+            <Users className='h-3.5 w-3.5 text-[#455a54]' />
+            {r.quantity} pers.
+          </span>
         </div>
 
         <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} compact />

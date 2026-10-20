@@ -22,6 +22,7 @@ import {
   type SpaceBlock,
   type SpaceBlockKind,
 } from '@/services/space-blocks.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -45,7 +46,7 @@ export function SpaceBlocksPanel() {
     try {
       setItems(await spaceBlocksAdmin.list());
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar bloqueos');
+      showToast.error(errorText(e, 'Error al cargar bloqueos'));
     } finally {
       setLoading(false);
     }
@@ -89,7 +90,7 @@ export function SpaceBlocksPanel() {
       setLabel('');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo agregar');
+      showToast.error(errorText(e, 'No se pudo agregar'));
     } finally {
       setSaving(false);
     }
@@ -107,7 +108,7 @@ export function SpaceBlocksPanel() {
       showToast.success('Quitado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar');
+      showToast.error(errorText(e, 'No se pudo quitar'));
     }
   }
 

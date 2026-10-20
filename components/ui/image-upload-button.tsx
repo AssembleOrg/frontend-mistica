@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { uploads, type UploadFolder } from '@/services/uploads.service';
+import { errorText } from '@/lib/api-error-messages';
 
 /**
  * Botón "Subir foto": abre el picker (en el celular ofrece la cámara), sube
@@ -32,7 +33,7 @@ export function ImageUploadButton({
       }
       showToast.success(files.length > 1 ? 'Fotos subidas' : 'Foto subida');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo subir');
+      showToast.error(errorText(e, 'No se pudo subir'));
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = '';

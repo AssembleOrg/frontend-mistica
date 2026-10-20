@@ -25,6 +25,7 @@ import {
 } from './monthly-piece';
 import { canManageRole } from '@/lib/views';
 import { ResponsableField, useResponsable } from '@/components/dashboard/responsable-field';
+import { errorText } from '@/lib/api-error-messages';
 
 export function PiezasMesPanel() {
   const user = useAuthStore((s) => s.user);
@@ -44,7 +45,7 @@ export function PiezasMesPanel() {
     try {
       setRows(await tallerAdmin.monthlyPieces(month));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cargar');
+      showToast.error(errorText(e, 'No se pudo cargar'));
       setRows([]);
     }
   }, [month]);

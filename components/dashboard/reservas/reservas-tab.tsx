@@ -49,6 +49,7 @@ import { usePieceDraftsPending } from './use-piece-drafts';
 import { birthdayWho } from './reservation-kitchen';
 import { tallerAdmin, type GroupDayClass } from '@/services/taller.admin.service';
 import { tablesAdmin, type ShiftRoom, type TableStatus } from '@/services/tables.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -213,7 +214,7 @@ export function ReservasTab() {
         setAttendees({});
       }
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar la agenda');
+      showToast.error(errorText(e, 'Error al cargar la agenda'));
     } finally {
       setLoading(false);
     }
@@ -358,7 +359,7 @@ export function ReservasTab() {
       showToast.success('Torta simbólica sumada para cocina');
       setTick((t) => t + 1);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar la torta');
+      showToast.error(errorText(e, 'No se pudo sumar la torta'));
     }
   }
 

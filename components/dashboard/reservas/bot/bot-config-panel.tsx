@@ -19,6 +19,7 @@ import {
   type BotTransfer,
 } from '@/services/bot.admin.service';
 import { Field, Section, fieldCls } from './_shared';
+import { errorText } from '@/lib/api-error-messages';
 
 const BUSINESS: { key: keyof BotBusiness; label: string; help?: string }[] = [
   { key: 'name', label: 'Nombre del negocio' },
@@ -71,7 +72,7 @@ export function BotConfigPanel() {
     botAdmin
       .settings()
       .then(setCfg)
-      .catch((e) => showToast.error(e instanceof Error ? e.message : 'No se pudo cargar la configuración'));
+      .catch((e) => showToast.error(errorText(e, 'No se pudo cargar la configuración')));
   }, []);
 
   if (!cfg) {
@@ -89,7 +90,7 @@ export function BotConfigPanel() {
       setCfg(await botAdmin.saveSettings(cfg));
       showToast.success('Configuración guardada. El bot la toma en menos de un minuto.');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -104,7 +105,7 @@ export function BotConfigPanel() {
       showToast.success(on ? 'Bot encendido' : 'Bot apagado: las charlas nuevas pasan al equipo');
     } catch (e) {
       setCfg(prev);
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cambiar');
+      showToast.error(errorText(e, 'No se pudo cambiar'));
     }
   }
 

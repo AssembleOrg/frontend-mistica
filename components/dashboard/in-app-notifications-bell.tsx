@@ -12,6 +12,7 @@ import {
 } from '@/services/in-app-notifications.service';
 import { liveOrPoll } from '@/lib/live-stream';
 import { showToast } from '@/lib/toast';
+import { errorText } from '@/lib/api-error-messages';
 
 const NOTIFICATIONS_POLL_MS = 60_000;
 
@@ -103,7 +104,7 @@ export function InAppNotificationsBell() {
       await inAppNotifications.markAllRead();
       setItems((current) => current.map((item) => ({ ...item, read: true })));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudieron marcar');
+      showToast.error(errorText(e, 'No se pudieron marcar'));
     }
   }
 

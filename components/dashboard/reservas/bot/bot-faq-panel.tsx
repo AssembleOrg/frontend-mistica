@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { botAdmin, type BotFaq, type BotFaqInput } from '@/services/bot.admin.service';
 import { IconBtn } from '../_shared';
 import { Field, Section, fieldCls } from './_shared';
+import { errorText } from '@/lib/api-error-messages';
 
 export function BotFaqPanel() {
   const confirm = useConfirm();
@@ -34,7 +35,7 @@ export function BotFaqPanel() {
     try {
       setItems(await botAdmin.faqs());
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudieron cargar las preguntas');
+      showToast.error(errorText(e, 'No se pudieron cargar las preguntas'));
       setItems([]);
     }
   }
@@ -48,7 +49,7 @@ export function BotFaqPanel() {
       const updated = await botAdmin.updateFaq(f.id, { active: !f.active });
       setItems((prev) => (prev ?? []).map((x) => (x.id === f.id ? updated : x)));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cambiar');
+      showToast.error(errorText(e, 'No se pudo cambiar'));
     }
   }
 
@@ -64,7 +65,7 @@ export function BotFaqPanel() {
       setItems((prev) => (prev ?? []).filter((x) => x.id !== f.id));
       showToast.success('Pregunta borrada');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo borrar');
+      showToast.error(errorText(e, 'No se pudo borrar'));
     }
   }
 
@@ -85,7 +86,7 @@ export function BotFaqPanel() {
       next[j] = ua;
       setItems(next);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo reordenar');
+      showToast.error(errorText(e, 'No se pudo reordenar'));
     }
   }
 
@@ -196,7 +197,7 @@ function FaqModal({
       showToast.success(faq ? 'Pregunta actualizada' : 'Pregunta creada');
       await onDone();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }

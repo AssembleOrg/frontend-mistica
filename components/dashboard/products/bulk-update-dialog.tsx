@@ -21,6 +21,7 @@ import {
 import { showToast } from '@/lib/toast';
 import { parseProductsExcel, type ParsedRow, type ParseError } from '@/lib/excel-utils';
 import { productsService } from '@/services/products.service';
+import { errorText } from '@/lib/api-error-messages';
 
 type Phase = 'idle' | 'parsing' | 'preview' | 'submitting' | 'done';
 
@@ -71,7 +72,7 @@ export function BulkUpdateProductsDialog({ open, onOpenChange, onApplied }: Prop
       setPhase('preview');
     } catch (err) {
       console.error('Error parseando Excel:', err);
-      showToast.error(err instanceof Error ? err.message : 'No se pudo leer el archivo');
+      showToast.error(errorText(err, 'No se pudo leer el archivo'));
       setPhase('idle');
     }
   }
@@ -99,7 +100,7 @@ export function BulkUpdateProductsDialog({ open, onOpenChange, onApplied }: Prop
       }
     } catch (err) {
       console.error('Bulk update falló:', err);
-      showToast.error(err instanceof Error ? err.message : 'Error al actualizar productos');
+      showToast.error(errorText(err, 'Error al actualizar productos'));
       setPhase('preview');
     }
   }

@@ -38,6 +38,7 @@ import {
 import { PIECE_STATUS_LABEL, type PieceStatus } from '@/services/pieces.admin.service';
 import { IconBtn, StatusBadge } from '../reservas/_shared';
 import { canManageRole } from '@/lib/views';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -107,7 +108,7 @@ export function AlumnosPanel() {
       setAlerts(al);
       setGroups(gs);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -133,7 +134,7 @@ export function AlumnosPanel() {
       setEditing(null);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+      showToast.error(errorText(e, 'Error al guardar'));
     } finally {
       setSaving(false);
     }
@@ -146,7 +147,7 @@ export function AlumnosPanel() {
       showToast.success('Alumno dado de baja');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     }
   }
 
@@ -731,14 +732,14 @@ function StudentDetailDialog({
     try {
       setAdminData(await tallerAdmin.adminProfile(student._id));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     }
   }, [student._id]);
   const loadPractical = useCallback(async () => {
     try {
       setPractical(await tallerAdmin.practicalProfile(student._id));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     }
   }, [student._id]);
 
@@ -765,7 +766,7 @@ function StudentDetailDialog({
       await loadAdmin();
       showToast.success('Registrado');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     } finally {
       setSaving(false);
     }

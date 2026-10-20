@@ -67,6 +67,7 @@ import {
   todayAR,
   useCancelTrial,
 } from './trial-classes';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -169,7 +170,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
       setProfessors(ps);
       setTrials(ts);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -312,7 +313,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
       setEditing(null);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+      showToast.error(errorText(e, 'Error al guardar'));
     } finally {
       setSaving(false);
     }
@@ -337,7 +338,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
     try {
       await tallerAdmin.reorderGroups(next.map((g) => g._id));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar el orden');
+      showToast.error(errorText(e, 'No se pudo guardar el orden'));
       await load();
     }
   }
@@ -349,7 +350,7 @@ export function GruposPanel({ focusGroupId }: { focusGroupId?: string } = {}) {
       showToast.success('Grupo eliminado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     }
   }
 
@@ -1143,7 +1144,7 @@ function AttendanceDialog({
       showToast.success('Asistencia guardada');
       onClose();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+      showToast.error(errorText(e, 'Error al guardar'));
     } finally {
       setSaving(false);
     }
@@ -1199,7 +1200,7 @@ function AttendanceDialog({
         setTrialPhone('');
         showToast.success('Clase de prueba agendada');
       } catch (e) {
-        showToast.error(e instanceof Error ? e.message : 'No se pudo agendar la prueba');
+        showToast.error(errorText(e, 'No se pudo agendar la prueba'));
       } finally {
         setAddingTrial(false);
       }
@@ -1217,7 +1218,7 @@ function AttendanceDialog({
         studentId = created._id;
         setNewNames((m) => new Map(m).set(created._id, created.name));
       } catch (e) {
-        showToast.error(e instanceof Error ? e.message : 'No se pudo crear el alumno');
+        showToast.error(errorText(e, 'No se pudo crear el alumno'));
         return;
       } finally {
         setAddingTrial(false);
@@ -1286,7 +1287,7 @@ function AttendanceDialog({
       setPickingFor(null);
       showToast.success(`Recupera el ${displayClassDate(toDate)} en ${m.toGroupName}`);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo agendar la recuperación');
+      showToast.error(errorText(e, 'No se pudo agendar la recuperación'));
     } finally {
       setBusyMakeup(false);
     }
@@ -1299,7 +1300,7 @@ function AttendanceDialog({
       setMakeups((ms) => ms.filter((x) => x._id !== m._id));
       return true;
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar la recuperación');
+      showToast.error(errorText(e, 'No se pudo quitar la recuperación'));
       return false;
     } finally {
       setBusyMakeup(false);
@@ -1323,7 +1324,7 @@ function AttendanceDialog({
       setExtraStudent('');
       showToast.success(`${x.student.name} suma esta clase como extra`);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar la clase extra');
+      showToast.error(errorText(e, 'No se pudo sumar la clase extra'));
     } finally {
       setAddingExtra(false);
     }
@@ -1356,7 +1357,7 @@ function AttendanceDialog({
       setExtraSourceDate('');
       showToast.success(isFuture ? 'Recuperación agendada para esta clase' : 'Sumado a esta asistencia');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar la recuperación');
+      showToast.error(errorText(e, 'No se pudo sumar la recuperación'));
     } finally {
       setBusyMakeup(false);
     }
@@ -1494,7 +1495,7 @@ function AttendanceDialog({
                               showToast.success('Clase extra quitada');
                             })
                             .catch((e) =>
-                              showToast.error(e instanceof Error ? e.message : 'No se pudo quitar'),
+                              showToast.error(errorText(e, 'No se pudo quitar')),
                             );
                           return;
                         }
@@ -1522,7 +1523,7 @@ function AttendanceDialog({
                               showToast.success('Clase de prueba cancelada');
                             })
                             .catch((e) =>
-                              showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar'),
+                              showToast.error(errorText(e, 'No se pudo cancelar')),
                             );
                           return;
                         }

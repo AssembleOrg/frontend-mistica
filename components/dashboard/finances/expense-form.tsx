@@ -17,6 +17,7 @@ import { useFinances } from '@/hooks/useFinances';
 import { showToast } from '@/lib/toast';
 import { Expense } from '@/lib/types';
 import { Minus, X, RefreshCw, Database } from 'lucide-react';
+import { errorText } from '@/lib/api-error-messages';
 
 interface ExpenseFormProps {
   onSuccess?: () => void;
@@ -102,7 +103,7 @@ export function ExpenseForm({ onSuccess, onCancel }: ExpenseFormProps) {
       console.error('Error saving expense:', error);
       showToast.error(
         'Error',
-        error instanceof Error ? error.message : 'Error al registrar el gasto'
+        errorText(error, 'Error al registrar el gasto')
       );
     } finally {
       setIsSubmitting(false);

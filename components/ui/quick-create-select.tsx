@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -97,7 +98,7 @@ export function QuickCreateButton({
       setValues({});
       showToast.success('Creado');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo crear');
+      showToast.error(errorText(e, 'No se pudo crear'));
     } finally {
       setSaving(false);
     }

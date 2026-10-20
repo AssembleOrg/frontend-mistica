@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { showToast } from '@/lib/toast';
 import { clientsService, type Client, type CreateClientRequest, type UpdateClientRequest } from '@/services/clients.service';
 import { log } from '@/lib/logger';
+import { errorText } from '@/lib/api-error-messages';
 
 export function useClientsAPI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -92,7 +93,7 @@ export function useClientsAPI() {
       // Remove from local state
       setClients(prev => prev.filter(client => client.id !== id));
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error al eliminar el cliente';
+      const errorMessage = errorText(error, 'Error al eliminar el cliente');
       showToast.error('Error', errorMessage);
       throw error;
     } finally {

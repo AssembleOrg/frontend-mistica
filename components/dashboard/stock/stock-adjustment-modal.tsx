@@ -24,6 +24,7 @@ import { useStock } from '@/hooks/useStock';
 import { useProducts } from '@/hooks/useProducts';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import type { Product } from '@/lib/types';
+import { errorText } from '@/lib/api-error-messages';
 
 interface StockAdjustmentModalProps {
   isOpen: boolean;
@@ -104,7 +105,7 @@ export function StockAdjustmentModal({ isOpen, onClose, product }: StockAdjustme
     } catch (error) {
       console.error('Error en ajuste de stock:', error);
       showToast.error(
-        error instanceof Error ? error.message : 'Error al realizar ajuste'
+        errorText(error, 'Error al realizar ajuste')
       );
     } finally {
       setIsSubmitting(false);

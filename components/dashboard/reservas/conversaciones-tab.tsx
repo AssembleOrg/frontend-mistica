@@ -43,6 +43,7 @@ import {
 import { FilterChip } from './_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { liveOrPoll } from '@/lib/live-stream';
+import { errorText } from '@/lib/api-error-messages';
 
 const AR_TZ = 'America/Argentina/Buenos_Aires';
 
@@ -133,7 +134,7 @@ export function ConversacionesTab() {
       setHasMore(rows.length === PAGE_SIZE);
       void loadCounts();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar las charlas');
+      showToast.error(errorText(e, 'Error al cargar las charlas'));
     }
   }, [filtro, loadCounts]);
 
@@ -154,7 +155,7 @@ export function ConversacionesTab() {
       setPage(next);
       setHasMore(rows.length === PAGE_SIZE);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar más charlas');
+      showToast.error(errorText(e, 'Error al cargar más charlas'));
     } finally {
       setLoadingMore(false);
     }
@@ -165,7 +166,7 @@ export function ConversacionesTab() {
       const { messages: rows } = await conversationsAdmin.messages(id);
       setMessages(rows);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar los mensajes');
+      showToast.error(errorText(e, 'Error al cargar los mensajes'));
     }
   }, []);
 
@@ -338,7 +339,7 @@ export function ConversacionesTab() {
       await loadInbox();
       await loadMessages(selected.id);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo tomar la charla');
+      showToast.error(errorText(e, 'No se pudo tomar la charla'));
     }
   }
 
@@ -356,7 +357,7 @@ export function ConversacionesTab() {
       // Responder una charla del bot la toma el equipo: refrescamos el estado.
       await loadInbox();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo enviar');
+      showToast.error(errorText(e, 'No se pudo enviar'));
     } finally {
       setSending(false);
     }
@@ -377,7 +378,7 @@ export function ConversacionesTab() {
       await loadInbox();
       await loadMessages(selected.id);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cerrar');
+      showToast.error(errorText(e, 'No se pudo cerrar'));
     }
   }
 

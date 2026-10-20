@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { tallerAdmin, type MonthlyPieceRow } from '@/services/taller.admin.service';
 import { dueLabel, fieldCls, slotLabel } from '@/components/dashboard/alumnos/monthly-piece';
+import { errorText } from '@/lib/api-error-messages';
 
 const fmtDay = (iso?: string) =>
   iso
@@ -34,7 +35,7 @@ export function ProduccionPanel() {
     try {
       setRows(await tallerAdmin.productionList(all));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cargar la lista');
+      showToast.error(errorText(e, 'No se pudo cargar la lista'));
       setRows([]);
     }
   }, [all]);
@@ -56,7 +57,7 @@ export function ProduccionPanel() {
       await tallerAdmin.setPieceReady(pieceId, ready);
     } catch (e) {
       patch(!ready);
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     }
   }
 

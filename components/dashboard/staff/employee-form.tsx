@@ -16,6 +16,7 @@ import {
 import { useEmployees } from '@/hooks/useEmployees';
 import { showToast } from '@/lib/toast';
 import { Employee, EmployeeCreationData } from '@/lib/types';
+import { errorText } from '@/lib/api-error-messages';
 
 interface EmployeeFormProps {
   employee?: Employee;
@@ -69,7 +70,7 @@ export function EmployeeForm({ employee, onSuccess, onCancel }: EmployeeFormProp
       console.error('Error saving employee:', error);
       showToast.error(
         'Error',
-        error instanceof Error ? error.message : 'Error al guardar el empleado'
+        errorText(error, 'Error al guardar el empleado')
       );
     } finally {
       setIsLoading(false);

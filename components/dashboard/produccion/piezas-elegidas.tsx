@@ -10,6 +10,7 @@ import { showToast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { AR_TZ } from '@/lib/reservas-format';
 import { piecesAdmin, type PieceTally } from '@/services/pieces.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -46,7 +47,7 @@ export function PiezasElegidas() {
       .productionTally(period, date)
       .then((t) => alive && setTally(t))
       .catch((e) => {
-        if (alive) showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+        if (alive) showToast.error(errorText(e, 'Error al cargar'));
       });
     return () => {
       alive = false;

@@ -47,6 +47,7 @@ import {
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NewPieceModal } from './piezas-tab';
 import { canManageRole } from '@/lib/views';
+import { errorText } from '@/lib/api-error-messages';
 
 const PAYMENT_LABEL: Record<string, string> = {
   MERCADOPAGO: 'MercadoPago',
@@ -473,7 +474,7 @@ function ClientEditor({
       showToast.success('Datos actualizados');
       onSaved();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -550,7 +551,7 @@ function PeopleEditor({
         ...(res.tableCodes ? { tableCodes: res.tableCodes } : {}),
       });
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -634,7 +635,7 @@ function ExtraTimeEditor({
         ...(res.tableCodes ? { tableCodes: res.tableCodes } : {}),
       });
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -754,7 +755,7 @@ function SpecialExtrasSection({
       });
       showToast.success(`${x.name} sumado a la reserva`);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo sumar');
+      showToast.error(errorText(e, 'No se pudo sumar'));
     } finally {
       setBusy(false);
     }

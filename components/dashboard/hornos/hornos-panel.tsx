@@ -24,6 +24,7 @@ import {
   type KilnLogItem,
   type KilnStatus,
 } from '@/services/kilns.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const DAY_MS = 86_400_000;
 
@@ -92,7 +93,7 @@ export function HornosPanel() {
       setStatus(st);
       setLogs(lg);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar los hornos');
+      showToast.error(errorText(e, 'Error al cargar los hornos'));
     }
   }, [monday, sunday]);
 
@@ -114,7 +115,7 @@ export function HornosPanel() {
       showToast.success(action === 'ON' ? 'Horno prendido registrado' : 'Horno apagado y descargado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo registrar');
+      showToast.error(errorText(e, 'No se pudo registrar'));
     } finally {
       setBusy(null);
     }
@@ -130,7 +131,7 @@ export function HornosPanel() {
       await kilnsAdmin.remove(l.id);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo borrar');
+      showToast.error(errorText(e, 'No se pudo borrar'));
     }
   }
 

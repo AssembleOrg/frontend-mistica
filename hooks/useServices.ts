@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/app.store';
 import { useSettingsStore } from '@/stores/settings.store';
 import { Product, Sale, PaymentInfo } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { errorText } from '@/lib/api-error-messages';
 
 export function useServices() {
   const {
@@ -69,7 +70,7 @@ export function useServices() {
       
       showToast.success(`${product.name} agregado al servicio`);
     } catch (error) {
-      showToast.error(error instanceof Error ? error.message : 'Error agregando producto');
+      showToast.error(errorText(error, 'Error agregando producto'));
       throw error;
     }
   }, [addItemToService, products]);
@@ -102,7 +103,7 @@ export function useServices() {
       updateServiceItem(serviceId, productId, { quantity });
       showToast.success('Cantidad actualizada');
     } catch (error) {
-      showToast.error(error instanceof Error ? error.message : 'Error actualizando cantidad');
+      showToast.error(errorText(error, 'Error actualizando cantidad'));
       throw error;
     }
   }, [updateServiceItem, removeProductFromService, products]);
@@ -171,7 +172,7 @@ export function useServices() {
       
       return { sale, service };
     } catch (error) {
-      showToast.error(error instanceof Error ? error.message : 'Error cerrando servicio');
+      showToast.error(errorText(error, 'Error cerrando servicio'));
       throw error;
     }
   }, [services, closeService, completeSale, products, settingsActions]);

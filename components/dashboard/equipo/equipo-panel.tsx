@@ -19,6 +19,7 @@ import { StatusBadge } from '../reservas/_shared';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { ResponsableField, useResponsable } from '../responsable-field';
 import { canManageRole } from '@/lib/views';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -90,7 +91,7 @@ function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       setTasks(ts);
       setAccounts(accs);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -117,7 +118,7 @@ function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       await load();
       showToast.success('Tarea creada');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     } finally {
       setCreating(false);
     }
@@ -142,7 +143,7 @@ function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       await tallerAdmin.updateTask(t._id, { status });
       if (status === 'DONE') showToast.success(`"${t.title}" completada`);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
       await load();
     }
   }
@@ -153,7 +154,7 @@ function TareasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       await tallerAdmin.removeTask(t._id);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     }
   }
 
@@ -399,7 +400,7 @@ function TaskRow({
       setComment('');
       showToast.success('Actualización agregada');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo agregar el comentario');
+      showToast.error(errorText(e, 'No se pudo agregar el comentario'));
     } finally {
       setCommenting(false);
     }
@@ -556,7 +557,7 @@ function ComprasTab({ canManage }: Readonly<{ canManage: boolean }>) {
     try {
       setItems(await tallerAdmin.listShopping());
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -581,7 +582,7 @@ function ComprasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       setQty('');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     } finally {
       setCreating(false);
     }
@@ -594,7 +595,7 @@ function ComprasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       });
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     }
   }
 
@@ -604,7 +605,7 @@ function ComprasTab({ canManage }: Readonly<{ canManage: boolean }>) {
       await tallerAdmin.removeShoppingItem(it._id);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error');
+      showToast.error(errorText(e, 'Error'));
     }
   }
 

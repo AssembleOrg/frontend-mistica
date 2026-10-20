@@ -9,6 +9,7 @@ import { CheckCircle2, LogOut, RefreshCw, RotateCw, Smartphone } from 'lucide-re
 import { showToast } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { botAdmin, type BotStatus } from '@/services/bot.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 export function BotSessionPanel() {
   const confirm = useConfirm();
@@ -23,7 +24,7 @@ export function BotSessionPanel() {
       setStatus(await botAdmin.status());
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo contactar al bot');
+      setError(errorText(e, 'No se pudo contactar al bot'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +62,7 @@ export function BotSessionPanel() {
       await botAdmin.restart();
       showToast.success('Reinicio solicitado');
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo reiniciar');
+      showToast.error(errorText(e, 'No se pudo reiniciar'));
     } finally {
       setActing(false);
     }
@@ -75,7 +76,7 @@ export function BotSessionPanel() {
       showToast.success('Sesión cerrada. Escaneá el nuevo QR.');
       setTimeout(load, 2000);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cerrar sesión');
+      showToast.error(errorText(e, 'No se pudo cerrar sesión'));
     } finally {
       setActing(false);
     }

@@ -35,6 +35,7 @@ import {
   type Account,
   type AccountRole,
 } from '@/services/users.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -86,7 +87,7 @@ export function AccountsPanel() {
     try {
       setItems(await usersAdmin.list());
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar las cuentas');
+      showToast.error(errorText(e, 'Error al cargar las cuentas'));
     } finally {
       setLoading(false);
     }
@@ -167,7 +168,7 @@ export function AccountsPanel() {
       setEditing(null);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -183,7 +184,7 @@ export function AccountsPanel() {
       showToast.success('Cuenta eliminada');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      showToast.error(errorText(e, 'No se pudo eliminar'));
     }
   }
 

@@ -22,6 +22,7 @@ import {
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { closedDatesAdmin } from '@/services/closed-dates.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const WEEKDAYS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
 const WEEKDAYS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -189,7 +190,7 @@ export function ReservasCalendar({
       });
       setItems(res.items);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar el calendario');
+      showToast.error(errorText(e, 'Error al cargar el calendario'));
     } finally {
       setLoading(false);
     }

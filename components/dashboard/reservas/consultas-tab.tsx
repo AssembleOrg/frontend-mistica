@@ -21,6 +21,7 @@ import {
   type LeadStatus,
 } from '@/services/leads.admin.service';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
+import { errorText } from '@/lib/api-error-messages';
 
 const LIMIT = 20;
 
@@ -86,7 +87,7 @@ export function ConsultasTab() {
       setTotalPages(res.totalPages);
       setTotal(res.total);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -121,7 +122,7 @@ export function ConsultasTab() {
       showToast.success(`Consulta marcada como ${STATUS_LABEL[next].toLowerCase()}`);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+      showToast.error(errorText(e, 'No se pudo actualizar'));
     }
   }
 
@@ -444,7 +445,7 @@ function EditNoteModal({
       showToast.success('Nota guardada');
       await onSaved();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }

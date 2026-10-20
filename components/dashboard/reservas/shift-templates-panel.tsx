@@ -33,6 +33,7 @@ import {
   reservationsAdmin,
   type AdminExperience,
 } from '@/services/reservations.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -81,7 +82,7 @@ export function ShiftTemplatesPanel() {
       setItems(tpls);
       setExperiences(exps.filter((e) => e.bookableOnline !== false));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar los turnos');
+      showToast.error(errorText(e, 'Error al cargar los turnos'));
     } finally {
       setLoading(false);
     }
@@ -129,7 +130,7 @@ export function ShiftTemplatesPanel() {
       await load();
     } catch (e) {
       // El backend valida que no se solapen y que quede el hueco de limpieza.
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -146,7 +147,7 @@ export function ShiftTemplatesPanel() {
       showToast.success('Turno eliminado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      showToast.error(errorText(e, 'No se pudo eliminar'));
     }
   }
 

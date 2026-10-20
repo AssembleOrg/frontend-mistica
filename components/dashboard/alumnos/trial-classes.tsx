@@ -29,6 +29,7 @@ import {
 } from '@/services/taller.admin.service';
 import { ResponsableField, useResponsable } from '@/components/dashboard/responsable-field';
 import { StudentPicker } from '@/components/dashboard/student-picker';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -186,7 +187,7 @@ export function ScheduleTrialDialog({
       showToast.success(`Clase de prueba agendada para el ${trialDateLabel(date)}`);
       onDone(t);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo agendar');
+      showToast.error(errorText(e, 'No se pudo agendar'));
     } finally {
       setSaving(false);
     }
@@ -382,7 +383,7 @@ export function EnrollTrialDialog({
       showToast.success(`${trial.student.name} quedó inscripta en ${group.name}`);
       onDone();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo inscribir');
+      showToast.error(errorText(e, 'No se pudo inscribir'));
     } finally {
       setSaving(false);
     }
@@ -516,7 +517,7 @@ export function useCancelTrial(onCancelled: (id: string) => void) {
       await tallerAdmin.cancelTrial(t._id);
       onCancelled(t._id);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
+      showToast.error(errorText(e, 'No se pudo cancelar'));
     }
   };
 }

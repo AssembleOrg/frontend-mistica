@@ -20,6 +20,7 @@ import {
   type TaxCondition,
 } from '@/services/sales.service';
 import { formatCurrency } from '@/lib/sales-calculations';
+import { errorText } from '@/lib/api-error-messages';
 
 interface Props {
   open: boolean;
@@ -108,7 +109,7 @@ export function IssueInvoiceDialog({ open, onOpenChange, total, onConfirm }: Pro
       }
       showToast.success('Datos cargados desde AFIP');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error consultando AFIP';
+      const msg = errorText(err, 'Error consultando AFIP');
       showToast.error(msg);
     } finally {
       setLookingUp(false);

@@ -17,6 +17,7 @@ import {
   egressesService,
   type EgressCategory,
 } from '@/services/egresses.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const PALETTE = [
   '#455a54', '#5a7d9a', '#8a6d9a', '#9d684e', '#c2803d', '#6d8f5a',
@@ -81,7 +82,7 @@ export function ManageEgressCategoriesDialog({
       await load();
       onChanged?.();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo crear');
+      showToast.error(errorText(e, 'No se pudo crear'));
     } finally {
       setBusy(false);
     }
@@ -99,7 +100,7 @@ export function ManageEgressCategoriesDialog({
       await load();
       onChanged?.();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setBusy(false);
     }
@@ -113,7 +114,7 @@ export function ManageEgressCategoriesDialog({
       await load();
       onChanged?.();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      showToast.error(errorText(e, 'No se pudo eliminar'));
     } finally {
       setBusy(false);
     }

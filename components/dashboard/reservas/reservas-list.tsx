@@ -51,6 +51,7 @@ import { SlotPicker, fromMin, toMin, useSlotPicker } from './slot-picker';
 import { DietaryPicker } from './dietary-badge';
 import { FormField, FormSection } from '@/components/ui/form-section';
 import { useCobrarEnVentas } from './use-cobrar';
+import { errorText } from '@/lib/api-error-messages';
 
 const LIMIT = 20;
 
@@ -157,7 +158,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
       setTotalPages(res.totalPages);
       setTotal(res.total);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -208,7 +209,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
       setDetail(null);
       refresh();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
+      showToast.error(errorText(e, 'No se pudo cancelar'));
     } finally {
       setBusy(null);
     }
@@ -224,7 +225,7 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
       setDetail(null);
       refresh();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo resolver');
+      showToast.error(errorText(e, 'No se pudo resolver'));
     } finally {
       setBusy(null);
     }
@@ -735,7 +736,7 @@ export function NewReservationModal({
       await onDone();
     } catch (e) {
       showToast.error(
-        e instanceof Error ? e.message : 'No se pudo crear la reserva',
+        errorText(e, 'No se pudo crear la reserva'),
       );
     } finally {
       setSaving(false);
@@ -1066,7 +1067,7 @@ export function RescheduleModal({
         setSessions(all.filter((s) => s.id !== reservation.sessionId));
       } catch (e) {
         showToast.error(
-          e instanceof Error ? e.message : 'Error al cargar turnos',
+          errorText(e, 'Error al cargar turnos'),
         );
       } finally {
         setLoading(false);
@@ -1101,7 +1102,7 @@ export function RescheduleModal({
       await onDone();
     } catch (e) {
       showToast.error(
-        e instanceof Error ? e.message : 'No se pudo reprogramar',
+        errorText(e, 'No se pudo reprogramar'),
       );
     } finally {
       setSaving(false);

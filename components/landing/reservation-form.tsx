@@ -21,6 +21,7 @@ import {
 import { SectionLabel } from '@/components/landing/primitives';
 import { useBusinessHours } from '@/hooks/useBusinessHours';
 import { specialOn } from '@/lib/specials';
+import { errorText } from '@/lib/api-error-messages';
 
 function toMin(hhmm: string): number {
   const [h, m] = hhmm.split(':').map(Number);
@@ -379,7 +380,7 @@ export function ReservationForm({
       // por WhatsApp. Mostramos los datos bancarios en la misma pantalla.
       setHold(created);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo iniciar la reserva.');
+      setError(errorText(e, 'No se pudo iniciar la reserva.'));
       setSubmitting(false);
     }
   }

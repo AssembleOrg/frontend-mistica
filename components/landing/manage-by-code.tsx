@@ -8,6 +8,7 @@ import {
 } from '@/services/reservations.public.service';
 import { StatusText } from '@/components/landing/primitives';
 import { ConfirmProvider, useConfirm } from '@/components/ui/confirm-dialog';
+import { errorText } from '@/lib/api-error-messages';
 
 function fmtDate(iso: string) {
   const tz = 'America/Argentina/Buenos_Aires';
@@ -49,7 +50,7 @@ function ManageByCodeContent() {
     try {
       setReservation(await reservationsPublic.getByCode(c));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No encontramos esa reserva.');
+      setError(errorText(e, 'No encontramos esa reserva.'));
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ function ManageByCodeContent() {
     try {
       setReservation(await reservationsPublic.cancelByCode(reservation.code));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo cancelar.');
+      setError(errorText(e, 'No se pudo cancelar.'));
     } finally {
       setLoading(false);
     }

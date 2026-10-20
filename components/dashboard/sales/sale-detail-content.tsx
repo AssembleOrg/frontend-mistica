@@ -37,6 +37,7 @@ import {
   Wallet,
   Link2,
 } from 'lucide-react';
+import { errorText } from '@/lib/api-error-messages';
 
 interface SaleDetailContentProps {
   sale: Sale;
@@ -264,7 +265,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
       }
       onSaleUpdated?.();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al emitir la factura AFIP';
+      const msg = errorText(err, 'Error al emitir la factura AFIP');
       showToast.error(msg);
     } finally {
       setIsUpdating(false);

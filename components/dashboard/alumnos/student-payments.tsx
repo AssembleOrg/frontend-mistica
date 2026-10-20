@@ -21,6 +21,7 @@ import {
 } from '@/services/taller.admin.service';
 import { StatusBadge } from '../reservas/_shared';
 import { currentMonth, fieldCls, monthLabel, shiftMonth } from './monthly-piece';
+import { errorText } from '@/lib/api-error-messages';
 
 const fmtDay = (iso?: string) =>
   iso
@@ -299,7 +300,7 @@ function EditPaymentDialog({
       showToast.success('Pago corregido');
       await onSaved();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo corregir');
+      showToast.error(errorText(e, 'No se pudo corregir'));
     } finally {
       setSaving(false);
     }
@@ -318,7 +319,7 @@ function EditPaymentDialog({
       showToast.success('Registro borrado');
       await onSaved();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo borrar');
+      showToast.error(errorText(e, 'No se pudo borrar'));
     } finally {
       setSaving(false);
     }

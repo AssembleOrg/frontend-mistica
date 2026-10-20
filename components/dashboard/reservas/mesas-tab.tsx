@@ -34,6 +34,7 @@ import { ShiftTemplatesPanel } from './shift-templates-panel';
 import { BusinessHoursPanel } from './business-hours-panel';
 import { RecurringBlocksPanel } from './recurring-blocks-panel';
 import { DietaryTags } from './dietary-badge';
+import { errorText } from '@/lib/api-error-messages';
 
 // ─────────────────────────── helpers de fecha (AR) ───────────────────────────
 
@@ -102,7 +103,7 @@ export function MesasTab() {
     try {
       setAgenda(await tablesAdmin.agenda(anchor));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar la agenda de mesas');
+      showToast.error(errorText(e, 'Error al cargar la agenda de mesas'));
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,7 @@ export function MesasTab() {
       showToast.success(`${t.code} liberada`);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar el bloqueo');
+      showToast.error(errorText(e, 'No se pudo quitar el bloqueo'));
     } finally {
       setBusy(false);
     }
@@ -151,7 +152,7 @@ export function MesasTab() {
       await load();
     } catch (e) {
       showToast.error(
-        e instanceof Error ? e.message : 'No se pudieron bloquear las mesas',
+        errorText(e, 'No se pudieron bloquear las mesas'),
       );
     } finally {
       setBusy(false);
@@ -164,7 +165,7 @@ export function MesasTab() {
       showToast.success(`Mesas de ${r.customerName}: ${codes.join(', ')}`);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudieron cambiar las mesas');
+      showToast.error(errorText(e, 'No se pudieron cambiar las mesas'));
     }
   }
 

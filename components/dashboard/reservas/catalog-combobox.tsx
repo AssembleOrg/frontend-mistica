@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PopoverPortal } from '@/components/ui/popover-portal';
 import { cn } from '@/lib/utils';
+import { errorText } from '@/lib/api-error-messages';
 
 export const catalogFieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -14,8 +15,7 @@ export const catalogFieldCls =
 export const norm = (s: string) =>
   s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 
-export const errMsg = (e: unknown, fallback: string) =>
-  e instanceof Error ? e.message : fallback;
+export const errMsg = (e: unknown, fallback: string) => errorText(e, fallback);
 
 export interface CatalogOption {
   key: string;

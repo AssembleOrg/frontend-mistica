@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { categoriesService } from '@/services/categories.service';
 import type { Category } from '@/lib/types';
 import { showToast } from '@/lib/toast';
+import { errorText } from '@/lib/api-error-messages';
 
 /**
  * Hook compartido para cargar la lista de categorías desde el backend.
@@ -20,7 +21,7 @@ export function useCategories(autoload: boolean = true) {
       const res = await categoriesService.list();
       setCategories(res.data);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al obtener categorías';
+      const msg = errorText(err, 'Error al obtener categorías');
       showToast.error(msg);
     } finally {
       setIsLoading(false);

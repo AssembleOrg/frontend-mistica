@@ -19,6 +19,7 @@ import {
   useSlotPicker,
 } from '@/components/dashboard/reservas/slot-picker';
 import type { Product } from '@/lib/types';
+import { errorText } from '@/lib/api-error-messages';
 
 /** Renglón de la actividad agendada (ítem libre: se va sin productId). */
 const AGENDA_LINE_ID = 'free-agenda';
@@ -198,7 +199,7 @@ export function useSaleSchedule(
     } catch (e) {
       // Al editar una venta que ya tenía reserva el backend la rechaza: no es
       // un error, la venta ya está en la agenda.
-      const msg = e instanceof Error ? e.message : '';
+      const msg = errorText(e, '');
       if (/ya está agendada/i.test(msg)) {
         showToast.info(msg.replace('Esta venta ya está agendada', 'La venta ya estaba agendada'));
         return;

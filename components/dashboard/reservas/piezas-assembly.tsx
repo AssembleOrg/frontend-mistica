@@ -16,6 +16,7 @@ import {
   type PieceItem,
   type PieceStatusConfig,
 } from '@/services/pieces.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 // "viernes 2 de octubre". Mediodía para que ninguna zona horaria lo corra.
 function dayLabel(day: string): string {
@@ -43,7 +44,7 @@ export function PiezasAssembly({
     try {
       setGroups(await piecesAdmin.assembly());
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export function PiezasAssembly({
       });
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+      showToast.error(errorText(e, 'No se pudo actualizar'));
     } finally {
       setBusy(null);
     }
@@ -77,7 +78,7 @@ export function PiezasAssembly({
       showToast.success('Aviso de retiro enviado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo enviar el aviso');
+      showToast.error(errorText(e, 'No se pudo enviar el aviso'));
     } finally {
       setBusy(null);
     }

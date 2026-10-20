@@ -33,6 +33,7 @@ import {
   generatePassword,
   usersAdmin,
 } from '@/services/users.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -62,7 +63,7 @@ export function ProfessorsPanel() {
     try {
       setItems(await professorsAdmin.list());
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar profesores');
+      showToast.error(errorText(e, 'Error al cargar profesores'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +96,7 @@ export function ProfessorsPanel() {
       setEditing(null);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -108,7 +109,7 @@ export function ProfessorsPanel() {
       showToast.success('Profesor eliminado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      showToast.error(errorText(e, 'No se pudo eliminar'));
     }
   }
 
@@ -345,7 +346,7 @@ function AccountForProfessor({
       );
       await onDone();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo crear la cuenta');
+      showToast.error(errorText(e, 'No se pudo crear la cuenta'));
     } finally {
       setSaving(false);
     }

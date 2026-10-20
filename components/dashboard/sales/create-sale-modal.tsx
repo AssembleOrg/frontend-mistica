@@ -50,6 +50,7 @@ import {
   reservationsAdmin,
   type ReservationCheckoutPlan,
 } from '@/services/reservations.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 type AdjustmentType = 'discount' | 'surcharge';
 
@@ -317,7 +318,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
         );
       } catch (e) {
         if (!cancelled) {
-          showToast.error(e instanceof Error ? e.message : 'No se pudo cargar la reserva');
+          showToast.error(errorText(e, 'No se pudo cargar la reserva'));
         }
       }
     })();
@@ -927,7 +928,7 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
           try {
             createdSale = await reservationsAdmin.checkout(checkoutPlan.reservation._id, saleData);
           } catch (e) {
-            showToast.error(e instanceof Error ? e.message : 'No se pudo cobrar la reserva');
+            showToast.error(errorText(e, 'No se pudo cobrar la reserva'));
             throw e;
           }
         } else {

@@ -15,6 +15,7 @@ import {
   type ReservationView,
 } from '@/services/reservations.public.service';
 import { ReservationCode, StatusText } from '@/components/landing/primitives';
+import { errorText } from '@/lib/api-error-messages';
 
 function fmtDate(iso: string) {
   const tz = 'America/Argentina/Buenos_Aires';
@@ -68,7 +69,7 @@ function EstadoInner() {
         }
       } catch (e) {
         if (!alive) return;
-        setError(e instanceof Error ? e.message : 'No pudimos leer tu reserva.');
+        setError(errorText(e, 'No pudimos leer tu reserva.'));
         setPolling(false);
         return;
       }
@@ -189,7 +190,7 @@ function CodeLookup({
     try {
       onFound(await reservationsPublic.getByCode(c));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No encontramos esa reserva.');
+      setError(errorText(e, 'No encontramos esa reserva.'));
     } finally {
       setLoading(false);
     }

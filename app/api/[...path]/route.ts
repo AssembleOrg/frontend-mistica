@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { errorText } from '@/lib/api-error-messages';
 
 /**
  * Proxy genérico hacia el backend.
@@ -83,7 +84,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
       redirect: 'manual',
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
+    const message = errorText(err, 'Unknown error');
     console.error(`[api-proxy] fetch failed for ${request.method} ${url}:`, err);
     return NextResponse.json(
       {

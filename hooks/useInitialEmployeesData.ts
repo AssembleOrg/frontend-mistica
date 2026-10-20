@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
 import { useEmployeesStore } from '@/stores/employees.store';
 import { employeesService } from '@/services/employees.service';
 import { toast } from 'sonner';
+import { errorText } from '@/lib/api-error-messages';
 
 interface UseInitialEmployeesDataOptions {
   /**
@@ -88,9 +89,7 @@ export function useInitialEmployeesData(options: UseInitialEmployeesDataOptions 
         console.error('👥 EMPLEADOS: Error en fetch:', error);
         store.setLoading(false);
         
-        const errorMessage = error instanceof Error 
-          ? error.message 
-          : 'Error al cargar empleados';
+        const errorMessage = errorText(error, 'Error al cargar empleados');
         
         store.setError(errorMessage);
         

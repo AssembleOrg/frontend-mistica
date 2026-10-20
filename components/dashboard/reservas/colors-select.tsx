@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { canManageRole } from '@/lib/views';
 import { piecesAdmin, type PieceColor } from '@/services/pieces.admin.service';
 import { catalogFieldCls, norm } from './catalog-combobox';
+import { errorText } from '@/lib/api-error-messages';
 
 /** Paleta del taller mientras carga la del servidor (la editable). */
 export const COLOR_GROUPS: PieceColor[][] = [
@@ -246,7 +247,7 @@ function ColorsEditor({ onClose }: { onClose: () => void }) {
       showToast.success('Colores guardados');
       onClose();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudieron guardar los colores');
+      showToast.error(errorText(e, 'No se pudieron guardar los colores'));
     } finally {
       setSaving(false);
     }

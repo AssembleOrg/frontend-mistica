@@ -33,6 +33,7 @@ import {
   type ReservationItem,
   type ReservationPaymentMethod,
 } from '@/services/reservations.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const METHODS: { key: ReservationPaymentMethod; label: string }[] = [
   { key: 'CASH', label: 'Efectivo' },
@@ -98,7 +99,7 @@ export function AnotadosModal({
       setSession(data.session);
       setReservations(data.reservations);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -164,7 +165,7 @@ export function AnotadosModal({
       await load();
       onChanged();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo crear');
+      showToast.error(errorText(e, 'No se pudo crear'));
     } finally {
       setSaving(false);
     }

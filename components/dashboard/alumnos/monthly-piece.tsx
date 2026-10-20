@@ -31,6 +31,7 @@ import {
   PieceTypeSelect,
   usePieceCategories,
 } from '@/components/dashboard/reservas/piece-type-select';
+import { errorText } from '@/lib/api-error-messages';
 
 const MESES = [
   'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
@@ -151,7 +152,7 @@ export function MonthlyPieceFields({
       onSaved?.(p);
       setSavedTick((t) => t + 1);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -177,7 +178,7 @@ export function MonthlyPieceFields({
       try {
         await tallerAdmin.removeMonthlyPiece(value._id);
       } catch (e) {
-        showToast.error(e instanceof Error ? e.message : 'No se pudo borrar');
+        showToast.error(errorText(e, 'No se pudo borrar'));
         return;
       }
     }

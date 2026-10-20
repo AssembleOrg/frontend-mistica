@@ -23,6 +23,7 @@ import {
   type AdminTable,
   type RecurringBlock,
 } from '@/services/tables.admin.service';
+import { errorText } from '@/lib/api-error-messages';
 
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -72,7 +73,7 @@ export function RecurringBlocksPanel() {
       setTables(cat);
     } catch (e) {
       showToast.error(
-        e instanceof Error ? e.message : 'Error al cargar los bloqueos fijos',
+        errorText(e, 'Error al cargar los bloqueos fijos'),
       );
     } finally {
       setLoading(false);
@@ -153,7 +154,7 @@ export function RecurringBlocksPanel() {
       setEditing(null);
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -170,7 +171,7 @@ export function RecurringBlocksPanel() {
       showToast.success('Bloqueo fijo eliminado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      showToast.error(errorText(e, 'No se pudo eliminar'));
     }
   }
 

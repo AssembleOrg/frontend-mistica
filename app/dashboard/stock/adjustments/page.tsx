@@ -36,6 +36,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useInitialProductsData } from '@/hooks/useInitialProductsData';
 import { PaginationWithMore } from '@/components/ui/pagination-with-more';
 import type { Product } from '@/lib/types';
+import { errorText } from '@/lib/api-error-messages';
 
 function StockAdjustmentsContent() {
   const router = useRouter();
@@ -166,7 +167,7 @@ function StockAdjustmentsContent() {
     } catch (error) {
       console.error('Error en ajuste de stock:', error);
       showToast.error(
-        error instanceof Error ? error.message : 'Error al realizar ajuste'
+        errorText(error, 'Error al realizar ajuste')
       );
     } finally {
       setIsSubmitting(false);

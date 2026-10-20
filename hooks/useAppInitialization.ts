@@ -4,6 +4,7 @@ import { useProductsStore } from '@/stores/products.store';
 import { useEmployeesStore } from '@/stores/employees.store';
 import { productsService } from '@/services/products.service';
 import { employeesService } from '@/services/employees.service';
+import { errorText } from '@/lib/api-error-messages';
 
 interface InitializationState {
   products: boolean;
@@ -105,7 +106,7 @@ export function useAppInitialization() {
       setProductsLoading(false);
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error loading products';
+      const message = errorText(error, 'Error loading products');
       setStatus((prev) => ({
         ...prev,
         products: { loading: false, error: message, lastInitialized: null },
@@ -141,7 +142,7 @@ export function useAppInitialization() {
       setEmployeesLoading(false);
       return true;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Error loading employees';
+      const message = errorText(error, 'Error loading employees');
       setStatus((prev) => ({
         ...prev,
         employees: { loading: false, error: message, lastInitialized: null },

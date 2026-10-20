@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { errorText } from '@/lib/api-error-messages';
 import {
   reservationsAdmin,
   type AdminExperience,
@@ -159,10 +160,7 @@ export function useSlotPicker(
           if (alive)
             setCheck({
               status: 'no',
-              message:
-                e instanceof Error && e.message
-                  ? e.message
-                  : 'No se pudo verificar ese horario.',
+              message: errorText(e, 'No se pudo verificar ese horario.'),
             });
         });
     }, 350);

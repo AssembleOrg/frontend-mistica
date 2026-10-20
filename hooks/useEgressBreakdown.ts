@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { egressesService, type Egress } from '@/services/egresses.service';
 import { egressTypeLabel, type EgressType } from '@/lib/egress-type-labels';
+import { errorText } from '@/lib/api-error-messages';
 
 /** Tope de egresos que traemos en una sola página. Un mes normal entra holgado. */
 const PAGE_LIMIT = 500;
@@ -94,7 +95,7 @@ export function useEgressBreakdown({ from, to, enabled = true }: Params): Egress
       setItems([]);
       setTotalAvailable(0);
       setError(
-        err instanceof Error ? err.message : 'No se pudo cargar el desglose de egresos',
+        errorText(err, 'No se pudo cargar el desglose de egresos'),
       );
     } finally {
       setLoading(false);

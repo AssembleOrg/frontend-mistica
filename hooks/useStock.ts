@@ -8,6 +8,7 @@ import { useProducts } from '@/hooks/useProducts';
 import { productsService } from '@/services/products.service';
 import type { Sale } from '@/services/sales.service';
 import type { Product } from '@/lib/types';
+import { errorText } from '@/lib/api-error-messages';
 
 export function useStock() {
   const { 
@@ -60,7 +61,7 @@ export function useStock() {
       return updatedProduct;
     } catch (error) {
       console.error('Error al ajustar stock:', error);
-      throw new Error(error instanceof Error ? error.message : 'Error al actualizar stock');
+      throw new Error(errorText(error, 'Error al actualizar stock'));
     }
   }, [products, addStock, subtractStock, adjustStock]);
 

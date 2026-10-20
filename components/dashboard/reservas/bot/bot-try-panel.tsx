@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { botAdmin, type BotTryTurn } from '@/services/bot.admin.service';
 import { Section, fieldCls } from './_shared';
+import { errorText } from '@/lib/api-error-messages';
 
 type Turn = BotTryTurn & { tools?: string[]; ms?: number };
 
@@ -52,7 +53,7 @@ export function BotTryPanel() {
         { role: 'assistant', content: res.reply || '(sin respuesta)', tools: res.tools, ms: res.ms },
       ]);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo probar');
+      showToast.error(errorText(e, 'No se pudo probar'));
       setTurns((prev) => prev.slice(0, -1));
     } finally {
       setBusy(false);

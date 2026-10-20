@@ -63,6 +63,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 import { ResponsableField, useResponsable } from '../responsable-field';
 import { canManageRole } from '@/lib/views';
+import { errorText } from '@/lib/api-error-messages';
 
 const LIMIT = 50;
 /** Tope al seleccionar un día entero (una tanda de horno no llega ni cerca). */
@@ -235,7 +236,7 @@ export function PiezasTab() {
       setTotal(res.total);
       setCountsKey((k) => k + 1);
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al cargar');
+      showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
@@ -277,7 +278,7 @@ export function PiezasTab() {
       );
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+      showToast.error(errorText(e, 'No se pudo actualizar'));
     } finally {
       setBusy(null);
     }
@@ -327,7 +328,7 @@ export function PiezasTab() {
         return next;
       });
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo seleccionar el día');
+      showToast.error(errorText(e, 'No se pudo seleccionar el día'));
     } finally {
       setBulkBusy(false);
     }
@@ -350,7 +351,7 @@ export function PiezasTab() {
       setSelected(new Set());
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo actualizar');
+      showToast.error(errorText(e, 'No se pudo actualizar'));
     } finally {
       setBulkBusy(false);
     }
@@ -388,7 +389,7 @@ export function PiezasTab() {
       showToast.success('Aviso de retiro enviado');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo enviar el aviso');
+      showToast.error(errorText(e, 'No se pudo enviar el aviso'));
     } finally {
       setBusy(null);
     }
@@ -406,7 +407,7 @@ export function PiezasTab() {
       showToast.success('Pieza eliminada');
       await load();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo eliminar');
+      showToast.error(errorText(e, 'No se pudo eliminar'));
     } finally {
       setBusy(null);
     }
@@ -942,7 +943,7 @@ function EditPieceModal({
       showToast.success('Ficha actualizada');
       await onDone();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo guardar');
+      showToast.error(errorText(e, 'No se pudo guardar'));
     } finally {
       setSaving(false);
     }
@@ -1353,7 +1354,7 @@ export function NewPieceModal({
       await piecesAdmin.removeDraftEntry(reservation._id, entry.key);
       setEntries((current) => current.filter((e) => e.key !== entry.key));
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo quitar la ficha');
+      showToast.error(errorText(e, 'No se pudo quitar la ficha'));
     }
   }
 
@@ -1415,7 +1416,7 @@ export function NewPieceModal({
       );
       await onDone();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudieron registrar las piezas');
+      showToast.error(errorText(e, 'No se pudieron registrar las piezas'));
     } finally {
       setSaving(false);
     }
@@ -1855,7 +1856,7 @@ function GroupPieceModal({
       );
     } catch (e) {
       showToast.error(
-        e instanceof Error ? e.message : 'No se pudieron registrar las piezas',
+        errorText(e, 'No se pudieron registrar las piezas'),
       );
       setSaving(false);
       return;
@@ -2253,7 +2254,7 @@ function PhotosDialog({
       showToast.success('Fotos guardadas');
       await onSaved();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'Error al guardar');
+      showToast.error(errorText(e, 'Error al guardar'));
     } finally {
       setSaving(false);
     }

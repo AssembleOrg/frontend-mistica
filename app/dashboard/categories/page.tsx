@@ -23,6 +23,7 @@ import { categoriesService } from '@/services/categories.service';
 import { showToast } from '@/lib/toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import type { Category } from '@/lib/types';
+import { errorText } from '@/lib/api-error-messages';
 
 interface FormState {
   name: string;
@@ -83,7 +84,7 @@ export default function CategoriesPage() {
       setOpen(false);
       await refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al guardar';
+      const msg = errorText(err, 'Error al guardar');
       showToast.error(msg);
     } finally {
       setSubmitting(false);
@@ -98,7 +99,7 @@ export default function CategoriesPage() {
       showToast.success('Categoría eliminada');
       await refresh();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al eliminar';
+      const msg = errorText(err, 'Error al eliminar');
       showToast.error(msg);
     } finally {
       setDeletingId(null);

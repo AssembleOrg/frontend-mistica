@@ -15,6 +15,7 @@ import {
 import { ReservationDetailPanel } from './reservation-detail-panel';
 import { RescheduleModal } from './reservas-list';
 import { useCobrarEnVentas } from './use-cobrar';
+import { errorText } from '@/lib/api-error-messages';
 
 export function ReservationManager({
   reservation,
@@ -46,7 +47,7 @@ export function ReservationManager({
       onClose();
       await onChanged();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo cancelar');
+      showToast.error(errorText(e, 'No se pudo cancelar'));
     } finally {
       setBusy(false);
     }
@@ -60,7 +61,7 @@ export function ReservationManager({
       onClose();
       await onChanged();
     } catch (e) {
-      showToast.error(e instanceof Error ? e.message : 'No se pudo confirmar');
+      showToast.error(errorText(e, 'No se pudo confirmar'));
     } finally {
       setBusy(false);
     }

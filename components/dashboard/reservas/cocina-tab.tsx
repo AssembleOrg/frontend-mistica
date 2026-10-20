@@ -20,6 +20,8 @@ import {
   type AdminExperience,
   type ReservationItem,
 } from '@/services/reservations.admin.service';
+import { cn } from '@/lib/utils';
+import { CocinaProduccion } from './cocina-produccion';
 import { DietaryTags } from './dietary-badge';
 import { birthdayWho } from './reservation-kitchen';
 
@@ -63,7 +65,37 @@ function cakesOf(r: ReservationItem): { label: string; qty: number; missing?: bo
   return cakes;
 }
 
+// Dos vistas: la semana (qué viene) y la producción (lo que cocina anota).
 export function CocinaTab() {
+  const [view, setView] = useState<'semana' | 'produccion'>('semana');
+  return (
+    <div className='flex flex-col gap-4'>
+      <div className='inline-flex w-fit rounded-xl border border-[#e6dbcd] bg-white p-1'>
+        {(
+          [
+            ['semana', 'La semana'],
+            ['produccion', 'Producción'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type='button'
+            onClick={() => setView(key)}
+            className={cn(
+              'rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors',
+              view === key ? 'bg-[#455a54] text-white' : 'text-[#7a6e6f] hover:text-[#455a54]',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === 'semana' ? <CocinaSemana /> : <CocinaProduccion />}
+    </div>
+  );
+}
+
+function CocinaSemana() {
   const [monday, setMonday] = useState(() => mondayOf(ymdInAR(new Date())));
   const [items, setItems] = useState<ReservationItem[]>([]);
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);

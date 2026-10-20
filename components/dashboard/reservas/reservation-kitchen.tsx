@@ -10,7 +10,11 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { fmtDateTime, fmtPrice } from '@/lib/reservas-format';
+import { AR_TZ, fmtDateTime, fmtPrice } from '@/lib/reservas-format';
+import {
+  kitchenProductionAdmin,
+  type KitchenProductionItem,
+} from '@/services/kitchen-production.admin.service';
 import { FREE_CAKE_MIN_PEOPLE, SYMBOLIC_CAKE_LABEL, cakeProductOf } from '@/lib/kitchen';
 import { productsService } from '@/services/products.service';
 import {
@@ -108,7 +112,27 @@ export function KitchenSection({
     setAdding(false);
   }, [r._id]);
 
-  if (!hasInfo && !canEdit) return null;
+  // Lo que cocina anotó para esta reserva (Cocina → Producción). Las cuentas
+  // sin la pestaña Cocina no lo ven (el backend responde 403).
+  const [produced, setProduced] = useState<KitchenProductionItem[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const day = new Date(r.startAt).toLocaleDateString('en-CA', { timeZone: AR_TZ });
+    const shift = (n: number) => {
+      const d = new Date(`${day}T12:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    };
+    kitchenProductionAdmin
+      .list(shift(-30), shift(7), r._id)
+      .then((items) => alive && setProduced(items))
+      .catch(() => alive && setProduced([]));
+    return () => {
+      alive = false;
+    };
+  }, [r._id, r.startAt]);
+
+  if (!hasInfo && !canEdit && produced.length === 0) return null;
 
   async function removeCake(cakeId: string, label: string, amount?: number) {
     const ok = await confirm({
@@ -266,6 +290,17 @@ export function KitchenSection({
                 <Plus className='h-3.5 w-3.5' /> Sumar torta
               </button>
             ))}
+        </div>
+      )}
+      {produced.length > 0 && (
+        <div className='flex flex-col gap-1 rounded-lg bg-[#fbf5ef] px-3 py-2'>
+          <span className='text-[11px] font-semibold text-[#7a6e6f]'>Preparado por cocina</span>
+          {produced.map((p) => (
+            <p key={p.id} className='text-[13px] text-[#3d3338]'>
+              {p.item} · <span className='font-mono'>{p.quantity}{p.unit ? ` ${p.unit}` : ''}</span>
+              {p.byName && <span className='text-[#7a6e6f]'> · {p.byName}</span>}
+            </p>
+          ))}
         </div>
       )}
     </div>

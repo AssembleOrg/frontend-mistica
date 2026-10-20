@@ -33,6 +33,8 @@ export const kilnsAdmin = {
     kiln: KilnKey;
     action: KilnAction;
     registeredBy?: string;
+    /** Horno que nadie marcó en el momento (ISO). Sólo admin/encargado. */
+    at?: string;
   }) =>
     (
       await apiService.post<KilnLogItem>(

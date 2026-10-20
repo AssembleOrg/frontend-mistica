@@ -75,6 +75,18 @@ function dayOf(p: PieceItem): string {
   return p.workDate || p.createdAt.slice(0, 10);
 }
 
+// Pedido al que pertenece la pieza: la reserva (o el alumno). El listado las
+// separa con una línea gruesa para ver qué hay que juntarle a cada titular.
+function groupOf(p: PieceItem): string {
+  if (p.reservationId) return `r:${p.reservationId}`;
+  if (p.studentId) return `s:${p.studentId}`;
+  return `p:${p._id}`;
+}
+
+// Tela, yeso…: se la llevan en el día; no hay nada que entregar después.
+const materialLabel = (p: PieceItem) =>
+  p.material ? `${p.material.charAt(0).toUpperCase()}${p.material.slice(1)} · se la llevó` : '';
+
 // "lunes 22 de septiembre". Mediodía para que ninguna zona horaria lo corra.
 function dayLabel(day: string): string {
   return new Date(`${day}T12:00:00`).toLocaleDateString('es-AR', {
@@ -116,7 +128,7 @@ function statusColors(
 }
 
 const COLS =
-  'grid grid-cols-[1.25rem_10rem_8rem_1fr_8rem_9rem_7rem_14rem] items-center gap-3';
+  'grid grid-cols-[1.25rem_12rem_1fr_9rem_7rem_14rem] items-center gap-3';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
@@ -357,6 +369,75 @@ export function PiezasTab() {
     }
   }
 
+  // Resumen del pedido (con lo que está en pantalla): cuántas piezas hay que
+  // entregar y cuántas ya están. Las de tela/yeso no cuentan.
+  function groupSummary(key: string) {
+    const all = items.filter((p) => groupOf(p) === key);
+    const deliver = all.filter((p) => !p.material);
+    const done = deliver.filter((p) => {
+      const c = cfgOf(p.status, statusCfg);
+      return c?.isReady || c?.isFinal;
+    });
+    const ready = deliver.find((p) => cfgOf(p.status, statusCfg)?.isReady);
+    const notified = deliver.some((p) => p.notifiedReadyAt);
+    return { all, deliver, done, ready, notified };
+  }
+
+  function groupHeader(p: PieceItem) {
+    const key = groupOf(p);
+    if (key.startsWith('p:')) return null;
+    const g = groupSummary(key);
+    const titular = p.customerName || p.studentName || p.personName || 'Sin nombre';
+    const canNotify =
+      canManage &&
+      !!g.ready &&
+      !g.notified &&
+      g.deliver.length > 0 &&
+      g.done.length === g.deliver.length;
+    return (
+      <div className='flex flex-wrap items-center gap-x-3 gap-y-1 border-t-[3px] border-[#455a54]/45 bg-white px-4 pb-1.5 pt-2.5 md:px-5'>
+        <span className='text-sm font-semibold text-[#3d3338]'>
+          {p.reservationId ? 'Reserva de ' : ''}
+          {titular}
+        </span>
+        {p.experienceName && (
+          <span className='text-xs text-[#7a6e6f]'>{p.experienceName}</span>
+        )}
+        <span
+          className={cn(
+            'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            g.deliver.length === 0
+              ? 'bg-[#eae4db] text-[#5c5148]'
+              : g.done.length === g.deliver.length
+                ? 'bg-[#dcebe1] text-[#2f4a40]'
+                : 'bg-[#f3e2d0] text-[#8a5638]',
+          )}
+        >
+          {g.deliver.length === 0
+            ? 'Nada para entregar'
+            : `${g.done.length}/${g.deliver.length} para entregar`}
+        </span>
+        <div className='ml-auto flex items-center gap-2'>
+          {canNotify && (
+            <Button
+              type='button'
+              variant='verde'
+              size='sm'
+              disabled={busy === g.ready!._id}
+              onClick={() => sendReadyNotice(g.ready!)}
+              className='h-7 px-2.5 text-[11px]'
+            >
+              Avisar a {titular.split(' ')[0]}
+            </Button>
+          )}
+          {canManage && g.notified && (
+            <span className='text-[11px] font-medium text-[#455a54]'>Avisado ✓</span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   function dayHeader(day: string) {
     const all = dayFullySelected(day);
     return (
@@ -567,15 +648,13 @@ export function PiezasTab() {
 
       {/* Desktop: tabla */}
       <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
-        <div className='min-w-[60rem]'>
+        <div className='min-w-[52rem]'>
           <div
             className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}
           >
             <span />
             <span>PERSONA</span>
-            <span>RESERVA</span>
             <span>FICHA DE PIEZA</span>
-            <span>PROFESORA</span>
             <span>ESTADO</span>
             <span>RETIRO</span>
             <span />
@@ -590,12 +669,16 @@ export function PiezasTab() {
             items.map((p, i) => {
               const { bg, fg } = statusColors(p.status, statusCfg);
               const newDay = i === 0 || dayOf(items[i - 1]) !== dayOf(p);
+              const newGroup = newDay || groupOf(items[i - 1]) !== groupOf(p);
+              const lastOfGroup = i === items.length - 1 || groupOf(items[i + 1]) !== groupOf(p);
               return (
                 <Fragment key={p._id}>
                 {newDay && dayHeader(dayOf(p))}
+                {newGroup && groupHeader(p)}
                 <div
                   className={cn(
-                    `${COLS} border-b border-[#e6dbcd] px-5 py-3.5 last:border-0`,
+                    `${COLS} px-5 py-3 last:border-0`,
+                    lastOfGroup ? 'border-b-0' : 'border-b border-[#efe7dc]',
                     selected.has(p._id) && 'bg-[#E7F0EC]/60',
                     !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                   )}
@@ -613,9 +696,6 @@ export function PiezasTab() {
                       Firma: {p.signature || '—'}
                     </p>
                   </div>
-                  <span className='truncate text-sm text-[#7a6e6f]'>
-                    {p.reservationCode || '—'}
-                  </span>
                   <div className='min-w-0 text-sm text-[#3d3338]'>
                     <p className='truncate font-medium'>
                       {p.pieceType || 'Pieza sin detalle'}
@@ -630,11 +710,12 @@ export function PiezasTab() {
                       </p>
                     )}
                   </div>
-                  <span className='truncate text-sm text-[#7a6e6f]'>
-                    {p.professorName || '—'}
-                  </span>
                   <div>
-                    <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
+                    {p.material ? (
+                      <StatusBadge label={materialLabel(p)} bg='#eae4db' fg='#5c5148' />
+                    ) : (
+                      <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
+                    )}
                   </div>
                   <div>{retiroNode(p, statusCfg)}</div>
                   <div className='flex items-start justify-end gap-2'>
@@ -652,11 +733,12 @@ export function PiezasTab() {
                       )}
                     </button>
                     <div className='flex w-[8rem] flex-col gap-1'>
-                      {statusSelect(p)}
-                      {canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                      {!p.material && statusSelect(p)}
+                      {/* Las de reserva se avisan por pedido (en la cabecera). */}
+                      {!p.reservationId && canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
                         <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-7 w-full px-2 text-[11px]'>Avisar retiro</Button>
                       )}
-                      {canManage && p.notifiedReadyAt && (
+                      {!p.reservationId && canManage && p.notifiedReadyAt && (
                         <span className='text-center text-[10px] text-[#455a54]'>Avisado ✓</span>
                       )}
                     </div>
@@ -702,11 +784,18 @@ export function PiezasTab() {
           items.map((p, i) => {
             const { bg, fg } = statusColors(p.status, statusCfg);
             const newDay = i === 0 || dayOf(items[i - 1]) !== dayOf(p);
+            const newGroup = newDay || groupOf(items[i - 1]) !== groupOf(p);
+            const header = newGroup ? groupHeader(p) : null;
             return (
               <Fragment key={p._id}>
               {newDay && (
                 <div className='overflow-hidden rounded-xl border border-[#e6dbcd] [&>div]:border-0'>
                   {dayHeader(dayOf(p))}
+                </div>
+              )}
+              {header && (
+                <div className='-mb-1 mt-1 overflow-hidden rounded-xl [&>div]:rounded-xl [&>div]:px-3'>
+                  {header}
                 </div>
               )}
               <div
@@ -747,7 +836,11 @@ export function PiezasTab() {
                         </span>
                       )}
                     </button>
-                    <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
+                    {p.material ? (
+                      <StatusBadge label={materialLabel(p)} bg='#eae4db' fg='#5c5148' />
+                    ) : (
+                      <StatusBadge label={labelOf(p.status, statusCfg)} bg={bg} fg={fg} />
+                    )}
                   </div>
                 </div>
                 <p className='mt-2 text-sm text-[#3d3338]'>
@@ -759,8 +852,6 @@ export function PiezasTab() {
                 <p className='text-xs text-[#7a6e6f]'>
                   {[
                     p.colorsUsed && `Colores: ${p.colorsUsed}`,
-                    p.professorName && `Prof. ${p.professorName}`,
-                    p.reservationCode && `Reserva ${p.reservationCode}`,
                     p.registeredByName && `Cargó ${p.registeredByName}`,
                     cfgOf(p.status, statusCfg)?.isFinal && p.pickedUpAt && `Retirada ${fmtDate(p.pickedUpAt)}`,
                   ]
@@ -769,11 +860,11 @@ export function PiezasTab() {
                 </p>
                 <div className='mt-3 flex flex-wrap items-center gap-2'>
                   <div className='flex items-center gap-2'>
-                    <div className='w-[9rem]'>{statusSelect(p)}</div>
-                    {canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
+                    {!p.material && <div className='w-[9rem]'>{statusSelect(p)}</div>}
+                    {!p.reservationId && canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
                       <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar</Button>
                     )}
-                    {canManage && p.notifiedReadyAt && (
+                    {!p.reservationId && canManage && p.notifiedReadyAt && (
                       <span className='text-[10px] text-[#455a54]'>Avisado</span>
                     )}
                   </div>

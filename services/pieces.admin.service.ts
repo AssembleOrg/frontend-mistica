@@ -59,6 +59,8 @@ export interface PieceItem {
   /** Adicional elegido al registrar la ficha (copia del catálogo). */
   extraName?: string;
   extraAmount?: number;
+  /** Tela, bastidor, yeso…: no va al horno, se la llevan en el día. */
+  material?: string;
   /** Reserva a la que está asignada la pieza (camino normal). */
   reservationId?: string;
   reservationCode?: string;

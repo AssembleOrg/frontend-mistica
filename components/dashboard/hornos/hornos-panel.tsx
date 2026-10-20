@@ -5,10 +5,12 @@
 // veces se prendió en la semana y si algún día se olvidaron.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Flame, PowerOff, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, History, PowerOff, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
 import { cn } from '@/lib/utils';
 import { AR_TZ } from '@/lib/reservas-format';
 import { useAuth } from '@/hooks/useAuth';
@@ -82,6 +84,11 @@ export function HornosPanel() {
   const [logs, setLogs] = useState<KilnLogItem[]>([]);
   const [monday, setMonday] = useState(() => mondayOf(todayAR()));
   const [busy, setBusy] = useState<string | null>(null);
+  // Horno que se prendió y nadie marcó: admin/encargado lo cargan después.
+  const [pastOpen, setPastOpen] = useState(false);
+  const [past, setPast] = useState<{ kiln: KilnKey; action: KilnAction; day: string; time: string }>(
+    () => ({ kiln: 'SUPERIOR', action: 'ON', day: todayAR(), time: '09:00' }),
+  );
   const sunday = addDays(monday, 6);
 
   const load = useCallback(async () => {
@@ -116,6 +123,29 @@ export function HornosPanel() {
       await load();
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo registrar'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function registerPast() {
+    if (!past.day || !past.time) return showToast.error('Elegí día y hora');
+    const at = new Date(`${past.day}T${past.time}:00-03:00`);
+    if (at.getTime() > Date.now()) return showToast.error('Esa hora todavía no pasó');
+    setBusy('past');
+    try {
+      await kilnsAdmin.register({
+        kiln: past.kiln,
+        action: past.action,
+        at: at.toISOString(),
+        ...(responsable.value.trim() ? { registeredBy: responsable.value.trim() } : {}),
+      });
+      showToast.success('Horno cargado');
+      setPastOpen(false);
+      setMonday(mondayOf(past.day));
+      await load();
+    } catch (e) {
+      showToast.error(errorText(e, 'No se pudo cargar'));
     } finally {
       setBusy(null);
     }
@@ -207,6 +237,60 @@ export function HornosPanel() {
         ))}
       </div>
 
+      {canManage && (
+        <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4'>
+          {!pastOpen ? (
+            <button
+              type='button'
+              onClick={() => setPastOpen(true)}
+              className='inline-flex items-center gap-2 text-sm font-semibold text-[#9d684e] hover:underline'
+            >
+              <History className='size-4' />
+              Cargar un horno de otro día
+            </button>
+          ) : (
+            <div className='flex flex-col gap-3'>
+              <p className='text-sm font-semibold text-[#455a54]'>
+                Horno que se prendió o apagó y no se marcó en el momento
+              </p>
+              <div className='flex flex-wrap items-center gap-2'>
+                {(['SUPERIOR', 'FRONTAL'] as const).map((k) => (
+                  <Chip key={k} active={past.kiln === k} onClick={() => setPast({ ...past, kiln: k })}>
+                    {status.find((x) => x.kiln === k)?.kilnName ?? k}
+                  </Chip>
+                ))}
+                <span className='mx-1 h-5 w-px bg-[#e6dbcd]' />
+                <Chip active={past.action === 'ON'} onClick={() => setPast({ ...past, action: 'ON' })}>
+                  Se prendió
+                </Chip>
+                <Chip active={past.action === 'OFF'} onClick={() => setPast({ ...past, action: 'OFF' })}>
+                  Se apagó y descargó
+                </Chip>
+              </div>
+              <div className='flex flex-wrap items-center gap-2'>
+                <div className='w-44'>
+                  <DatePicker value={past.day} onChange={(day) => setPast({ ...past, day })} />
+                </div>
+                <div className='w-32'>
+                  <TimePicker value={past.time} onChange={(time) => setPast({ ...past, time })} fromHour={6} toHour={23} />
+                </div>
+                <Button type='button' variant='verde' disabled={busy === 'past'} onClick={registerPast}>
+                  Cargar
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={() => setPastOpen(false)}
+                  className='border-[#e6dbcd] bg-white text-[#455a54]'
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Semana: cuántas veces se prendió, día por día. */}
       <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4'>
         <div className='mb-3 flex items-center gap-2'>
@@ -287,5 +371,26 @@ export function HornosPanel() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: Readonly<{ active: boolean; onClick: () => void; children: React.ReactNode }>) {
+  return (
+    <button
+      type='button'
+      onClick={onClick}
+      className={cn(
+        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+        active
+          ? 'border-[#455a54] bg-[#455a54] text-white'
+          : 'border-[#e6dbcd] bg-white text-[#7a6e6f] hover:text-[#455a54]',
+      )}
+    >
+      {children}
+    </button>
   );
 }

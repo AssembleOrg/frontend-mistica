@@ -20,6 +20,7 @@ import {
   GraduationCap,
   ClipboardList,
   Flame,
+  ChefHat,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -36,7 +37,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { showToast } from '@/lib/toast';
-import { PANEL_VIEWS, canAccessView } from '@/lib/views';
+import { PANEL_VIEWS, allowedReservasTabs, canAccessView } from '@/lib/views';
 import { CashboxCta } from '@/components/dashboard/cashbox/cashbox-cta';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { InstallAppButton } from '@/components/pwa/install-app-button';
@@ -59,7 +60,8 @@ const navigationItems = [
   { title: 'Clientes',        url: '/dashboard/clients',    view: 'clients',    icon: UserCheck,    enabled: true,  adminOnly: false },
   { title: 'Reservas',        url: '/dashboard/reservas',   view: 'reservas',   icon: Ticket,       enabled: true,  adminOnly: false },
   { title: 'Alumnos y grupos',url: '/dashboard/alumnos',    view: 'alumnos',    icon: GraduationCap,enabled: true,  adminOnly: false },
-  { title: 'Producción',      url: '/dashboard/produccion', view: 'produccion', icon: Flame,        enabled: true,  adminOnly: false },
+  { title: 'Cocina',          url: '/dashboard/reservas?tab=cocina&vista=produccion', view: 'reservas:cocina', icon: ChefHat, enabled: true, adminOnly: false },
+  { title: 'Producción taller', url: '/dashboard/produccion', view: 'produccion', icon: Flame,        enabled: true,  adminOnly: false },
   { title: 'Equipo',          url: '/dashboard/equipo',     view: 'equipo',     icon: ClipboardList,enabled: true,  adminOnly: false },
   { title: 'Bot WhatsApp',    url: '/dashboard/reservas?tab=bot',        view: 'bot',        icon: Smartphone,   enabled: true,  adminOnly: true  },
   // Vista de Señas ocultada de la navegación a pedido del cliente. Las señas
@@ -94,6 +96,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const filteredNavItems = React.useMemo(() => {
     return navigationItems.filter((item) => {
       if (item.enabled === false) return false;
+      // Atajo a Cocina → Producción (vive dentro de Reservas): lo ve quien tenga
+      // la pestaña Cocina.
+      if (item.view === 'reservas:cocina') {
+        return allowedReservasTabs(userRole, allowedViews).includes('cocina');
+      }
       if (item.adminOnly && !PANEL_VIEWS.some((v) => v.key === item.view)) {
         return userRole === 'admin';
       }

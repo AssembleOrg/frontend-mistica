@@ -66,8 +66,15 @@ function cakesOf(r: ReservationItem): { label: string; qty: number; missing?: bo
 }
 
 // Dos vistas: la semana (qué viene) y la producción (lo que cocina anota).
-export function CocinaTab() {
-  const [view, setView] = useState<'semana' | 'produccion'>('semana');
+export type CocinaView = 'semana' | 'produccion';
+
+export function CocinaTab({
+  view,
+  onView: setView,
+}: {
+  view: CocinaView;
+  onView: (v: CocinaView) => void;
+}) {
   return (
     <div className='flex flex-col gap-4'>
       <div className='inline-flex w-fit rounded-xl border border-[#e6dbcd] bg-white p-1'>

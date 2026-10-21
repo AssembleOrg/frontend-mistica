@@ -21,7 +21,7 @@ import { ConversacionesTab } from '@/components/dashboard/reservas/conversacione
 import { ReservasTab } from '@/components/dashboard/reservas/reservas-tab';
 import { PiezasTab } from '@/components/dashboard/reservas/piezas-tab';
 import { BotTab } from '@/components/dashboard/reservas/bot-tab';
-import { CocinaTab } from '@/components/dashboard/reservas/cocina-tab';
+import { CocinaTab, type CocinaView } from '@/components/dashboard/reservas/cocina-tab';
 
 type Tab =
   | 'reservas'
@@ -45,12 +45,21 @@ const TABS: { key: Tab; label: string; icon: typeof Palette }[] = [
 
 // Pestaña desde la URL (?tab=bot), para poder linkearla desde el menú. Va en
 // un hijo con Suspense: es lo que pide Next para useSearchParams.
-function TabFromQuery({ onTab }: { onTab: (t: Tab) => void }) {
+function TabFromQuery({
+  onTab,
+  onCocinaView,
+}: {
+  onTab: (t: Tab) => void;
+  onCocinaView: (v: CocinaView) => void;
+}) {
   const params = useSearchParams();
   const t = params.get('tab');
+  const vista = params.get('vista');
   useEffect(() => {
     if (t && TABS.some((x) => x.key === t)) onTab(t as Tab);
-  }, [t, onTab]);
+    // ?vista=produccion abre Cocina directo en Producción (atajo del menú).
+    if (t === 'cocina') onCocinaView(vista === 'produccion' ? 'produccion' : 'semana');
+  }, [t, vista, onTab, onCocinaView]);
   return null;
 }
 
@@ -65,6 +74,7 @@ export default function ReservasAdminPage() {
   }, [user?.role, user?.allowedViews]);
 
   const [tab, setTab] = useState<Tab>('reservas');
+  const [cocinaView, setCocinaView] = useState<CocinaView>('semana');
   // La cuenta de cocina (ve la agenda recortada) arranca en Cocina.
   const kitchenFirst =
     !!user &&
@@ -84,7 +94,7 @@ export default function ReservasAdminPage() {
   return (
     <div className='flex flex-col gap-4'>
       <Suspense fallback={null}>
-        <TabFromQuery onTab={choose} />
+        <TabFromQuery onTab={choose} onCocinaView={setCocinaView} />
       </Suspense>
       <div className='flex flex-col gap-1'>
         <h1 className='text-2xl sm:text-3xl font-bold text-[#455a54] font-tan-nimbus'>Reservas</h1>
@@ -119,7 +129,7 @@ export default function ReservasAdminPage() {
       {active === 'reservas' && <ReservasTab />}
       {active === 'consultas' && <ConversacionesTab />}
       {active === 'piezas' && <PiezasTab />}
-      {active === 'cocina' && <CocinaTab />}
+      {active === 'cocina' && <CocinaTab view={cocinaView} onView={setCocinaView} />}
       {active === 'bot' && <BotTab />}
     </div>
   );

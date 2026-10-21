@@ -671,6 +671,8 @@ export function NewReservationModal({
   // Cumpleaños: el backend aplica los beneficios (regalos, lugares
   // bonificados) sobre el precio de la experiencia elegida.
   const [isBday, setIsBday] = useState(false);
+  const [bdayName, setBdayName] = useState('');
+  const [bdayAge, setBdayAge] = useState('');
   // Para cocina: restricciones del grupo y lo que haya que saber (cumpleañero,
   // torta…). Las reservas del bot ya las traen; las del local, se cargan acá.
   const [diet, setDiet] = useState<string[]>([]);
@@ -728,6 +730,8 @@ export function NewReservationModal({
         paymentMethod: method,
         amount: charge.amount,
         isBirthday: isBday || undefined,
+        ...(isBday && bdayName.trim() ? { birthdayName: bdayName.trim() } : {}),
+        ...(isBday && bdayAge.trim() ? { birthdayAge: Number(bdayAge) } : {}),
         ...(diet.length ? { dietaryTags: diet } : {}),
         ...(dietNotes.trim() ? { dietaryNotes: dietNotes.trim() } : {}),
         ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
@@ -930,6 +934,29 @@ export function NewReservationModal({
                 label='Es un cumpleaños 🎉'
                 hint='Se aplican los beneficios del festejo sobre el precio de la experiencia (regalos, lugares bonificados).'
               />
+              {isBday && (
+                <div className='grid grid-cols-[1fr_6rem] gap-2'>
+                  <FormField label='¿Quién cumple?' htmlFor='res-bday-name'>
+                    <Input
+                      id='res-bday-name'
+                      value={bdayName}
+                      onChange={(e) => setBdayName(e.target.value)}
+                      placeholder='Nombre'
+                      maxLength={120}
+                      className={field}
+                    />
+                  </FormField>
+                  <FormField label='Años' htmlFor='res-bday-age'>
+                    <Input
+                      id='res-bday-age'
+                      value={bdayAge}
+                      onChange={(e) => setBdayAge(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                      inputMode='numeric'
+                      className={field}
+                    />
+                  </FormField>
+                </div>
+              )}
               <FormField label='Restricciones alimentarias'>
                 <DietaryPicker
                   tags={diet}

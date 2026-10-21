@@ -207,6 +207,17 @@ export function KitchenSection({
               🎂 Cumpleaños{birthdayWho(r)}
             </span>
           )}
+          {/* Cumple sin cumpleañero cargado: atajo visible al editor (antes había
+              que adivinar que estaba en "Editar"). */}
+          {r.isBirthday && canEdit && !birthdayWho(r) && (
+            <button
+              type='button'
+              onClick={() => setEditing(true)}
+              className='inline-flex w-fit items-center gap-1 text-[13px] font-semibold text-[#9d684e] hover:underline'
+            >
+              <Plus className='h-3.5 w-3.5' /> Cargar quién cumple y cuántos años
+            </button>
+          )}
           <DietaryTags tags={r.dietaryTags} notes={r.dietaryNotes} />
           {r.kitchenNotes && (
             <p className='rounded-lg bg-[#fbf5ef] px-3 py-2 text-[13px]'>{r.kitchenNotes}</p>

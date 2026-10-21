@@ -1090,6 +1090,9 @@ export function RescheduleModal({
       try {
         const all = await reservationsAdmin.listSessions({
           experienceId: reservation.experienceId,
+          // Sus propias mesas no cuentan: si no, el mismo día más tarde
+          // figuraba "sin cupo".
+          ignoreReservationId: reservation._id,
         });
         setSessions(all.filter((s) => s.id !== reservation.sessionId));
       } catch (e) {

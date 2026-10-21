@@ -46,6 +46,11 @@ export function useSaleSchedule(
   const [experiences, setExperiences] = useState<AdminExperience[]>([]);
   const [qty, setQty] = useState('1');
   const [kitchenNotes, setKitchenNotes] = useState('');
+  // Cumpleaños: quién cumple y cuántos años (cocina lo ve en la ficha y en
+  // su semana). Lo pedían desde Reservas; acá faltaba.
+  const [isBirthday, setIsBirthday] = useState(false);
+  const [birthdayName, setBirthdayName] = useState('');
+  const [birthdayAge, setBirthdayAge] = useState('');
   const [cakeProducts, setCakeProducts] = useState<Product[]>([]);
   const [coverColor, setCoverColor] = useState('');
   const [flavor, setFlavor] = useState('');
@@ -194,6 +199,13 @@ export function useSaleSchedule(
         ...(expLine?.bonifiedQty ? { freeSpots: expLine.bonifiedQty } : {}),
         ...(cakes.length ? { cakes } : {}),
         ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
+        ...(isBirthday
+          ? {
+              isBirthday: true,
+              ...(birthdayName.trim() ? { birthdayName: birthdayName.trim() } : {}),
+              ...(birthdayAge.trim() ? { birthdayAge: Number(birthdayAge) } : {}),
+            }
+          : {}),
       });
       showToast.success(`Agendada: ${fmtDateTime(r.startAt)}`);
     } catch (e) {
@@ -216,6 +228,9 @@ export function useSaleSchedule(
     setOn(false);
     setQty('1');
     setKitchenNotes('');
+    setIsBirthday(false);
+    setBirthdayName('');
+    setBirthdayAge('');
     setCoverColor('');
     setFlavor('');
     setExpLineId(AGENDA_LINE_ID);
@@ -231,6 +246,12 @@ export function useSaleSchedule(
     setQty,
     kitchenNotes,
     setKitchenNotes,
+    isBirthday,
+    setIsBirthday,
+    birthdayName,
+    setBirthdayName,
+    birthdayAge,
+    setBirthdayAge,
     cakeProducts,
     addCake,
     needsFlavor,
@@ -288,6 +309,37 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
           </div>
           <div className='space-y-2 border-t border-t-terracota/40 pt-3'>
             <p className='text-sm font-semibold text-terracota'>Para cocina</p>
+            <label className='flex cursor-pointer items-center gap-2 text-[13px] text-[#455a54]'>
+              <input
+                type='checkbox'
+                checked={state.isBirthday}
+                onChange={(e) => state.setIsBirthday(e.target.checked)}
+                className='size-4 accent-[#9d684e]'
+              />
+              Es un cumpleaños 🎉
+            </label>
+            {state.isBirthday && (
+              <div className='grid grid-cols-[1fr_6rem] gap-2'>
+                <Input
+                  value={state.birthdayName}
+                  onChange={(e) => state.setBirthdayName(e.target.value)}
+                  placeholder='¿Quién cumple?'
+                  aria-label='Quién cumple'
+                  maxLength={120}
+                  className={fieldCls}
+                />
+                <Input
+                  value={state.birthdayAge}
+                  onChange={(e) =>
+                    state.setBirthdayAge(e.target.value.replace(/\D/g, '').slice(0, 3))
+                  }
+                  placeholder='Años'
+                  aria-label='Años que cumple'
+                  inputMode='numeric'
+                  className={fieldCls}
+                />
+              </div>
+            )}
             <div className='flex flex-wrap gap-1.5'>
               {CAKE_BUTTONS.map((b) => {
                 const product = state.cakeProducts.find((p) => p.barcode === b.barcode);

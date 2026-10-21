@@ -268,6 +268,8 @@ export const reservationsAdmin = {
     from?: string;
     to?: string;
     includePast?: boolean;
+    /** Al reprogramar: las mesas de esta reserva no restan lugar. */
+    ignoreReservationId?: string;
   }) => {
     const q = new URLSearchParams();
     if (params?.experienceId) q.set('experienceId', params.experienceId);
@@ -276,6 +278,7 @@ export const reservationsAdmin = {
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
     if (params?.includePast) q.set('includePast', 'true');
+    if (params?.ignoreReservationId) q.set('ignoreReservationId', params.ignoreReservationId);
     const qs = q.toString();
     return (
       await apiService.get<AdminSession[]>(

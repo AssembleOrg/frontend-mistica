@@ -13,6 +13,11 @@ import { ClientsService, type Client } from '@/services/clients.service';
 import { ClientPicker, clientIdOf } from '@/components/dashboard/client-picker';
 import { MonthlyPieceSection } from './monthly-piece-section';
 import { PaymentsByMonth, monthOptions } from './student-payments';
+import {
+  SignaturePiecesHint,
+  SignaturesEditor,
+  matchesSignature,
+} from './student-signatures';
 import { currentMonth, monthLabel } from './monthly-piece';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -162,10 +167,13 @@ export function AlumnosPanel() {
   }
 
   // Todo cliente es también alumno: por defecto se ven solo los que cursan.
+  // Buscar por firma encuentra al alumno aunque no esté en un grupo (una pieza
+  // suelta del taller puede ser de alguien que ya no viene).
   const visible = students.filter(
     (s) =>
-      (!onlyInGroup || groupsByStudent.has(s._id)) &&
-      s.name.toLowerCase().includes(search.trim().toLowerCase()),
+      matchesSignature(s.signatures, search) ||
+      ((!onlyInGroup || groupsByStudent.has(s._id)) &&
+        s.name.toLowerCase().includes(search.trim().toLowerCase())),
   );
 
   return (
@@ -207,7 +215,7 @@ export function AlumnosPanel() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder='Buscar alumno…'
+            placeholder='Buscar por nombre o firma…'
             className={`${fieldCls} h-9 w-56`}
           />
           <div className='flex rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-0.5 text-sm'>
@@ -258,6 +266,8 @@ export function AlumnosPanel() {
         )}
       </div>
 
+      <SignaturePiecesHint query={search} />
+
       {/* Lista */}
       {loading ? (
         <div className='rounded-2xl border border-[#e6dbcd] bg-white p-4 text-sm text-[#7a6e6f]'>
@@ -291,6 +301,11 @@ export function AlumnosPanel() {
                   {s.joinedAt && `Desde ${fmtDate(s.joinedAt)}`}
                   {s.guardianName ? `${s.joinedAt ? ' · ' : ''}Resp.: ${s.guardianName}` : ''}
                   {s.phone ? `${s.joinedAt || s.guardianName ? ' · ' : ''}${s.phone}` : ''}
+                </p>
+              )}
+              {(s.signatures?.length ?? 0) > 0 && (
+                <p className='text-[13px] text-[#9d684e]'>
+                  ✍ Firma: {s.signatures!.join(' · ')}
                 </p>
               )}
               {(groupsByStudent.get(s._id)?.length ?? 0) > 0 && (
@@ -547,6 +562,11 @@ export function AlumnosPanel() {
           student={detail}
           canManage={canManage}
           onClose={() => setDetail(null)}
+          onSignatures={(signatures) =>
+            setStudents((prev) =>
+              prev.map((x) => (x._id === detail._id ? { ...x, signatures } : x)),
+            )
+          }
         />
       )}
     </div>
@@ -706,10 +726,12 @@ function StudentDetailDialog({
   student,
   canManage,
   onClose,
+  onSignatures,
 }: Readonly<{
   student: Student;
   canManage: boolean;
   onClose: () => void;
+  onSignatures: (signatures: string[]) => void;
 }>) {
   const tab: 'admin' | 'practica' = canManage ? 'admin' : 'practica';
   const [adminData, setAdminData] = useState<StudentAdminProfile | null>(null);
@@ -823,6 +845,12 @@ function StudentDetailDialog({
             {student.name}
           </DialogTitle>
         </DialogHeader>
+
+        <SignaturesEditor
+          studentId={student._id}
+          initial={student.signatures ?? []}
+          onSaved={onSignatures}
+        />
 
         {tab === 'admin' && canManage && (
           <div className='flex flex-col gap-3'>

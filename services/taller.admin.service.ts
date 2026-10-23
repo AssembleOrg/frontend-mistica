@@ -63,6 +63,8 @@ export interface Student {
   /** Importe de la cuota mensual. */
   monthlyFee?: number;
   adminNotes?: string;
+  /** Cómo firma sus piezas (la primera es la habitual). */
+  signatures?: string[];
   practicalNotes?: string;
   isActive: boolean;
   /** Clase de prueba gratuita que ya usó (grupo y día). Sin valor = disponible. */
@@ -133,11 +135,35 @@ export interface StudentAdminProfile {
   }>;
 }
 
+/** «¿De quién es esta firma?»: alumnos que firman así y piezas registradas. */
+export interface SignatureSearchResult {
+  students: Array<{
+    id: string;
+    name: string;
+    isActive: boolean;
+    signatures: string[];
+    exact: boolean;
+  }>;
+  pieces: Array<{
+    _id: string;
+    signature: string;
+    personName?: string;
+    customerName?: string;
+    studentName?: string;
+    pieceType?: string;
+    status: string;
+    workDate?: string;
+    reservationCode?: string;
+    createdAt: string;
+  }>;
+}
+
 export interface StudentPracticalProfile {
   student: {
     id: string;
     name: string;
     practicalNotes?: string;
+    signatures?: string[];
     isActive: boolean;
   };
   groups: Group[];
@@ -436,6 +462,20 @@ export const tallerAdmin = {
     (await apiService.delete<{ success: boolean }>(`/students/${id}`)).data,
   adminProfile: async (id: string) =>
     (await apiService.get<StudentAdminProfile>(`/students/${id}/admin`)).data,
+  setSignatures: async (id: string, signatures: string[]) =>
+    (
+      await apiService.put<{ id: string; signatures: string[] }>(
+        `/students/${id}/signatures`,
+        { signatures },
+      )
+    ).data,
+  searchSignature: async (q: string) =>
+    (
+      await apiService.get<SignatureSearchResult>(
+        `/students/signatures/search?q=${encodeURIComponent(q.trim())}`,
+      )
+    ).data,
+
   practicalProfile: async (id: string) =>
     (
       await apiService.get<StudentPracticalProfile>(

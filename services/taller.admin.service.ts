@@ -91,7 +91,8 @@ export interface StudentPayment {
   studentId: string;
   concept: string;
   amount: number;
-  status: 'PAID' | 'PENDING';
+  /** SKIPPED = mes salteado: no se cobra ni cuenta como vencida. */
+  status: 'PAID' | 'PENDING' | 'SKIPPED';
   paidAt?: string;
   dueDate?: string;
   method?: string;
@@ -104,7 +105,7 @@ export interface StudentPayment {
 export interface CreateStudentPaymentInput {
   concept: string;
   amount: number;
-  status?: 'PAID' | 'PENDING';
+  status?: 'PAID' | 'PENDING' | 'SKIPPED';
   paidAt?: string;
   dueDate?: string;
   method?: string;

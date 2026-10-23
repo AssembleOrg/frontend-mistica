@@ -575,8 +575,9 @@ const ATT_LABEL: Record<string, string> = {
 };
 
 /**
- * Ficha del alumno. Admin: pestañas Administrativa (pagos, regularidad) y
- * Práctica. Cuentas no-admin (profesores): sólo la práctica.
+ * Ficha del alumno. Admin: lo administrativo (pagos, regularidad); la parte
+ * práctica no la usan (las piezas van en «Piezas del mes»). Cuentas no-admin
+ * (profesores): sólo la práctica.
  */
 const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta', 'Mercado Pago'];
 
@@ -710,9 +711,7 @@ function StudentDetailDialog({
   canManage: boolean;
   onClose: () => void;
 }>) {
-  const [tab, setTab] = useState<'admin' | 'practica'>(
-    canManage ? 'admin' : 'practica',
-  );
+  const tab: 'admin' | 'practica' = canManage ? 'admin' : 'practica';
   const [adminData, setAdminData] = useState<StudentAdminProfile | null>(null);
   const [practical, setPractical] = useState<StudentPracticalProfile | null>(
     null,
@@ -745,7 +744,7 @@ function StudentDetailDialog({
 
   useEffect(() => {
     if (canManage) loadAdmin();
-    loadPractical();
+    else loadPractical();
   }, [canManage, loadAdmin, loadPractical]);
 
   async function savePayment() {
@@ -824,21 +823,6 @@ function StudentDetailDialog({
             {student.name}
           </DialogTitle>
         </DialogHeader>
-
-        {canManage && (
-          <div className='flex gap-1.5'>
-            <button type='button' className={chip(tab === 'admin')} onClick={() => setTab('admin')}>
-              Administrativo
-            </button>
-            <button
-              type='button'
-              className={chip(tab === 'practica')}
-              onClick={() => setTab('practica')}
-            >
-              Práctica
-            </button>
-          </div>
-        )}
 
         {tab === 'admin' && canManage && (
           <div className='flex flex-col gap-3'>

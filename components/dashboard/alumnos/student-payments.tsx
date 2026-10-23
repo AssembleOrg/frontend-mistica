@@ -48,7 +48,7 @@ type MonthState = {
   paid: number;
   pending: number;
   /** Estado del mes, de un vistazo. */
-  tone: 'ok' | 'partial' | 'pending' | 'overdue' | 'none';
+  tone: 'ok' | 'partial' | 'pending' | 'overdue' | 'none' | 'skipped';
   label: string;
 };
 
@@ -74,6 +74,9 @@ function monthStateOf(period: string, payments: StudentPayment[], now: Date): Mo
       label: `Vencida el ${fmtDay(overdue.dueDate)}${pending > 0 ? ` · debe ${fmtPrice(pending)}` : ''}`,
     };
   }
+  if (pendings.length === 0 && paid === 0 && payments.some((p) => p.status === 'SKIPPED')) {
+    return { period, payments, paid, pending, tone: 'skipped', label: 'Mes salteado · no se cobra' };
+  }
   if (pendings.length > 0) {
     return {
       period,
@@ -96,6 +99,7 @@ const TONE: Record<MonthState['tone'], { bg: string; fg: string; border: string 
   pending: { bg: '#fdf6e3', fg: '#8a6d1a', border: '#efd9a0' },
   overdue: { bg: '#fbe4e4', fg: '#a33', border: '#efb9b9' },
   none: { bg: '#f4f1ee', fg: '#7a6e6f', border: '#e6dbcd' },
+  skipped: { bg: '#f4f1ee', fg: '#7a6e6f', border: '#e6dbcd' },
 };
 
 /**
@@ -116,7 +120,29 @@ export function PaymentsByMonth({
   onChanged: () => void | Promise<void>;
 }>) {
   const [editing, setEditing] = useState<StudentPayment | null>(null);
+  const confirm = useConfirm();
   const now = new Date();
+
+  // Saltear: el mes no se cobra ni figura vencido (no vino, se reincorpora
+  // después, o lo cubre el pago de otro mes). Se puede volver a cobrar.
+  async function setSkipped(p: StudentPayment, skip: boolean) {
+    if (skip) {
+      const ok = await confirm({
+        title: `Saltear ${p.period ? monthLabel(p.period).toLowerCase() : 'esta cuota'}`,
+        description:
+          'No se cobra ni cuenta como vencida. Sirve si ese mes no vino, se reincorpora más adelante o lo paga junto con otro mes. Se puede deshacer con «Volver a cobrar».',
+        confirmLabel: 'Saltear',
+      });
+      if (!ok) return;
+    }
+    try {
+      await tallerAdmin.updatePayment(p._id, { status: skip ? 'SKIPPED' : 'PENDING' });
+      showToast.success(skip ? 'Mes salteado' : 'La cuota vuelve a estar a cobrar');
+      await onChanged();
+    } catch (e) {
+      showToast.error(errorText(e, 'No se pudo cambiar'));
+    }
+  }
   const thisMonth = currentMonth();
   const joinedMonth = joinedAt ? ymdAR(joinedAt).slice(0, 7) : '';
 
@@ -150,7 +176,7 @@ export function PaymentsByMonth({
                 {m.period === thisMonth && <span className='ml-1.5 text-[11px] font-medium opacity-70'>(este mes)</span>}
               </span>
               <span className='text-[12px] font-semibold'>
-                {m.tone === 'ok' ? '✓ ' : m.tone === 'overdue' ? '⚠ ' : ''}
+                {m.tone === 'ok' ? '✓ ' : m.tone === 'overdue' ? '⚠ ' : m.tone === 'skipped' ? '⤼ ' : ''}
                 {m.label}
               </span>
             </div>
@@ -168,6 +194,7 @@ export function PaymentsByMonth({
                     methodLabel={methodLabel}
                     onCollect={() => onCollect(p)}
                     onEdit={() => setEditing(p)}
+                    onSkip={(skip) => void setSkipped(p, skip)}
                   />
                 ))}
               </div>
@@ -190,6 +217,7 @@ export function PaymentsByMonth({
                 methodLabel={methodLabel}
                 onCollect={() => onCollect(p)}
                 onEdit={() => setEditing(p)}
+                onSkip={(skip) => void setSkipped(p, skip)}
               />
             ))}
           </div>
@@ -215,12 +243,14 @@ function PaymentLine({
   methodLabel,
   onCollect,
   onEdit,
+  onSkip,
 }: Readonly<{
   p: StudentPayment;
   now: Date;
   methodLabel: (m: string) => string;
   onCollect: () => void;
   onEdit: () => void;
+  onSkip: (skip: boolean) => void;
 }>) {
   const overdue = p.status === 'PENDING' && p.dueDate && new Date(p.dueDate) < now;
   return (
@@ -229,6 +259,8 @@ function PaymentLine({
       {p.amount > 0 && <span>{fmtPrice(p.amount)}</span>}
       {p.status === 'PAID' ? (
         <StatusBadge label={`Pagó el ${fmtDay(p.paidAt)}`} bg='#E7F0EC' fg='#455a54' />
+      ) : p.status === 'SKIPPED' ? (
+        <StatusBadge label='Salteada · no se cobra' bg='#f4f1ee' fg='#7a6e6f' />
       ) : (
         <StatusBadge
           label={overdue ? `VENCIDA ${fmtDay(p.dueDate)}` : `Vence ${fmtDay(p.dueDate)}`}
@@ -239,12 +271,31 @@ function PaymentLine({
       {p.method && <span className='text-[#7a6e6f]'>· {methodLabel(p.method)}</span>}
       <span className='ml-auto flex items-center gap-2'>
         {p.status === 'PENDING' && (
+          <>
+            <button
+              type='button'
+              onClick={() => onSkip(true)}
+              title='No se cobra ni queda vencida (no vino, se reincorpora después, lo paga con otro mes)'
+              className='text-[12px] font-medium text-[#7a6e6f] underline hover:opacity-70'
+            >
+              Saltear mes
+            </button>
+            <button
+              type='button'
+              onClick={onCollect}
+              className='text-[12px] font-medium text-[#455a54] underline hover:opacity-70'
+            >
+              Cobrar
+            </button>
+          </>
+        )}
+        {p.status === 'SKIPPED' && (
           <button
             type='button'
-            onClick={onCollect}
+            onClick={() => onSkip(false)}
             className='text-[12px] font-medium text-[#455a54] underline hover:opacity-70'
           >
-            Cobrar
+            Volver a cobrar
           </button>
         )}
         <button

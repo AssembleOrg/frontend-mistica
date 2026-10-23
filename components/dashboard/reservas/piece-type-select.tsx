@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, ListPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, ListPlus, Pencil, Plus, Tags, Trash2, X } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -130,6 +130,90 @@ export function PieceTypeSelect({
 }
 
 /** Alta, edición y baja del catálogo de piezas (baja con confirmación). */
+/**
+ * Botón a la vista para ver y cambiar con qué adicional viene cada pieza (su
+ * categoría), sin tener que encontrarlo dentro del desplegable de piezas.
+ */
+export function PieceCategoriesButton({ className }: Readonly<{ className?: string }>) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (!canManageRole(user?.role)) return null;
+  return (
+    <>
+      <Button
+        type='button'
+        variant='outline'
+        onClick={() => setOpen(true)}
+        title='Con qué adicional viene cada pieza'
+        className={cn('shrink-0 gap-2 border-[#e6dbcd] bg-white text-[#455a54] hover:bg-[#fbf5ef]', className)}
+      >
+        <Tags className='h-4 w-4' />
+        <span className='hidden sm:inline'>Categorías de piezas</span>
+      </Button>
+      {open && <PieceTypesManager onClose={() => setOpen(false)} onRenamed={() => undefined} />}
+    </>
+  );
+}
+
+/**
+ * Al cargar una ficha: si la pieza vino con un adicional y lo cambiaron a mano,
+ * ofrece dejar ese adicional como el de la pieza para las próximas veces.
+ */
+export function SaveCategoryHint({
+  pieceName,
+  extraId,
+}: Readonly<{ pieceName: string; extraId: string }>) {
+  const { user } = useAuth();
+  const types = usePieceTypesStore((st) => st.items);
+  const update = usePieceTypesStore((st) => st.update);
+  const extras = usePieceExtrasStore((st) => st.items);
+  const [busy, setBusy] = useState(false);
+  const type = pieceName ? types.find((t) => norm(t.name) === norm(pieceName)) : undefined;
+  const chosen = extras.find((x) => x.id === extraId);
+  if (!canManageRole(user?.role) || !type || !chosen || type.extraId === extraId) return null;
+  const current = type.extraId ? extras.find((x) => x.id === type.extraId)?.name : undefined;
+
+  async function save() {
+    if (!type || !chosen) return;
+    setBusy(true);
+    try {
+      await update(type.id, type.name, chosen.id);
+      showToast.success(`Listo: ${type.name} ahora viene con «${chosen.name}»`);
+    } catch (e) {
+      showToast.error(errMsg(e, 'No se pudo guardar'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className='flex flex-col gap-1.5 rounded-lg border border-[#e8b84b]/50 bg-[#fdf6e3] px-2.5 py-2 text-[12px] text-[#5b512f]'>
+      <span>
+        {current ? (
+          <>
+            <b>{type.name}</b> viene con «{current}».
+          </>
+        ) : (
+          <>
+            <b>{type.name}</b> no tiene adicional guardado.
+          </>
+        )}{' '}
+        ¿Que de ahora en más venga con «{chosen.name}»?
+      </span>
+      <Button
+        type='button'
+        size='sm'
+        variant='verde'
+        disabled={busy}
+        onClick={() => void save()}
+        className='h-7 w-fit px-2.5 text-[12px]'
+      >
+        {busy ? 'Guardando…' : 'Sí, guardar para la próxima'}
+      </Button>
+    </div>
+  );
+}
+
 function PieceTypesManager({
   onClose,
   onRenamed,

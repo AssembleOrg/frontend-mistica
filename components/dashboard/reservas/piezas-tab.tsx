@@ -49,7 +49,12 @@ import {
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PieceTypeSelect, usePieceCategories } from './piece-type-select';
+import {
+  PieceCategoriesButton,
+  PieceTypeSelect,
+  SaveCategoryHint,
+  usePieceCategories,
+} from './piece-type-select';
 import { PiezasAssembly } from './piezas-assembly';
 import { HornosPanel } from '@/components/dashboard/hornos/hornos-panel';
 import { PieceExtraSelect } from './piece-extra-select';
@@ -642,6 +647,7 @@ export function PiezasTab() {
               <Users className='h-4 w-4' />
               <span className='hidden sm:inline'>Piezas de alumnos</span>
             </Button>
+            <PieceCategoriesButton />
           </div>
         </div>
       </div>
@@ -1697,6 +1703,9 @@ export function NewPieceModal({
                         </label>
                         {entry.hasExtra && (
                           <PieceExtraSelect value={entry.extraId} onChange={(id) => updateEntry(index, 'extraId', id)} />
+                        )}
+                        {entry.hasExtra && (
+                          <SaveCategoryHint pieceName={entry.pieceType} extraId={entry.extraId} />
                         )}
                         {chargeOf(entry) > 0 && (
                           <span className='text-[12px] font-medium text-[#9d684e]'>

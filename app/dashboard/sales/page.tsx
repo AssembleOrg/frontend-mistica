@@ -243,8 +243,8 @@ export default function SalesPage() {
 
       {/* ── Tabs ───────────────────────────────────────── */}
       <Tabs defaultValue="sales" className="flex flex-col flex-1 min-h-0 border-[3px] border-[#455a54] rounded-sm overflow-hidden">
-        <div className="flex items-center justify-between px-4 sm:px-6 pt-2 pb-0 shrink-0 relative">
-          <TabsList className="bg-[#455a54]/10 h-8">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 sm:px-6 pt-2 pb-0 shrink-0 relative">
+          <TabsList className="bg-[#455a54]/10 h-8 self-start sm:self-auto">
             <TabsTrigger
               value="sales"
               className="data-[state=active]:bg-[#9d684e] data-[state=active]:text-white text-[#455a54] text-xs h-6 px-3 font-winter-solid"
@@ -277,7 +277,7 @@ export default function SalesPage() {
               Transacciones
             </TabsTrigger> */}
           </TabsList>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:shrink-0">
             <CajaDeHoyButton />
             <Button
               onClick={() => setShowCashEgressModal(true)}

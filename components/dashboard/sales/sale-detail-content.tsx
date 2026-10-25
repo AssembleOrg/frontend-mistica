@@ -334,7 +334,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
                     )}
                   </p>
                 </div>
-                <span className="text-sm font-semibold text-[#455a54] font-winter-solid shrink-0">
+                <span className="text-sm font-semibold text-[#455a54] font-winter-solid min-w-0 truncate text-right">
                   {formatCurrency(item.subtotal)}
                 </span>
               </div>
@@ -352,8 +352,8 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
                   {PAYMENT_LABELS[p.method] ?? p.method}
                 </span>
               </div>
-              <div className="text-right shrink-0">
-                <span className="text-xs font-semibold text-[#455a54] font-winter-solid">
+              <div className="text-right min-w-0">
+                <span className="block text-xs font-semibold text-[#455a54] font-winter-solid truncate">
                   {formatCurrency(p.amount)}
                 </span>
               </div>
@@ -380,7 +380,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
           {hasTax && <Row label="Impuestos">{formatCurrency(sale.tax)}</Row>}
           <div className="flex items-center justify-between py-2 gap-4 max-xl:gap-2">
             <span className="text-xs font-bold text-[#455a54] font-tan-nimbus shrink-0">Total</span>
-            <span className="text-base font-bold text-[#9d684e] font-tan-nimbus truncate">
+            <span className="text-base font-bold text-[#9d684e] font-tan-nimbus min-w-0 truncate text-right">
               {formatCurrency(sale.total)}
             </span>
           </div>
@@ -393,7 +393,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
                 Falta abonar
               </span>
               <span
-                className="text-base font-bold font-tan-nimbus truncate"
+                className="text-base font-bold font-tan-nimbus min-w-0 truncate text-right"
                 style={{ color: 'var(--color-naranja-medio)' }}
               >
                 {formatCurrency(sale.balanceDue ?? 0)}
@@ -463,7 +463,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
                       {new Date(rs.createdAt).toLocaleDateString('es-AR')}
                     </p>
                   </div>
-                  <span className="text-xs font-semibold text-[#9d684e] font-winter-solid shrink-0">
+                  <span className="text-xs font-semibold text-[#9d684e] font-winter-solid min-w-0 truncate text-right">
                     {formatCurrency(rs.total)}
                   </span>
                 </button>

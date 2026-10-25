@@ -85,7 +85,7 @@ export function SaleDetailPanel({
 
           {sale ? (
             <ScrollArea className="flex-1 min-h-0">
-              <div className="px-4 pt-3 pb-4">
+              <div className="px-4 pt-3 pb-4 min-w-0">
                 <SaleDetailContent
                   sale={sale}
                   stickyActions

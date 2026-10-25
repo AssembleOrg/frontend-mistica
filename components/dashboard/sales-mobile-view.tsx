@@ -64,14 +64,6 @@ const statusColors: Record<string, string> = {
   CANCELLED: 'bg-[#9d684e]/10 text-[#9d684e] border-[#9d684e]/20',
 };
 
-// Left accent bar color per status
-const statusAccent: Record<string, string> = {
-  COMPLETED: 'bg-[#455a54]',
-  PENDING: 'bg-[#cc844a]',
-  PARTIAL: 'bg-[#cc844a]',
-  CANCELLED: 'bg-[#9d684e]',
-};
-
 export function SalesMobileView({
   sales,
   onEdit,
@@ -152,21 +144,17 @@ export function SalesMobileView({
           const lineCount = sale.items.length;
           const saleDate = new Date(sale.createdAt);
           const primary = getPrimaryPaymentMethod(sale);
-          const accent = statusAccent[sale.status] ?? 'bg-[#d9dadb]';
           const hasDiscount = (sale.discount ?? 0) > 0;
           const cleanNotes = parseNotesAndSeller(sale.notes).notes;
 
           return (
             <div
               key={sale.id}
-              className="flex bg-white rounded-lg border border-[#d9dadb] overflow-hidden shadow-sm active:opacity-80 cursor-pointer"
+              className="bg-white rounded-lg border border-[#d9dadb] overflow-hidden shadow-sm active:opacity-80 cursor-pointer"
               onClick={() => onView?.(sale)}
             >
-              {/* Accent bar */}
-              <div className={`w-1 shrink-0 ${accent}`} />
-
               {/* Content */}
-              <div className="flex-1 min-w-0 px-3 py-2.5">
+              <div className="min-w-0 px-3 py-2.5">
                 {/* Row 1: ID + badges */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-semibold text-[#455a54] font-winter-solid tracking-wide">

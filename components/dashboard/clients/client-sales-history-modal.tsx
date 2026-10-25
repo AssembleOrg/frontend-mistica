@@ -184,7 +184,7 @@ export function ClientSalesHistoryModal({ client, isOpen, onClose }: ClientSales
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-[95vw] sm:max-w-[900px] max-h-[92vh] overflow-y-auto border-[#9d684e]/20">
+      <DialogContent className="sm:max-w-[900px] border-[#9d684e]/20">
         <DialogHeader>
           <DialogTitle className="text-[#455a54] font-tan-nimbus text-lg sm:text-xl">
             Historial de ventas{client ? ` · ${client.fullName}` : ''}

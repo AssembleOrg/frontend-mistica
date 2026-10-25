@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -140,7 +140,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl font-bold text-[#455a54] font-tan-nimbus flex items-center gap-2">
@@ -372,8 +372,8 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
           )}
         </div>
 
-        <div className="flex justify-between pt-4">
-          <div className="flex gap-2">
+        <DialogFooter className="sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {canEdit && (
               <Button
                 onClick={handleCancelSale}
@@ -417,7 +417,7 @@ export function ViewSaleModal({ isOpen, onClose, sale, onSaleUpdated }: ViewSale
             <X className="h-4 w-4 mr-2" />
             Cerrar
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
 
       {/* Dialog de generación de PDF */}

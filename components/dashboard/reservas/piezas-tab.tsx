@@ -1181,6 +1181,9 @@ export function NewPieceModal({
   // Cuentas compartidas (tablets): quién carga las fichas.
   const responsable = useResponsable();
   const confirm = useConfirm();
+  // Borrar una ficha ya registrada (cargada de más): sólo admin.
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [entries, setEntries] = useState<ReservationEntry[]>([]);
@@ -1191,6 +1194,7 @@ export function NewPieceModal({
   // Fichas ya registradas de la reserva: se ven y se corrigen desde acá.
   const [registered, setRegistered] = useState<PieceItem[]>([]);
   const [editingPiece, setEditingPiece] = useState<PieceItem | null>(null);
+  const [busyRegistered, setBusyRegistered] = useState<string | null>(null);
   const [professorsList, setProfessorsList] = useState<Professor[] | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const dirty = useRef(new Set<string>());
@@ -1336,6 +1340,27 @@ export function NewPieceModal({
       setProfessorsList(await professorsAdmin.list().catch(() => []));
     }
     setEditingPiece(piece);
+  }
+
+  // Borra una ficha ya registrada que se cargó de más. Si tenía adicional, el
+  // backend le devuelve el monto al saldo de la reserva.
+  async function removeRegistered(piece: PieceItem) {
+    const ok = await confirm({
+      title: 'Borrar ficha',
+      description: `Se borra la ficha de ${piece.personName || 'esta pieza'}. Si tenía adicional, se descuenta del saldo de la reserva. No se puede deshacer.`,
+      confirmLabel: 'Borrar',
+    });
+    if (!ok) return;
+    setBusyRegistered(piece._id);
+    try {
+      await piecesAdmin.remove(piece._id);
+      showToast.success('Ficha borrada');
+      if (reservation) await loadRegistered(reservation);
+    } catch (e) {
+      showToast.error(errorText(e, 'No se pudo borrar la ficha'));
+    } finally {
+      setBusyRegistered(null);
+    }
   }
 
   async function loadDraft(item: ReservationItem) {
@@ -1610,20 +1635,35 @@ export function NewPieceModal({
                     </span>
                   </p>
                   {registered.map((p) => (
-                    <button
+                    <div
                       key={p._id}
-                      type='button'
-                      onClick={() => void openPieceEditor(p)}
-                      className='flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border border-[#e6dbcd] bg-white px-3 py-2 text-left text-[13px] text-[#3d3338] hover:bg-[#fbf5ef]'
+                      className='flex items-center gap-1 rounded-lg border border-[#e6dbcd] bg-white hover:bg-[#fbf5ef]'
                     >
-                      <span className='font-semibold'>{p.personName || '—'}</span>
-                      <span>· {p.pieceType || 'sin pieza'}</span>
-                      {p.signature && <span className='text-[#7a6e6f]'>· firma {p.signature}</span>}
-                      {p.colorsUsed && <span className='text-[#7a6e6f]'>· {p.colorsUsed}</span>}
-                      <span className='ml-auto flex items-center gap-1 text-xs font-semibold text-[#9d684e]'>
-                        <Pencil className='h-3.5 w-3.5' /> Editar
-                      </span>
-                    </button>
+                      <button
+                        type='button'
+                        onClick={() => void openPieceEditor(p)}
+                        className='flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-2 text-left text-[13px] text-[#3d3338]'
+                      >
+                        <span className='font-semibold'>{p.personName || '—'}</span>
+                        <span>· {p.pieceType || 'sin pieza'}</span>
+                        {p.signature && <span className='text-[#7a6e6f]'>· firma {p.signature}</span>}
+                        {p.colorsUsed && <span className='text-[#7a6e6f]'>· {p.colorsUsed}</span>}
+                        <span className='ml-auto flex items-center gap-1 text-xs font-semibold text-[#9d684e]'>
+                          <Pencil className='h-3.5 w-3.5' /> Editar
+                        </span>
+                      </button>
+                      {isAdmin && (
+                        <span className='mr-2 shrink-0'>
+                          <IconBtn
+                            icon={Trash2}
+                            title='Borrar ficha cargada de más'
+                            tone='rojo'
+                            disabled={busyRegistered === p._id}
+                            onClick={() => void removeRegistered(p)}
+                          />
+                        </span>
+                      )}
+                    </div>
                   ))}
                   {entries.length === 0 && (
                     <p className='text-xs text-[#7a6e6f]'>Si falta alguna, agregala abajo con «Agregar otra ficha».</p>

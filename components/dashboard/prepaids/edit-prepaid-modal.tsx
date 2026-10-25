@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -74,7 +74,7 @@ export function EditPrepaidModal({ isOpen, onClose, prepaid, onPrepaidUpdated }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-[#455a54] font-tan-nimbus flex items-center gap-2">
             <CreditCard className="h-6 w-6" />
@@ -188,7 +188,7 @@ export function EditPrepaidModal({ isOpen, onClose, prepaid, onPrepaidUpdated }:
           </Card>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4">
+        <DialogFooter>
           <Button
             onClick={onClose}
             variant="outline"
@@ -205,7 +205,7 @@ export function EditPrepaidModal({ isOpen, onClose, prepaid, onPrepaidUpdated }:
             <Save className="h-4 w-4 mr-2" />
             {isLoading ? 'Guardando...' : 'Guardar Cambios'}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -321,6 +321,8 @@ export const reservationsAdmin = {
       date: string;
       startTime: string;
       quantity: number;
+      /** Hora extra: alarga la reserva; su precio ya está en la venta. */
+      extraMinutes?: number;
       isBirthday?: boolean;
       notes?: string;
       dietaryTags?: string[];

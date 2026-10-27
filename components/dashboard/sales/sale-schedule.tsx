@@ -16,6 +16,8 @@ import { productsService } from '@/services/products.service';
 import type { SaleItem } from '@/services/sales.service';
 import {
   SlotPicker,
+  fromMin,
+  toMin,
   useSlotPicker,
 } from '@/components/dashboard/reservas/slot-picker';
 import type { Product } from '@/lib/types';
@@ -23,6 +25,14 @@ import { errorText } from '@/lib/api-error-messages';
 
 /** Renglón de la actividad agendada (ítem libre: se va sin productId). */
 const AGENDA_LINE_ID = 'free-agenda';
+/** Renglón de la hora extra (ítem libre, precio a mano como en Reservas). */
+const EXTRA_LINE_ID = 'free-extra-time';
+const EXTRA_OPTIONS: { minutes: number; label: string }[] = [
+  { minutes: 30, label: '+30 min' },
+  { minutes: 60, label: '+1 h' },
+  { minutes: 90, label: '+1 h 30' },
+  { minutes: 120, label: '+2 h' },
+];
 
 /** Los botones de torta de cocina. La bonificada es la simbólica con Bonif. 1. */
 const CAKE_BUTTONS: { label: string; barcode: CakeProduct['barcode']; bonified?: boolean }[] = [
@@ -56,8 +66,14 @@ export function useSaleSchedule(
   const [flavor, setFlavor] = useState('');
   // Renglón de la actividad: el producto EXP-… si lo cargaron a mano, si no uno libre.
   const [expLineId, setExpLineId] = useState(AGENDA_LINE_ID);
-  const picker = useSlotPicker(experiences);
+  // Hora extra: alarga la reserva (y las mesas); su precio va al carrito.
+  const [extraMin, setExtraMin] = useState(0);
+  const [extraPrice, setExtraPrice] = useState('');
+  const picker = useSlotPicker(experiences, '', extraMin);
   const people = Math.max(1, Math.floor(Number(qty) || 1));
+  const endsAt = picker.time ? fromMin(toMin(picker.time) + picker.duration) : null;
+  const endsAfterClose =
+    !!picker.time && toMin(picker.time) + picker.duration > toMin(picker.hours.close);
 
   useEffect(() => {
     if (!on || experiences.length > 0) return;
@@ -85,7 +101,13 @@ export function useSaleSchedule(
     let alive = true;
     const t = setTimeout(() => {
       reservationsAdmin
-        .previewTables({ experienceId: expId, date: day, startTime: time, quantity: people })
+        .previewTables({
+          experienceId: expId,
+          date: day,
+          startTime: time,
+          quantity: people,
+          ...(extraMin > 0 && { extraMinutes: extraMin }),
+        })
         .then((res) => res.pricing)
         .catch(() => undefined)
         .then((pricing) => {
@@ -111,7 +133,30 @@ export function useSaleSchedule(
       alive = false;
       clearTimeout(t);
     };
-  }, [on, expId, day, time, people, exp, unit, expLineId, setCartItems]);
+  }, [on, expId, day, time, people, exp, unit, expLineId, extraMin, setCartItems]);
+
+  // Hora extra con precio → renglón propio en el carrito; sin precio, de regalo.
+  const extraAmount = on && extraMin > 0 ? Math.max(0, Number(extraPrice) || 0) : 0;
+  useEffect(() => {
+    if (extraAmount <= 0) {
+      setCartItems((prev) => prev.filter((i) => i.productId !== EXTRA_LINE_ID));
+      return;
+    }
+    const label = EXTRA_OPTIONS.find((o) => o.minutes === extraMin)?.label ?? `+${extraMin} min`;
+    const line: SaleItem = {
+      productId: EXTRA_LINE_ID,
+      productName: `Hora extra (${label})`,
+      quantity: 1,
+      unitPrice: extraAmount,
+      bonifiedQty: 0,
+      subtotal: extraAmount,
+    };
+    setCartItems((prev) =>
+      prev.some((i) => i.productId === EXTRA_LINE_ID)
+        ? prev.map((i) => (i.productId === EXTRA_LINE_ID ? line : i))
+        : [...prev, line],
+    );
+  }, [extraAmount, extraMin, setCartItems]);
 
   // Si cambian la cantidad del renglón en el carrito, las personas la siguen.
   const lineQty = cartItems.find((i) => i.productId === expLineId)?.quantity;
@@ -163,6 +208,8 @@ export function useSaleSchedule(
     if (!on) return null;
     if (!picker.expId) return 'Elegí la actividad a agendar';
     if (!picker.day || !picker.time) return 'Elegí día y horario para agendar';
+    if (endsAfterClose)
+      return `Con la hora extra termina a las ${endsAt}: el salón cierra a las ${picker.hours.close}. Elegí un horario más temprano.`;
     if (picker.check.status === 'no' || picker.check.status === 'checking')
       return 'Elegí un horario con lugar para agendar';
     return null;
@@ -196,6 +243,7 @@ export function useSaleSchedule(
         date: picker.day,
         startTime: picker.time,
         quantity: expLine?.quantity ?? people,
+        ...(extraMin > 0 ? { extraMinutes: extraMin } : {}),
         ...(expLine?.bonifiedQty ? { freeSpots: expLine.bonifiedQty } : {}),
         ...(cakes.length ? { cakes } : {}),
         ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
@@ -234,6 +282,8 @@ export function useSaleSchedule(
     setCoverColor('');
     setFlavor('');
     setExpLineId(AGENDA_LINE_ID);
+    setExtraMin(0);
+    setExtraPrice('');
     picker.setExpId('');
   }
 
@@ -259,6 +309,12 @@ export function useSaleSchedule(
     setCoverColor,
     flavor,
     setFlavor,
+    extraMin,
+    setExtraMin,
+    extraPrice,
+    setExtraPrice,
+    endsAt,
+    endsAfterClose,
     suggestFrom,
     validate,
     schedule,
@@ -307,6 +363,56 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
               precio. Las bonificadas se cargan en &quot;Bonif.&quot;.
             </p>
           </div>
+          <div className='flex flex-wrap items-end gap-3'>
+            <div className='space-y-1.5'>
+              <Label htmlFor='sale-extra' className='text-[13px] font-medium text-[#455a54]'>
+                Hora extra
+              </Label>
+              <select
+                id='sale-extra'
+                value={state.extraMin}
+                onChange={(e) => state.setExtraMin(Number(e.target.value))}
+                className={`h-10 w-40 rounded-md border px-3 text-sm sm:h-9 ${fieldCls}`}
+              >
+                <option value={0}>Sin hora extra</option>
+                {EXTRA_OPTIONS.map((o) => (
+                  <option key={o.minutes} value={o.minutes}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {state.extraMin > 0 && (
+              <div className='space-y-1.5'>
+                <Label
+                  htmlFor='sale-extra-price'
+                  className='text-[13px] font-medium text-[#455a54]'
+                >
+                  Precio de la hora extra (total)
+                </Label>
+                <Input
+                  id='sale-extra-price'
+                  type='number'
+                  min={0}
+                  value={state.extraPrice}
+                  onChange={(e) => state.setExtraPrice(e.target.value)}
+                  placeholder='0'
+                  className={`w-40 ${fieldCls}`}
+                />
+              </div>
+            )}
+          </div>
+          {picker.time && state.extraMin > 0 && (
+            <p
+              className={`text-[12px] font-medium ${
+                state.endsAfterClose ? 'text-[#a33]' : 'text-[#455a54]'
+              }`}
+            >
+              {state.endsAfterClose
+                ? `Con la hora extra termina a las ${state.endsAt} y el salón cierra a las ${picker.hours.close}: elegí un horario más temprano.`
+                : `De ${picker.time} a ${state.endsAt} (${picker.duration} min). Las mesas quedan ocupadas hasta las ${state.endsAt}.`}
+            </p>
+          )}
           <div className='space-y-2 border-t border-t-terracota/40 pt-3'>
             <p className='text-sm font-semibold text-terracota'>Para cocina</p>
             <label className='flex cursor-pointer items-center gap-2 text-[13px] text-[#455a54]'>

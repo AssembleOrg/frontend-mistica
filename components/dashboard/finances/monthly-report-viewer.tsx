@@ -107,6 +107,16 @@ export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
                 {formatCurrency(summary.netBalance)}
               </td>
             </tr>
+            {(summary.extraordinaryExpenses?.count ?? 0) > 0 && (
+              <tr>
+                <td style={{ ...cellBase, color: C.gris }}>
+                  Gastos extraordinarios ({summary.extraordinaryExpenses!.count}) — no suman al balance
+                </td>
+                <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', color: C.gris }}>
+                  {formatCurrency(summary.extraordinaryExpenses!.total)}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -324,6 +334,8 @@ export function MonthlyReportViewer({ summary, monthLabel, egresses }: Props) {
           error={egresses.error}
           truncated={egresses.truncated}
           totalAvailable={egresses.totalAvailable}
+          extraordinary={egresses.extraordinary}
+          extraordinaryTotal={egresses.extraordinaryTotal}
         />
       )}
 

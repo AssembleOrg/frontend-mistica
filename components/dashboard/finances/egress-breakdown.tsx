@@ -43,8 +43,20 @@ function formatDate(iso: string): string {
 /** Datos ya calculados. Los componentes no llaman al hook: lo hace quien los usa. */
 type Data = Pick<
   EgressBreakdown,
-  'rows' | 'items' | 'total' | 'count' | 'loading' | 'error' | 'truncated' | 'totalAvailable'
+  | 'rows'
+  | 'items'
+  | 'total'
+  | 'count'
+  | 'loading'
+  | 'error'
+  | 'truncated'
+  | 'totalAvailable'
+  | 'extraordinary'
+  | 'extraordinaryTotal'
 >;
+
+const EXTRAORDINARY_NOTE =
+  'Inversiones (un horno, una máquina…): quedan registradas pero no suman a los egresos del mes ni bajan el balance del cierre.';
 
 /* ------------------------------------------------------------------ */
 /* Versión web — /dashboard/finances                                   */
@@ -59,6 +71,8 @@ export function EgressBreakdownCard({
   error,
   truncated,
   totalAvailable,
+  extraordinary,
+  extraordinaryTotal,
 }: Data) {
   const [showDetail, setShowDetail] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
@@ -109,6 +123,10 @@ export function EgressBreakdownCard({
             <AlertTriangle className="h-4 w-4 shrink-0" />
             {error}
           </p>
+        )}
+
+        {!loading && !error && extraordinary.length > 0 && (
+          <ExtraordinaryList items={extraordinary} total={extraordinaryTotal} />
         )}
 
         {!loading && !error && rows.length === 0 && (
@@ -261,6 +279,45 @@ export function EgressBreakdownCard({
   );
 }
 
+function ExtraordinaryList({ items, total }: { items: EgressBreakdown['items']; total: number }) {
+  return (
+    <div
+      className="mb-5 rounded-lg border px-3 py-3"
+      style={{ borderColor: 'var(--color-gris-claro)', background: 'rgba(157,104,78,0.05)' }}
+    >
+      <div className="flex items-baseline justify-between">
+        <span className="text-sm font-medium font-winter-solid" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+          Gastos extraordinarios
+          <span className="ml-2 text-xs" style={{ opacity: 0.6 }}>
+            no suman al cierre
+          </span>
+        </span>
+        <span className="text-sm font-bold font-tan-nimbus" style={{ color: 'var(--color-ciruela-oscuro)' }}>
+          {formatCurrency(total)}
+        </span>
+      </div>
+      <ul className="mt-2 space-y-1">
+        {items.map((e) => (
+          <li
+            key={e._id}
+            className="flex items-baseline justify-between gap-3 text-xs font-winter-solid"
+            style={{ color: 'var(--color-ciruela-oscuro)' }}
+          >
+            <span className="truncate">
+              <span style={{ opacity: 0.6 }}>{formatDate(e.createdAt)}</span> · {e.concept}
+              {e.categoryName && <span style={{ opacity: 0.6 }}> · {e.categoryName}</span>}
+            </span>
+            <span className="shrink-0 font-semibold">{formatCurrency(e.amount)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 text-[11px] font-winter-solid leading-relaxed" style={{ color: 'var(--color-ciruela-oscuro)', opacity: 0.55 }}>
+        {EXTRAORDINARY_NOTE}
+      </p>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Versión impresa — /monthly-report                                   */
 /* ------------------------------------------------------------------ */
@@ -273,6 +330,8 @@ export function EgressBreakdownPrint({
   error,
   truncated,
   totalAvailable,
+  extraordinary,
+  extraordinaryTotal,
 }: Omit<Data, 'loading'>) {
   if (error) {
     return (
@@ -285,14 +344,56 @@ export function EgressBreakdownPrint({
     );
   }
 
+  const extraordinarySection = extraordinary.length > 0 && (
+    <div style={{ marginBottom: 24 }}>
+      <SectionTitle>Gastos extraordinarios (no suman al cierre)</SectionTitle>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={{ ...thBase, textAlign: 'left', width: 60 }}>Fecha</th>
+            <th style={{ ...thBase, textAlign: 'left' }}>Concepto</th>
+            <th style={{ ...thBase, textAlign: 'left', width: 95 }}>Categoría</th>
+            <th style={{ ...thBase, textAlign: 'left', width: 80 }}>Método</th>
+            <th style={{ ...thBase, textAlign: 'right', width: 90 }}>Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {extraordinary.map((e) => (
+            <tr key={e._id} style={{ breakInside: 'avoid' }}>
+              <td className="tabular-nums" style={{ ...cellBase, color: C.gris }}>{formatDate(e.createdAt)}</td>
+              <td style={{ ...cellBase, color: C.tinta }}>{e.concept}</td>
+              <td style={{ ...cellBase, color: C.gris }}>{egressCategoryLabel(e)}</td>
+              <td style={{ ...cellBase, color: C.gris }}>{methodLabel(e.paymentMethod)}</td>
+              <td className="tabular-nums" style={{ ...cellBase, textAlign: 'right', fontWeight: 700, color: C.tinta }}>
+                {formatCurrency(e.amount)}
+              </td>
+            </tr>
+          ))}
+          <tr>
+            <td style={totalCell} colSpan={4}>Total extraordinarios</td>
+            <td className="tabular-nums" style={{ ...totalCell, textAlign: 'right', fontWeight: 800, fontSize: 11 }}>
+              {formatCurrency(extraordinaryTotal)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p style={{ fontSize: 8, color: C.gris, marginTop: 8, lineHeight: 1.5 }}>
+        {EXTRAORDINARY_NOTE}
+      </p>
+    </div>
+  );
+
   if (rows.length === 0) {
     return (
-      <div style={{ marginBottom: 20 }}>
-        <SectionTitle>Egresos del período</SectionTitle>
-        <p style={{ fontSize: 10, color: C.gris, fontStyle: 'italic' }}>
-          Sin egresos registrados en el período.
-        </p>
-      </div>
+      <>
+        <div style={{ marginBottom: 20 }}>
+          <SectionTitle>Egresos del período</SectionTitle>
+          <p style={{ fontSize: 10, color: C.gris, fontStyle: 'italic' }}>
+            Sin egresos registrados en el período.
+          </p>
+        </div>
+        {extraordinarySection}
+      </>
     );
   }
 
@@ -413,6 +514,8 @@ export function EgressBreakdownPrint({
           </tbody>
         </table>
       </div>
+
+      {extraordinarySection}
     </>
   );
 }

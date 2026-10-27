@@ -616,6 +616,15 @@ export function SessionDetailDialog({ session, onOpenChange, onChanged }: Props)
                             No afecta caja
                           </span>
                         )}
+                        {t.source === 'egress' && t.extraordinary && (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0"
+                            style={{ color: '#9d684e', backgroundColor: 'rgba(157,104,78,0.12)' }}
+                            title="Gasto extraordinario: queda registrado pero no suma al cierre de mes."
+                          >
+                            Extraordinario
+                          </span>
+                        )}
                         <span
                           className="flex-1 truncate text-xs"
                           style={{ color: 'var(--color-ciruela-oscuro)' }}

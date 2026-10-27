@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { EgressCategorySelect } from './category-select';
+import { ExtraordinaryToggle } from './extraordinary-toggle';
 import { useEgressesAPI } from '@/hooks/useEgressesAPI';
 import { EGRESS_TYPES, type EgressType } from '@/lib/egress-type-labels';
 
@@ -59,6 +60,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
   // false = gasto externo: se pagó con plata que no estaba en el cajón. Sólo
   // aplica en efectivo. Editable para corregir un egreso mal marcado.
   const [affectsCashbox, setAffectsCashbox] = useState(true);
+  const [extraordinary, setExtraordinary] = useState(false);
 
   // Precarga los datos del egreso al abrir. Mientras el fetch está en vuelo el
   // form queda deshabilitado para no guardar valores vacíos.
@@ -80,6 +82,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
         setNotes(egress.notes ?? '');
         setCategoryId(egress.categoryId ?? '');
         setAffectsCashbox(egress.affectsCashbox ?? true);
+        setExtraordinary(egress.extraordinary ?? false);
       })
       .catch(() => {
         // toast manejado en el hook; cerramos para no dejar un form vacío.
@@ -105,6 +108,7 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
         // El flag sólo tiene sentido en efectivo; con otro método siempre afecta
         // caja (no hay "gasto externo del cajón" en tarjeta/transferencia).
         affectsCashbox: paymentMethod === 'CASH' ? affectsCashbox : true,
+        extraordinary,
         notes: notes.trim() || undefined,
       });
       onUpdated?.();
@@ -211,6 +215,11 @@ export function EditEgressDialog({ egressId, onOpenChange, onUpdated }: Props) {
               </span>
             </button>
           )}
+          <ExtraordinaryToggle
+            checked={extraordinary}
+            onChange={setExtraordinary}
+            disabled={busy}
+          />
           <div className='space-y-1'>
             <Label className='text-xs'>Notas (opcional)</Label>
             <Textarea

@@ -36,7 +36,15 @@ export interface FinanceSummary {
     revenue: number;
   }>;
 
+  /** Egresos del rango SIN los extraordinarios (son los que bajan el balance). */
   expenses: {
+    count: number;
+    total: number;
+    byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };
+  };
+
+  /** Gastos extraordinarios (inversiones): registrados, fuera del balance. */
+  extraordinaryExpenses?: {
     count: number;
     total: number;
     byPaymentMethod: { CASH: number; CARD: number; TRANSFER: number; MERCADOPAGO: number };

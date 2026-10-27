@@ -28,6 +28,7 @@ import {
   type CreateCashExpenseRequest,
 } from '@/services/cashbox.service';
 import { EgressCategorySelect } from '@/components/dashboard/finances/category-select';
+import { ExtraordinaryToggle } from '@/components/dashboard/finances/extraordinary-toggle';
 
 type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER';
 
@@ -64,6 +65,8 @@ export function CashEgressDialog({
   // false = gasto externo: se paga con plata que no estaba en el cajón (banco,
   // cuenta del dueño); cuenta en finanzas pero no baja el esperado del arqueo.
   const [affectsCashbox, setAffectsCashbox] = useState(true);
+  // Inversión (un horno…): se registra pero no suma al cierre de mes.
+  const [extraordinary, setExtraordinary] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -74,6 +77,7 @@ export function CashEgressDialog({
       setNotes('');
       setCategoryId('');
       setAffectsCashbox(true);
+      setExtraordinary(false);
       setIsSubmitting(false);
     }
   }, [open]);
@@ -99,6 +103,7 @@ export function CashEgressDialog({
         amount,
         paymentMethod,
         affectsCashbox,
+        extraordinary,
       };
       if (categoryId) payload.categoryId = categoryId;
       if (notes.trim()) payload.notes = notes.trim();
@@ -232,6 +237,12 @@ export function CashEgressDialog({
               </span>
             </button>
           )}
+
+          <ExtraordinaryToggle
+            checked={extraordinary}
+            onChange={setExtraordinary}
+            disabled={isSubmitting}
+          />
 
           <div className="space-y-1.5">
             <Label

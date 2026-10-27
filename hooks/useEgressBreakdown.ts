@@ -32,10 +32,16 @@ export function egressCategoryLabel(e: Pick<Egress, 'categoryName' | 'type'>): s
 export interface EgressBreakdown {
   /** Categorías con al menos un egreso, de mayor a menor monto. */
   rows: EgressBreakdownRow[];
-  /** Egresos del período, más recientes primero. */
+  /** Egresos del período, más recientes primero (sin los extraordinarios). */
   items: Egress[];
   total: number;
   count: number;
+  /**
+   * Gastos extraordinarios (inversiones) del período: se listan aparte y NO
+   * suman a `total` ni a las categorías, igual que en el cierre de mes.
+   */
+  extraordinary: Egress[];
+  extraordinaryTotal: number;
   loading: boolean;
   error: string | null;
   /** true si hay más egresos de los que trajimos: la vista está incompleta. */
@@ -106,11 +112,14 @@ export function useEgressBreakdown({ from, to, enabled = true }: Params): Egress
     load();
   }, [load]);
 
-  const { rows, total, count } = useMemo(() => {
+  const { rows, total, count, ordinary, extraordinary, extraordinaryTotal } = useMemo(() => {
     const acc = new Map<string, { count: number; amount: number }>();
     let sum = 0;
+    const ordinary = items.filter((e) => !e.extraordinary);
+    const extraordinary = items.filter((e) => e.extraordinary);
+    const extraordinaryTotal = extraordinary.reduce((s, e) => s + e.amount, 0);
 
-    for (const e of items) {
+    for (const e of ordinary) {
       const key = egressCategoryLabel(e);
       const prev = acc.get(key) ?? { count: 0, amount: 0 };
       acc.set(key, { count: prev.count + 1, amount: prev.amount + e.amount });
@@ -127,12 +136,21 @@ export function useEgressBreakdown({ from, to, enabled = true }: Params): Egress
       }))
       .sort((a, b) => b.amount - a.amount);
 
-    return { rows: built, total: sum, count: items.length };
+    return {
+      rows: built,
+      total: sum,
+      count: ordinary.length,
+      ordinary,
+      extraordinary,
+      extraordinaryTotal,
+    };
   }, [items]);
 
   return {
     rows,
-    items,
+    items: ordinary,
+    extraordinary,
+    extraordinaryTotal,
     total,
     count,
     loading,

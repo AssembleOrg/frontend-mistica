@@ -165,7 +165,9 @@ export default function FinancesPage() {
       summary.byPaymentMethod.CASH +
       summary.prepaids.byPaymentMethod.CASH +
       summary.incomes.byPaymentMethod.CASH -
-      summary.expenses.byPaymentMethod.CASH
+      summary.expenses.byPaymentMethod.CASH -
+      // Un extraordinario no baja el balance, pero el efectivo igual salió.
+      (summary.extraordinaryExpenses?.byPaymentMethod.CASH ?? 0)
     );
   }, [summary]);
 

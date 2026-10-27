@@ -16,7 +16,17 @@ interface Props {
  * total agregado, este reporte muestra en qué se gastó.
  */
 export function EgressReportViewer({ egresses, periodLabel }: Props) {
-  const { rows, items, total, count, error, truncated, totalAvailable } = egresses;
+  const {
+    rows,
+    items,
+    total,
+    count,
+    error,
+    truncated,
+    totalAvailable,
+    extraordinary,
+    extraordinaryTotal,
+  } = egresses;
 
   const average = count > 0 ? total / count : 0;
   const topType = rows.length > 0 ? rows[0] : null;
@@ -63,6 +73,8 @@ export function EgressReportViewer({ egresses, periodLabel }: Props) {
         error={error}
         truncated={truncated}
         totalAvailable={totalAvailable}
+        extraordinary={extraordinary}
+        extraordinaryTotal={extraordinaryTotal}
       />
 
       <PrintFooter />

@@ -14,6 +14,8 @@ export interface Egress {
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
   /** false = gasto externo: cuenta en finanzas, no en el arqueo de caja. */
   affectsCashbox?: boolean;
+  /** Gasto extraordinario (inversión): registrado, fuera del cierre de mes. */
+  extraordinary?: boolean;
   /** Categoría del gasto (Sueldos, Servicios…) — snapshot del nombre. */
   categoryId?: string;
   categoryName?: string;
@@ -35,6 +37,8 @@ export interface CreateEgressRequest {
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
   /** false = gasto externo: no descuenta del arqueo de la caja física. */
   affectsCashbox?: boolean;
+  /** Gasto extraordinario (inversión): no suma al cierre de mes. */
+  extraordinary?: boolean;
   /** Categoría del gasto. */
   categoryId?: string;
   notes?: string;
@@ -67,6 +71,8 @@ export interface UpdateEgressRequest {
   paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER' | 'CHECK' | 'OTHER';
   /** false = gasto externo: no descuenta del arqueo de la caja física. */
   affectsCashbox?: boolean;
+  /** Gasto extraordinario (inversión): no suma al cierre de mes. */
+  extraordinary?: boolean;
   notes?: string;
   authorizedBy?: string;
   [key: string]: unknown;

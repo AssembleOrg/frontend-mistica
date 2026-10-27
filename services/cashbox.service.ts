@@ -92,6 +92,8 @@ export interface CreateCashExpenseRequest {
   paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER';
   /** false = gasto externo: no descuenta del arqueo de la caja física. */
   affectsCashbox?: boolean;
+  /** Gasto extraordinario (inversión): no suma al cierre de mes. */
+  extraordinary?: boolean;
   /** Categoría del gasto (Sueldos, Servicios…). */
   categoryId?: string;
   notes?: string;
@@ -142,6 +144,9 @@ export interface SessionTransaction {
   // Sólo en egresos. false = gasto externo: se muestra en la lista con un badge
   // "no afecta caja", pero no bajó el efectivo esperado ni cuenta en los KPIs.
   affectsCashbox?: boolean;
+  // Sólo en egresos. Gasto extraordinario (inversión): fuera del cierre de mes.
+  extraordinary?: boolean;
+  categoryName?: string;
   // Marca manual del checkbox tipo Excel. Sólo estado; no afecta cálculos.
   checked?: boolean;
 }

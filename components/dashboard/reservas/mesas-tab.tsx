@@ -519,12 +519,12 @@ function ReservationRow({
 
   return (
     <div className='rounded-xl border border-[#e6dbcd] bg-white px-3.5 py-2.5'>
-      {/* Línea 1: hora + nombre + qty. Nombre trunca; nada empuja al horario. */}
+      {/* Línea 1: hora + nombre + qty. Nombre envuelve; nada empuja al horario. */}
       <div className='flex items-center gap-x-3'>
         <span className='shrink-0 font-mono text-[13px] font-semibold text-[#455a54]'>
           {hourAR(r.startAt)}–{hourAR(r.endAt)}
         </span>
-        <span className='min-w-0 flex-1 truncate text-sm font-semibold text-[#3d3338]'>
+        <span className='min-w-0 flex-1 break-words text-sm font-semibold text-[#3d3338]'>
           {r.customerName}
         </span>
         <span className='inline-flex shrink-0 items-center gap-1.5 text-[13px] text-[#7a6e6f]'>
@@ -534,7 +534,7 @@ function ReservationRow({
       </div>
       {/* Línea 2: metadatos + chips de mesa, envuelven libremente. */}
       <div className='mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5'>
-        <span className='min-w-0 truncate text-[13px] text-[#7a6e6f]'>{r.experienceName}</span>
+        <span className='min-w-0 break-words text-[13px] text-[#7a6e6f]'>{r.experienceName}</span>
         {r.code && (
           <span className='font-mono text-[11px] text-[#a99f92]'>{prettyCode(r.code)}</span>
         )}

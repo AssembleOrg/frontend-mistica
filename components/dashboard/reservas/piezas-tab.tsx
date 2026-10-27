@@ -695,23 +695,23 @@ export function PiezasTab() {
                     aria-label='Seleccionar pieza'
                   />
                   <div className='min-w-0'>
-                    <p className='line-clamp-2 text-sm font-medium leading-tight text-[#3d3338]'>
+                    <p className='break-words text-sm font-medium leading-tight text-[#3d3338]'>
                       {p.personName || p.customerName || '—'}
                     </p>
-                    <p className='truncate font-mono text-xs text-[#7a6e6f]'>
+                    <p className='break-words font-mono text-xs text-[#7a6e6f]'>
                       Firma: {p.signature || '—'}
                     </p>
                   </div>
                   <div className='min-w-0 text-sm text-[#3d3338]'>
-                    <p className='truncate font-medium'>
+                    <p className='break-words font-medium'>
                       {p.pieceType || 'Pieza sin detalle'}
                       {p.extraName && (
                         <span className='ml-1.5 text-xs font-normal text-[#9d684e]'>+ {p.extraName}</span>
                       )}
                     </p>
-                    <p className='truncate text-xs text-[#7a6e6f]'>Colores: {p.colorsUsed || '—'}</p>
+                    <p className='break-words text-xs text-[#7a6e6f]'>Colores: {p.colorsUsed || '—'}</p>
                     {p.registeredByName && (
-                      <p className='truncate text-[11px] text-[#a99f92]'>
+                      <p className='break-words text-[11px] text-[#a99f92]'>
                         Cargó {p.registeredByName}
                       </p>
                     )}
@@ -819,11 +819,11 @@ export function PiezasTab() {
                     className='mt-0.5 size-5'
                   />
                   <div className='min-w-0 flex-1'>
-                    <p className='line-clamp-2 text-sm font-medium leading-tight text-[#3d3338]'>
+                    <p className='break-words text-sm font-medium leading-tight text-[#3d3338]'>
                       {p.personName || p.customerName || p.customerPhone}
                     </p>
                     {p.signature && (
-                      <p className='truncate font-mono text-xs text-[#7a6e6f]'>
+                      <p className='break-words font-mono text-xs text-[#7a6e6f]'>
                         Firma: {p.signature}
                       </p>
                     )}

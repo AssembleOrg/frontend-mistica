@@ -427,12 +427,12 @@ export function ReservasListado({ refreshKey = 0 }: { refreshKey?: number }) {
                   <button
                     type='button'
                     onClick={() => setDetail(r)}
-                    className='truncate text-left text-sm font-medium text-[#455a54]'
+                    className='min-w-0 break-words text-left text-sm font-medium text-[#455a54]'
                   >
                     {r.customerName}
                   </button>
                   <div className='min-w-0'>
-                    <p className='truncate text-sm text-[#3d3338]'>
+                    <p className='break-words text-sm text-[#3d3338]'>
                       {r.experienceName}
                       {r.specialName && (
                         <span className='text-[#9d684e]' title='Edición especial'>

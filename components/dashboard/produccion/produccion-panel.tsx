@@ -127,8 +127,8 @@ export function ProduccionPanel() {
               return (
                 <div key={p._id} className={cn('grid items-center gap-3 border-b border-[#e6dbcd] px-4 py-2.5 last:border-0', COLS)}>
                   <span className='font-mono text-xs text-[#7a6e6f]'>{fmtDay(p.requestedAt)}</span>
-                  <span className='truncate text-sm font-medium text-[#3d3338]'>{r.student.name}</span>
-                  <span className='truncate text-sm text-[#3d3338]'>{p.pieceName}</span>
+                  <span className='min-w-0 break-words text-sm font-medium text-[#3d3338]'>{r.student.name}</span>
+                  <span className='min-w-0 break-words text-sm text-[#3d3338]'>{p.pieceName}</span>
                   <span>
                     {tipo ? (
                       <span
@@ -144,7 +144,7 @@ export function ProduccionPanel() {
                     )}
                   </span>
                   <span className='text-sm text-[#3d3338]'>{p.dueDate ? dueLabel(p.dueDate) : '—'}</span>
-                  <span className='truncate text-xs text-[#7a6e6f]'>
+                  <span className='min-w-0 break-words text-xs text-[#7a6e6f]'>
                     {r.groups.map((g) => slotLabel(g.schedule)).filter(Boolean).join(' · ') || '—'}
                   </span>
                   <span className='flex justify-center'>

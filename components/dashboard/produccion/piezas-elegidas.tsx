@@ -111,7 +111,7 @@ export function PiezasElegidas() {
         )}
         {tally?.items.map((i) => (
           <div key={i.name} className='flex items-center gap-3'>
-            <span className='w-40 shrink-0 truncate text-sm text-[#3d3338] sm:w-56'>{i.name}</span>
+            <span className='w-40 shrink-0 break-words text-sm text-[#3d3338] sm:w-56'>{i.name}</span>
             <div className='h-2.5 min-w-0 flex-1 rounded-full bg-[#f6efe6]'>
               <div
                 className='h-2.5 rounded-full bg-[#9d684e]'

@@ -59,6 +59,10 @@ export interface PieceItem {
   /** Adicional elegido al registrar la ficha (copia del catálogo). */
   extraName?: string;
   extraAmount?: number;
+  /** Id del adicional en el catálogo (las fichas viejas sólo traen el nombre). */
+  extraId?: string;
+  /** Pieza sumada además de la incluida en la entrada. */
+  additional?: boolean;
   /** Tela, bastidor, yeso…: no va al horno, se la llevan en el día. */
   material?: string;
   /** Reserva a la que está asignada la pieza (camino normal). */
@@ -198,6 +202,9 @@ export interface UpdatePieceInput {
   professorId?: string;
   studentId?: string;
   photos?: string[];
+  /** Corregir el adicional (ficha de reserva, admin/encargado): '' = sin adicional. */
+  extraId?: string;
+  additional?: boolean;
 }
 
 /** Ficha a medio cargar, guardada en el servidor mientras se escribe. */

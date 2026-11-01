@@ -1024,8 +1024,38 @@ function EditPieceModal({
   const [notes, setNotes] = useState(piece.notes ?? '');
   const [saving, setSaving] = useState(false);
 
+  // Adicional de una ficha de reserva (admin/encargado): si se cargó sin
+  // adicional o con otro, se corrige acá y el saldo de la reserva se ajusta.
+  const { user } = useAuth();
+  const canEditExtra = !!piece.reservationId && canManageRole(user?.role);
+  const { items: extrasCatalog, load: loadExtras } = usePieceExtrasStore();
+  const [hasExtra, setHasExtra] = useState(!!piece.extraName);
+  const [extraId, setExtraId] = useState(piece.extraId ?? '');
+  const [additional, setAdditional] = useState(!!piece.additional);
+  const [extraTouched, setExtraTouched] = useState(false);
+  useEffect(() => {
+    if (canEditExtra) loadExtras().catch(() => undefined);
+  }, [canEditExtra, loadExtras]);
+  // Fichas viejas: sólo guardaron el nombre del adicional, se busca en el catálogo.
+  useEffect(() => {
+    if (extraTouched || extraId || !piece.extraName) return;
+    const name = piece.extraName.trim().toLowerCase();
+    const hit = extrasCatalog.find((x) => x.name.trim().toLowerCase() === name);
+    if (hit) setExtraId(hit.id);
+  }, [extrasCatalog, extraTouched, extraId, piece.extraName]);
+  const chosenExtra = hasExtra ? extrasCatalog.find((x) => x.id === extraId) : undefined;
+  const extraCharge = chosenExtra
+    ? additional
+      ? (chosenExtra.addAmount ?? chosenExtra.amount)
+      : chosenExtra.amount
+    : 0;
+  const extraDiff = extraCharge - (piece.extraAmount ?? 0);
+
   async function save() {
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
+    if (canEditExtra && extraTouched && hasExtra && !extraId) {
+      return showToast.error('Elegí cuál es el adicional.');
+    }
     setSaving(true);
     try {
       await piecesAdmin.update(piece._id, {
@@ -1036,8 +1066,14 @@ function EditPieceModal({
         quantity: qty,
         professorId: professorId || undefined,
         notes: notes.trim(),
+        ...(canEditExtra &&
+          extraTouched && { extraId: hasExtra ? extraId : '', additional }),
       });
-      showToast.success('Ficha actualizada');
+      showToast.success(
+        canEditExtra && extraTouched && extraDiff !== 0
+          ? `Ficha actualizada · saldo de la reserva ${extraDiff > 0 ? '+' : '−'}${fmtPrice(Math.abs(extraDiff))}`
+          : 'Ficha actualizada',
+      );
       await onDone();
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo guardar'));
@@ -1099,6 +1135,63 @@ function EditPieceModal({
             Notas internas
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} className={field} />
           </label>
+          {canEditExtra && (
+            <div className='flex flex-col gap-2 rounded-lg border border-[#e6dbcd] bg-[#fbf5ef] p-3 sm:col-span-2'>
+              <div className='flex flex-wrap items-center gap-3'>
+                <label className='flex w-fit cursor-pointer items-center gap-2 text-[13px] text-[#455a54]'>
+                  <Switch
+                    checked={hasExtra}
+                    onCheckedChange={(on) => {
+                      setHasExtra(on);
+                      setExtraTouched(true);
+                    }}
+                    aria-label='¿Tiene adicional?'
+                  />
+                  ¿Tiene adicional?
+                </label>
+                {hasExtra && (
+                  <span className='inline-flex rounded-lg border border-[#e6dbcd] bg-white p-0.5'>
+                    {([false, true] as const).map((add) => (
+                      <button
+                        key={String(add)}
+                        type='button'
+                        onClick={() => {
+                          setAdditional(add);
+                          setExtraTouched(true);
+                        }}
+                        className={cn(
+                          'rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors',
+                          additional === add ? 'bg-[#455a54] text-white' : 'text-[#7a6e6f] hover:text-[#455a54]',
+                        )}
+                      >
+                        {add ? 'Pieza adicional' : 'Incluida en la entrada'}
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </div>
+              {hasExtra && (
+                <PieceExtraSelect
+                  value={extraId}
+                  onChange={(id) => {
+                    setExtraId(id);
+                    setExtraTouched(true);
+                  }}
+                />
+              )}
+              <span className='text-[12px] text-[#7a6e6f]'>
+                {piece.extraName
+                  ? `Se cargó con: ${piece.extraName}${piece.extraAmount ? ` (+${fmtPrice(piece.extraAmount)})` : ''}.`
+                  : 'Se cargó sin adicional.'}
+                {extraTouched && extraDiff !== 0 && (
+                  <strong className='ml-1 text-[#9d684e]'>
+                    Al guardar, el saldo de la reserva {extraDiff > 0 ? 'sube' : 'baja'}{' '}
+                    {fmtPrice(Math.abs(extraDiff))}.
+                  </strong>
+                )}
+              </span>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
@@ -1646,6 +1739,11 @@ export function NewPieceModal({
                       >
                         <span className='font-semibold'>{p.personName || '—'}</span>
                         <span>· {p.pieceType || 'sin pieza'}</span>
+                        <span className='text-xs text-[#9d684e]'>
+                          {p.extraName
+                            ? `+ ${p.extraName}${p.extraAmount ? ` (${fmtPrice(p.extraAmount)})` : ''}`
+                            : '· sin adicional'}
+                        </span>
                         {p.signature && <span className='text-[#7a6e6f]'>· firma {p.signature}</span>}
                         {p.colorsUsed && <span className='text-[#7a6e6f]'>· {p.colorsUsed}</span>}
                         <span className='ml-auto flex items-center gap-1 text-xs font-semibold text-[#9d684e]'>

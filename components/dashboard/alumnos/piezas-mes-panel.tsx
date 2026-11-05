@@ -105,9 +105,14 @@ export function PiezasMesPanel() {
     setDrafts((d) => ({ ...d, [studentId]: (d[studentId] ?? []).filter((x) => x !== draftId) }));
   }
 
-  const cols = canManage
-    ? 'grid-cols-[minmax(10rem,1fr)_8rem_11rem_7rem_9.5rem_15rem_13rem_2rem]'
-    : 'grid-cols-[minmax(10rem,1fr)_8rem_11rem_7rem_9.5rem_15rem_2rem]';
+  // Por el ancho disponible, no el de la pantalla: en una línea si entra toda;
+  // si no, en dos renglones (tablet) o apilada (celular). Sin scroll de costado.
+  const cols = cn(
+    'grid-cols-1 @[47rem]:grid-cols-[minmax(9.5rem,1fr)_15rem_13rem_minmax(7rem,9rem)]',
+    canManage
+      ? '@[82rem]:grid-cols-[minmax(10rem,1fr)_8rem_11rem_7rem_9.5rem_15rem_13rem_2rem]'
+      : '@[68rem]:grid-cols-[minmax(10rem,1fr)_8rem_11rem_7rem_9.5rem_15rem_2rem]',
+  );
 
   return (
     <div className='flex flex-col gap-4'>
@@ -150,9 +155,9 @@ export function PiezasMesPanel() {
         categoría lleva adicional, aparece <b>Cobrar $</b>. Cada cambio se guarda solo.
       </p>
 
-      <div className='overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white'>
-        <div className={cn('min-w-[66rem]', canManage && 'min-w-[80rem]')}>
-          <div className={cn('grid items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]', cols)}>
+      <div className='@container rounded-2xl border border-[#e6dbcd] bg-white'>
+        <div>
+          <div className={cn('hidden items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]', canManage ? '@[82rem]:grid' : '@[68rem]:grid', cols)}>
             <span>ALUMNO</span>
             <span>DÍA QUE CURSA</span>
             <span>PIEZA</span>

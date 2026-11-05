@@ -84,12 +84,32 @@ export interface PieceItem {
   createdAt: string;
 }
 
+/** Totales de TODA la reserva: no dependen de la página ni del filtro. */
+export interface ReservationPieceTotals {
+  deliver: number;
+  done: number;
+  takenSameDay: number;
+  notified: boolean;
+  readyPieceId?: string;
+}
+
+/** Día con piezas, para el calendario del listado. */
+export interface PieceDay {
+  date: string;
+  count: number;
+  pending: number;
+}
+
 export interface PieceListResponse {
   items: PieceItem[];
   total: number;
   page: number;
   limit: number;
   totalPages: number;
+  /** Con `wholeGroups`: rango real de la página y totales por reserva. */
+  from?: number;
+  to?: number;
+  reservationTotals?: Record<string, ReservationPieceTotals>;
 }
 
 /** Un pedido a armar: todas las piezas de una reserva (o de un alumno). */
@@ -276,6 +296,8 @@ export const piecesAdmin = {
     workDate?: string;
     page?: number;
     limit?: number;
+    /** Sin partir reservas entre páginas y con sus totales reales. */
+    wholeGroups?: boolean;
   }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
@@ -286,13 +308,31 @@ export const piecesAdmin = {
     if (params?.workDate) q.set('workDate', params.workDate);
     q.set('page', String(params?.page ?? 1));
     q.set('limit', String(params?.limit ?? 20));
+    if (params?.wholeGroups) q.set('wholeGroups', 'true');
     return (await apiService.get<PieceListResponse>(`/pieces?${q.toString()}`))
       .data;
   },
-  counts: async (params?: { search?: string; professorId?: string }) => {
+  days: async (params: {
+    month: string;
+    status?: string;
+    search?: string;
+    professorId?: string;
+  }) => {
+    const q = new URLSearchParams({ month: params.month });
+    if (params.status) q.set('status', params.status);
+    if (params.search?.trim()) q.set('search', params.search.trim());
+    if (params.professorId) q.set('professorId', params.professorId);
+    return (await apiService.get<PieceDay[]>(`/pieces/days?${q.toString()}`)).data;
+  },
+  counts: async (params?: {
+    search?: string;
+    professorId?: string;
+    workDate?: string;
+  }) => {
     const q = new URLSearchParams();
     if (params?.search?.trim()) q.set('search', params.search.trim());
     if (params?.professorId) q.set('professorId', params.professorId);
+    if (params?.workDate) q.set('workDate', params.workDate);
     const suffix = q.size ? `?${q.toString()}` : '';
     return (await apiService.get<PieceCountsResponse>(`/pieces/counts${suffix}`))
       .data;

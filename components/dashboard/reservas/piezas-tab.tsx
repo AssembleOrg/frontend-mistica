@@ -30,6 +30,7 @@ import {
   type PieceExtraItem,
   type PieceItem,
   type PieceStatusConfig,
+  type ReservationPieceTotals,
 } from '@/services/pieces.admin.service';
 import { ImageUploadButton } from '@/components/ui/image-upload-button';
 import {
@@ -56,6 +57,7 @@ import {
   usePieceCategories,
 } from './piece-type-select';
 import { PiezasAssembly } from './piezas-assembly';
+import { PiezasDayFilter } from './piezas-day-filter';
 import { HornosPanel } from '@/components/dashboard/hornos/hornos-panel';
 import { PieceExtraSelect } from './piece-extra-select';
 import { ColorsSelect } from './colors-select';
@@ -133,7 +135,7 @@ function statusColors(
 }
 
 const COLS =
-  'grid grid-cols-[1.25rem_12rem_1fr_9rem_7rem_14rem] items-center gap-3';
+  'grid grid-cols-[1.25rem_12rem_1fr_9rem_7rem_15.5rem] items-center gap-3';
 const fieldCls =
   'border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
 
@@ -191,6 +193,12 @@ export function PiezasTab() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [range, setRange] = useState({ from: 0, to: 0 });
+  // Día de trabajo elegido en el calendario ('' = todas las fechas).
+  const [workDate, setWorkDate] = useState('');
+  const [reservationTotals, setReservationTotals] = useState<
+    Record<string, ReservationPieceTotals>
+  >({});
   const [busy, setBusy] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -238,26 +246,34 @@ export function PiezasTab() {
     void loadProfessors();
   }, [loadProfessors]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // `silent`: después de tocar una pieza, la lista se actualiza en el lugar. Sin
+  // el "Cargando…" la página no se achica y no se pierde dónde estabas.
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await piecesAdmin.list({
         status: status || undefined,
         search: search || undefined,
         professorId: professorId || undefined,
+        workDate: workDate || undefined,
         page,
         limit: LIMIT,
+        wholeGroups: true,
       });
       setItems(res.items);
       setTotalPages(res.totalPages);
       setTotal(res.total);
+      setRange({ from: res.from ?? 0, to: res.to ?? 0 });
+      setReservationTotals(res.reservationTotals ?? {});
+      // Se terminaron las piezas de la última página: volver a la que queda.
+      if (res.page !== page) setPage(res.page);
       setCountsKey((k) => k + 1);
     } catch (e) {
       showToast.error(errorText(e, 'Error al cargar'));
     } finally {
       setLoading(false);
     }
-  }, [status, search, professorId, page]);
+  }, [status, search, professorId, workDate, page]);
 
   useEffect(() => {
     load();
@@ -271,6 +287,7 @@ export function PiezasTab() {
       .counts({
         search: search || undefined,
         professorId: professorId || undefined,
+        workDate: workDate || undefined,
       })
       .then((result) => {
         if (alive) setCounts({ '': result.total, ...result.byStatus });
@@ -281,11 +298,15 @@ export function PiezasTab() {
     return () => {
       alive = false;
     };
-  }, [search, professorId, countsKey]);
+  }, [search, professorId, workDate, countsKey]);
 
   async function changeStatus(p: PieceItem, next: string) {
     if (next === p.status) return;
     setBusy(p._id);
+    // Se ve al instante (la franja verde); la recarga trae los totales.
+    setItems((current) =>
+      current.map((x) => (x._id === p._id ? { ...x, status: next } : x)),
+    );
     try {
       await piecesAdmin.update(p._id, { status: next });
       showToast.success(
@@ -293,9 +314,10 @@ export function PiezasTab() {
           ? 'Pieza marcada como lista para retirar'
           : 'Estado actualizado',
       );
-      await load();
+      await load(true);
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo actualizar'));
+      await load(true);
     } finally {
       setBusy(null);
     }
@@ -304,7 +326,7 @@ export function PiezasTab() {
   // La selección vale para el filtro en pantalla: al cambiarlo, se limpia.
   useEffect(() => {
     setSelected(new Set());
-  }, [status, search, professorId]);
+  }, [status, search, professorId, workDate]);
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -366,7 +388,7 @@ export function PiezasTab() {
             : `${updated} piezas pasaron a "${label}"`,
       );
       setSelected(new Set());
-      await load();
+      await load(true);
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo actualizar'));
     } finally {
@@ -374,31 +396,38 @@ export function PiezasTab() {
     }
   }
 
-  // Resumen del pedido (con lo que está en pantalla): cuántas piezas hay que
-  // entregar y cuántas ya están. Las de tela/yeso no cuentan.
-  function groupSummary(key: string) {
-    const all = items.filter((p) => groupOf(p) === key);
-    const deliver = all.filter((p) => !p.material);
-    const done = deliver.filter((p) => {
-      const c = cfgOf(p.status, statusCfg);
+  // Resumen del pedido: cuántas piezas hay que entregar y cuántas ya están. Las
+  // de tela/yeso no cuentan. En una reserva son los totales del backend: lo que
+  // está en pantalla puede ser sólo una parte (por el filtro de estado), y con
+  // eso se le avisaba a alguien que todavía no tenía todas sus piezas.
+  function groupSummary(p: PieceItem): ReservationPieceTotals {
+    const totals = p.reservationId ? reservationTotals[p.reservationId] : undefined;
+    if (totals) return totals;
+    const all = items.filter((x) => groupOf(x) === groupOf(p));
+    const deliver = all.filter((x) => !x.material);
+    const done = deliver.filter((x) => {
+      const c = cfgOf(x.status, statusCfg);
       return c?.isReady || c?.isFinal;
     });
-    const ready = deliver.find((p) => cfgOf(p.status, statusCfg)?.isReady);
-    const notified = deliver.some((p) => p.notifiedReadyAt);
-    return { all, deliver, done, ready, notified };
+    return {
+      deliver: deliver.length,
+      done: done.length,
+      takenSameDay: all.length - deliver.length,
+      notified: deliver.some((x) => x.notifiedReadyAt),
+      readyPieceId: deliver.find((x) => cfgOf(x.status, statusCfg)?.isReady)?._id,
+    };
   }
 
   function groupHeader(p: PieceItem) {
-    const key = groupOf(p);
-    if (key.startsWith('p:')) return null;
-    const g = groupSummary(key);
+    if (groupOf(p).startsWith('p:')) return null;
+    const g = groupSummary(p);
     const titular = p.customerName || p.studentName || p.personName || 'Sin nombre';
     const canNotify =
       canManage &&
-      !!g.ready &&
+      !!g.readyPieceId &&
       !g.notified &&
-      g.deliver.length > 0 &&
-      g.done.length === g.deliver.length;
+      g.deliver > 0 &&
+      g.done === g.deliver;
     return (
       <div className='flex flex-wrap items-center gap-x-3 gap-y-1 border-t-[3px] border-[#455a54]/45 bg-white px-4 pb-1.5 pt-2.5 md:px-5'>
         <span className='text-sm font-semibold text-[#3d3338]'>
@@ -411,25 +440,33 @@ export function PiezasTab() {
         <span
           className={cn(
             'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-            g.deliver.length === 0
+            g.deliver === 0
               ? 'bg-[#eae4db] text-[#5c5148]'
-              : g.done.length === g.deliver.length
+              : g.done === g.deliver
                 ? 'bg-[#dcebe1] text-[#2f4a40]'
                 : 'bg-[#f3e2d0] text-[#8a5638]',
           )}
         >
-          {g.deliver.length === 0
+          {g.deliver === 0
             ? 'Nada para entregar'
-            : `${g.done.length}/${g.deliver.length} para entregar`}
+            : `${g.done}/${g.deliver} para entregar`}
         </span>
-        <div className='ml-auto flex items-center gap-2'>
+        {g.takenSameDay > 0 && (
+          <span className='text-[11px] text-[#7a6e6f]'>
+            {g.takenSameDay === 1
+              ? '1 se la llevó en el día'
+              : `${g.takenSameDay} se las llevaron en el día`}
+          </span>
+        )}
+        {/* Altura fija: que aparezca "Avisar" no empuja la lista. */}
+        <div className='ml-auto flex min-h-7 items-center gap-2'>
           {canNotify && (
             <Button
               type='button'
               variant='verde'
               size='sm'
-              disabled={busy === g.ready!._id}
-              onClick={() => sendReadyNotice(g.ready!)}
+              disabled={busy === g.readyPieceId}
+              onClick={() => sendReadyNotice(g.readyPieceId!)}
               className='h-7 px-2.5 text-[11px]'
             >
               Avisar a {titular.split(' ')[0]}
@@ -468,12 +505,12 @@ export function PiezasTab() {
     );
   }
 
-  async function sendReadyNotice(p: PieceItem) {
-    setBusy(p._id);
+  async function sendReadyNotice(pieceId: string) {
+    setBusy(pieceId);
     try {
-      await piecesAdmin.notifyReady(p._id);
+      await piecesAdmin.notifyReady(pieceId);
       showToast.success('Aviso de retiro enviado');
-      await load();
+      await load(true);
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo enviar el aviso'));
     } finally {
@@ -491,7 +528,7 @@ export function PiezasTab() {
     try {
       await piecesAdmin.remove(p._id);
       showToast.success('Pieza eliminada');
-      await load();
+      await load(true);
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo eliminar'));
     } finally {
@@ -537,11 +574,27 @@ export function PiezasTab() {
     [statusCfg],
   );
 
-  const from = total === 0 ? 0 : (page - 1) * LIMIT + 1;
-  const to = (page - 1) * LIMIT + items.length;
+  const isReadyPiece = (p: PieceItem) =>
+    !p.material && !!cfgOf(p.status, statusCfg)?.isReady;
+
+  const cameraButton = (p: PieceItem, className?: string) => (
+    <button
+      type='button'
+      onClick={() => setPhotosOf(p)}
+      title={`Fotos (${p.photos?.length ?? 0})`}
+      className={cn('relative text-[#7a6e6f] hover:text-[#455a54]', className)}
+    >
+      <Camera className='h-4 w-4' />
+      {(p.photos?.length ?? 0) > 0 && (
+        <span className='absolute -right-2 -top-1.5 rounded-full bg-[#9d684e] px-1 text-[9px] font-bold text-white'>
+          {p.photos!.length}
+        </span>
+      )}
+    </button>
+  );
 
   return (
-    <div className='flex flex-col gap-5'>
+    <div className='@container flex flex-col gap-5'>
       {/* Lista completa o armado de pedidos (lo que salió del horno). */}
       <div className='inline-flex w-fit rounded-xl border border-[#e6dbcd] bg-white p-1'>
         {(
@@ -650,10 +703,24 @@ export function PiezasTab() {
             <PieceCategoriesButton />
           </div>
         </div>
+        <PiezasDayFilter
+          value={workDate}
+          onChange={(day) => {
+            setWorkDate(day);
+            setPage(1);
+          }}
+          filters={{
+            status: status || undefined,
+            search: search || undefined,
+            professorId: professorId || undefined,
+          }}
+          refreshKey={countsKey}
+        />
       </div>
 
-      {/* Desktop: tabla */}
-      <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white md:block'>
+      {/* Tabla: sólo si entra entera. Va por el ancho disponible, no el de la
+          pantalla: en una tablet el menú lateral se come buena parte. */}
+      <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white @[64rem]:block'>
         <div className='min-w-[52rem]'>
           <div
             className={`${COLS} border-b border-[#e6dbcd] bg-[#fbf5ef] px-5 py-3 font-mono text-[11px] tracking-wider text-[#7a6e6f]`}
@@ -669,7 +736,11 @@ export function PiezasTab() {
             <div className='p-6 text-sm text-[#7a6e6f]'>Cargando…</div>
           ) : items.length === 0 ? (
             <div className='p-6 text-sm text-[#7a6e6f]'>
-              {search ? `Sin resultados para “${search}”.` : 'Sin piezas cargadas.'}
+              {search
+                ? `Sin resultados para “${search}”.`
+                : workDate
+                  ? 'Ese día no hay piezas.'
+                  : 'Sin piezas cargadas.'}
             </div>
           ) : (
             items.map((p, i) => {
@@ -685,6 +756,7 @@ export function PiezasTab() {
                   className={cn(
                     `${COLS} px-5 py-3 last:border-0`,
                     lastOfGroup ? 'border-b-0' : 'border-b border-[#efe7dc]',
+                    isReadyPiece(p) && 'bg-[#d3e8da]',
                     selected.has(p._id) && 'bg-[#E7F0EC]/60',
                     !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                   )}
@@ -725,24 +797,12 @@ export function PiezasTab() {
                   </div>
                   <div>{retiroNode(p, statusCfg)}</div>
                   <div className='flex items-start justify-end gap-2'>
-                    <button
-                      type='button'
-                      onClick={() => setPhotosOf(p)}
-                      title={`Fotos (${p.photos?.length ?? 0})`}
-                      className='relative mt-1.5 text-[#7a6e6f] hover:text-[#455a54]'
-                    >
-                      <Camera className='h-4 w-4' />
-                      {(p.photos?.length ?? 0) > 0 && (
-                        <span className='absolute -right-2 -top-1.5 rounded-full bg-[#9d684e] px-1 text-[9px] font-bold text-white'>
-                          {p.photos!.length}
-                        </span>
-                      )}
-                    </button>
-                    <div className='flex w-[8rem] flex-col gap-1'>
+                    {cameraButton(p, 'mt-1.5')}
+                    <div className='flex w-[9.5rem] flex-col gap-1'>
                       {!p.material && statusSelect(p)}
                       {/* Las de reserva se avisan por pedido (en la cabecera). */}
                       {!p.reservationId && canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
-                        <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-7 w-full px-2 text-[11px]'>Avisar retiro</Button>
+                        <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p._id)} disabled={busy === p._id} className='h-7 w-full px-2 text-[11px]'>Avisar retiro</Button>
                       )}
                       {!p.reservationId && canManage && p.notifiedReadyAt && (
                         <span className='text-center text-[10px] text-[#455a54]'>Avisado ✓</span>
@@ -776,15 +836,19 @@ export function PiezasTab() {
         </div>
       </div>
 
-      {/* Mobile: tarjetas */}
-      <div className='flex flex-col gap-3 md:hidden'>
+      {/* Celular y tablet: tarjetas; con lugar, cada una en una sola línea. */}
+      <div className='flex flex-col gap-3 @[64rem]:hidden'>
         {loading ? (
           <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
             Cargando…
           </div>
         ) : items.length === 0 ? (
           <div className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
-            {search ? `Sin resultados para “${search}”.` : 'Sin piezas cargadas.'}
+            {search
+              ? `Sin resultados para “${search}”.`
+              : workDate
+                ? 'Ese día no hay piezas.'
+                : 'Sin piezas cargadas.'}
           </div>
         ) : (
           items.map((p, i) => {
@@ -806,12 +870,13 @@ export function PiezasTab() {
               )}
               <div
                 className={cn(
-                  'rounded-2xl border border-[#e6dbcd] bg-white p-4',
+                  'rounded-2xl border border-[#e6dbcd] bg-white p-4 @[40rem]:flex @[40rem]:items-center @[40rem]:gap-4 @[40rem]:py-3',
+                  isReadyPiece(p) && 'border-[#a9d0b8] bg-[#d3e8da]',
                   selected.has(p._id) && 'border-[#455a54]/50 bg-[#E7F0EC]/60',
                   !!cfgOf(p.status, statusCfg)?.isFinal && 'opacity-60',
                 )}
               >
-                <div className='flex items-start justify-between gap-2'>
+                <div className='flex items-start justify-between gap-2 @[40rem]:w-52 @[40rem]:shrink-0'>
                   <Checkbox
                     checked={selected.has(p._id)}
                     onCheckedChange={() => toggle(p._id)}
@@ -828,20 +893,8 @@ export function PiezasTab() {
                       </p>
                     )}
                   </div>
-                  <div className='flex shrink-0 items-center gap-2'>
-                    <button
-                      type='button'
-                      onClick={() => setPhotosOf(p)}
-                      title={`Fotos (${p.photos?.length ?? 0})`}
-                      className='relative text-[#7a6e6f] hover:text-[#455a54]'
-                    >
-                      <Camera className='h-4 w-4' />
-                      {(p.photos?.length ?? 0) > 0 && (
-                        <span className='absolute -right-2 -top-1.5 rounded-full bg-[#9d684e] px-1 text-[9px] font-bold text-white'>
-                          {p.photos!.length}
-                        </span>
-                      )}
-                    </button>
+                  <div className='flex shrink-0 items-center gap-2 @[40rem]:hidden'>
+                    {cameraButton(p)}
                     {p.material ? (
                       <StatusBadge label={materialLabel(p)} bg='#eae4db' fg='#5c5148' />
                     ) : (
@@ -849,33 +902,42 @@ export function PiezasTab() {
                     )}
                   </div>
                 </div>
-                <p className='mt-2 text-sm text-[#3d3338]'>
-                  {p.pieceType || 'Pieza sin detalle'}
-                  {p.extraName && (
-                    <span className='ml-1.5 text-xs text-[#9d684e]'>+ {p.extraName}</span>
-                  )}
-                </p>
-                <p className='text-xs text-[#7a6e6f]'>
-                  {[
-                    p.colorsUsed && `Colores: ${p.colorsUsed}`,
-                    p.registeredByName && `Cargó ${p.registeredByName}`,
-                    cfgOf(p.status, statusCfg)?.isFinal && p.pickedUpAt && `Retirada ${fmtDate(p.pickedUpAt)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ') || '—'}
-                </p>
-                <div className='mt-3 flex flex-wrap items-center gap-2'>
+                <div className='min-w-0 @[40rem]:flex-1'>
+                  <p className='mt-2 break-words text-sm text-[#3d3338] @[40rem]:mt-0'>
+                    {p.pieceType || 'Pieza sin detalle'}
+                    {p.extraName && (
+                      <span className='ml-1.5 text-xs text-[#9d684e]'>+ {p.extraName}</span>
+                    )}
+                  </p>
+                  <p className='break-words text-xs text-[#7a6e6f]'>
+                    {[
+                      p.colorsUsed && `Colores: ${p.colorsUsed}`,
+                      p.registeredByName && `Cargó ${p.registeredByName}`,
+                      cfgOf(p.status, statusCfg)?.isFinal && p.pickedUpAt && `Retirada ${fmtDate(p.pickedUpAt)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '—'}
+                  </p>
+                </div>
+                <div className='mt-3 flex flex-wrap items-center gap-2 @[40rem]:mt-0 @[40rem]:shrink-0 @[40rem]:flex-nowrap'>
+                  {cameraButton(p, 'mr-1 hidden @[40rem]:block')}
                   <div className='flex items-center gap-2'>
-                    {!p.material && <div className='w-[9rem]'>{statusSelect(p)}</div>}
+                    {p.material ? (
+                      <span className='hidden @[40rem]:inline'>
+                        <StatusBadge label={materialLabel(p)} bg='#eae4db' fg='#5c5148' />
+                      </span>
+                    ) : (
+                      <div className='w-[9rem]'>{statusSelect(p)}</div>
+                    )}
                     {!p.reservationId && canManage && cfgOf(p.status, statusCfg)?.isReady && !p.notifiedReadyAt && (
-                      <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar</Button>
+                      <Button type='button' variant='verde' size='sm' onClick={() => sendReadyNotice(p._id)} disabled={busy === p._id} className='h-8 px-2 text-[11px]'>Avisar</Button>
                     )}
                     {!p.reservationId && canManage && p.notifiedReadyAt && (
                       <span className='text-[10px] text-[#455a54]'>Avisado</span>
                     )}
                   </div>
                   {canManage && (
-                    <div className='ml-auto flex items-center gap-4'>
+                    <div className='ml-auto flex items-center gap-4 @[40rem]:ml-1'>
                       <IconBtn
                         icon={Pencil}
                         title='Editar ficha'
@@ -947,8 +1009,8 @@ export function PiezasTab() {
         page={page}
         totalPages={totalPages}
         total={total}
-        from={from}
-        to={to}
+        from={range.from}
+        to={range.to}
         onPage={setPage}
       />
       </>
@@ -959,7 +1021,7 @@ export function PiezasTab() {
           onClose={() => setCreating(false)}
           onDone={async () => {
             setCreating(false);
-            await load();
+            await load(true);
           }}
         />
       )}
@@ -969,7 +1031,7 @@ export function PiezasTab() {
           onClose={() => setCreatingGroup(false)}
           onDone={async () => {
             setCreatingGroup(false);
-            await load();
+            await load(true);
           }}
         />
       )}
@@ -981,7 +1043,7 @@ export function PiezasTab() {
           onClose={() => setEditing(null)}
           onDone={async () => {
             setEditing(null);
-            await load();
+            await load(true);
           }}
         />
       )}
@@ -993,7 +1055,7 @@ export function PiezasTab() {
           onClose={() => setPhotosOf(null)}
           onSaved={async () => {
             setPhotosOf(null);
-            await load();
+            await load(true);
           }}
         />
       )}

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
@@ -1080,6 +1081,16 @@ export function RescheduleModal({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  // Otro día y hora, no sólo los turnos que ya existen. Arranca en el mismo día.
+  const currentDay = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(new Date(reservation.startAt));
+  const [freeDay, setFreeDay] = useState(currentDay);
+  const [freeTime, setFreeTime] = useState('');
+  const [freeCheck, setFreeCheck] = useState<{
+    status: 'idle' | 'checking' | 'ok' | 'no';
+    message?: string;
+  }>({ status: 'idle' });
 
   const insideWindow =
     new Date(reservation.startAt).getTime() - Date.now() <
@@ -1105,8 +1116,53 @@ export function RescheduleModal({
     })();
   }, [reservation]);
 
+  // Verificación en vivo contra las mesas (las de esta reserva cuentan libres).
+  useEffect(() => {
+    if (!freeTime || !freeDay) {
+      setFreeCheck({ status: 'idle' });
+      return;
+    }
+    let alive = true;
+    setFreeCheck({ status: 'checking' });
+    const t = setTimeout(() => {
+      reservationsAdmin
+        .previewTables({
+          experienceId: reservation.experienceId,
+          date: freeDay,
+          startTime: freeTime,
+          quantity: reservation.quantity,
+          ignoreReservationId: reservation._id,
+          acceptSharedTable: true,
+        })
+        .then((res) => {
+          if (!alive) return;
+          setFreeCheck(
+            res.fits
+              ? { status: 'ok' }
+              : {
+                  status: 'no',
+                  message: `A esa hora no entran ${reservation.quantity} personas. Probá otro horario.`,
+                },
+          );
+        })
+        .catch((e) => {
+          if (alive)
+            setFreeCheck({
+              status: 'no',
+              message: errorText(e, 'No se pudo verificar ese horario.'),
+            });
+        });
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [freeDay, freeTime, reservation]);
+
+  const canSubmit = !!selected || (!!freeTime && freeCheck.status === 'ok');
+
   async function submit() {
-    if (!selected) {
+    if (!canSubmit) {
       showToast.error('Elegí el nuevo turno');
       return;
     }
@@ -1125,7 +1181,13 @@ export function RescheduleModal({
     try {
       await reservationsAdmin.rescheduleReservation(
         reservation._id,
-        selected,
+        selected
+          ? { sessionId: selected }
+          : {
+              experienceId: reservation.experienceId,
+              date: freeDay,
+              startTime: freeTime,
+            },
         insideWindow,
       );
       showToast.success('Reserva reprogramada; se avisó al cliente');
@@ -1158,7 +1220,10 @@ export function RescheduleModal({
           </p>
         )}
 
-        <div className='max-h-72 space-y-1.5 overflow-y-auto'>
+        <p className='-mb-2 text-[13px] font-medium text-[#455a54]'>
+          Turnos con lugar
+        </p>
+        <div className='max-h-48 space-y-1.5 overflow-y-auto'>
           {loading ? (
             <p className='p-3 text-sm text-[#7a6e6f]'>Cargando turnos…</p>
           ) : sessions.length === 0 ? (
@@ -1176,7 +1241,10 @@ export function RescheduleModal({
                   key={s.id}
                   type='button'
                   disabled={disabled}
-                  onClick={() => setSelected(s.id)}
+                  onClick={() => {
+                    setSelected(s.id);
+                    setFreeTime('');
+                  }}
                   className={cn(
                     'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                     on
@@ -1197,12 +1265,49 @@ export function RescheduleModal({
           )}
         </div>
 
+        <div className='space-y-1.5 border-t border-[#efe7dc] pt-3'>
+          <p className='text-[13px] font-medium text-[#455a54]'>
+            O elegí otro día y hora
+          </p>
+          <div className='grid grid-cols-[minmax(0,1fr)_7.5rem] gap-2'>
+            <DatePicker
+              value={freeDay}
+              onChange={(day) => {
+                setFreeDay(day || currentDay);
+                setSelected('');
+              }}
+            />
+            <Input
+              type='time'
+              aria-label='Hora'
+              value={freeTime}
+              step={300}
+              onChange={(e) => {
+                setFreeTime(e.target.value);
+                setSelected('');
+              }}
+              className='border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54]'
+            />
+          </div>
+          {freeCheck.status === 'checking' && (
+            <p className='text-[12px] text-[#7a6e6f]'>Verificando mesas…</p>
+          )}
+          {freeCheck.status === 'ok' && (
+            <p className='text-[12px] font-medium text-[#455a54]'>
+              ¡Hay lugar! Se mantiene el precio de la reserva.
+            </p>
+          )}
+          {freeCheck.status === 'no' && (
+            <p className='text-[12px] font-medium text-[#a33]'>{freeCheck.message}</p>
+          )}
+        </div>
+
         <DialogFooter>
           <Button
             type='button'
             variant='terracota'
             onClick={submit}
-            disabled={saving || !selected}
+            disabled={saving || !canSubmit}
             className='w-full'
           >
             {saving ? 'REPROGRAMANDO…' : 'REPROGRAMAR'}

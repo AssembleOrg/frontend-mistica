@@ -353,6 +353,9 @@ export const reservationsAdmin = {
     startTime: string;
     quantity: number;
     extraMinutes?: number;
+    /** Reprogramar: las mesas de esta reserva cuentan como libres. */
+    ignoreReservationId?: string;
+    acceptSharedTable?: boolean;
   }) =>
     (
       await apiService.post<PreviewTablesResult>(
@@ -407,13 +410,20 @@ export const reservationsAdmin = {
         action,
       })
     ).data,
-  // Reprogramar a otro turno. Política: hasta 48 hs antes del turno original;
-  // `force` la saltea (override admin).
-  rescheduleReservation: async (id: string, sessionId: string, force?: boolean) =>
+  // Reprogramar a un turno existente o a otro día y hora (el turno se crea si
+  // hace falta). Política: hasta 48 hs antes del turno original; `force` la
+  // saltea (override admin).
+  rescheduleReservation: async (
+    id: string,
+    target:
+      | { sessionId: string }
+      | { experienceId: string; date: string; startTime: string },
+    force?: boolean,
+  ) =>
     (
       await apiService.post<ReservationItem>(
         `/admin/reservations/${id}/reschedule`,
-        { sessionId, ...(force ? { force: true } : {}) },
+        { ...target, ...(force ? { force: true } : {}) },
       )
     ).data,
   updateReservation: async (

@@ -16,6 +16,9 @@ export interface KilnLogItem {
   at: string;
   byName?: string;
   note?: string;
+  /** Timer reiniciado: no cuenta en la semana. */
+  resetAt?: string;
+  resetBy?: string;
 }
 
 export interface KilnStatus {
@@ -46,6 +49,13 @@ export const kilnsAdmin = {
       await apiService.post<KilnLogItem>(
         '/kilns/logs',
         input as unknown as Record<string, unknown>,
+      )
+    ).data,
+  reset: async (kiln: KilnKey, registeredBy?: string) =>
+    (
+      await apiService.post<KilnStatus>(
+        `/kilns/${kiln}/reset`,
+        (registeredBy ? { registeredBy } : {}) as Record<string, unknown>,
       )
     ).data,
   remove: async (id: string) =>

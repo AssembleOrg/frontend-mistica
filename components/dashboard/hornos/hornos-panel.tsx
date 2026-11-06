@@ -30,7 +30,6 @@ import {
 import { errorText } from '@/lib/api-error-messages';
 
 const DAY_MS = 86_400_000;
-const RESET_NOTE = 'Timer reiniciado';
 
 // Fecha de hoy en Argentina, YYYY-MM-DD.
 function todayAR(): string {
@@ -156,27 +155,22 @@ export function HornosPanel() {
     }
   }
 
-  // Por si lo prendieron por error: corta el timer y el horno queda libre.
-  // Se guarda como un apagado con nota, así queda en el historial.
+  // Por si lo prendieron por error: corta el timer, el horno queda libre y
+  // ese prendido deja de contar en la semana.
   async function resetTimer(k: KilnStatus) {
     if (responsable.shared && !responsable.value.trim()) {
       return showToast.error('Elegí quién lo hace');
     }
     const ok = await confirm({
       title: 'Reiniciar timer',
-      description: `El horno de ${k.kilnName.toLowerCase()} queda libre para volver a prenderlo. Usalo sólo si se marcó por error o hay que empezar de nuevo.`,
+      description: `El horno de ${k.kilnName.toLowerCase()} queda libre para volver a prenderlo y este prendido no cuenta en la semana. Usalo sólo si se marcó por error o hay que empezar de nuevo.`,
       confirmLabel: 'Reiniciar',
       typeToConfirm: 'confirmar',
     });
     if (!ok) return;
     setBusy(k.kiln);
     try {
-      await kilnsAdmin.register({
-        kiln: k.kiln,
-        action: 'OFF',
-        note: RESET_NOTE,
-        ...(responsable.value.trim() ? { registeredBy: responsable.value.trim() } : {}),
-      });
+      await kilnsAdmin.reset(k.kiln, responsable.value.trim() || undefined);
       showToast.success('Timer reiniciado');
       await load();
     } catch (e) {
@@ -227,7 +221,7 @@ export function HornosPanel() {
   const week = useMemo(() => {
     const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
     return days.map((d) => {
-      const on = logs.filter((l) => l.action === 'ON' && dayKeyAR(l.at) === d);
+      const on = logs.filter((l) => l.action === 'ON' && !l.resetAt && dayKeyAR(l.at) === d);
       return {
         day: d,
         superior: on.filter((l) => l.kiln === 'SUPERIOR').length,
@@ -235,7 +229,7 @@ export function HornosPanel() {
       };
     });
   }, [logs, monday]);
-  const totalOn = logs.filter((l) => l.action === 'ON').length;
+  const totalOn = logs.filter((l) => l.action === 'ON' && !l.resetAt).length;
 
   return (
     <div className='flex flex-col gap-4'>
@@ -309,7 +303,11 @@ export function HornosPanel() {
               ) : (
                 <p className='text-sm text-[#7a6e6f]'>
                   {k.last
-                    ? `${k.last.action === 'ON' ? 'Último prendido' : k.last.note === RESET_NOTE ? RESET_NOTE : 'Apagado'} ${fmtWhen(k.last.at)}${k.last.byName ? ` · ${k.last.byName}` : ''}`
+                    ? `${
+                        k.last.resetAt
+                          ? `Timer reiniciado ${fmtWhen(k.last.resetAt)}${k.last.resetBy ? ` · ${k.last.resetBy}` : ''}`
+                          : `${k.last.action === 'ON' ? 'Último prendido' : 'Apagado'} ${fmtWhen(k.last.at)}${k.last.byName ? ` · ${k.last.byName}` : ''}`
+                      }`
                     : 'Sin registros todavía'}
                 </p>
               )}
@@ -440,15 +438,24 @@ export function HornosPanel() {
             <p className='py-3 text-sm text-[#7a6e6f]'>Sin movimientos esta semana.</p>
           ) : (
             logs.map((l) => (
-              <div key={l.id} className='flex items-center gap-3 py-2 text-sm'>
-                {l.action === 'ON' ? (
+              <div key={l.id} className={cn('flex items-center gap-3 py-2 text-sm', l.resetAt && 'opacity-60')}>
+                {l.resetAt ? (
+                  <RotateCcw className='size-4 shrink-0 text-[#7a6e6f]' />
+                ) : l.action === 'ON' ? (
                   <Flame className='size-4 shrink-0 text-[#9d684e]' />
                 ) : (
                   <PowerOff className='size-4 shrink-0 text-[#455a54]' />
                 )}
-                <span className='min-w-0 flex-1 truncate text-[#3d3338]'>
-                  {l.action === 'OFF' && l.note === RESET_NOTE ? RESET_NOTE : l.actionName} · {l.kilnName}
-                  {l.byName && <span className='text-[#7a6e6f]'> · {l.byName}</span>}
+                <span className='flex min-w-0 flex-1 flex-col'>
+                  <span className='truncate text-[#3d3338]'>
+                    {l.actionName} · {l.kilnName}
+                    {l.byName && <span className='text-[#7a6e6f]'> · {l.byName}</span>}
+                  </span>
+                  {l.resetAt && (
+                    <span className='truncate text-xs text-[#7a6e6f]'>
+                      Reiniciado{l.resetBy ? ` por ${l.resetBy}` : ''} · no cuenta en la semana
+                    </span>
+                  )}
                 </span>
                 <span className='shrink-0 text-xs text-[#7a6e6f]'>{fmtWhen(l.at)}</span>
                 {canManage && (

@@ -193,6 +193,8 @@ export interface CreateExperienceInput {
   hasBuffet?: boolean;
   /** Qué come la gente: buffet libre, merienda o nada. Cocina los cuenta aparte. */
   food?: FoodKind;
+  /** Se agenda solo desde el panel: web y bot la ven como coordinada. */
+  panelOnly?: boolean;
   // true = marca esta experiencia como el doc "Cumpleaños": hereda precio y
   // duración de la experiencia elegida y aporta sus beneficios (a lo sumo una).
   isBirthday?: boolean;

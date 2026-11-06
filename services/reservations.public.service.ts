@@ -31,6 +31,8 @@ export interface PublicExperience {
   hasBuffet?: boolean;
   /** Buffet libre, merienda o nada (cocina). */
   food?: 'BUFFET' | 'MERIENDA' | 'NONE';
+  /** Se agenda solo desde el panel (la web la ve como coordinada). */
+  panelOnly?: boolean;
   /**
    * Es la ocasión "Cumpleaños": no se reserva directo, envuelve a la
    * experiencia elegida (hereda precio/duración) y aporta beneficios.

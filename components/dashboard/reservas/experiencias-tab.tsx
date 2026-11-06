@@ -168,6 +168,7 @@ export function ExperienciasTab() {
       depositPct: e.depositPct ?? 50,
       color: e.color ?? DEFAULT_EXPERIENCE_COLOR,
       bookableOnline: e.bookableOnline ?? true,
+      panelOnly: e.panelOnly ?? false,
       venueSeats: e.venueSeats ?? 0,
       sharedTableCodes: e.sharedTableCodes ?? [],
       food: experienceFood(e),
@@ -343,6 +344,8 @@ export function ExperienciasTab() {
                   </h3>
                   {e.isBirthday ? (
                     <StatusBadge label='Ocasión 🎉' bg='#efe6f2' fg='#6d5a78' />
+                  ) : online && e.panelOnly ? (
+                    <StatusBadge label='Solo panel' bg='#f4ead9' fg='#9d684e' />
                   ) : online ? (
                     <StatusBadge label='Online' bg='#E7F0EC' fg='#455a54' />
                   ) : (
@@ -586,6 +589,15 @@ export function ExperienciasTab() {
                       setForm({ ...form, bookableOnline })
                     }
                   />
+                  {(form.bookableOnline ?? true) && !form.isBirthday && (
+                    <SwitchRow
+                      id='exp-panel-only'
+                      label='Solo desde el panel'
+                      hint='Para promos con requisitos o casos especiales: tiene turnos y se agenda desde el panel, pero la web y el bot no toman la reserva; dan la info y la deriva a una persona.'
+                      checked={form.panelOnly ?? false}
+                      onChange={(panelOnly) => setForm({ ...form, panelOnly })}
+                    />
+                  )}
                 </FormSection>
                 {form.isBirthday ? (
                   <p className='px-1 text-sm text-texto-suave'>

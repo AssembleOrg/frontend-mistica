@@ -15,13 +15,20 @@ import {
   kitchenProductionAdmin,
   type KitchenProductionItem,
 } from '@/services/kitchen-production.admin.service';
-import { FREE_CAKE_MIN_PEOPLE, SYMBOLIC_CAKE_LABEL, cakeProductOf } from '@/lib/kitchen';
+import {
+  FOOD_LABEL,
+  FREE_CAKE_MIN_PEOPLE,
+  SYMBOLIC_CAKE_LABEL,
+  cakeProductOf,
+  type FoodKind,
+} from '@/lib/kitchen';
 import { productsService } from '@/services/products.service';
 import {
   reservationsAdmin,
   type ReservationItem,
 } from '@/services/reservations.admin.service';
 import { DietaryPicker, DietaryTags } from './dietary-badge';
+import { FoodPicker } from './food-picker';
 
 const field =
   'h-9 border-[#e6dbcd] bg-[#fbf5ef] text-[#455a54] focus-visible:border-[#9d684e] focus-visible:ring-[#9d684e]/30';
@@ -34,6 +41,7 @@ export type ReservationPatch = Partial<
     | 'dietaryNotes'
     | 'isBirthday'
     | 'kitchenNotes'
+    | 'food'
     | 'birthdayName'
     | 'birthdayAge'
     | 'cakes'
@@ -54,6 +62,7 @@ function patchOf(r: ReservationPatch): ReservationPatch {
     dietaryNotes: r.dietaryNotes,
     isBirthday: r.isBirthday,
     kitchenNotes: r.kitchenNotes,
+    food: r.food,
     birthdayName: r.birthdayName,
     birthdayAge: r.birthdayAge,
     cakes: r.cakes,
@@ -85,10 +94,13 @@ const errMsg = (e: unknown, fallback: string) =>
  */
 export function KitchenSection({
   reservation: r,
+  experienceFood,
   canEdit,
   onChanged,
 }: {
   reservation: ReservationItem;
+  /** Comida de la experiencia (la reserva la puede cambiar). */
+  experienceFood?: FoodKind;
   canEdit: boolean;
   onChanged: (patch: ReservationPatch) => void;
 }) {
@@ -97,7 +109,9 @@ export function KitchenSection({
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const cakes = r.cakes ?? [];
+  const food = r.food ?? experienceFood;
   const hasInfo =
+    !!r.food ||
     (r.dietaryTags?.length ?? 0) > 0 ||
     !!r.dietaryNotes ||
     !!r.kitchenNotes ||
@@ -194,6 +208,7 @@ export function KitchenSection({
       {editing ? (
         <KitchenEditor
           reservation={r}
+          experienceFood={experienceFood}
           onCancel={() => setEditing(false)}
           onSaved={(patch) => {
             setEditing(false);
@@ -202,6 +217,21 @@ export function KitchenSection({
         />
       ) : (
         <div className='flex flex-col gap-2 text-sm text-[#3d3338]'>
+          {food && (
+            <span
+              className={cn(
+                'inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                food === 'NONE' ? 'bg-[#f1ede6] text-[#7a6e6f]' : 'bg-[#e8efe9] text-[#455a54]',
+              )}
+            >
+              🍽 {FOOD_LABEL[food]}
+              {r.food && experienceFood && r.food !== experienceFood && (
+                <span className='font-normal opacity-80'>
+                  · cambiado en esta reserva (la experiencia es {FOOD_LABEL[experienceFood].toLowerCase()})
+                </span>
+              )}
+            </span>
+          )}
           {r.isBirthday && (
             <span className='inline-flex w-fit items-center gap-1.5 rounded-full bg-[#f4ead9] px-2.5 py-1 text-xs font-semibold text-[#9d684e]'>
               🎂 Cumpleaños{birthdayWho(r)}
@@ -320,13 +350,16 @@ export function KitchenSection({
 
 function KitchenEditor({
   reservation: r,
+  experienceFood,
   onCancel,
   onSaved,
 }: {
   reservation: ReservationItem;
+  experienceFood?: FoodKind;
   onCancel: () => void;
   onSaved: (patch: ReservationPatch) => void;
 }) {
+  const [food, setFood] = useState<FoodKind | null>(r.food ?? null);
   const [tags, setTags] = useState<string[]>(r.dietaryTags ?? []);
   const [dietNotes, setDietNotes] = useState(r.dietaryNotes ?? '');
   const [isBirthday, setIsBirthday] = useState(!!r.isBirthday);
@@ -343,6 +376,8 @@ function KitchenEditor({
         dietaryNotes: dietNotes.trim(),
         isBirthday,
         kitchenNotes: kitchenNotes.trim(),
+        // Igual a la de la experiencia = no la fija (si cambian la experiencia, la sigue).
+        food: food && food !== experienceFood ? food : null,
         ...(isBirthday && {
           birthdayName: birthdayName.trim(),
           birthdayAge: birthdayAge.trim() ? Number(birthdayAge) : null,
@@ -359,6 +394,7 @@ function KitchenEditor({
 
   return (
     <div className='flex flex-col gap-2.5 rounded-xl border border-[#e6dbcd] bg-white p-3'>
+      <FoodPicker value={food} onChange={setFood} inherited={experienceFood} />
       <DietaryPicker
         tags={tags}
         onTagsChange={setTags}

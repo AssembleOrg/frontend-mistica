@@ -3,6 +3,7 @@
 // Cliente ADMIN de reservas (post-login, cookie auth vía apiService).
 
 import { apiService } from '@/services/api.service';
+import type { FoodKind } from '@/lib/kitchen';
 import type { CreateSaleRequest, Sale } from '@/services/sales.service';
 import type {
   PreviewTablesResult,
@@ -67,6 +68,8 @@ export interface ReservationItem {
   notes?: string;
   /** Lo que cocina tiene que saber (cumpleañero, sabor, horario de la torta). */
   kitchenNotes?: string;
+  /** Comida de esta reserva si no es la de la experiencia (promo + buffet aparte). */
+  food?: FoodKind;
   /** Cumpleaños: quién cumple y cuántos años. */
   birthdayName?: string;
   birthdayAge?: number | null;
@@ -186,8 +189,10 @@ export interface CreateExperienceInput {
   venueSeats?: number;
   /** Mesa compartida: mesas donde se hace, apartadas en sus horarios propios. */
   sharedTableCodes?: string[];
-  /** ¿Incluye buffet/merienda? Cocina cuenta a sus personas. */
+  /** ¿Incluye buffet/merienda? Viejo: ahora manda `food`. */
   hasBuffet?: boolean;
+  /** Qué come la gente: buffet libre, merienda o nada. Cocina los cuenta aparte. */
+  food?: FoodKind;
   // true = marca esta experiencia como el doc "Cumpleaños": hereda precio y
   // duración de la experiencia elegida y aporta sus beneficios (a lo sumo una).
   isBirthday?: boolean;
@@ -235,6 +240,8 @@ export interface AdminCreateReservationInput {
   dietaryTags?: string[];
   dietaryNotes?: string;
   kitchenNotes?: string;
+  /** Comida si no es la de la experiencia (buffet libre, merienda o nada). */
+  food?: FoodKind;
   /** Cumpleaños: quién cumple y cuántos años. */
   birthdayName?: string;
   birthdayAge?: number | null;
@@ -328,6 +335,8 @@ export const reservationsAdmin = {
       dietaryTags?: string[];
       dietaryNotes?: string;
       kitchenNotes?: string;
+      /** Comida si no es la de la experiencia. */
+      food?: FoodKind;
       /** Cumpleaños: quién cumple y cuántos años. */
       birthdayName?: string;
       birthdayAge?: number | null;
@@ -437,6 +446,8 @@ export const reservationsAdmin = {
       dietaryNotes?: string;
       isBirthday?: boolean;
       kitchenNotes?: string;
+      /** Comida de la reserva; null = vuelve a la de la experiencia. */
+      food?: FoodKind | null;
       /** Cumpleaños: quién cumple y cuántos años. */
       birthdayName?: string;
       birthdayAge?: number | null;

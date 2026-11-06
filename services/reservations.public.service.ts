@@ -29,6 +29,8 @@ export interface PublicExperience {
   /** ¿Incluye buffet/merienda? Cocina cuenta a sus personas. */
   sharedTableCodes?: string[];
   hasBuffet?: boolean;
+  /** Buffet libre, merienda o nada (cocina). */
+  food?: 'BUFFET' | 'MERIENDA' | 'NONE';
   /**
    * Es la ocasión "Cumpleaños": no se reserva directo, envuelve a la
    * experiencia elegida (hereda precio/duración) y aporta beneficios.

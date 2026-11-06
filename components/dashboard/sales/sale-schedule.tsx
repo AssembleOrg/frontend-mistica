@@ -7,7 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { showToast } from '@/lib/toast';
 import { fmtDateTime, fmtPrice } from '@/lib/reservas-format';
-import { CAKE_PRODUCTS, cakeProductOf, type CakeProduct } from '@/lib/kitchen';
+import {
+  CAKE_PRODUCTS,
+  FOOD_LABEL,
+  cakeProductOf,
+  experienceFood,
+  type CakeProduct,
+  type FoodKind,
+} from '@/lib/kitchen';
+import { FoodPicker } from '@/components/dashboard/reservas/food-picker';
 import {
   reservationsAdmin,
   type AdminExperience,
@@ -27,6 +35,8 @@ import { errorText } from '@/lib/api-error-messages';
 const AGENDA_LINE_ID = 'free-agenda';
 /** Renglón de la hora extra (ítem libre, precio a mano como en Reservas). */
 const EXTRA_LINE_ID = 'free-extra-time';
+/** Renglón del buffet libre que se paga aparte (promo con merienda). */
+const BUFFET_LINE_ID = 'free-buffet';
 const EXTRA_OPTIONS: { minutes: number; label: string }[] = [
   { minutes: 30, label: '+30 min' },
   { minutes: 60, label: '+1 h' },
@@ -69,8 +79,17 @@ export function useSaleSchedule(
   // Hora extra: alarga la reserva (y las mesas); su precio va al carrito.
   const [extraMin, setExtraMin] = useState(0);
   const [extraPrice, setExtraPrice] = useState('');
+  // Bonificadas cargadas acá (entran pero no se cobran). Sin tocar, las que
+  // da la promo de la experiencia.
+  const [manualBonif, setManualBonif] = useState<number | null>(null);
+  // Comida: null = la de la experiencia. Buffet aparte = precio a mano.
+  const [food, setFood] = useState<FoodKind | null>(null);
+  const [buffetPrice, setBuffetPrice] = useState('');
   const picker = useSlotPicker(experiences, '', extraMin);
   const people = Math.max(1, Math.floor(Number(qty) || 1));
+  const expFood = picker.exp ? experienceFood(picker.exp) : undefined;
+  // Sumó buffet libre a una experiencia que no lo trae (promo con merienda).
+  const buffetApart = on && food === 'BUFFET' && expFood !== undefined && expFood !== 'BUFFET';
   const endsAt = picker.time ? fromMin(toMin(picker.time) + picker.duration) : null;
   const endsAfterClose =
     !!picker.time && toMin(picker.time) + picker.duration > toMin(picker.hours.close);
@@ -113,7 +132,7 @@ export function useSaleSchedule(
         .then((pricing) => {
           if (!alive) return;
           const unitPrice = pricing?.unitPrice ?? unit;
-          const bonif = Math.min(people, pricing?.freeSpots ?? 0);
+          const bonif = Math.min(people, manualBonif ?? pricing?.freeSpots ?? 0);
           const line: SaleItem = {
             productId: expLineId,
             productName: exp.name,
@@ -133,7 +152,48 @@ export function useSaleSchedule(
       alive = false;
       clearTimeout(t);
     };
-  }, [on, expId, day, time, people, exp, unit, expLineId, extraMin, setCartItems]);
+  }, [on, expId, day, time, people, exp, unit, expLineId, extraMin, manualBonif, setCartItems]);
+
+  // Otra actividad: vuelve a su comida.
+  useEffect(() => {
+    setFood(null);
+  }, [expId]);
+
+  /** Bonificadas a mano: el renglón del carrito cambia en el acto. */
+  function setBonif(value: string) {
+    const n = Math.min(people, Math.max(0, Math.floor(Number(value) || 0)));
+    setManualBonif(n);
+    setCartItems((prev) =>
+      prev.map((i) =>
+        i.productId === expLineId
+          ? { ...i, bonifiedQty: Math.min(n, i.quantity), subtotal: (i.quantity - Math.min(n, i.quantity)) * i.unitPrice }
+          : i,
+      ),
+    );
+  }
+  const bonif = cartItems.find((i) => i.productId === expLineId)?.bonifiedQty ?? manualBonif ?? 0;
+
+  // Buffet libre pagado aparte → renglón propio en el carrito (precio a mano).
+  const buffetAmount = buffetApart ? Math.max(0, Number(buffetPrice) || 0) : 0;
+  useEffect(() => {
+    if (buffetAmount <= 0) {
+      setCartItems((prev) => prev.filter((i) => i.productId !== BUFFET_LINE_ID));
+      return;
+    }
+    const line: SaleItem = {
+      productId: BUFFET_LINE_ID,
+      productName: 'Buffet libre (aparte)',
+      quantity: 1,
+      unitPrice: buffetAmount,
+      bonifiedQty: 0,
+      subtotal: buffetAmount,
+    };
+    setCartItems((prev) =>
+      prev.some((i) => i.productId === BUFFET_LINE_ID)
+        ? prev.map((i) => (i.productId === BUFFET_LINE_ID ? line : i))
+        : [...prev, line],
+    );
+  }, [buffetAmount, setCartItems]);
 
   // Hora extra con precio → renglón propio en el carrito; sin precio, de regalo.
   const extraAmount = on && extraMin > 0 ? Math.max(0, Number(extraPrice) || 0) : 0;
@@ -247,6 +307,8 @@ export function useSaleSchedule(
         ...(expLine?.bonifiedQty ? { freeSpots: expLine.bonifiedQty } : {}),
         ...(cakes.length ? { cakes } : {}),
         ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
+        // Sólo si no es la de la experiencia: así la reserva sigue a la experiencia.
+        ...(food && food !== expFood ? { food } : {}),
         ...(isBirthday
           ? {
               isBirthday: true,
@@ -284,6 +346,9 @@ export function useSaleSchedule(
     setExpLineId(AGENDA_LINE_ID);
     setExtraMin(0);
     setExtraPrice('');
+    setManualBonif(null);
+    setFood(null);
+    setBuffetPrice('');
     picker.setExpId('');
   }
 
@@ -313,6 +378,14 @@ export function useSaleSchedule(
     setExtraMin,
     extraPrice,
     setExtraPrice,
+    bonif,
+    setBonif,
+    food,
+    setFood,
+    expFood,
+    buffetApart,
+    buffetPrice,
+    setBuffetPrice,
     endsAt,
     endsAfterClose,
     suggestFrom,
@@ -347,20 +420,41 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
             experienceLabel='Actividad'
           />
           <div className='space-y-1.5'>
-            <Label className='text-[13px] font-medium text-[#455a54]'>
-              Personas
-            </Label>
-            <Input
-              type='number'
-              inputMode='numeric'
-              min={1}
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              className={`w-28 ${fieldCls}`}
-            />
+            <div className='flex flex-wrap items-end gap-3'>
+              <div className='space-y-1.5'>
+                <Label htmlFor='sale-people' className='text-[13px] font-medium text-[#455a54]'>
+                  Personas
+                </Label>
+                <Input
+                  id='sale-people'
+                  type='number'
+                  inputMode='numeric'
+                  min={1}
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  className={`w-28 ${fieldCls}`}
+                />
+              </div>
+              <div className='space-y-1.5'>
+                <Label htmlFor='sale-bonif' className='text-[13px] font-medium text-[#455a54]'>
+                  Bonificadas
+                </Label>
+                <Input
+                  id='sale-bonif'
+                  type='number'
+                  inputMode='numeric'
+                  min={0}
+                  max={Number(qty) || 1}
+                  value={state.bonif}
+                  onChange={(e) => state.setBonif(e.target.value)}
+                  className={`w-28 ${fieldCls}`}
+                />
+              </div>
+            </div>
             <p className='text-[12px] text-[#7a6e6f]'>
               Con día y hora elegidos, la actividad se suma al carrito con su
-              precio. Las bonificadas se cargan en &quot;Bonif.&quot;.
+              precio. Las bonificadas entran pero no se cobran (si la
+              experiencia tiene una promo con lugares bonificados, ya vienen).
             </p>
           </div>
           <div className='flex flex-wrap items-end gap-3'>
@@ -415,6 +509,29 @@ export function SaleScheduleSection({ state }: { state: SaleScheduleState }) {
           )}
           <div className='space-y-2 border-t border-t-terracota/40 pt-3'>
             <p className='text-sm font-semibold text-terracota'>Para cocina</p>
+            {state.expFood && (
+              <FoodPicker value={state.food} onChange={state.setFood} inherited={state.expFood} />
+            )}
+            {state.buffetApart && (
+              <div className='space-y-1.5'>
+                <Label htmlFor='sale-buffet-price' className='text-[13px] font-medium text-[#455a54]'>
+                  Precio del buffet libre aparte (total)
+                </Label>
+                <Input
+                  id='sale-buffet-price'
+                  type='number'
+                  min={0}
+                  value={state.buffetPrice}
+                  onChange={(e) => state.setBuffetPrice(e.target.value)}
+                  placeholder='0'
+                  className={`w-40 ${fieldCls}`}
+                />
+                <p className='text-[12px] text-[#7a6e6f]'>
+                  La experiencia trae {FOOD_LABEL[state.expFood!].toLowerCase()}: cocina ve
+                  esta reserva con buffet libre. Con precio, se suma al carrito.
+                </p>
+              </div>
+            )}
             <label className='flex cursor-pointer items-center gap-2 text-[13px] text-[#455a54]'>
               <input
                 type='checkbox'

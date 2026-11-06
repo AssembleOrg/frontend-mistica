@@ -48,6 +48,7 @@ import { useConfirm } from '@/components/ui/confirm-dialog';
 import { NewPieceModal } from './piezas-tab';
 import { canManageRole } from '@/lib/views';
 import { errorText } from '@/lib/api-error-messages';
+import { experienceFood, type FoodKind } from '@/lib/kitchen';
 
 const PAYMENT_LABEL: Record<string, string> = {
   MERCADOPAGO: 'MercadoPago',
@@ -109,6 +110,23 @@ export function ReservationDetailPanel({
       document.body.style.overflow = prevOverflow;
     };
   }, [reservation, onClose]);
+
+  // Comida de la experiencia (buffet libre / merienda / nada): la ficha la
+  // muestra y la reserva la puede cambiar sólo para ella.
+  const [expFood, setExpFood] = useState<FoodKind | undefined>();
+  const expId = reservation?.experienceId;
+  const expName = reservation?.experienceName ?? '';
+  useEffect(() => {
+    let alive = true;
+    setExpFood(undefined);
+    loadExperiences()
+      .then((list) => list.find((e) => e._id === expId))
+      .catch(() => undefined)
+      .then((e) => alive && setExpFood(experienceFood(e ?? { name: expName })));
+    return () => {
+      alive = false;
+    };
+  }, [expId, expName]);
 
   // Al cambiar de reserva, cerrar cualquier modo/modal abierto.
   useEffect(() => {
@@ -288,7 +306,12 @@ export function ReservationDetailPanel({
             )}
           </Section>
 
-          <KitchenSection reservation={r} canEdit={canManage} onChanged={applyPatch} />
+          <KitchenSection
+            reservation={r}
+            experienceFood={expFood}
+            canEdit={canManage}
+            onChanged={applyPatch}
+          />
 
           {canManage && <ReceiptsSection reservation={r} onChanged={applyPatch} />}
 

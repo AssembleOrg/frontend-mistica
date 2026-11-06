@@ -53,6 +53,8 @@ import { DietaryPicker } from './dietary-badge';
 import { FormField, FormSection } from '@/components/ui/form-section';
 import { useCobrarEnVentas } from './use-cobrar';
 import { errorText } from '@/lib/api-error-messages';
+import { experienceFood, type FoodKind } from '@/lib/kitchen';
+import { FoodPicker } from './food-picker';
 
 const LIMIT = 20;
 
@@ -679,6 +681,10 @@ export function NewReservationModal({
   const [diet, setDiet] = useState<string[]>([]);
   const [dietNotes, setDietNotes] = useState('');
   const [kitchenNotes, setKitchenNotes] = useState('');
+  // Comida: null = la de la experiencia (buffet libre, merienda o nada).
+  const [food, setFood] = useState<FoodKind | null>(null);
+  const expFood = picker.exp ? experienceFood(picker.exp) : undefined;
+  useEffect(() => setFood(null), [expId]);
   const [saving, setSaving] = useState(false);
 
   const quantity = Math.max(1, Number(qty) || 1);
@@ -736,6 +742,7 @@ export function NewReservationModal({
         ...(diet.length ? { dietaryTags: diet } : {}),
         ...(dietNotes.trim() ? { dietaryNotes: dietNotes.trim() } : {}),
         ...(kitchenNotes.trim() ? { kitchenNotes: kitchenNotes.trim() } : {}),
+        ...(food && food !== expFood ? { food } : {}),
       });
       showToast.success('Reserva creada');
       await onDone();
@@ -957,6 +964,9 @@ export function NewReservationModal({
                     />
                   </FormField>
                 </div>
+              )}
+              {expFood && (
+                <FoodPicker value={food} onChange={setFood} inherited={expFood} />
               )}
               <FormField label='Restricciones alimentarias'>
                 <DietaryPicker

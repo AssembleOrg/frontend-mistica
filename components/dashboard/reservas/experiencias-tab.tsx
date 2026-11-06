@@ -31,7 +31,8 @@ import { ImageUploadButton } from '@/components/ui/image-upload-button';
 import { FormField, FormSection } from '@/components/ui/form-section';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fmtPrice } from '@/lib/reservas-format';
-import { experienceHasBuffet } from '@/lib/kitchen';
+import { experienceFood } from '@/lib/kitchen';
+import { FoodPicker } from './food-picker';
 import { tablesAdmin, type AdminTable } from '@/services/tables.admin.service';
 import {
   DEFAULT_EXPERIENCE_COLOR,
@@ -169,7 +170,8 @@ export function ExperienciasTab() {
       bookableOnline: e.bookableOnline ?? true,
       venueSeats: e.venueSeats ?? 0,
       sharedTableCodes: e.sharedTableCodes ?? [],
-      hasBuffet: experienceHasBuffet(e),
+      food: experienceFood(e),
+      hasBuffet: experienceFood(e) !== 'NONE',
       isBirthday: e.isBirthday ?? false,
       isActive: e.isActive,
     });
@@ -648,13 +650,19 @@ export function ExperienciasTab() {
                   />
                 </FormSection>
                 <FormSection title='Opciones'>
-                  <SwitchRow
-                    id='exp-buffet'
-                    label='Incluye buffet o merienda'
-                    hint='La vista de Cocina cuenta a sus personas para preparar el buffet.'
-                    checked={form.hasBuffet ?? experienceHasBuffet(form)}
-                    onChange={(hasBuffet) => setForm({ ...form, hasBuffet })}
-                  />
+                  <div className='flex flex-col gap-1'>
+                    <FoodPicker
+                      label='¿Qué comen?'
+                      value={experienceFood(form)}
+                      onChange={(food) =>
+                        food && setForm({ ...form, food, hasBuffet: food !== 'NONE' })
+                      }
+                    />
+                    <p className='text-xs leading-snug text-texto-suave'>
+                      Cocina cuenta aparte las personas con buffet libre y las de
+                      merienda. Una reserva la puede cambiar (si paga el buffet aparte).
+                    </p>
+                  </div>
                   <SwitchRow
                     id='exp-birthday'
                     label='Es cumpleaños 🎉'

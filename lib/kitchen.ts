@@ -1,17 +1,50 @@
-// Cocina: qué experiencias llevan buffet y qué tortas hay que preparar.
+// Cocina: qué come cada reserva (buffet libre, merienda o nada) y qué tortas
+// hay que preparar.
+
+/**
+ * Buffet libre (se arma para todos), merienda (porción servida en la mesa) o
+ * nada. Lo define la experiencia; una reserva lo puede cambiar.
+ */
+export type FoodKind = 'BUFFET' | 'MERIENDA' | 'NONE';
+
+export const FOOD_OPTIONS: { value: FoodKind; label: string }[] = [
+  { value: 'BUFFET', label: 'Buffet libre' },
+  { value: 'MERIENDA', label: 'Merienda' },
+  { value: 'NONE', label: 'Sin comida' },
+];
+
+export const FOOD_LABEL: Record<FoodKind, string> = {
+  BUFFET: 'Buffet libre',
+  MERIENDA: 'Merienda',
+  NONE: 'Sin comida',
+};
 
 type ExperienceLike = {
   name: string;
   description?: string;
+  food?: FoodKind;
+  /** Viejo: «incluye buffet o merienda», de antes de separarlos. */
   hasBuffet?: boolean;
 };
 
-/** Sin marcar en la experiencia, se deduce del nombre y la descripción. */
-const LOOKS_LIKE_FOOD = /buffet|brunch|merienda|degustaci|desayuno/i;
+const LOOKS_LIKE_BUFFET = /buffet|brunch|degustaci|desayuno/i;
+const LOOKS_LIKE_MERIENDA = /merienda/i;
 
-/** ¿La experiencia incluye buffet/merienda? (cuenta para Cocina). */
-export function experienceHasBuffet(exp: ExperienceLike): boolean {
-  return exp.hasBuffet ?? LOOKS_LIKE_FOOD.test(`${exp.name} ${exp.description ?? ''}`);
+/**
+ * Qué come la gente de una experiencia. Sin elegir, usa el tilde viejo y si
+ * tampoco está, lo deduce del nombre (igual que el backend, common/food.ts).
+ */
+export function experienceFood(exp: ExperienceLike): FoodKind {
+  if (exp.food) return exp.food;
+  if (exp.hasBuffet === false) return 'NONE';
+  const text = `${exp.name} ${exp.description ?? ''}`;
+  const guess: FoodKind | undefined = LOOKS_LIKE_BUFFET.test(text)
+    ? 'BUFFET'
+    : LOOKS_LIKE_MERIENDA.test(text)
+      ? 'MERIENDA'
+      : undefined;
+  if (exp.hasBuffet === true) return guess ?? 'BUFFET';
+  return guess ?? 'NONE';
 }
 
 /** Los cumpleaños de 10 o más llevan la torta simbólica de regalo. */

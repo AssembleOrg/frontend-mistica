@@ -1,7 +1,7 @@
 'use client';
 
 // Registro de los hornos. Quien prende un horno lo marca acá y arranca un
-// timer (13 h el frontal, 26 h el superior); hasta que termina no se puede
+// timer (26 h el frontal, 13 h el superior); hasta que termina no se puede
 // volver a prender. Ya no se anota cuándo se apagó. Sirve para ver cuántas
 // veces se prendió en la semana y si algún día se olvidaron.
 

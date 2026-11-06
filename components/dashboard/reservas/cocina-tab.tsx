@@ -1,19 +1,20 @@
 'use client';
 
 // Cocina: la semana de un vistazo para preparar con tiempo. Cuántas personas
-// comen el buffet cada día, qué tortas hay (cumpleaños, la simbólica de
+// comen buffet libre y cuántas merienda cada día, qué tortas hay (cumpleaños, la simbólica de
 // regalo, las que se vendieron aparte) y las restricciones de cada grupo, sin
 // tener que recorrer la agenda día por día.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Cake, ChevronLeft, ChevronRight, Loader2, Users, UtensilsCrossed } from 'lucide-react';
+import { Cake, ChevronLeft, ChevronRight, Coffee, Loader2, Users, UtensilsCrossed } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { AR_TZ } from '@/lib/reservas-format';
 import {
-  experienceHasBuffet,
+  experienceFood,
   FREE_CAKE_MIN_PEOPLE,
   SYMBOLIC_CAKE_LABEL,
+  type FoodKind,
 } from '@/lib/kitchen';
 import {
   reservationsAdmin,
@@ -138,13 +139,17 @@ function CocinaSemana() {
     void load();
   }, [load]);
 
-  // ¿La experiencia lleva buffet? Por id; si no está, por el nombre.
-  const buffetOf = useMemo(() => {
-    const byId = new Map(experiences.map((e) => [e._id, experienceHasBuffet(e)]));
-    return (r: ReservationItem) =>
-      byId.get(r.experienceId ?? '') ??
-      experienceHasBuffet({ name: r.experienceName });
+  // Qué come cada reserva: la suya si la cambiaron (promo con merienda que
+  // pagó el buffet aparte); si no, la de la experiencia (por id o por nombre).
+  const expFoodOf = useMemo(() => {
+    const byId = new Map(experiences.map((e) => [e._id, experienceFood(e)]));
+    return (r: ReservationItem): FoodKind =>
+      byId.get(r.experienceId ?? '') ?? experienceFood({ name: r.experienceName });
   }, [experiences]);
+  const foodOf = useCallback(
+    (r: ReservationItem): FoodKind => r.food ?? expFoodOf(r),
+    [expFoodOf],
+  );
 
   const days = useMemo(() => {
     const map = new Map<string, ReservationItem[]>();
@@ -156,18 +161,16 @@ function CocinaSemana() {
   }, [items]);
 
   const totals = useMemo(() => {
-    let buffet = 0;
     let cakes = 0;
     let birthdays = 0;
     let diets = 0;
     for (const r of items) {
-      if (buffetOf(r)) buffet += r.quantity;
       cakes += cakesOf(r).reduce((n, c) => n + c.qty, 0);
       if (r.isBirthday) birthdays += 1;
       if ((r.dietaryTags?.length ?? 0) > 0 || r.dietaryNotes) diets += 1;
     }
-    return { buffet, cakes, birthdays, diets };
-  }, [items, buffetOf]);
+    return { ...peopleByFood(items, foodOf), cakes, birthdays, diets };
+  }, [items, foodOf]);
 
   const weekCakes = items.flatMap((r) =>
     cakesOf(r).map((c) => ({ r, c })),
@@ -197,8 +200,9 @@ function CocinaSemana() {
         )}
       </div>
 
-      <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
-        <Stat icon={Users} value={totals.buffet} label='personas con buffet' />
+      <div className='grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5'>
+        <Stat icon={Users} value={totals.BUFFET} label='con buffet libre' />
+        <Stat icon={Coffee} value={totals.MERIENDA} label='con merienda' />
         <Stat icon={Cake} value={totals.cakes} label={totals.cakes === 1 ? 'torta' : 'tortas'} />
         <Stat icon={Cake} value={totals.birthdays} label='cumpleaños' />
         <Stat icon={UtensilsCrossed} value={totals.diets} label='grupos con restricciones' />
@@ -244,16 +248,21 @@ function CocinaSemana() {
           )}
 
           {days.map(([ymd, list]) => {
-            const buffet = list.filter(buffetOf).reduce((n, r) => n + r.quantity, 0);
-            const sinBuffet = list.filter((r) => !buffetOf(r)).reduce((n, r) => n + r.quantity, 0);
+            const people = peopleByFood(list, foodOf);
             const cakes = list.reduce((n, r) => n + cakesOf(r).reduce((m, c) => m + c.qty, 0), 0);
             return (
               <div key={ymd} className='flex flex-col gap-2 rounded-2xl border border-[#e6dbcd] bg-white p-4'>
                 <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1'>
                   <h3 className='font-tan-nimbus text-lg font-semibold text-[#455a54]'>{dayLabel(ymd)}</h3>
                   <span className='text-[13px] text-[#455a54]'>
-                    <strong>{buffet}</strong> con buffet
-                    {sinBuffet > 0 && <span className='text-[#7a6e6f]'> · {sinBuffet} sin buffet</span>}
+                    <strong>{people.BUFFET}</strong> con buffet
+                    {people.MERIENDA > 0 && (
+                      <span>
+                        {' · '}
+                        <strong>{people.MERIENDA}</strong> con merienda
+                      </span>
+                    )}
+                    {people.NONE > 0 && <span className='text-[#7a6e6f]'> · {people.NONE} sin comida</span>}
                     {cakes > 0 && (
                       <span className='text-[#9d684e]'> · {cakes} torta{cakes > 1 ? 's' : ''}</span>
                     )}
@@ -266,7 +275,7 @@ function CocinaSemana() {
                         <span className='font-mono font-semibold'>{timeOf(r.startAt)}</span>
                         {' · '}
                         {r.experienceName} · <strong>{r.quantity}</strong> pers.
-                        {!buffetOf(r) && <span className='text-[#7a6e6f]'> · sin buffet</span>}
+                        <FoodNote food={foodOf(r)} changed={!!r.food && r.food !== expFoodOf(r)} />
                         {r.isBirthday && <span> · 🎂{birthdayWho(r) || ' cumple'}</span>}
                         {r.customerName && <span className='text-[#7a6e6f]'> · {r.customerName}</span>}
                       </p>
@@ -294,6 +303,25 @@ function CocinaSemana() {
       )}
     </div>
   );
+}
+
+/** Personas por comida (buffet libre, merienda, nada). */
+function peopleByFood(
+  list: ReservationItem[],
+  foodOf: (r: ReservationItem) => FoodKind,
+): Record<FoodKind, number> {
+  const out: Record<FoodKind, number> = { BUFFET: 0, MERIENDA: 0, NONE: 0 };
+  for (const r of list) out[foodOf(r)] += r.quantity;
+  return out;
+}
+
+/** Al lado de cada reserva: merienda / sin comida, o el buffet que sumó aparte. */
+function FoodNote({ food, changed }: { food: FoodKind; changed: boolean }) {
+  if (food === 'MERIENDA') {
+    return <span className='font-semibold text-[#9d684e]'> · merienda</span>;
+  }
+  if (food === 'NONE') return <span className='text-[#7a6e6f]'> · sin comida</span>;
+  return changed ? <span className='font-semibold text-[#455a54]'> · con buffet libre</span> : null;
 }
 
 function Stat({

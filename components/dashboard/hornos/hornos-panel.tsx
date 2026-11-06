@@ -1,11 +1,12 @@
 'use client';
 
-// Registro de los hornos. Quien prende un horno lo marca acá, y lo mismo al
-// apagarlo y descargarlo. No se anota qué se horneó: sirve para ver cuántas
+// Registro de los hornos. Quien prende un horno lo marca acá y arranca un
+// timer (13 h el frontal, 26 h el superior); hasta que termina no se puede
+// volver a prender. Ya no se anota cuándo se apagó. Sirve para ver cuántas
 // veces se prendió en la semana y si algún día se olvidaron.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Flame, History, PowerOff, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, History, PowerOff, Timer, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -66,6 +67,15 @@ function fmtWhen(iso: string): string {
   return `${day} ${time}`;
 }
 
+// "12 h 05 min" / "8 min".
+function fmtLeft(ms: number): string {
+  const totalMin = Math.max(0, Math.ceil(ms / 60_000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m} min`;
+  return `${h} h ${String(m).padStart(2, '0')} min`;
+}
+
 function dayTitle(ymd: string): string {
   return new Date(`${ymd}T12:00:00Z`).toLocaleDateString('es-AR', {
     weekday: 'short',
@@ -90,6 +100,12 @@ export function HornosPanel() {
     () => ({ kiln: 'SUPERIOR', action: 'ON', day: todayAR(), time: '09:00' }),
   );
   const sunday = addDays(monday, 6);
+  // Reloj para la cuenta regresiva de los hornos prendidos.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -108,6 +124,17 @@ export function HornosPanel() {
     void load();
   }, [load]);
 
+  // Cuando termina un timer, se refresca el estado para habilitar el botón.
+  const nextEnd = useMemo(() => {
+    const ends = status
+      .map((k) => (k.endsAt ? new Date(k.endsAt).getTime() : 0))
+      .filter((t) => t > Date.now());
+    return ends.length ? Math.min(...ends) : 0;
+  }, [status]);
+  useEffect(() => {
+    if (nextEnd && now >= nextEnd) void load();
+  }, [now, nextEnd, load]);
+
   async function register(kiln: KilnKey, action: KilnAction) {
     if (responsable.shared && !responsable.value.trim()) {
       return showToast.error('Elegí quién lo hace');
@@ -119,7 +146,7 @@ export function HornosPanel() {
         action,
         ...(responsable.value.trim() ? { registeredBy: responsable.value.trim() } : {}),
       });
-      showToast.success(action === 'ON' ? 'Horno prendido registrado' : 'Horno apagado y descargado');
+      showToast.success('Horno prendido: arrancó el timer');
       await load();
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo registrar'));
@@ -193,48 +220,82 @@ export function HornosPanel() {
 
       {/* Cada horno: estado y el botón que corresponde. */}
       <div className='grid gap-3 sm:grid-cols-2'>
-        {status.map((k) => (
-          <div
-            key={k.kiln}
-            className={cn(
-              'flex flex-col gap-3 rounded-2xl border p-4',
-              k.on ? 'border-[#9d684e]/50 bg-[#f3e2d0]' : 'border-[#e6dbcd] bg-white',
-            )}
-          >
-            <div className='flex items-center gap-2'>
-              <Flame className={cn('size-5', k.on ? 'text-[#9d684e]' : 'text-[#c4b8aa]')} />
-              <p className='text-base font-semibold text-[#3d3338]'>Horno de {k.kilnName.toLowerCase()}</p>
-            </div>
-            <p className='text-sm text-[#7a6e6f]'>
-              {k.last
-                ? `${k.on ? 'Prendido' : 'Apagado'} desde ${fmtWhen(k.last.at)}${k.last.byName ? ` · ${k.last.byName}` : ''}`
-                : 'Sin registros todavía'}
-            </p>
-            {k.on ? (
+        {status.map((k) => {
+          const endsAt = k.endsAt ? new Date(k.endsAt).getTime() : 0;
+          const left = endsAt - now;
+          const running = endsAt > 0 && left > 0;
+          const total = k.durationMs ?? 0;
+          const pct = running && total ? Math.min(100, Math.max(0, ((total - left) / total) * 100)) : 0;
+          const hours = total ? Math.round(total / 3_600_000) : null;
+          return (
+            <div
+              key={k.kiln}
+              className={cn(
+                'flex flex-col gap-3 rounded-2xl border p-4',
+                running ? 'border-[#9d684e]/50 bg-[#f3e2d0]' : 'border-[#e6dbcd] bg-white',
+              )}
+            >
+              <div className='flex items-center gap-2'>
+                <Flame className={cn('size-5 shrink-0', running ? 'text-[#9d684e]' : 'text-[#c4b8aa]')} />
+                <p className='min-w-0 flex-1 text-base font-semibold text-[#3d3338]'>
+                  Horno de {k.kilnName.toLowerCase()}
+                </p>
+                {hours && (
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-[#7a6e6f]',
+                      running ? 'bg-white/70' : 'bg-[#fbf5ef]',
+                    )}
+                  >
+                    {hours} h
+                  </span>
+                )}
+              </div>
+
+              {running ? (
+                <div className='flex flex-col gap-2'>
+                  <div className='flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5'>
+                    <p className='text-2xl font-semibold tabular-nums text-[#9d684e]'>
+                      {fmtLeft(left)}
+                    </p>
+                    <p className='text-xs text-[#7a6e6f]'>termina {fmtWhen(new Date(endsAt).toISOString())}</p>
+                  </div>
+                  <div
+                    className='h-2 overflow-hidden rounded-full bg-white/80'
+                    role='progressbar'
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(pct)}
+                    aria-label={`Horno de ${k.kilnName.toLowerCase()}: quedan ${fmtLeft(left)}`}
+                  >
+                    <div className='h-full rounded-full bg-[#9d684e] transition-[width] duration-700' style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className='text-sm text-[#7a6e6f]'>
+                    Prendido {k.last ? fmtWhen(k.last.at) : ''}
+                    {k.last?.byName ? ` · ${k.last.byName}` : ''}
+                  </p>
+                </div>
+              ) : (
+                <p className='text-sm text-[#7a6e6f]'>
+                  {k.last
+                    ? `${k.last.action === 'ON' ? 'Último prendido' : 'Apagado'} ${fmtWhen(k.last.at)}${k.last.byName ? ` · ${k.last.byName}` : ''}`
+                    : 'Sin registros todavía'}
+                </p>
+              )}
+
               <Button
                 type='button'
-                variant='outline'
-                disabled={busy === k.kiln}
-                onClick={() => register(k.kiln, 'OFF')}
-                className='gap-2 border-[#455a54]/40 bg-white text-[#455a54]'
-              >
-                <PowerOff className='size-4' />
-                Lo apagué y descargué
-              </Button>
-            ) : (
-              <Button
-                type='button'
-                variant='verde'
-                disabled={busy === k.kiln}
+                variant={running ? 'outline' : 'verde'}
+                disabled={running || busy === k.kiln}
                 onClick={() => register(k.kiln, 'ON')}
-                className='gap-2'
+                className={cn('gap-2', running && 'border-[#9d684e]/30 bg-white/60 text-[#9d684e] disabled:opacity-100')}
               >
-                <Flame className='size-4' />
-                Prendí el horno
+                {running ? <Timer className='size-4' /> : <Flame className='size-4' />}
+                {running ? `Se libera en ${fmtLeft(left)}` : 'Prendí el horno'}
               </Button>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {canManage && (
@@ -251,7 +312,7 @@ export function HornosPanel() {
           ) : (
             <div className='flex flex-col gap-3'>
               <p className='text-sm font-semibold text-[#455a54]'>
-                Horno que se prendió o apagó y no se marcó en el momento
+                Horno que se prendió y no se marcó en el momento
               </p>
               <div className='flex flex-wrap items-center gap-2'>
                 {(['SUPERIOR', 'FRONTAL'] as const).map((k) => (
@@ -259,13 +320,6 @@ export function HornosPanel() {
                     {status.find((x) => x.kiln === k)?.kilnName ?? k}
                   </Chip>
                 ))}
-                <span className='mx-1 h-5 w-px bg-[#e6dbcd]' />
-                <Chip active={past.action === 'ON'} onClick={() => setPast({ ...past, action: 'ON' })}>
-                  Se prendió
-                </Chip>
-                <Chip active={past.action === 'OFF'} onClick={() => setPast({ ...past, action: 'OFF' })}>
-                  Se apagó y descargó
-                </Chip>
               </div>
               <div className='flex flex-wrap items-center gap-2'>
                 <div className='w-44'>

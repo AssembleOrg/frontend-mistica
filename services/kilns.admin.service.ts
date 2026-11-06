@@ -22,6 +22,11 @@ export interface KilnStatus {
   kiln: KilnKey;
   kilnName: string;
   on: boolean;
+  /** Prendido y con el timer corriendo (13 h frontal, 26 h superior). */
+  running?: boolean;
+  durationMs?: number;
+  /** Cuándo termina el último prendido (ISO). */
+  endsAt?: string | null;
   last: KilnLogItem | null;
 }
 

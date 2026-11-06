@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export interface ConfirmOptions {
   title: string;
@@ -21,6 +22,15 @@ export interface ConfirmOptions {
   cancelLabel?: string;
   /** 'destructivo' (rojo, default para borrar) o 'normal' (verde). */
   variant?: 'destructivo' | 'normal';
+  /**
+   * Palabra que hay que escribir para habilitar el botón (para acciones que
+   * no se pueden tocar por error). Sin distinguir mayúsculas ni tildes.
+   */
+  typeToConfirm?: string;
+}
+
+function norm(v: string): string {
+  return v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
 
 type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
@@ -35,9 +45,11 @@ export function useConfirm(): ConfirmFn {
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
+  const [typed, setTyped] = useState('');
   const resolver = useRef<((v: boolean) => void) | null>(null);
 
   const confirm = useCallback<ConfirmFn>((o) => {
+    setTyped('');
     setOpts(o);
     return new Promise<boolean>((resolve) => {
       resolver.current = resolve;
@@ -51,6 +63,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const destructive = opts?.variant !== 'normal';
+  const locked = !!opts?.typeToConfirm && norm(typed) !== norm(opts.typeToConfirm);
 
   return (
     <ConfirmContext.Provider value={confirm}>
@@ -66,6 +79,26 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             {opts.description && (
               <p className='text-sm text-[#7a6e6f]'>{opts.description}</p>
             )}
+            {opts.typeToConfirm && (
+              <label className='flex flex-col gap-1.5 text-sm text-[#455a54]'>
+                <span>
+                  Escribí <b className='font-semibold'>{opts.typeToConfirm}</b> para seguir
+                </span>
+                <Input
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !locked) settle(true);
+                  }}
+                  placeholder={opts.typeToConfirm}
+                  autoFocus
+                  autoComplete='off'
+                  autoCapitalize='none'
+                  autoCorrect='off'
+                  spellCheck={false}
+                />
+              </label>
+            )}
             <DialogFooter>
               <Button
                 type='button'
@@ -79,7 +112,8 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                 type='button'
                 variant={destructive ? 'destructive' : 'verde'}
                 onClick={() => settle(true)}
-                autoFocus
+                disabled={locked}
+                autoFocus={!opts.typeToConfirm}
               >
                 {opts.confirmLabel ?? (destructive ? 'Eliminar' : 'Confirmar')}
               </Button>

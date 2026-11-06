@@ -6,7 +6,7 @@
 // veces se prendió en la semana y si algún día se olvidaron.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Flame, History, PowerOff, Timer, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, History, PowerOff, RotateCcw, Timer, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
@@ -30,6 +30,7 @@ import {
 import { errorText } from '@/lib/api-error-messages';
 
 const DAY_MS = 86_400_000;
+const RESET_NOTE = 'Timer reiniciado';
 
 // Fecha de hoy en Argentina, YYYY-MM-DD.
 function todayAR(): string {
@@ -150,6 +151,36 @@ export function HornosPanel() {
       await load();
     } catch (e) {
       showToast.error(errorText(e, 'No se pudo registrar'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Por si lo prendieron por error: corta el timer y el horno queda libre.
+  // Se guarda como un apagado con nota, así queda en el historial.
+  async function resetTimer(k: KilnStatus) {
+    if (responsable.shared && !responsable.value.trim()) {
+      return showToast.error('Elegí quién lo hace');
+    }
+    const ok = await confirm({
+      title: 'Reiniciar timer',
+      description: `El horno de ${k.kilnName.toLowerCase()} queda libre para volver a prenderlo. Usalo sólo si se marcó por error o hay que empezar de nuevo.`,
+      confirmLabel: 'Reiniciar',
+      typeToConfirm: 'confirmar',
+    });
+    if (!ok) return;
+    setBusy(k.kiln);
+    try {
+      await kilnsAdmin.register({
+        kiln: k.kiln,
+        action: 'OFF',
+        note: RESET_NOTE,
+        ...(responsable.value.trim() ? { registeredBy: responsable.value.trim() } : {}),
+      });
+      showToast.success('Timer reiniciado');
+      await load();
+    } catch (e) {
+      showToast.error(errorText(e, 'No se pudo reiniciar'));
     } finally {
       setBusy(null);
     }
@@ -278,7 +309,7 @@ export function HornosPanel() {
               ) : (
                 <p className='text-sm text-[#7a6e6f]'>
                   {k.last
-                    ? `${k.last.action === 'ON' ? 'Último prendido' : 'Apagado'} ${fmtWhen(k.last.at)}${k.last.byName ? ` · ${k.last.byName}` : ''}`
+                    ? `${k.last.action === 'ON' ? 'Último prendido' : k.last.note === RESET_NOTE ? RESET_NOTE : 'Apagado'} ${fmtWhen(k.last.at)}${k.last.byName ? ` · ${k.last.byName}` : ''}`
                     : 'Sin registros todavía'}
                 </p>
               )}
@@ -293,6 +324,17 @@ export function HornosPanel() {
                 {running ? <Timer className='size-4' /> : <Flame className='size-4' />}
                 {running ? `Se libera en ${fmtLeft(left)}` : 'Prendí el horno'}
               </Button>
+              {running && (
+                <button
+                  type='button'
+                  disabled={busy === k.kiln}
+                  onClick={() => resetTimer(k)}
+                  className='inline-flex items-center justify-center gap-1.5 self-center rounded-md px-2 py-1 text-xs font-medium text-[#7a6e6f] hover:text-[#9d684e] hover:underline disabled:opacity-50'
+                >
+                  <RotateCcw className='size-3.5' />
+                  Reiniciar timer
+                </button>
+              )}
             </div>
           );
         })}
@@ -405,7 +447,7 @@ export function HornosPanel() {
                   <PowerOff className='size-4 shrink-0 text-[#455a54]' />
                 )}
                 <span className='min-w-0 flex-1 truncate text-[#3d3338]'>
-                  {l.actionName} · {l.kilnName}
+                  {l.action === 'OFF' && l.note === RESET_NOTE ? RESET_NOTE : l.actionName} · {l.kilnName}
                   {l.byName && <span className='text-[#7a6e6f]'> · {l.byName}</span>}
                 </span>
                 <span className='shrink-0 text-xs text-[#7a6e6f]'>{fmtWhen(l.at)}</span>

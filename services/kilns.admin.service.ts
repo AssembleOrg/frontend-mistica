@@ -38,6 +38,7 @@ export const kilnsAdmin = {
     kiln: KilnKey;
     action: KilnAction;
     registeredBy?: string;
+    note?: string;
     /** Horno que nadie marcó en el momento (ISO). Sólo admin/encargado. */
     at?: string;
   }) =>

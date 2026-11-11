@@ -364,6 +364,11 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
         {/* Totales */}
         <Section title="Resumen" icon={FileText}>
           <Row label="Subtotal">{formatCurrency(sale.subtotal)}</Row>
+          {sale.settledLines?.map((l) => (
+            <Row key={l.saleNumber} label={`Saldo ${l.saleNumber}`}>
+              +{formatCurrency(l.amount)}
+            </Row>
+          ))}
           {hasAdjustment && (
             <Row label={adjustmentApplied > 0 ? 'Descuento' : 'Recargo'}>
               <span className={adjustmentApplied > 0 ? 'text-[#cc844a]' : 'text-[#9d684e]'}>
@@ -418,7 +423,7 @@ export function SaleDetailContent({ sale, onSaleUpdated, onRequestEdit, onOpenRe
         {/* Notas */}
         {cleanNotes && (
           <Section title="Notas" icon={FileText}>
-            <p className="text-xs text-[#455a54]/70 font-winter-solid py-2 leading-relaxed">
+            <p className="text-xs text-[#455a54]/70 font-winter-solid py-2 leading-relaxed break-words">
               {cleanNotes}
             </p>
           </Section>

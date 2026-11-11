@@ -7,7 +7,7 @@
 // sin whitelist ve las vistas estándar; con whitelist, SOLO esas vistas. El
 // sidebar esconde los links y ViewGuard bloquea la URL directa.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   Copy,
@@ -204,6 +204,22 @@ export function AccountsPanel() {
         </Button>
       </header>
 
+      {/* Arriba de la lista: se abre donde está el botón, no al fondo. */}
+      {form && (
+        <AccountEditor
+          key={editing?.id ?? 'new'}
+          form={form}
+          setForm={setForm}
+          editing={editing}
+          saving={saving}
+          onSave={save}
+          onCancel={() => {
+            setForm(null);
+            setEditing(null);
+          }}
+        />
+      )}
+
       <div className='flex flex-col divide-y divide-[#e6dbcd]'>
         {!loading && sorted.length === 0 && (
           <p className='py-8 text-center text-sm text-[#7a6e6f]'>Sin cuentas.</p>
@@ -218,20 +234,6 @@ export function AccountsPanel() {
           />
         ))}
       </div>
-
-      {form && (
-        <AccountEditor
-          form={form}
-          setForm={setForm}
-          editing={editing}
-          saving={saving}
-          onSave={save}
-          onCancel={() => {
-            setForm(null);
-            setEditing(null);
-          }}
-        />
-      )}
 
       <p className='border-t border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 text-[12px] text-[#7a6e6f]'>
         Los <strong>admin</strong> ven todas las vistas. Una cuenta común sin
@@ -362,6 +364,11 @@ function AccountEditor({
   onCancel: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // Al abrir (o cambiar de cuenta) se lleva la pantalla al formulario.
+  useEffect(() => {
+    boxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
   // Admin ve todo; encargado y empleado, según sus vistas.
   const withViews = form.role !== 'admin';
   const assignable = assignableViewsFor(form.role);
@@ -387,7 +394,7 @@ function AccountEditor({
   }
 
   return (
-    <div className='border-t-2 border-[#9d684e]/40 bg-[#fbf5ef] px-4 py-4'>
+    <div ref={boxRef} className='scroll-mt-4 border-b-2 border-[#9d684e]/40 bg-[#fbf5ef] px-4 py-4'>
       <div className='mb-3 flex items-center justify-between'>
         <h4 className='text-sm font-semibold text-[#455a54]'>
           {editing ? `Editar cuenta — ${editing.name}` : 'Nueva cuenta'}
@@ -407,6 +414,7 @@ function AccountEditor({
           <div className='space-y-1.5'>
             <Label className='text-[13px] text-[#455a54]'>Nombre y apellido</Label>
             <Input
+              autoFocus
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={fieldCls}

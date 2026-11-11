@@ -17,6 +17,7 @@ import {
   type PieceStatusConfig,
 } from '@/services/pieces.admin.service';
 import { errorText } from '@/lib/api-error-messages';
+import { PhoneWhatsApp } from '@/components/ui/whatsapp-icon';
 
 // "viernes 2 de octubre". Mediodía para que ninguna zona horaria lo corra.
 function dayLabel(day: string): string {
@@ -128,6 +129,9 @@ export function PiezasAssembly({
                   ]
                     .filter(Boolean)
                     .join(' · ')}
+                  {g.items[0]?.customerPhone && (
+                    <PhoneWhatsApp phone={g.items[0].customerPhone} className='ml-1.5' />
+                  )}
                 </p>
               </div>
               <span

@@ -71,6 +71,7 @@ import { FilterChip, IconBtn, Pager, StatusBadge } from './_shared';
 import { ResponsableField, useResponsable } from '../responsable-field';
 import { canManageRole } from '@/lib/views';
 import { errorText } from '@/lib/api-error-messages';
+import { PhoneWhatsApp } from '@/components/ui/whatsapp-icon';
 
 const LIMIT = 50;
 /** Tope al seleccionar un día entero (una tanda de horno no llega ni cerca). */
@@ -434,6 +435,7 @@ export function PiezasTab() {
           {p.reservationId ? 'Reserva de ' : ''}
           {titular}
         </span>
+        {p.customerPhone && <PhoneWhatsApp phone={p.customerPhone} />}
         {p.experienceName && (
           <span className='text-xs text-[#7a6e6f]'>{p.experienceName}</span>
         )}

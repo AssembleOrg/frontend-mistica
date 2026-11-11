@@ -2,8 +2,12 @@
 //
 // Producción de cocina: lo que cocina va preparando, con su cantidad. Por día
 // y, si corresponde, para una reserva. Sólo registro (no mueve stock).
+// El taller de cerámica usa el mismo registro con `area: 'taller'`.
 
 import { apiService } from '@/services/api.service';
+
+/** Quién produjo: cocina (default) o el taller de cerámica. */
+export type ProductionArea = 'cocina' | 'taller';
 
 export interface KitchenProductionItem {
   id: string;
@@ -17,6 +21,7 @@ export interface KitchenProductionItem {
   reservationLabel?: string;
   note?: string;
   byName?: string;
+  area?: ProductionArea;
   createdAt?: string;
 }
 
@@ -29,13 +34,14 @@ export interface KitchenProductionInput {
   reservationId?: string;
   note?: string;
   registeredBy?: string;
+  area?: ProductionArea;
 }
 
 export const kitchenProductionAdmin = {
-  list: async (from: string, to: string, reservationId?: string) =>
+  list: async (from: string, to: string, reservationId?: string, area?: ProductionArea) =>
     (
       await apiService.get<KitchenProductionItem[]>(
-        `/kitchen-production?from=${from}&to=${to}${reservationId ? `&reservationId=${reservationId}` : ''}`,
+        `/kitchen-production?from=${from}&to=${to}${reservationId ? `&reservationId=${reservationId}` : ''}${area ? `&area=${area}` : ''}`,
       )
     ).data,
   suggestions: async () =>

@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Footer } from '@/components/ui/footer';
+import { TallerSimple, isTallerSimple } from '@/components/dashboard/taller-simple/taller-simple';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
@@ -77,6 +78,8 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  if (isTallerSimple(user?.role, user?.allowedViews)) return <TallerSimple />;
 
   return (
     <div className='min-h-screen bg-[#efcbb9] p-4 sm:p-6'>

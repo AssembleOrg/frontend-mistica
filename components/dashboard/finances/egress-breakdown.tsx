@@ -238,6 +238,11 @@ export function EgressBreakdownCard({
                           style={{ borderBottom: '1px solid var(--color-gris-claro)', opacity: 0.7 }}
                         >
                           {formatDate(e.createdAt)}
+                          {e.recordedAt && formatDate(e.recordedAt) !== formatDate(e.createdAt) && (
+                            <span className="block text-[10px] opacity-70">
+                              cargado {formatDate(e.recordedAt)}
+                            </span>
+                          )}
                         </td>
                         <td
                           className="py-2 px-2 font-winter-solid"

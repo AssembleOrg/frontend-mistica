@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { localDateKey } from '@/lib/date-key';
 import { LoadingSpinner } from '@/components/ui/loading-skeletons';
 import { showToast } from '@/lib/toast';
 import {
@@ -42,6 +44,17 @@ interface CashEgressDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  /**
+   * Muestra el campo «Fecha» (sólo admin): permite cargar un gasto de otro
+   * día —uno olvidado del mes pasado o uno del mes que viene— sin caja.
+   */
+  allowOtherDate?: boolean;
+}
+
+/** `YYYY-MM-DD` → `dd/mm/aa` sin pasar por Date (no corre el día). */
+function ymdLabel(ymd: string): string {
+  const [y, m, d] = ymd.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
 }
 
 /**
@@ -55,7 +68,9 @@ export function CashEgressDialog({
   open,
   onOpenChange,
   onSuccess,
+  allowOtherDate = false,
 }: CashEgressDialogProps) {
+  const [date, setDate] = useState(() => localDateKey(new Date()));
   const [concept, setConcept] = useState('');
   const [amount, setAmount] = useState<number>(0);
   // Sin método por defecto: el operador lo elige explícitamente en cada egreso.
@@ -71,6 +86,7 @@ export function CashEgressDialog({
 
   useEffect(() => {
     if (open) {
+      setDate(localDateKey(new Date()));
       setConcept('');
       setAmount(0);
       setPaymentMethod('');
@@ -81,6 +97,9 @@ export function CashEgressDialog({
       setIsSubmitting(false);
     }
   }, [open]);
+
+  // Otro día: se registra con esa fecha, fuera de caja (no toca ningún arqueo).
+  const isOtherDay = allowOtherDate && date !== localDateKey(new Date());
 
   const handleSubmit = async () => {
     const trimmedConcept = concept.trim();
@@ -96,6 +115,10 @@ export function CashEgressDialog({
       showToast.error('Seleccioná un método de pago');
       return;
     }
+    if (allowOtherDate && !date) {
+      showToast.error('Elegí la fecha del gasto');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload: CreateCashExpenseRequest = {
@@ -107,8 +130,15 @@ export function CashEgressDialog({
       };
       if (categoryId) payload.categoryId = categoryId;
       if (notes.trim()) payload.notes = notes.trim();
-      await cashboxService.createExpense(payload);
-      showToast.success('Egreso registrado');
+      // Con fecha (admin): hoy con caja abierta va a la caja; si no, el backend
+      // lo registra para ese día sin tocar ningún arqueo.
+      if (allowOtherDate) payload.date = date;
+      const res = await cashboxService.createExpense(payload);
+      showToast.success(
+        res.data?.inCashbox === false
+          ? `Egreso registrado para el ${ymdLabel(date)} (no cambia ningún arqueo)`
+          : 'Egreso registrado',
+      );
       onSuccess?.();
       onOpenChange(false);
     } catch (err) {
@@ -136,17 +166,35 @@ export function CashEgressDialog({
           <div className="flex items-center gap-2">
             <TrendingDown className="h-4 w-4 text-[#9d684e]" />
             <DialogTitle className="text-base font-bold text-[#455a54] font-tan-nimbus">
-              Egreso de la caja
+              {allowOtherDate ? 'Cargar egreso' : 'Egreso de la caja'}
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs font-winter-solid text-[#455a54]/70 mt-1">
             Registra plata que sale de la caja sin ser una venta (retiro, pago a
             proveedor, gasto). Solo los egresos en efectivo afectan el arqueo de
             caja.
+            {allowOtherDate &&
+              ' Si el gasto es de otro día (uno olvidado o uno del mes que viene), cambiá la fecha.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4">
+          {allowOtherDate && (
+            <div className="space-y-1.5">
+              <Label className="text-[#455a54] font-winter-solid">
+                Fecha del gasto <span className="text-red-500">*</span>
+              </Label>
+              <DatePicker value={date} onChange={setDate} disabled={isSubmitting} />
+              {isOtherDay && (
+                <p className="rounded-lg border border-[#9d684e]/30 bg-[#efcbb9]/25 px-3 py-2 text-[12px] leading-snug text-[#455a54]">
+                  Cuenta en Finanzas y en el cierre del mes del {ymdLabel(date)}.
+                  No cambia el arqueo de ninguna caja: si el efectivo salió del
+                  cajón de una caja ya cerrada, cargalo desde «Editar caja».
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label
               htmlFor="cash-egress-concept"
@@ -207,7 +255,7 @@ export function CashEgressDialog({
             </Select>
           </div>
 
-          {paymentMethod === 'CASH' && (
+          {paymentMethod === 'CASH' && !isOtherDay && (
             <button
               type='button'
               onClick={() => setAffectsCashbox(!affectsCashbox)}

@@ -35,6 +35,7 @@ import { ResolveAutoClosureDialog } from '@/components/dashboard/finances/resolv
 import { MonthlyCloseDialog } from '@/components/dashboard/finances/monthly-close-dialog';
 import { EgressBreakdownCard } from '@/components/dashboard/finances/egress-breakdown';
 import { useEgressBreakdown } from '@/hooks/useEgressBreakdown';
+import { CashEgressDialog } from '@/components/dashboard/sales/cash-egress-dialog';
 
 const isoDate = localDateKey;
 
@@ -83,6 +84,7 @@ export default function FinancesPage() {
   const cancelEditRef = useRef(false);
   const [showMonthlyClose, setShowMonthlyClose] = useState(false);
   const [showEgressReport, setShowEgressReport] = useState(false);
+  const [showNewEgress, setShowNewEgress] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -202,7 +204,7 @@ export default function FinancesPage() {
             Resumen contable, caja y movimientos del período
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {loading && <RefreshCw className="h-4 w-4 animate-spin" style={{ color: 'var(--color-terracota)' }} />}
           <Button
             variant="outline"
@@ -213,6 +215,16 @@ export default function FinancesPage() {
           >
             <FileDown className="h-4 w-4 mr-2" />
             Cierre de Mes
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowNewEgress(true)}
+            className="font-winter-solid"
+            style={{ borderColor: 'var(--color-terracota)', color: 'var(--color-terracota)' }}
+          >
+            <TrendingDown className="h-4 w-4 mr-2" />
+            Cargar egreso
           </Button>
           <Button
             variant="outline"
@@ -241,6 +253,15 @@ export default function FinancesPage() {
         onOpenChange={setShowMonthlyClose}
         title="Cierre de mes"
         description="Un solo PDF con ingresos, egresos por categoría, caja y top de productos."
+      />
+      <CashEgressDialog
+        open={showNewEgress}
+        onOpenChange={setShowNewEgress}
+        allowOtherDate
+        onSuccess={() => {
+          load();
+          egressBreakdown.reload();
+        }}
       />
       <MonthlyCloseDialog
         open={showEgressReport}

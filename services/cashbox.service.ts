@@ -97,6 +97,11 @@ export interface CreateCashExpenseRequest {
   /** Categoría del gasto (Sueldos, Servicios…). */
   categoryId?: string;
   notes?: string;
+  /**
+   * Día del gasto `YYYY-MM-DD` (sólo admin). Hoy con caja abierta → a la caja;
+   * otro día (o hoy sin caja) → registro con esa fecha, sin tocar arqueos.
+   */
+  date?: string;
 }
 
 export interface CashExpenseResponse {
@@ -107,6 +112,8 @@ export interface CashExpenseResponse {
   paymentMethod: 'CASH' | 'CARD' | 'TRANSFER';
   notes?: string;
   createdAt: string;
+  /** false = quedó registrado con su fecha, fuera de la caja. */
+  inCashbox?: boolean;
 }
 
 export interface OpenCashSessionRequest {

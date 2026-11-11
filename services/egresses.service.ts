@@ -23,6 +23,8 @@ export interface Egress {
   authorizedBy?: string;
   userId: string;
   status: 'PENDING' | 'COMPLETED' | 'CANCELLED';
+  /** Cuándo se cargó, si es un egreso fechado (createdAt = día del gasto). */
+  recordedAt?: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

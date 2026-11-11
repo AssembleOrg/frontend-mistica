@@ -45,7 +45,7 @@ const StockConsumptionDialog = dynamic(
 );
 
 export default function SalesPage() {
-  const { canEdit, canDelete, canCancelSale, canManageStock } = usePermissions();
+  const { isAdmin, canEdit, canDelete, canCancelSale, canManageStock } = usePermissions();
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const submitCreateButtonRef = useRef<HTMLButtonElement | null>(null);
   const submitEditButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -442,6 +442,7 @@ export default function SalesPage() {
         open={showCashEgressModal}
         onOpenChange={setShowCashEgressModal}
         onSuccess={() => { getDailySales(); }}
+        allowOtherDate={isAdmin}
       />
       {canManageStock && (
         <StockConsumptionDialog

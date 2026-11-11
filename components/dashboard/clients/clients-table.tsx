@@ -197,7 +197,10 @@ export function ClientsTable({
           />
         )
       ) : (
-        <div className='border border-[#9d684e]/15 rounded-lg overflow-x-auto'>
+        <>
+        {/* Desktop/tablet: tabla. En mobile desbordaba de costado (6 columnas),
+            así que abajo de sm se muestran cards apiladas. */}
+        <div className='hidden border border-[#9d684e]/15 rounded-lg overflow-x-auto sm:block'>
           <Table>
             <TableHeader>
               <TableRow className='border-[#9d684e]/12 hover:bg-transparent'>
@@ -319,6 +322,96 @@ export function ClientsTable({
             </TableBody>
           </Table>
         </div>
+
+        {/* Mobile: cards apiladas (mismo dato que la tabla). */}
+        <div className='flex flex-col gap-3 sm:hidden'>
+          {data.map((client) => (
+            <div
+              key={client.id}
+              className='rounded-lg border border-[#9d684e]/15 bg-white p-3.5'
+            >
+              <div className='flex items-start gap-2.5'>
+                <div className='mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#9d684e]/15 font-tan-nimbus text-xs text-[#9d684e]'>
+                  {getInitials(client.fullName)}
+                </div>
+                <div className='min-w-0 flex-1'>
+                  <div className='truncate text-sm font-semibold text-[#455a54] font-winter-solid'>
+                    {client.fullName}
+                  </div>
+                  {client.cuit && (
+                    <div className='text-[11px] text-[#455a54]/55 tabular-nums'>
+                      CUIT {client.cuit}
+                    </div>
+                  )}
+                </div>
+                <div className='flex flex-shrink-0 gap-0.5'>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => onEditClient?.(client)}
+                    className='h-8 w-8 p-0 text-[#455a54]/60 hover:text-[#9d684e] hover:bg-[#9d684e]/10'
+                  >
+                    <Edit className='h-4 w-4' />
+                  </Button>
+                  <Button
+                    variant='ghost'
+                    size='sm'
+                    onClick={() => onDeleteClient?.(client)}
+                    className='h-8 w-8 p-0 text-[#455a54]/60 hover:text-red-600 hover:bg-red-50'
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </Button>
+                </div>
+              </div>
+
+              <div className='mt-2.5 space-y-1 text-[13px]'>
+                {client.phone && (
+                  <div className='flex items-center gap-1.5 text-[#455a54]'>
+                    <Phone className='h-3 w-3 flex-shrink-0 text-[#9d684e]/70' />
+                    <span className='tabular-nums'>{client.phone}</span>
+                    <a
+                      href={getWhatsAppLink(client.phone)}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      title='Abrir chat de WhatsApp'
+                      onClick={(e) => e.stopPropagation()}
+                      className='inline-flex items-center text-[#455a54] hover:opacity-70'
+                    >
+                      <WhatsAppIcon className='h-3.5 w-3.5' />
+                    </a>
+                  </div>
+                )}
+                {client.email && (
+                  <div className='flex items-center gap-1.5 text-[#455a54]/80'>
+                    <Mail className='h-3 w-3 flex-shrink-0 text-[#9d684e]/70' />
+                    <span className='truncate'>{client.email}</span>
+                  </div>
+                )}
+              </div>
+
+              {(client.labels ?? []).length > 0 && (
+                <div className='mt-2'>
+                  <ClientLabelChips labelIds={client.labels ?? []} allLabels={allLabels} />
+                </div>
+              )}
+
+              <div className='mt-2.5 flex items-center justify-between gap-2'>
+                <button
+                  type='button'
+                  onClick={() => setHistoryClient(client)}
+                  title='Ver historial de ventas'
+                  className='inline-flex items-center gap-1 rounded-full bg-[#9d684e]/10 px-2 py-0.5 text-[11px] font-winter-solid text-[#9d684e] hover:bg-[#9d684e]/20'
+                >
+                  {client.transactionCount || 0} {client.transactionCount === 1 ? 'venta' : 'ventas'}
+                </button>
+                <span className='text-[11px] text-[#455a54]/55 font-winter-solid tabular-nums'>
+                  {formatDate(client.createdAt)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       {data.length > 0 && (

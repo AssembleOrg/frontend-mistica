@@ -100,76 +100,136 @@ export function ProduccionPanel() {
         </div>
       </div>
 
-      <div className='overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white'>
-        <div className='min-w-[57rem]'>
-          <div className={cn('grid items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]', COLS)}>
-            <span>PEDIDA</span>
-            <span>ALUMNO</span>
-            <span>PIEZA</span>
-            <span>TIPO</span>
-            <span>PARA</span>
-            <span>CURSA</span>
-            <span className='text-center'>LISTA</span>
-            <span className='text-center'>ESTADO</span>
-          </div>
-          {rows === null ? (
-            <div className='flex justify-center py-10'>
-              <Loader2 className='h-6 w-6 animate-spin text-[#9d684e]' />
+      {rows === null ? (
+        <div className='flex justify-center rounded-2xl border border-[#e6dbcd] bg-white py-10'>
+          <Loader2 className='h-6 w-6 animate-spin text-[#9d684e]' />
+        </div>
+      ) : visibles.length === 0 ? (
+        <p className='rounded-2xl border border-[#e6dbcd] bg-white p-6 text-sm text-[#7a6e6f]'>
+          {search ? 'Sin resultados.' : 'No hay piezas pendientes.'}
+        </p>
+      ) : (
+        <>
+          {/* Desktop/tablet: tabla. En mobile desbordaba de costado (8 columnas),
+              así que abajo de sm se muestran cards apiladas. */}
+          <div className='hidden overflow-x-auto rounded-2xl border border-[#e6dbcd] bg-white sm:block'>
+            <div className='min-w-[57rem]'>
+              <div className={cn('grid items-center gap-3 border-b border-[#e6dbcd] bg-[#fbf5ef] px-4 py-2.5 font-mono text-[11px] tracking-wider text-[#7a6e6f]', COLS)}>
+                <span>PEDIDA</span>
+                <span>ALUMNO</span>
+                <span>PIEZA</span>
+                <span>TIPO</span>
+                <span>PARA</span>
+                <span>CURSA</span>
+                <span className='text-center'>LISTA</span>
+                <span className='text-center'>ESTADO</span>
+              </div>
+              {visibles.map((r) => {
+                const p = r.piece!;
+                const tipo = p.bisque ? 'Bizcocho' : p.fresh ? 'Fresca' : null;
+                return (
+                  <div key={p._id} className={cn('grid items-center gap-3 border-b border-[#e6dbcd] px-4 py-2.5 last:border-0', COLS)}>
+                    <span className='font-mono text-xs text-[#7a6e6f]'>{fmtDay(p.requestedAt)}</span>
+                    <span className='min-w-0 break-words text-sm font-medium text-[#3d3338]'>{r.student.name}</span>
+                    <span className='min-w-0 break-words text-sm text-[#3d3338]'>{p.pieceName}</span>
+                    <span>
+                      {tipo ? (
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            p.bisque ? 'bg-[#f3e2d0] text-[#8a5638]' : 'bg-[#E7F0EC] text-[#455a54]',
+                          )}
+                        >
+                          {tipo}
+                        </span>
+                      ) : (
+                        <span className='text-xs text-[#a33]'>Sin elegir</span>
+                      )}
+                    </span>
+                    <span className='text-sm text-[#3d3338]'>{p.dueDate ? dueLabel(p.dueDate) : '—'}</span>
+                    <span className='min-w-0 break-words text-xs text-[#7a6e6f]'>
+                      {r.groups.map((g) => slotLabel(g.schedule)).filter(Boolean).join(' · ') || '—'}
+                    </span>
+                    <span className='flex justify-center'>
+                      <Switch
+                        checked={p.ready}
+                        onCheckedChange={(v) => void setReady(p._id, v)}
+                        disabled={p.delivered}
+                        aria-label={`Marcar lista: ${p.pieceName}`}
+                      />
+                    </span>
+                    <span className='text-center text-xs font-medium'>
+                      {p.delivered ? (
+                        <span className='text-[#455a54]'>Entregada</span>
+                      ) : p.ready ? (
+                        <span className='text-[#455a54]'>Lista</span>
+                      ) : (
+                        <span className='text-[#9d684e]'>Por hacer</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          ) : visibles.length === 0 ? (
-            <p className='p-6 text-sm text-[#7a6e6f]'>
-              {search ? 'Sin resultados.' : 'No hay piezas pendientes.'}
-            </p>
-          ) : (
-            visibles.map((r) => {
+          </div>
+
+          {/* Mobile: cards apiladas (mismo dato que la tabla). */}
+          <div className='flex flex-col gap-3 sm:hidden'>
+            {visibles.map((r) => {
               const p = r.piece!;
               const tipo = p.bisque ? 'Bizcocho' : p.fresh ? 'Fresca' : null;
               return (
-                <div key={p._id} className={cn('grid items-center gap-3 border-b border-[#e6dbcd] px-4 py-2.5 last:border-0', COLS)}>
-                  <span className='font-mono text-xs text-[#7a6e6f]'>{fmtDay(p.requestedAt)}</span>
-                  <span className='min-w-0 break-words text-sm font-medium text-[#3d3338]'>{r.student.name}</span>
-                  <span className='min-w-0 break-words text-sm text-[#3d3338]'>{p.pieceName}</span>
-                  <span>
+                <div key={p._id} className='rounded-2xl border border-[#e6dbcd] bg-white p-4'>
+                  <div className='flex items-start justify-between gap-3'>
+                    <div className='min-w-0'>
+                      <p className='break-words text-sm font-semibold text-[#3d3338]'>{r.student.name}</p>
+                      <p className='break-words text-sm text-[#3d3338]'>{p.pieceName}</p>
+                    </div>
+                    <div className='flex shrink-0 flex-col items-end gap-1'>
+                      <Switch
+                        checked={p.ready}
+                        onCheckedChange={(v) => void setReady(p._id, v)}
+                        disabled={p.delivered}
+                        aria-label={`Marcar lista: ${p.pieceName}`}
+                      />
+                      <span className='text-[11px] font-medium'>
+                        {p.delivered ? (
+                          <span className='text-[#455a54]'>Entregada</span>
+                        ) : p.ready ? (
+                          <span className='text-[#455a54]'>Lista</span>
+                        ) : (
+                          <span className='text-[#9d684e]'>Por hacer</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <div className='mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#7a6e6f]'>
                     {tipo ? (
                       <span
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-xs font-medium',
+                          'rounded-full px-2 py-0.5 font-medium',
                           p.bisque ? 'bg-[#f3e2d0] text-[#8a5638]' : 'bg-[#E7F0EC] text-[#455a54]',
                         )}
                       >
                         {tipo}
                       </span>
                     ) : (
-                      <span className='text-xs text-[#a33]'>Sin elegir</span>
+                      <span className='text-[#a33]'>Sin elegir tipo</span>
                     )}
-                  </span>
-                  <span className='text-sm text-[#3d3338]'>{p.dueDate ? dueLabel(p.dueDate) : '—'}</span>
-                  <span className='min-w-0 break-words text-xs text-[#7a6e6f]'>
-                    {r.groups.map((g) => slotLabel(g.schedule)).filter(Boolean).join(' · ') || '—'}
-                  </span>
-                  <span className='flex justify-center'>
-                    <Switch
-                      checked={p.ready}
-                      onCheckedChange={(v) => void setReady(p._id, v)}
-                      disabled={p.delivered}
-                      aria-label={`Marcar lista: ${p.pieceName}`}
-                    />
-                  </span>
-                  <span className='text-center text-xs font-medium'>
-                    {p.delivered ? (
-                      <span className='text-[#455a54]'>Entregada</span>
-                    ) : p.ready ? (
-                      <span className='text-[#455a54]'>Lista</span>
-                    ) : (
-                      <span className='text-[#9d684e]'>Por hacer</span>
+                    <span>Pedida {fmtDay(p.requestedAt)}</span>
+                    {p.dueDate && <span>Para {dueLabel(p.dueDate)}</span>}
+                    {r.groups.length > 0 && (
+                      <span className='min-w-0 break-words'>
+                        {r.groups.map((g) => slotLabel(g.schedule)).filter(Boolean).join(' · ')}
+                      </span>
                     )}
-                  </span>
+                  </div>
                 </div>
               );
-            })
-          )}
-        </div>
-      </div>
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarCheck, CalendarPlus, ChevronLeft, ChevronRight, GripVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarCheck, CalendarPlus, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Pencil, Plus, Trash2, UserPlus, X } from 'lucide-react';
 import {
   DndContext,
   KeyboardSensor,
@@ -968,6 +968,11 @@ function AttendanceDialog({
   const [addingExtra, setAddingExtra] = useState(false);
   const [pickingFor, setPickingFor] = useState<string | null>(null);
   const [busyMakeup, setBusyMakeup] = useState(false);
+  // Las 3 cajas de "sumar alumno externo" (prueba, extra, recuperación) casi
+  // nunca se usan al tomar asistencia: van plegadas para no alargar el scroll.
+  // En una clase futura (todavía no hay asistencia que tomar) sí son la acción
+  // principal —agendar prueba/recuperación—, así que arrancan abiertas.
+  const [showExternal, setShowExternal] = useState(isFuture);
   const outgoing = new Map(
     makeups
       .filter((m) => m.fromGroupId === group._id && m.fromDate === date)
@@ -1632,6 +1637,24 @@ function AttendanceDialog({
             ))}
           </div>
 
+          {/* Sumar alumno externo (prueba / extra / recuperación): plegado por
+              defecto, casi nunca se usa en el día a día. */}
+          <button
+            type='button'
+            onClick={() => setShowExternal((v) => !v)}
+            className='flex items-center justify-between gap-2 rounded-xl border border-[#e6dbcd] bg-white px-3 py-2.5 text-sm font-medium text-[#455a54] hover:bg-[#fbf5ef]'
+          >
+            <span className='flex items-center gap-2'>
+              <UserPlus className='h-4 w-4 text-[#9d684e]' />
+              Sumar alumno externo (prueba, extra o recuperación)
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-[#7a6e6f] transition-transform ${showExternal ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {showExternal && (
+          <>
           {/* Clase de prueba gratuita (una sola por alumno) */}
           <div className='flex flex-col gap-2 rounded-xl border border-[#455a54]/25 bg-[#E7F0EC]/40 p-2.5'>
             <StudentPicker
@@ -1751,6 +1774,8 @@ function AttendanceDialog({
               {isFuture ? 'Agendar la recuperación en esta clase' : 'Incorporar a esta asistencia'}
             </Button>
           </div>
+          </>
+          )}
         </div>
         {isFuture && (
           <p className='rounded-lg border border-[#cc844a]/40 bg-[#F6E9DC] px-3 py-2 text-xs text-[#8a5638]'>

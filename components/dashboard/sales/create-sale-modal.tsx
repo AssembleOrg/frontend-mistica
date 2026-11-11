@@ -1887,8 +1887,9 @@ export function CreateSaleModal({ isOpen, onClose, onSaleCreated, editingSale, o
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-3 border-t border-gray-200">
+          {/* Action Buttons — sticky al fondo: en mobile el modal es largo y el
+              botón de cobrar quedaba enterrado tras todo el scroll. */}
+          <div className="sticky bottom-0 -mx-4 sm:-mx-6 -mb-4 sm:-mb-6 mt-2 flex flex-col sm:flex-row gap-2 sm:gap-3 border-t border-gray-200 bg-white px-4 sm:px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             <Button
               type="button"
               variant="outline"
